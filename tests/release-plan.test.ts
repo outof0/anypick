@@ -107,7 +107,7 @@ describe('release plan', () => {
 
   it('publishes and deploys before exposing the GitHub Release', () => {
     const publish = releaseWorkflow.indexOf('- name: Publish the verified tarball to npm');
-    const deploy = releaseWorkflow.indexOf('- name: Deploy verified docs to Cloudflare Workers');
+    const deploy = releaseWorkflow.indexOf('- name: Deploy verified docs to Cloudflare Pages');
     const githubRelease = releaseWorkflow.indexOf('- name: Create or update GitHub Release');
     expect(publish).toBeGreaterThan(-1);
     expect(deploy).toBeGreaterThan(publish);

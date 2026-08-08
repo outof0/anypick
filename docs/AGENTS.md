@@ -82,8 +82,8 @@ claims that had to be walked back.
 - `site` and `github` in `astro.config.ts` are **placeholders** — no repo exists
   yet. They drive canonical URLs, OG images, robots.txt, the sitemap, and every
   header/footer link. Replace both before any deploy.
-- Deploys are Cloudflare Workers static assets via `wrangler.jsonc`
-  (`assets.directory = "./dist"`), so `pnpm build` must run first —
+- Deploys are Cloudflare Pages Direct Uploads via `wrangler.jsonc`
+  (`pages_build_output_dir = "./dist"`), so `pnpm build` must run first —
   `predeploy` chains `astro check && astro build` for exactly that reason.
 
 ## Where the authority lives

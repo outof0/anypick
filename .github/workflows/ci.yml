@@ -126,8 +126,8 @@ jobs:
       - name: Build docs
         run: cd docs && pnpm build
 
-      - name: Validate Cloudflare bundle
-        run: cd docs && pnpm exec wrangler deploy --dry-run
+      - name: Validate Cloudflare Pages configuration
+        run: cd docs && pnpm exec wrangler types "${RUNNER_TEMP}/anypick-pages-env.d.ts"
 
   tray-ui-e2e:
     name: Tray UI e2e / Linux
