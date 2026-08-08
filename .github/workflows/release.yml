@@ -21,7 +21,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     environment:
-      name: release
+      name: production
       url: https://anypick.dev
 
     steps:
