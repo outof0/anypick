@@ -57,6 +57,10 @@ fn valid_supervisor_line(line: &str) -> bool {
             .any(|prefix| line.starts_with(prefix))
 }
 
+fn is_protocol_mode(smoke: bool, probe: bool) -> bool {
+    smoke || probe
+}
+
 fn show_main_window(app: &tauri::AppHandle) {
     if let Some(window) = app.get_webview_window("main") {
         let _ = window.unminimize();
@@ -128,42 +132,48 @@ fn main() {
         .manage(BridgeState::default())
         .invoke_handler(tauri::generate_handler![send_command, last_supervisor_line])
         .setup(|app| {
-            let show = MenuItem::with_id(app, "show", "Open AnyPick", true, None::<&str>)?;
-            let refresh = MenuItem::with_id(app, "refresh", "Refresh", true, None::<&str>)?;
-            let separator = PredefinedMenuItem::separator(app)?;
-            let quit = MenuItem::with_id(app, "quit", "Quit AnyPick", true, None::<&str>)?;
-            let menu = Menu::with_items(app, &[&show, &refresh, &separator, &quit])?;
-            TrayIconBuilder::with_id("anypick")
-                .icon(tauri::include_image!("../../../../assets/icon-32.png"))
-                .tooltip("AnyPick")
-                .menu(&menu)
-                .show_menu_on_left_click(false)
-                .on_menu_event(|app, event| match event.id().as_ref() {
-                    "show" => show_main_window(app),
-                    "refresh" => {
-                        let _ = send_command("refresh".into());
-                    }
-                    "quit" => {
-                        let _ = send_command("quit".into());
-                        app.exit(0);
-                    }
-                    _ => {}
-                })
-                .on_tray_icon_event(|tray, event| {
-                    if let TrayIconEvent::Click {
-                        button: MouseButton::Left,
-                        button_state: MouseButtonState::Up,
-                        ..
-                    } = event
-                    {
-                        show_main_window(tray.app_handle());
-                    }
-                })
-                .build(app)?;
+            let protocol_mode = is_protocol_mode(
+                std::env::var_os("ANYPICK_TRAY_SMOKE").is_some(),
+                std::env::var_os("ANYPICK_TRAY_PROBE").is_some(),
+            );
+            if !protocol_mode {
+                let show = MenuItem::with_id(app, "show", "Open AnyPick", true, None::<&str>)?;
+                let refresh = MenuItem::with_id(app, "refresh", "Refresh", true, None::<&str>)?;
+                let separator = PredefinedMenuItem::separator(app)?;
+                let quit = MenuItem::with_id(app, "quit", "Quit AnyPick", true, None::<&str>)?;
+                let menu = Menu::with_items(app, &[&show, &refresh, &separator, &quit])?;
+                TrayIconBuilder::with_id("anypick")
+                    .icon(tauri::include_image!("../../../../assets/icon-32.png"))
+                    .tooltip("AnyPick")
+                    .menu(&menu)
+                    .show_menu_on_left_click(false)
+                    .on_menu_event(|app, event| match event.id().as_ref() {
+                        "show" => show_main_window(app),
+                        "refresh" => {
+                            let _ = send_command("refresh".into());
+                        }
+                        "quit" => {
+                            let _ = send_command("quit".into());
+                            app.exit(0);
+                        }
+                        _ => {}
+                    })
+                    .on_tray_icon_event(|tray, event| {
+                        if let TrayIconEvent::Click {
+                            button: MouseButton::Left,
+                            button_state: MouseButtonState::Up,
+                            ..
+                        } = event
+                        {
+                            show_main_window(tray.app_handle());
+                        }
+                    })
+                    .build(app)?;
+            }
 
             let handle = app.handle().clone();
             std::thread::spawn(move || read_supervisor(handle));
-            if std::env::var_os("ANYPICK_TRAY_DEMO").is_some() {
+            if !protocol_mode && std::env::var_os("ANYPICK_TRAY_DEMO").is_some() {
                 show_main_window(app.handle());
             }
             Ok(())
@@ -196,5 +206,12 @@ mod tests {
         assert!(valid_supervisor_line("snapshot\te30="));
         assert!(valid_supervisor_line("result\te30="));
         assert!(!valid_supervisor_line("invoke\te30="));
+    }
+
+    #[test]
+    fn protocol_modes_do_not_install_interactive_tray_ui() {
+        assert!(is_protocol_mode(true, false));
+        assert!(is_protocol_mode(false, true));
+        assert!(!is_protocol_mode(false, false));
     }
 }

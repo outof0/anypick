@@ -11,6 +11,10 @@ const ciWorkflow = readFileSync(
   join(import.meta.dirname, '..', '.github', 'workflows', 'ci.yml'),
   'utf8',
 );
+const tauriSmoke = readFileSync(
+  join(import.meta.dirname, '..', 'scripts', 'smoke-tauri-tray.mjs'),
+  'utf8',
+);
 
 describe('release plan', () => {
   it('uses the checked-in 1.0.0 version for the initial release', () => {
@@ -119,5 +123,10 @@ describe('release plan', () => {
       expect(frontend).toBeGreaterThan(-1);
       expect(cargoTest).toBeGreaterThan(frontend);
     }
+  });
+
+  it('keeps the headless Tauri protocol smoke out of demo mode', () => {
+    expect(tauriSmoke).not.toContain("ANYPICK_TRAY_DEMO: '1'");
+    expect(tauriSmoke).toContain("ANYPICK_TRAY_PROBE: '1'");
   });
 });

@@ -91,9 +91,9 @@ const child = spawn(binary, [], {
   cwd: root,
   env: {
     ...process.env,
-    ANYPICK_TRAY_DEMO: '1',
     // Full suite uses PROBE only — SMOKE auto-exits on first snapshot and would
-    // prevent multi-command coverage in the same process.
+    // prevent multi-command coverage in the same process. Protocol modes also
+    // skip the visible window and system tray so headless CI tests only the bridge.
     ...(fullSuite ? { ANYPICK_TRAY_PROBE: '1' } : { ANYPICK_TRAY_SMOKE: '1' }),
   },
   stdio: ['pipe', 'pipe', 'pipe'],
