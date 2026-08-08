@@ -8,7 +8,7 @@
 <p align="center"><b>Pick any. Code on.</b></p>
 
 <p align="center">
-  <a href="https://www.npmjs.com/package/anypick"><img alt="npm" src="https://img.shields.io/npm/v/anypick?color=7357FF&label=npm"></a>
+  <a href="https://www.npmjs.com/package/anypick"><img alt="npm" src="https://img.shields.io/npm/v/anypick?color=7C3AED&label=npm"></a>
   <a href="#requirements"><img alt="node" src="https://img.shields.io/badge/node-%E2%89%A5%2022.5-60A5FA"></a>
   <a href="./LICENSE"><img alt="license" src="https://img.shields.io/badge/license-MIT-35D6E8"></a>
 </p>
@@ -576,14 +576,11 @@ and the macOS menu-bar template glyph.
 
 | Token         | Hex       | Used for                                        |
 | ------------- | --------- | ----------------------------------------------- |
-| Navy          | `#15151D` | Dark backgrounds                                |
-| Violet        | `#7357FF` | Wordmark                                        |
-| Electric Blue | `#60A5FA` | Selection and focus — legible on light and dark |
-| Cyan          | `#35D6E8` | Logo gradient, and dark surfaces only           |
-| Light Gray    | `#F7F7FA` | Light backgrounds                               |
-
-Cyan is kept out of the terminal UI on purpose: a terminal's background cannot
-be detected, and cyan on a light theme is about 1.9:1.
+| Neutral 950   | `#0B0F19` | Dark backgrounds and primary text               |
+| Violet        | `#7C3AED` | Brand marks and primary actions                 |
+| Brand 400     | `#A78BFA` | Dark-mode hover and supporting accents          |
+| Electric Blue | `#60A5FA` | Terminal selection — legible on light and dark  |
+| Light Surface | `#F8FAFC` | Light backgrounds                               |
 
 ---
 

@@ -1,0 +1,46 @@
+:root {
+  --ap-brand-primary: #7c3aed;
+  --ap-brand-500: #7c3aed;
+  --ap-brand-400: #a78bfa;
+  --ap-brand-300: #c4b5fd;
+  --ap-brand-100: #ede9fe;
+  --ap-neutral-950: #0b0f19;
+  --ap-neutral-900: #161b26;
+  --ap-neutral-800: #2a3242;
+  --ap-neutral-700: #475163;
+  --ap-neutral-400: #98a2b3;
+  --ap-neutral-100: #e6e8ee;
+  --ap-semantic-success: #22c55e;
+  --ap-semantic-warning: #f59e0b;
+  --ap-semantic-error: #ef4444;
+  --ap-semantic-info: #3b82f6;
+  --ap-surface-light: #f8fafc;
+  --ap-surface-dark: #0b0f19;
+  --ap-text-default: #0b0f19;
+  --ap-text-inverse: #ffffff;
+  --ap-radius-sm: 8px;
+  --ap-radius-md: 12px;
+  --ap-radius-lg: 16px;
+  --ap-radius-xl: 20px;
+  --ap-radius-2xl: 24px;
+  --ap-radius-pill: 999px;
+  --ap-space-xs: 4px;
+  --ap-space-sm: 8px;
+  --ap-space-md: 12px;
+  --ap-space-lg: 16px;
+  --ap-space-xl: 24px;
+  --ap-space-2xl: 32px;
+  --ap-space-3xl: 40px;
+  --ap-font-display: Space Grotesk, Inter, system-ui, sans-serif;
+  --ap-font-body: Inter, system-ui, sans-serif;
+}
+
+.theme-anypick {
+  color: var(--ap-text-default);
+  background: var(--ap-surface-light);
+}
+
+.theme-anypick-dark {
+  color: var(--ap-text-inverse);
+  background: var(--ap-surface-dark);
+}

@@ -6,14 +6,15 @@ import SwiftUI
 
 // MARK: - Brand
 
-let anypickNavy = Color(red: 13 / 255, green: 13 / 255, blue: 18 / 255)
-let anypickViolet = Color(red: 115 / 255, green: 87 / 255, blue: 255 / 255)
+let anypickNavy = Color(red: 11 / 255, green: 15 / 255, blue: 25 / 255)
+let anypickViolet = Color(red: 124 / 255, green: 58 / 255, blue: 237 / 255)
+let anypickVioletLight = Color(red: 139 / 255, green: 92 / 255, blue: 246 / 255)
+let anypickVioletDark = Color(red: 109 / 255, green: 40 / 255, blue: 217 / 255)
 let anypickBlue = Color(red: 96 / 255, green: 165 / 255, blue: 250 / 255)
 let anypickBlueBright = Color(red: 96 / 255, green: 165 / 255, blue: 250 / 255)
-let anypickCyan = Color(red: 53 / 255, green: 214 / 255, blue: 232 / 255)
-let anypickSuccess = Color(red: 166 / 255, green: 1, blue: 77 / 255)
+let anypickSuccess = Color(red: 34 / 255, green: 197 / 255, blue: 94 / 255)
 let anypickAmber = Color(red: 245 / 255, green: 158 / 255, blue: 11 / 255)
-let anypickRed = Color(red: 1, green: 77 / 255, blue: 90 / 255)
+let anypickRed = Color(red: 239 / 255, green: 68 / 255, blue: 68 / 255)
 
 // MARK: - Semantic surfaces (system-adaptive)
 // HIG materials: prefer vibrancy over opaque fills so MenuBarExtra stays glass-like.

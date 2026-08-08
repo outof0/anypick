@@ -7,14 +7,14 @@ export const BRAND_NAME = 'AnyPick';
 export const BRAND_TAGLINE = 'Pick any. Code on.';
 
 export const BRAND_HUES = {
-  violet: '#7357FF',
+  violet: '#7C3AED',
   /**
    * Selection and focus. This is the semantic info color rather than the bright
    * brand signal, which does not have enough contrast on a light terminal.
    */
   blue: '#60A5FA',
   /** Brand signal. Safe only where the background is known to be dark. */
-  cyan: '#35D6E8',
+  lavender: '#A78BFA',
 } as const;
 
 const COLOR_OFF =
@@ -26,6 +26,6 @@ export function brandTint(text: string): string {
   if (COLOR_OFF) {
     return text;
   }
-  const open = TRUECOLOR ? '\u001b[38;2;115;87;255m' : '\u001b[35m';
+  const open = TRUECOLOR ? '\u001b[38;2;124;58;237m' : '\u001b[35m';
   return `${open}${text}\u001b[39m`;
 }

@@ -50,29 +50,34 @@ interface AntigravityStateMutationOptions extends AntigravityStateOptions {
 
 /** Known Antigravity user-data locations, newest product name first. */
 export function antigravityStateDatabasePaths(
-  home = homedir(),
+  home?: string,
   platform = process.platform,
 ): string[] {
+  const resolvedHome = home ?? homedir();
   const override = process.env.ANTIGRAVITY_USER_DATA_DIR?.trim();
   if (override) {
     return [join(override, 'User', 'globalStorage', 'state.vscdb')];
   }
 
   if (platform === 'darwin') {
-    const support = join(home, 'Library', 'Application Support');
+    const support = join(resolvedHome, 'Library', 'Application Support');
     return [
       join(support, 'Antigravity', 'User', 'globalStorage', 'state.vscdb'),
       join(support, 'Antigravity IDE', 'User', 'globalStorage', 'state.vscdb'),
     ];
   }
   if (platform === 'win32') {
-    const appData = process.env.APPDATA?.trim() || join(home, 'AppData', 'Roaming');
+    const appData =
+      (home === undefined ? process.env.APPDATA?.trim() : undefined) ||
+      join(resolvedHome, 'AppData', 'Roaming');
     return [
       join(appData, 'Antigravity', 'User', 'globalStorage', 'state.vscdb'),
       join(appData, 'Antigravity IDE', 'User', 'globalStorage', 'state.vscdb'),
     ];
   }
-  const config = process.env.XDG_CONFIG_HOME?.trim() || join(home, '.config');
+  const config =
+    (home === undefined ? process.env.XDG_CONFIG_HOME?.trim() : undefined) ||
+    join(resolvedHome, '.config');
   return [
     join(config, 'Antigravity', 'User', 'globalStorage', 'state.vscdb'),
     join(config, 'Antigravity IDE', 'User', 'globalStorage', 'state.vscdb'),

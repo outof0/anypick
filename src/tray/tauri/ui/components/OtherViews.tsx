@@ -112,6 +112,7 @@ export function HubSourcesView({ ctrl }: { ctrl: TrayController }) {
                         <Toggle
                           checked={source.enabled}
                           disabled={ctrl.busy}
+                          title={`${source.enabled ? 'Disable' : 'Enable'} ${source.label} as a hub source`}
                           onChange={(enabled) => {
                             // optimistic local update via mutate only
                             const snap = ctrl.snapshot;
@@ -504,6 +505,7 @@ export function ProxiesView({ ctrl }: { ctrl: TrayController }) {
               <Toggle
                 checked={Boolean(proxy.running)}
                 disabled={ctrl.busy}
+                title={`${proxy.running ? 'Stop' : 'Start'} ${proxy.label}`}
                 onChange={() =>
                   ctrl.runAction({
                     id: proxy.toggleActionId,
@@ -559,24 +561,6 @@ function EventsList({
           </div>
         );
       })}
-    </>
-  );
-}
-
-export function ActivityView({ ctrl }: { ctrl: TrayController }) {
-  return (
-    <>
-      <SectionHeading
-        title="Activity"
-        action={
-          <button type="button" className="section-action" onClick={() => ctrl.setTab('Logs')}>
-            All logs
-          </button>
-        }
-      />
-      <div className="group native-group monitor-events">
-        <EventsList ctrl={ctrl} limit={8} />
-      </div>
     </>
   );
 }
@@ -688,6 +672,10 @@ export function LogsView({ ctrl }: { ctrl: TrayController }) {
                 : 'Start a proxy to create a log stream.')}
         </pre>
       </div>
+      <SectionHeading title="Recent activity" />
+      <div className="group native-group monitor-events">
+        <EventsList ctrl={ctrl} limit={8} />
+      </div>
     </div>
   );
 }
@@ -710,6 +698,7 @@ export function SettingsView({ ctrl }: { ctrl: TrayController }) {
       <Toggle
         checked={Boolean(checked)}
         disabled={ctrl.busy}
+        title={title}
         onChange={(enabled) =>
           ctrl.mutate(fieldName, { enabled, name: 'settings' }, `updating ${title.toLowerCase()}`)
         }

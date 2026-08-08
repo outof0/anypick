@@ -108,7 +108,7 @@ try {
     `unexpected footer: ${footer}`,
   );
 
-  for (const tab of ['Apps', 'Proxies', 'Activity']) {
+  for (const tab of ['Apps', 'Proxies', 'Logs']) {
     await clickTab(tab);
   }
 
@@ -136,8 +136,9 @@ try {
   await clickTab('Proxies');
   await page.locator('.content').waitFor({ timeout: 5_000 });
 
-  await clickTab('Activity');
-  await page.getByText('Activity').first().waitFor({ timeout: 5_000 });
+  await clickTab('Logs');
+  await page.getByText('Recent activity').first().waitFor({ timeout: 5_000 });
+  assert((await page.locator('.log-viewer').count()) === 1, 'Logs missing log viewer');
 
   await page.locator('#open-settings').click();
   await page.getByText('Open at Login').waitFor({ timeout: 5_000 });
@@ -150,7 +151,7 @@ try {
   await page.getByRole('button', { name: '‹ Back' }).click();
   await page.getByRole('button', { name: 'Apps', exact: true }).waitFor({ timeout: 5_000 });
 
-  const manage = page.getByRole('button', { name: 'Manage…' });
+  const manage = page.getByRole('button', { name: 'Accounts…' });
   if ((await manage.count()) > 0) {
     await manage.click();
   } else {

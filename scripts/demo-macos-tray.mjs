@@ -1,13 +1,13 @@
 /**
  * macOS tray launcher.
  *
- * Default: REAL data — runs `tray run` against ANYPICK_HOME (default ~/.anypick).
- * --fixture: in-memory fake snapshot for layout-only work (never touches real state).
+ * Default: in-memory fixture for layout-only work (never touches real state).
+ * --real: runs `tray run` against ANYPICK_HOME (default ~/.anypick).
  */
 import { spawn, spawnSync } from 'node:child_process';
 import { createInterface } from 'node:readline';
-import { copyFileSync, mkdirSync, readFileSync, readdirSync } from 'node:fs';
-import { homedir } from 'node:os';
+import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
+import { homedir, tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import {
   createDemoBridge,
@@ -20,11 +20,11 @@ if (process.platform !== 'darwin') {
 }
 
 const root = resolve(import.meta.dirname, '..');
-const useFixture = process.argv.includes('--fixture') || process.argv.includes('--empty');
+const useRealData = process.argv.includes('--real');
 const empty = process.argv.includes('--empty');
 
-// ─── REAL DATA (default) ───────────────────────────────────────────────────
-if (!useFixture) {
+// ─── REAL DATA (explicit opt-in) ───────────────────────────────────────────
+if (useRealData) {
   const anypickHome = process.env.ANYPICK_HOME || join(homedir(), '.anypick');
   process.stderr.write(
     [
@@ -32,7 +32,7 @@ if (!useFixture) {
       '[macOS tray] REAL data mode',
       `  ANYPICK_HOME=${anypickHome}`,
       '  Snapshot comes from your accounts, proxies, and Proxy Hub on disk.',
-      '  (Fixture layout-only mode: pnpm tray:macos --fixture)',
+      '  (Fixture layout-only mode: pnpm tray:macos)',
       '',
     ].join('\n'),
   );
@@ -68,8 +68,8 @@ if (!useFixture) {
     [
       '',
       '[macOS tray] FIXTURE mode — fake snapshot, no ~/.anypick reads/writes.',
-      '  For real accounts/proxies:  pnpm dev tray start',
-      '  Fixture layout-only:        pnpm tray:macos --fixture',
+      '  For real accounts/proxies:  pnpm tray:macos --real',
+      '  Fixture layout-only:        pnpm tray:macos',
       '',
     ].join('\n'),
   );
@@ -87,7 +87,8 @@ if (!useFixture) {
       .sort();
   }
   const sources = names.map((name) => join(nativeDir, name));
-  const binary = resolve('/private/tmp', 'anypick-tray-macos-demo');
+  const stage = mkdtempSync(join(tmpdir(), 'anypick-tray-macos-demo-'));
+  const binary = join(stage, 'anypick-tray');
   const compile = spawnSync(
     '/usr/bin/xcrun',
     [
@@ -104,10 +105,11 @@ if (!useFixture) {
     { cwd: root, stdio: 'inherit' },
   );
   if (compile.status !== 0) {
+    rmSync(stage, { recursive: true, force: true });
     throw new Error('Could not compile the native macOS tray demo.');
   }
 
-  const iconDir = resolve('/private/tmp/icons');
+  const iconDir = join(stage, 'icons');
   mkdirSync(iconDir, { recursive: true });
   for (const icon of [
     'claude.svg',
@@ -124,7 +126,11 @@ if (!useFixture) {
   const fixture = empty ? emptyDemoSnapshot : demoSnapshot;
   const bridge = createDemoBridge(fixture);
   const child = spawn(binary, ['1'], {
-    env: { ...process.env, ANYPICK_TRAY_DEMO: '1' },
+    env: {
+      ...process.env,
+      ANYPICK_TRAY_DEMO: '1',
+      ANYPICK_TRAY_ICON_DIR: iconDir,
+    },
     stdio: ['pipe', 'pipe', 'inherit'],
   });
   await bridge.listen('supervisor-line', ({ payload }) => {
@@ -151,6 +157,7 @@ if (!useFixture) {
   process.once('SIGINT', stop);
   process.once('SIGTERM', stop);
   child.once('exit', (code, signal) => {
+    rmSync(stage, { recursive: true, force: true });
     process.exitCode = code ?? (signal ? 1 : 0);
   });
 }

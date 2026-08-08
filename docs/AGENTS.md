@@ -64,7 +64,7 @@ claims that had to be walked back.
   `src/styles/globals.css`. Dark mode is `[data-mode="dark"]` on `<html>`, set by
   the inline script in `BaseLayout.astro` — do not add a second mechanism.
 - `src/pages/index.astro` is the exception. The landing page is always dark and
-  uses the AnyPick primary (`#7357FF`) plus its semantic tokens directly. Keep it
+  uses the AnyPick primary (`#7C3AED`) plus its semantic tokens directly. Keep it
   self-contained rather than bending the documentation tokens for one page.
 - `.oxfmtrc.json` at the repo root ignores `docs/**` and `*.md`. Do not run
   oxfmt or oxlint here.

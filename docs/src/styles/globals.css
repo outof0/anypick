@@ -23,8 +23,8 @@
 	color-scheme: light;
 
 	/* Surfaces (paired with foregrounds for contrast) */
-	--nb-background: #f7f7fa;
-	--nb-foreground: #0d0d12;
+	--nb-background: #f8fafc;
+	--nb-foreground: #0b0f19;
 
 	--nb-card: oklch(1 0 0);
 	--nb-card-foreground: var(--nb-foreground);
@@ -32,19 +32,19 @@
 	--nb-muted: #eeeef3;
 	--nb-muted-foreground: oklch(0.556 0 0);
 
-	--nb-accent: #eeeaFF;
+	--nb-accent: #ede9fe;
 	--nb-accent-foreground: var(--nb-foreground);
 
 	/* Primary action / brand */
-	--nb-primary: #7357ff;
-	--nb-primary-foreground: #f7f7fa;
-	--nb-primary-hover: #6146e6;
+	--nb-primary: #7c3aed;
+	--nb-primary-foreground: #f8fafc;
+	--nb-primary-hover: #6d28d9;
 
 	/* Borders / focus */
 	--nb-border: oklch(0.928 0.008 265);
 	--nb-border-strong: oklch(0.865 0.014 268);
 	--nb-selected: oklch(0.895 0.032 280);
-	--nb-ring: rgb(115 87 255 / 0.4);
+	--nb-ring: rgb(124 58 237 / 0.4);
 
 	/* Status colors — paired (saturated for text/border + muted for bg) */
 	--nb-info: #2563a6;
@@ -105,8 +105,8 @@
 [data-mode="dark"] {
 	color-scheme: dark;
 
-	--nb-background: #15151d;
-	--nb-foreground: #f7f7fa;
+	--nb-background: #0b0f19;
+	--nb-foreground: #f8fafc;
 
 	--nb-card: #1d1d27;
 	--nb-card-foreground: var(--nb-foreground);
@@ -117,29 +117,29 @@
 	--nb-accent: #282638;
 	--nb-accent-foreground: var(--nb-foreground);
 
-	--nb-primary: #7357ff;
-	--nb-primary-foreground: #f7f7fa;
-	--nb-primary-hover: #8b73ff;
+	--nb-primary: #a78bfa;
+	--nb-primary-foreground: #0b0f19;
+	--nb-primary-hover: #c4b5fd;
 
 	--nb-border: oklch(0.285 0.034 270);
 	--nb-border-strong: oklch(0.38 0.042 272);
 	--nb-selected: oklch(0.36 0.055 275);
-	--nb-ring: rgb(115 87 255 / 0.5);
+	--nb-ring: rgb(167 139 250 / 0.5);
 
 	--nb-info: #60a5fa;
 	--nb-info-foreground: #60a5fa;
 	--nb-info-muted: #192842;
 
-	--nb-success: #a6ff4d;
-	--nb-success-foreground: #a6ff4d;
+	--nb-success: #22c55e;
+	--nb-success-foreground: #22c55e;
 	--nb-success-muted: #22351a;
 
 	--nb-warning: #f59e0b;
 	--nb-warning-foreground: #f59e0b;
 	--nb-warning-muted: #3d2c0c;
 
-	--nb-danger: #ff4d5a;
-	--nb-danger-foreground: #ff4d5a;
+	--nb-danger: #ef4444;
+	--nb-danger-foreground: #ef4444;
 	--nb-danger-muted: #3c171d;
 
 	--nb-shadow-sm: 0 1px 2px oklch(0 0 0 / 0.2);

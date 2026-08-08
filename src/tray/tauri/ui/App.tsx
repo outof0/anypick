@@ -3,7 +3,6 @@ import appIcon from './assets/app-icon.svg';
 import { AppsView } from './components/AppsView';
 import { ManageView } from './components/ManageView';
 import {
-  ActivityView,
   HubSourcesView,
   LogsView,
   ModelsView,
@@ -52,9 +51,6 @@ export function App() {
         break;
       case 'Proxies':
         view = <ProxiesView ctrl={ctrl} />;
-        break;
-      case 'Activity':
-        view = <ActivityView ctrl={ctrl} />;
         break;
       case 'Logs':
         view = <LogsView ctrl={ctrl} />;
@@ -112,6 +108,7 @@ export function App() {
               key={tab}
               type="button"
               className={ctrl.tab === tab ? 'active' : ''}
+              aria-pressed={ctrl.tab === tab}
               onClick={() => ctrl.setTab(tab)}
             >
               {tab}

@@ -17,7 +17,7 @@ export const ogCardConfig = {
     [11, 16, 32],
     [26, 24, 64],
   ],
-  border: { color: [106, 92, 255], width: 8, side: "inline-start" },
+  border: { color: [124, 58, 237], width: 8, side: "inline-start" },
   padding: 96,
   fonts: ["./public/fonts/Inter-Bold.ttf"],
   font: {

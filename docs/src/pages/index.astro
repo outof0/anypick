@@ -198,26 +198,27 @@ const clients = {
 <BaseLayout
   title={`${config.title} — ${config.description}`}
   description={config.description}
+  socialImage="/og-image.png"
 >
   <div class="flex min-h-screen flex-col">
     <Header showSidebar={false} />
 
     <main id="main-content" class="flex-1">
       {/* ── Hero ─────────────────────────────────────────────── */}
-      <section class="relative isolate overflow-hidden bg-[#15151D]">
+      <section class="relative isolate overflow-hidden bg-[#0B0F19]">
         <div class="hp-dots pointer-events-none absolute inset-0 -z-10"></div>
 
         <div class="mx-auto w-full max-w-5xl px-6 pt-20 pb-16 sm:pt-24">
           <div class="mx-auto max-w-3xl text-center">
             <p
-              class="hp-rise inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1 font-mono text-xs text-[#C7C7D0]"
+              class="hp-rise inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1 font-mono text-xs text-[#98A2B3]"
             >
-              <span class="hp-pulse h-1.5 w-1.5 rounded-full bg-[#A6FF4D]"></span>
+              <span class="hp-pulse h-1.5 w-1.5 rounded-full bg-[#22C55E]"></span>
               Apps · pick a source · keep coding
             </p>
 
             <h1
-              class="hp-rise mt-7 text-balance text-[#F7F7FA] leading-[1.05]"
+              class="hp-rise mt-7 text-balance text-[#F8FAFC] leading-[1.05]"
               style="font-size: clamp(2.5rem, 7.5vw, 4.25rem); font-weight: 650; letter-spacing: -0.035em; --hp-delay: 80ms;"
             >
               Pick any.<br />
@@ -227,16 +228,16 @@ const clients = {
             </h1>
 
             <p
-              class="hp-rise mx-auto mt-6 max-w-2xl text-lg text-[#C7C7D0] leading-relaxed"
+              class="hp-rise mx-auto mt-6 max-w-2xl text-lg text-[#98A2B3] leading-relaxed"
               style="--hp-delay: 160ms;"
             >
-              Point <strong class="font-medium text-[#F7F7FA]">Claude Code</strong> or{" "}
-              <strong class="font-medium text-[#F7F7FA]">Codex</strong> at the login
+              Point <strong class="font-medium text-[#F8FAFC]">Claude Code</strong> or{" "}
+              <strong class="font-medium text-[#F8FAFC]">Codex</strong> at the login
               you already pay for — Grok, Gemini, OpenRouter, a second work
               account. Run{" "}
-              <code class="font-mono text-[#F7F7FA]">anypick</code>, open{" "}
-              <strong class="font-medium text-[#F7F7FA]">Apps</strong>, press{" "}
-              <kbd class="font-mono text-[#F7F7FA]">enter</kbd>. No config files.
+              <code class="font-mono text-[#F8FAFC]">anypick</code>, open{" "}
+              <strong class="font-medium text-[#F8FAFC]">Apps</strong>, press{" "}
+              <kbd class="font-mono text-[#F8FAFC]">enter</kbd>. No config files.
             </p>
 
             {/* One solid primary, one outlined secondary, one plain link — all
@@ -247,7 +248,7 @@ const clients = {
             >
               <a
                 href="/docs/getting-started"
-                class="group inline-flex h-12 items-center gap-2 rounded-lg bg-[#7357FF] px-6 font-medium text-white no-underline transition-colors hover:bg-[#6146E6]"
+                class="group inline-flex h-12 items-center gap-2 rounded-lg bg-[#7C3AED] px-6 font-medium text-white no-underline transition-colors hover:bg-[#6D28D9]"
               >
                 Get started
                 <Icon
@@ -257,7 +258,7 @@ const clients = {
               </a>
               <a
                 href="/docs/guides/terminal-ui"
-                class="inline-flex h-12 items-center gap-2 rounded-lg border border-white/15 px-5 font-medium text-[#F7F7FA] no-underline transition-colors hover:border-white/30 hover:bg-white/5"
+                class="inline-flex h-12 items-center gap-2 rounded-lg border border-white/15 px-5 font-medium text-[#F8FAFC] no-underline transition-colors hover:border-white/30 hover:bg-white/5"
               >
                 <Icon name="ph:terminal-window" class="h-[1.125rem] w-[1.125rem]" />
                 How Apps works
@@ -266,7 +267,7 @@ const clients = {
                 config.github && (
                   <a
                     href={config.github}
-                    class="inline-flex h-12 items-center gap-2 px-3 font-medium text-[#8792A6] no-underline transition-colors hover:text-[#F7F7FA]"
+                    class="inline-flex h-12 items-center gap-2 px-3 font-medium text-[#98A2B3] no-underline transition-colors hover:text-[#F8FAFC]"
                     target="_blank"
                     rel="noopener"
                   >
@@ -286,23 +287,23 @@ const clients = {
               class="hp-rise group mx-auto mt-7 inline-flex h-12 cursor-pointer items-center gap-3 rounded-lg border border-white/10 bg-black/30 px-4 font-mono text-sm transition-colors hover:border-white/25 hover:bg-black/50"
               style="--hp-delay: 320ms;"
             >
-              <span class="text-[#5A6478]">$</span>
-              <span class="text-[#F7F7FA]">npm install -g anypick</span>
-              <span class="hp-caret text-[#35D6E8]">▌</span>
+              <span class="text-[#475163]">$</span>
+              <span class="text-[#F8FAFC]">npm install -g anypick</span>
+              <span class="hp-caret text-[#A78BFA]">▌</span>
               <span
-                class="ml-1 flex items-center border-l border-white/10 pl-3 text-[#8792A6] transition-colors group-hover:text-[#F7F7FA]"
+                class="ml-1 flex items-center border-l border-white/10 pl-3 text-[#98A2B3] transition-colors group-hover:text-[#F8FAFC]"
               >
                 <span data-hp-copy-idle>
                   <Icon name="ph:copy" class="h-[1.125rem] w-[1.125rem]" />
                 </span>
-                <span class="hidden text-[#A6FF4D]" data-hp-copy-done>
+                <span class="hidden text-[#22C55E]" data-hp-copy-done>
                   <Icon name="ph:check" class="h-[1.125rem] w-[1.125rem]" />
                 </span>
               </span>
             </button>
             <span class="sr-only" role="status" data-hp-copy-status></span>
             <p
-              class="hp-rise mt-2.5 font-mono text-xs text-[#5A6478]"
+              class="hp-rise mt-2.5 font-mono text-xs text-[#475163]"
               style="--hp-delay: 360ms;"
             >
               Node.js 22.5+ · macOS and Linux · MIT
@@ -315,7 +316,7 @@ const clients = {
           <div class="hp-rise relative mt-14" style="--hp-delay: 440ms;">
             <div class="hp-screenlight pointer-events-none absolute -inset-16 -z-10"></div>
             <TuiFrame {...appsScreen} class="mx-auto max-w-3xl" />
-            <p class="mt-3 text-center font-mono text-xs text-[#5A6478]">
+            <p class="mt-3 text-center font-mono text-xs text-[#475163]">
               Apps — what each coding tool uses right now.
             </p>
           </div>
@@ -498,25 +499,25 @@ const clients = {
       </section>
 
       {/* ── Closing CTA ──────────────────────────────────────── */}
-      <section class="relative isolate overflow-hidden bg-[#15151D]">
+      <section class="relative isolate overflow-hidden bg-[#0B0F19]">
         <div class="pointer-events-none absolute inset-0 -z-10">
           <span class="hp-blob-cta"></span>
         </div>
         <div class="hp-reveal mx-auto w-full max-w-3xl px-6 py-24 text-center">
           <h2
-            class="text-balance text-[#F7F7FA] leading-[1.1]"
+            class="text-balance text-[#F8FAFC] leading-[1.1]"
             style="font-size: clamp(1.875rem, 5vw, 2.75rem); font-weight: 650; letter-spacing: -0.03em;"
           >
             Stop re-authenticating just to switch models.
           </h2>
-          <p class="mx-auto mt-4 max-w-xl text-[#C7C7D0] leading-relaxed">
-            Install it, run <code class="font-mono text-[#F7F7FA]">anypick</code>,
+          <p class="mx-auto mt-4 max-w-xl text-[#98A2B3] leading-relaxed">
+            Install it, run <code class="font-mono text-[#F8FAFC]">anypick</code>,
             and let the terminal UI show you what you already have access to.
           </p>
           <div class="mt-8 flex flex-wrap items-center justify-center gap-3">
             <a
               href="/docs/getting-started"
-              class="group inline-flex h-12 items-center gap-2 rounded-lg bg-[#60A5FA] px-6 font-medium text-white no-underline shadow-lg shadow-[#60A5FA]/25 transition-colors hover:bg-[#1B4AE0]"
+              class="group inline-flex h-12 items-center gap-2 rounded-lg bg-[#7C3AED] px-6 font-medium text-white no-underline shadow-lg shadow-[#7C3AED]/25 transition-colors hover:bg-[#6D28D9]"
             >
               Get started
               <Icon
@@ -526,7 +527,7 @@ const clients = {
             </a>
             <a
               href="/docs/reference/cli"
-              class="inline-flex h-12 items-center gap-2 rounded-lg border border-white/15 px-5 font-medium text-[#F7F7FA] no-underline transition-colors hover:border-white/30 hover:bg-white/5"
+              class="inline-flex h-12 items-center gap-2 rounded-lg border border-white/15 px-5 font-medium text-[#F8FAFC] no-underline transition-colors hover:border-white/30 hover:bg-white/5"
             >
               CLI reference
             </a>
@@ -644,8 +645,8 @@ const clients = {
   .hp-screenlight {
     background: radial-gradient(
       ellipse at center,
-      rgba(115, 87, 255, 0.42) 0%,
-      rgba(53, 214, 232, 0.16) 45%,
+      rgba(124, 58, 237, 0.42) 0%,
+      rgba(167, 139, 250, 0.16) 45%,
       transparent 75%
     );
     filter: blur(48px);
@@ -666,8 +667,8 @@ const clients = {
     filter: blur(80px);
     background: radial-gradient(
       closest-side,
-      #7357ff 0%,
-      rgba(53, 214, 232, 0.3) 50%,
+      #7c3aed 0%,
+      rgba(167, 139, 250, 0.3) 50%,
       transparent 100%
     );
     animation: hp-drift 20s ease-in-out infinite alternate;
@@ -695,7 +696,7 @@ const clients = {
 
   /* ── Tagline emphasis ────────────────────────────────────────── */
   .hp-shimmer {
-    background-image: linear-gradient(90deg, #7357ff, #35d6e8);
+    background-image: linear-gradient(90deg, #7c3aed, #a78bfa);
   }
 
   .hp-pulse {

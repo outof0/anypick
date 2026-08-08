@@ -160,8 +160,9 @@ jobs:
       - name: Check and test the tray
         run: |
           cargo fmt --manifest-path src/tray/tauri/src-tauri/Cargo.toml -- --check
-          cargo test --locked --manifest-path src/tray/tauri/src-tauri/Cargo.toml
           pnpm tray:ui:check
+          pnpm tray:ui:build
+          cargo test --locked --manifest-path src/tray/tauri/src-tauri/Cargo.toml
           pnpm tray:e2e:ui
 
       - name: Build and smoke-test the Linux tray helper

@@ -222,17 +222,21 @@ struct AnyPickMark: Shape {
     }
 
     var branches = Path()
-    branches.move(to: point(9, 15))
+    branches.move(to: point(14, 14))
+    branches.addLine(to: point(23, 14))
+    branches.addLine(to: point(36, 24))
+    branches.move(to: point(14, 32))
     branches.addLine(to: point(29, 32))
-    branches.addLine(to: point(55, 32))
-    branches.move(to: point(9, 32))
-    branches.addLine(to: point(29, 32))
-    branches.move(to: point(9, 49))
-    branches.addLine(to: point(29, 32))
+    branches.move(to: point(14, 50))
+    branches.addLine(to: point(23, 50))
+    branches.addLine(to: point(36, 40))
+    branches.move(to: point(30, 14))
+    branches.addLine(to: point(50, 32))
+    branches.addLine(to: point(30, 50))
     var mark = branches.strokedPath(
-      StrokeStyle(lineWidth: 6.4 * scale, lineCap: .round, lineJoin: .round)
+      StrokeStyle(lineWidth: 7.5 * scale, lineCap: .round, lineJoin: .round)
     )
-    for (x, y, radius) in [(9, 15, 4.8), (9, 32, 4.8), (9, 49, 4.8), (29, 32, 6.8), (55, 32, 7.2)] {
+    for (x, y, radius) in [(10, 14, 5.6), (10, 32, 5.6), (10, 50, 5.6)] {
       mark.addEllipse(in: circle(CGFloat(x), CGFloat(y), CGFloat(radius)))
     }
     return mark
@@ -244,7 +248,13 @@ struct AnyPickBrandMark: View {
   var body: some View {
     ZStack {
       RoundedRectangle(cornerRadius: 14, style: .continuous)
-        .fill(anypickViolet)
+        .fill(
+          LinearGradient(
+            colors: [anypickVioletLight, anypickVioletDark],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+          )
+        )
       AnyPickMark()
         .fill(.white)
         .padding(8)
@@ -269,20 +279,24 @@ enum AnyPickTrayIcon {
       }
 
       let branches = NSBezierPath()
-      branches.move(to: point(9, 15))
+      branches.move(to: point(14, 14))
+      branches.line(to: point(23, 14))
+      branches.line(to: point(36, 24))
+      branches.move(to: point(14, 32))
       branches.line(to: point(29, 32))
-      branches.line(to: point(55, 32))
-      branches.move(to: point(9, 32))
-      branches.line(to: point(29, 32))
-      branches.move(to: point(9, 49))
-      branches.line(to: point(29, 32))
-      branches.lineWidth = 6.4 * scale
+      branches.move(to: point(14, 50))
+      branches.line(to: point(23, 50))
+      branches.line(to: point(36, 40))
+      branches.move(to: point(30, 14))
+      branches.line(to: point(50, 32))
+      branches.line(to: point(30, 50))
+      branches.lineWidth = 7.5 * scale
       branches.lineCapStyle = .round
       branches.lineJoinStyle = .round
       NSColor.black.setFill()
       NSColor.black.setStroke()
       branches.stroke()
-      for (x, y, radius) in [(9, 15, 4.8), (9, 32, 4.8), (9, 49, 4.8), (29, 32, 6.8), (55, 32, 7.2)] {
+      for (x, y, radius) in [(10, 14, 5.6), (10, 32, 5.6), (10, 50, 5.6)] {
         NSBezierPath(ovalIn: circle(CGFloat(x), CGFloat(y), CGFloat(radius))).fill()
       }
       return true
@@ -319,8 +333,15 @@ enum AnyPickAppIcon {
 
   private static func generatedColorMark(size: CGFloat) -> NSImage {
     let image = NSImage(size: NSSize(width: size, height: size), flipped: true) { rect in
-      NSColor(red: 115 / 255, green: 87 / 255, blue: 1, alpha: 1).setFill()
-      NSBezierPath(roundedRect: rect, xRadius: size * 14 / 64, yRadius: size * 14 / 64).fill()
+      let background = NSBezierPath(
+        roundedRect: rect,
+        xRadius: size * 14 / 64,
+        yRadius: size * 14 / 64
+      )
+      NSGradient(
+        starting: NSColor(red: 139 / 255, green: 92 / 255, blue: 246 / 255, alpha: 1),
+        ending: NSColor(red: 109 / 255, green: 40 / 255, blue: 217 / 255, alpha: 1)
+      )?.draw(in: background, angle: -45)
 
       let scale = size * 0.75 / 64
       let offset = size * 0.125
@@ -336,20 +357,24 @@ enum AnyPickAppIcon {
         )
       }
       let branches = NSBezierPath()
-      branches.move(to: point(9, 15))
+      branches.move(to: point(14, 14))
+      branches.line(to: point(23, 14))
+      branches.line(to: point(36, 24))
+      branches.move(to: point(14, 32))
       branches.line(to: point(29, 32))
-      branches.line(to: point(55, 32))
-      branches.move(to: point(9, 32))
-      branches.line(to: point(29, 32))
-      branches.move(to: point(9, 49))
-      branches.line(to: point(29, 32))
-      branches.lineWidth = 6.4 * scale
+      branches.move(to: point(14, 50))
+      branches.line(to: point(23, 50))
+      branches.line(to: point(36, 40))
+      branches.move(to: point(30, 14))
+      branches.line(to: point(50, 32))
+      branches.line(to: point(30, 50))
+      branches.lineWidth = 7.5 * scale
       branches.lineCapStyle = .round
       branches.lineJoinStyle = .round
       NSColor.white.setFill()
       NSColor.white.setStroke()
       branches.stroke()
-      for (x, y, radius) in [(9, 15, 4.8), (9, 32, 4.8), (9, 49, 4.8), (29, 32, 6.8), (55, 32, 7.2)] {
+      for (x, y, radius) in [(10, 14, 5.6), (10, 32, 5.6), (10, 50, 5.6)] {
         NSBezierPath(ovalIn: circle(CGFloat(x), CGFloat(y), CGFloat(radius))).fill()
       }
       return true

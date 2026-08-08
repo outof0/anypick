@@ -156,6 +156,7 @@ function HubRow({ hub, ctrl }: { hub: TrayProxySnapshot; ctrl: TrayController })
       <Toggle
         checked={Boolean(hub.running)}
         disabled={ctrl.busy}
+        title={`${hub.running ? 'Stop' : 'Start'} Proxy Hub`}
         onChange={() =>
           ctrl.runAction({ id: hub.toggleActionId, label: hub.label, enabled: true })
         }
@@ -212,7 +213,7 @@ export function AppsView({ ctrl }: { ctrl: TrayController }) {
         <EmptyState
           symbol="＋"
           title="No configured apps"
-          body="Connect an installed client from Saved accounts."
+          body="Connect an installed client from Accounts."
           action={
             <button type="button" onClick={() => ctrl.setTab('Saved accounts')}>
               Add account
@@ -236,7 +237,7 @@ export function AppsView({ ctrl }: { ctrl: TrayController }) {
                 className="section-action"
                 onClick={() => ctrl.setTab('Saved accounts')}
               >
-                Manage…
+                Accounts…
               </button>
             }
           />

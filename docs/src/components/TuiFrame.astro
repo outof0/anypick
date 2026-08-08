@@ -54,45 +54,45 @@ const hasDetail = blocks.some(
 );
 
 const statusColor: Record<NonNullable<TuiRow["kind"]>, string> = {
-  live: "text-[#A6FF4D]",
-  saved: "text-[#F7F7FA]",
+  live: "text-[#22C55E]",
+  saved: "text-[#F8FAFC]",
   changed: "text-[#F59E0B]",
-  failed: "text-[#FF4D5A]",
-  muted: "text-[#5A6478]",
+  failed: "text-[#EF4444]",
+  muted: "text-[#475163]",
 };
 ---
 
 <div
   class:list={[
-    "overflow-hidden rounded-xl border border-white/10 bg-[#15151D] shadow-2xl",
+    "overflow-hidden rounded-xl border border-white/10 bg-[#0B0F19] shadow-2xl",
     className,
   ]}
 >
   <div class="flex items-center gap-2 border-b border-white/10 px-4 py-2.5">
-    <span class="h-2.5 w-2.5 rounded-full bg-[#FF4D5A]"></span>
+    <span class="h-2.5 w-2.5 rounded-full bg-[#EF4444]"></span>
     <span class="h-2.5 w-2.5 rounded-full bg-[#FEBC2E]"></span>
     <span class="h-2.5 w-2.5 rounded-full bg-[#28C840]"></span>
-    <span class="ml-2 font-mono text-[11px] text-[#5A6478]">anypick</span>
+    <span class="ml-2 font-mono text-[11px] text-[#475163]">anypick</span>
   </div>
 
   <div
-    class="overflow-x-auto px-4 py-4 font-mono text-[13px] leading-[1.7] text-[#C7C7D0]"
+    class="overflow-x-auto px-4 py-4 font-mono text-[13px] leading-[1.7] text-[#98A2B3]"
   >
     <div class="min-w-[30rem]">
       <div>
-        <span class="text-[#7357FF]">anypick</span>
-        <span class="text-[#5A6478]">/</span>
-        <span class="font-semibold text-[#F7F7FA]">{path}</span>
+        <span class="text-[#7C3AED]">anypick</span>
+        <span class="text-[#475163]">/</span>
+        <span class="font-semibold text-[#F8FAFC]">{path}</span>
       </div>
 
       {
         blocks.map((block) => (
           <div class="mt-3">
             {block.group && (
-              <div class="font-semibold text-[#F7F7FA]">{block.group}</div>
+              <div class="font-semibold text-[#F8FAFC]">{block.group}</div>
             )}
             {"note" in block ? (
-              <div class="pl-[4ch] text-[#5A6478]">{block.note}</div>
+              <div class="pl-[4ch] text-[#475163]">{block.note}</div>
             ) : (
               block.rows.map((row) => (
                 <div class="flex items-baseline gap-3 pl-[3ch]">
@@ -107,14 +107,14 @@ const statusColor: Record<NonNullable<TuiRow["kind"]>, string> = {
                       "shrink-0",
                       row.selected
                         ? "font-semibold text-[#60A5FA]"
-                        : "text-[#C7C7D0]",
+                        : "text-[#98A2B3]",
                     ]}
                     style={`width: ${nameWidth}`}
                   >
                     {row.name}
                   </span>
                   {hasDetail && (
-                    <span class="flex-1 truncate text-[#8792A6]">{row.detail}</span>
+                    <span class="flex-1 truncate text-[#98A2B3]">{row.detail}</span>
                   )}
                   <span
                     class:list={[
@@ -132,16 +132,16 @@ const statusColor: Record<NonNullable<TuiRow["kind"]>, string> = {
       }
 
       <div class="mt-3 border-t border-dashed border-white/10 pt-2">
-        <div class="font-semibold text-[#F7F7FA]">{outcome}</div>
-        {support && <div class="text-[#5A6478]">{support}</div>}
+        <div class="font-semibold text-[#F8FAFC]">{outcome}</div>
+        {support && <div class="text-[#475163]">{support}</div>}
       </div>
 
       <div class="mt-2 flex flex-wrap gap-x-3 gap-y-1">
         {
           hints.map(([key, label]) => (
             <span class="whitespace-nowrap">
-              <span class="font-semibold text-[#F7F7FA]">{key}</span>
-              <span class="text-[#5A6478]"> {label}</span>
+              <span class="font-semibold text-[#F8FAFC]">{key}</span>
+              <span class="text-[#475163]"> {label}</span>
             </span>
           ))
         }

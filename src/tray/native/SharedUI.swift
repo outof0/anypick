@@ -174,6 +174,9 @@ struct NativeProviderBadge: View {
       urls.append(exeDir.appendingPathComponent("icons/\(name)"))
       urls.append(exeDir.appendingPathComponent(name))
     }
+    if let iconDirectory = ProcessInfo.processInfo.environment["ANYPICK_TRAY_ICON_DIR"] {
+      urls.append(URL(fileURLWithPath: iconDirectory).appendingPathComponent(name))
+    }
     // Runtime stage used by the Node supervisor when launching the helper.
     let home = FileManager.default.homeDirectoryForCurrentUser
     let runtime = home.appendingPathComponent(".anypick/runtime", isDirectory: true)

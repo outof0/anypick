@@ -8,7 +8,7 @@
     sans-serif;
   font-synthesis: none;
   color: rgba(255, 255, 255, 0.92);
-  background: #15151d;
+  background: #0b0f19;
   --surface: rgba(255, 255, 255, 0.055);
   --surface-hover: rgba(255, 255, 255, 0.085);
   --surface-strong: rgba(255, 255, 255, 0.11);
@@ -17,13 +17,12 @@
   --separator-soft: rgba(255, 255, 255, 0.07);
   --secondary: rgba(255, 255, 255, 0.57);
   --tertiary: rgba(255, 255, 255, 0.34);
-  --accent: #7357ff;
-  --accent-hover: #8b73ff;
-  --violet: #7357ff;
-  --cyan: #35d6e8;
-  --green: #a6ff4d;
+  --accent: #7c3aed;
+  --accent-hover: #a78bfa;
+  --violet: #7c3aed;
+  --green: #22c55e;
   --amber: #f59e0b;
-  --red: #ff4d5a;
+  --red: #ef4444;
   --shadow: rgba(0, 0, 0, 0.28);
 }
 
@@ -70,7 +69,7 @@ select,
   display: grid;
   grid-template-rows: auto auto auto 1fr auto;
   overflow: hidden;
-  background: color-mix(in srgb, Canvas 95%, #7357ff 5%);
+  background: color-mix(in srgb, Canvas 95%, #7c3aed 5%);
   backdrop-filter: blur(36px) saturate(150%);
 }
 
@@ -1563,8 +1562,8 @@ button:disabled {
 
   .shell {
     background:
-      linear-gradient(135deg, rgb(115 87 255 / 0.07), transparent 31%),
-      color-mix(in srgb, Canvas 97%, #7357ff 3%);
+      linear-gradient(135deg, rgb(124 58 237 / 0.07), transparent 31%),
+      color-mix(in srgb, Canvas 97%, #7c3aed 3%);
   }
 
   .route-popover {
@@ -2388,7 +2387,7 @@ button:disabled {
   gap: 8px;
   margin-top: 9px;
   padding: 9px 0 3px;
-  background: color-mix(in srgb, Canvas 95%, #7357ff 5%);
+  background: color-mix(in srgb, Canvas 95%, #7c3aed 5%);
 }
 
 .model-editor-footer > span {

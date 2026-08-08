@@ -11,7 +11,7 @@ import { decodePayload, encodePayload, requestId } from '../lib/html';
 import { modelOptionForId, orderedModelRoles } from '../lib/routes';
 import type { FormState, Notice, PendingResult, TrayTab } from '../lib/types';
 
-const PRIMARY_TABS: TrayTab[] = ['Apps', 'Proxies', 'Activity'];
+const PRIMARY_TABS: TrayTab[] = ['Apps', 'Proxies', 'Logs'];
 
 export function useTrayController() {
   const bridge = useMemo(() => createBridge(), []);
@@ -538,13 +538,14 @@ export function useTrayController() {
     'Hub Sources',
     'Routing Issues',
     'Models',
-    'Logs',
     'Settings',
   ].includes(tab);
   const auxiliaryTitle =
     tab === 'Models'
-      ? modelConfigFor(modelEditorClientId)?.client || 'Models'
-      : tab;
+      ? modelConfigFor(modelEditorClientId)?.client || 'Model Settings'
+      : tab === 'Saved accounts'
+        ? 'Accounts'
+        : tab;
 
   return {
     bridge,

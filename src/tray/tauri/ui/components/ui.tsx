@@ -71,7 +71,7 @@ export function Toggle({
   checked: boolean;
   disabled?: boolean;
   onChange: (checked: boolean) => void;
-  title?: string;
+  title: string;
 }) {
   return (
     <label className="toggle" title={title}>
@@ -79,6 +79,7 @@ export function Toggle({
         type="checkbox"
         checked={checked}
         disabled={disabled}
+        aria-label={title}
         onChange={(event) => onChange(event.target.checked)}
       />
       <span />

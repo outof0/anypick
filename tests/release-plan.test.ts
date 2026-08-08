@@ -7,6 +7,10 @@ const releaseWorkflow = readFileSync(
   join(import.meta.dirname, '..', '.github', 'workflows', 'release.yml'),
   'utf8',
 );
+const ciWorkflow = readFileSync(
+  join(import.meta.dirname, '..', '.github', 'workflows', 'ci.yml'),
+  'utf8',
+);
 
 describe('release plan', () => {
   it('uses the checked-in 1.0.0 version for the initial release', () => {
@@ -104,5 +108,16 @@ describe('release plan', () => {
     expect(publish).toBeGreaterThan(-1);
     expect(deploy).toBeGreaterThan(publish);
     expect(githubRelease).toBeGreaterThan(deploy);
+  });
+
+  it('builds the Tauri frontend before compiling generate_context in CI and release', () => {
+    for (const workflow of [ciWorkflow, releaseWorkflow]) {
+      const frontend = workflow.indexOf('pnpm tray:ui:build');
+      const cargoTest = workflow.indexOf(
+        'cargo test --locked --manifest-path src/tray/tauri/src-tauri/Cargo.toml',
+      );
+      expect(frontend).toBeGreaterThan(-1);
+      expect(cargoTest).toBeGreaterThan(frontend);
+    }
   });
 });

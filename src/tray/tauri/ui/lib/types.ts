@@ -1,7 +1,6 @@
 export type TrayTab =
   | 'Apps'
   | 'Proxies'
-  | 'Activity'
   | 'Saved accounts'
   | 'Hub Sources'
   | 'Routing Issues'

@@ -31,7 +31,7 @@ From the repository root:
 | `pnpm tray:e2e:ui` | Playwright click-through against the Vite demo fixture |
 | `pnpm tray:demo` | Tauri shell + in-memory fixture (`--empty` for empty snapshot) |
 | `pnpm tray:ui` | Browser-only Vite UI for layout work |
-| `pnpm tray:macos` | Native macOS Swift tray (`--fixture` / `--empty` for fake data) |
+| `pnpm tray:macos` | Native macOS Swift fixture (`--empty`; use `--real` for local data) |
 
 Build helpers on the target desktop OS after installing Tauri platform
 prerequisites. Fixture demos never read or write `~/.anypick`, login files,
