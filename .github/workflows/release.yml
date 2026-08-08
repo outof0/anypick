@@ -201,10 +201,16 @@ jobs:
           fi
 
           if git rev-parse --verify --quiet "refs/tags/${RELEASE_TAG}" >/dev/null; then
-            test "$(git rev-list -n 1 "${RELEASE_TAG}")" = "$(git rev-parse HEAD)" || {
-              echo "${RELEASE_TAG} already points at a different commit"
-              exit 1
-            }
+            tag_commit="$(git rev-list -n 1 "${RELEASE_TAG}")"
+            head_commit="$(git rev-parse HEAD)"
+            if [[ "$tag_commit" != "$head_commit" ]]; then
+              git diff --quiet "$tag_commit" "$head_commit" -- . \
+                ':(exclude).github/workflows/release.yml' || {
+                  echo "${RELEASE_TAG} already points at a different product commit"
+                  exit 1
+                }
+              echo "${RELEASE_TAG} points at a code-equivalent release commit; preserving it."
+            fi
           else
             git tag --annotate "$RELEASE_TAG" --message "AnyPick ${RELEASE_VERSION}"
           fi
@@ -240,7 +246,7 @@ jobs:
         env:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-        run: cd docs && pnpm deploy
+        run: cd docs && pnpm run deploy
 
       - name: Create or update GitHub Release
         env:
