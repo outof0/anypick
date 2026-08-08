@@ -1,0 +1,173 @@
+---
+title: Getting started
+description: Install Hotplug, save your first account, and launch a client with it.
+---
+
+Hotplug points a CLI you already use at a provider you already pay for. You
+give it a **client** (the tool you run) and a **source** (the account, gateway,
+or preset that should power it); it handles the auth snapshot, any local proxy,
+protocol translation, environment variables, and the client's config file.
+
+Most of that happens from one screen. Install it, run `hotplug`, and pick.
+
+## Install
+
+<Render file="install" />
+
+## Run it
+
+Hotplug is a terminal UI first. Run it with no arguments and it shows you
+everything it knows about — which logins you have saved, which one each provider
+is currently signed in as, and what pressing <kbd>enter</kbd> would do:
+
+```bash
+hotplug
+```
+
+```
+ hotplug / switch
+
+ codex
+     work          erik@acme.com                             ● live
+   › personal      erik@personal.dev                         ○ saved
+
+ gemini
+     work          erik@acme.com                             ● live
+
+ grok
+     work          erik@acme.com                             ● live
+
+ opencode
+    No saved logins.
+ ────────────────────────────────────────────────────────────────────────
+ Switch codex to personal
+ erik@acme.com  →  erik@personal.dev
+ enter switch r refresh / filter tab proxy q quit
+```
+
+Three things to notice, because they hold across every screen:
+
+- **The line under the rule is what <kbd>enter</kbd> does.** You always read the
+  consequence before you commit to it.
+- **The footer is the whole keymap**, and every key is the first letter of its
+  action. Nothing is hidden in a menu.
+- <kbd>tab</kbd> cycles sections — switch, proxies, accounts, projects.
+
+Start here and you can do the rest of this page without typing another command.
+The subcommands below exist because the same flows have to work in scripts and
+CI; they are not a more powerful interface.
+
+<Aside type="note" title="No TTY, no UI">
+Piped or non-interactive invocations never open the UI. Bare `hotplug` in a
+script prints help and exits, so nothing hangs waiting for a keypress.
+</Aside>
+
+See [Terminal UI](/docs/guides/terminal-ui) for every screen and key.
+
+## Save an account
+
+Hotplug reads logins that the provider's own CLI already created — it never
+performs a sign-in itself. Log in with the native tool first, then snapshot it.
+In the UI that is <kbd>tab</kbd> to **accounts**, then <kbd>a</kbd> to add. As
+commands:
+
+<Steps>
+<Step title="Log in with the provider's CLI">
+```bash
+codex login
+```
+</Step>
+<Step title="Save the live login under a name">
+```bash
+hotplug add account codex --current --name personal
+```
+</Step>
+<Step title="Confirm it landed">
+```bash
+hotplug list accounts
+```
+</Step>
+</Steps>
+
+The name is yours to pick. Together with the provider it forms the source id —
+`codex/personal` — which is what you pass to `--with`.
+
+<Aside type="tip" title="Adding a second login">
+`hotplug add account codex --new --name work` stashes the live credential
+first, so the provider CLI sees a clean slate and lets you log in again. The
+first account stays saved.
+</Aside>
+
+## Bind a client to it
+
+```bash
+hotplug use codex --with codex/personal
+hotplug run codex
+```
+
+`use` writes a persistent default. `run` launches the client with whatever
+binding is in effect, using an isolated temporary client home so a one-shot run
+never rewrites your live config.
+
+In the UI, selecting a row on the switch screen and pressing <kbd>enter</kbd>
+does the same thing, and shows you the before/after credential first.
+
+## Cross the provider boundary
+
+The interesting case is a client and a source that do not speak the same
+protocol — Claude Code on a Grok account, for example. Hotplug starts a local
+proxy that translates between them, then wires Claude to that proxy:
+
+```bash
+hotplug add account grok --current --name work
+hotplug use claude --with grok/work
+hotplug run claude
+```
+
+Nothing extra to configure. The proxy starts on demand when the transport needs
+it, and stops with the supervisor. See [Proxies](/docs/guides/proxies) for the
+lifecycle and manual controls.
+
+## Or use an API key
+
+If you have an endpoint and a key rather than a native login, register a
+**gateway**:
+
+```bash
+hotplug add gateway openrouter-work \
+  --provider openrouter \
+  --endpoint https://openrouter.ai/api/v1 \
+  --api-key "$OPENROUTER_API_KEY" \
+  --model anthropic/claude-sonnet-4
+
+hotplug use claude --with openrouter-work
+```
+
+Gateways and accounts are interchangeable as sources. See
+[Gateways](/docs/guides/gateways).
+
+## Where things live
+
+| | |
+| --- | --- |
+| Data | `~/.hotplug/hotplug.db` |
+| Override home | `HOTPLUG_HOME=/path` |
+| Shell completion | `source <(hotplug completion zsh)` — also `bash`, `fish` |
+
+## Next
+
+<CardGrid>
+  <Card title="Concepts" href="/docs/concepts">
+    Clients, sources, bindings, and presets — the four words that explain every
+    command.
+  </Card>
+  <Card title="Terminal UI" href="/docs/guides/terminal-ui">
+    The interactive command center and its keys.
+  </Card>
+  <Card title="CLI reference" href="/docs/reference/cli">
+    Every command, flag, exit code, and environment variable.
+  </Card>
+  <Card title="Troubleshooting" href="/docs/reference/troubleshooting">
+    What `hotplug doctor` checks, and what it refuses to touch.
+  </Card>
+</CardGrid>

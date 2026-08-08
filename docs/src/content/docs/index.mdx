@@ -1,0 +1,51 @@
+---
+title: Hotplug documentation
+description: Point any supported AI client at any provider you already pay for.
+---
+
+Hotplug owns the boring half of using more than one AI provider: auth
+snapshots, local proxies, protocol translation, and client configuration. You
+pick a client and a source; it does the rest.
+
+Nearly all of it happens in the terminal UI — run `hotplug` with no arguments.
+The subcommands documented here mirror it one-for-one, for scripts and CI.
+
+<CardGrid>
+  <Card title="Getting started" href="/docs/getting-started">
+    Install, open the UI, save your first account, launch a client against it.
+  </Card>
+  <Card title="Terminal UI" href="/docs/guides/terminal-ui">
+    Every screen, key, and status glyph in the command center.
+  </Card>
+  <Card title="Concepts" href="/docs/concepts">
+    Clients, sources, bindings, and presets — the four words the CLI uses.
+  </Card>
+</CardGrid>
+
+## Guides
+
+<CardGrid>
+  <Card title="Accounts" href="/docs/guides/accounts">
+    Snapshot a provider login and switch between several of them.
+  </Card>
+  <Card title="Gateways" href="/docs/guides/gateways">
+    Bind a client to an OpenAI-compatible endpoint and API key.
+  </Card>
+  <Card title="Proxies" href="/docs/guides/proxies">
+    Translate between protocols, and let the supervisor keep them alive.
+  </Card>
+  <Card title="Project bindings" href="/docs/guides/projects">
+    Give one repository its own source without touching your default.
+  </Card>
+</CardGrid>
+
+## Reference
+
+<CardGrid>
+  <Card title="CLI reference" href="/docs/reference/cli">
+    Every command, global flag, exit code, and environment variable.
+  </Card>
+  <Card title="Troubleshooting" href="/docs/reference/troubleshooting">
+    What `doctor` checks, what `--fix` may repair, and how to read a failure.
+  </Card>
+</CardGrid>

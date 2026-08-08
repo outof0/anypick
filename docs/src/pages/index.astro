@@ -1,0 +1,770 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import Header from "../components/Header.astro";
+import TuiFrame from "../components/TuiFrame.astro";
+import { Icon } from "astro-icon/components";
+import { config } from "virtual:nimbus/config";
+
+/** The Switch screen, as `hotplug` renders it at 74 columns. */
+const switchScreen = {
+  path: "switch",
+  blocks: [
+    {
+      group: "codex",
+      rows: [
+        {
+          name: "work",
+          detail: "erik@acme.com",
+          status: "● live",
+          kind: "live" as const,
+        },
+        {
+          name: "personal",
+          detail: "erik@personal.dev",
+          status: "○ saved",
+          kind: "saved" as const,
+          selected: true,
+        },
+      ],
+    },
+    {
+      group: "gemini",
+      rows: [
+        {
+          name: "work",
+          detail: "erik@acme.com",
+          status: "● live",
+          kind: "live" as const,
+        },
+      ],
+    },
+    {
+      group: "grok",
+      rows: [
+        {
+          name: "work",
+          detail: "erik@acme.com",
+          status: "● live",
+          kind: "live" as const,
+        },
+      ],
+    },
+    { group: "opencode", note: "No saved logins." },
+  ],
+  outcome: "Switch codex to personal",
+  support: "erik@acme.com  →  erik@personal.dev",
+  hints: [
+    ["enter", "switch"],
+    ["r", "refresh"],
+    ["/", "filter"],
+    ["tab", "proxy"],
+    ["q", "quit"],
+  ] as Array<[string, string]>,
+};
+
+/** The Proxy board, same binary, one `tab` away. */
+const proxyScreen = {
+  path: "proxy",
+  blocks: [
+    {
+      rows: [
+        {
+          name: "gemini/work",
+          status: "– off",
+          kind: "muted" as const,
+          selected: true,
+        },
+        { name: "grok/work", status: "○ stopped", kind: "saved" as const },
+      ],
+    },
+  ],
+  outcome: "Turn on and start gemini/work",
+  support: "Hotplug chooses the address automatically.",
+  hints: [
+    ["enter", "turn on and start"],
+    ["tab", "accounts"],
+  ] as Array<[string, string]>,
+};
+
+const steps = [
+  {
+    key: "hotplug",
+    wide: true,
+    title: "Run it with no arguments",
+    body: "Every login you have, every client it can drive, and what is live right now — on one screen.",
+  },
+  {
+    key: "j k",
+    title: "Move to the one you want",
+    body: "The footer never lies: each key is the first letter of what it does. Nothing is hidden in a menu.",
+  },
+  {
+    key: "enter",
+    title: "It is already switched",
+    body: "Hotplug rewrites the client config, starts a proxy if the pair needs one, and rolls back if any step fails.",
+  },
+];
+
+/**
+ * Only `claude` and `codex` can consume a source that is not their own
+ * provider — see `transportFor` in src/sources/account-adapters.ts. Every pair
+ * below is one that adapter actually permits.
+ */
+const pairs = [
+  { client: "Claude Code", source: "xAI Grok", via: "proxy" },
+  { client: "Codex CLI", source: "Gemini CLI", via: "proxy" },
+  { client: "Claude Code", source: "OpenCode", via: "proxy" },
+  { client: "Claude Code", source: "OpenRouter", via: "gateway" },
+];
+
+const features = [
+  {
+    icon: "ph:identification-card",
+    title: "Reuse the logins you have",
+    body: "Hotplug snapshots the credential a provider's own CLI wrote, so a subscription you already pay for becomes a source you can point any client at. It never performs the sign-in itself.",
+  },
+  {
+    icon: "ph:arrows-left-right",
+    title: "Cross the provider boundary",
+    body: "A local proxy translates between the Anthropic and OpenAI protocols, so Claude Code can run on a Grok login and Codex can run on Gemini. Started, supervised, and torn down for you.",
+  },
+  {
+    icon: "ph:plugs",
+    title: "Bring your own endpoint",
+    body: "A gateway is an endpoint, an API key, and a model catalog — OpenRouter, LiteLLM, a self-hosted server, or a raw provider API. No proxy process involved.",
+  },
+  {
+    icon: "ph:folders",
+    title: "One source per repository",
+    body: "Bindings resolve per launch, then per directory, then globally. Give one client a different source inside one project and nothing else changes.",
+  },
+];
+
+const sources = [
+  "OpenAI Codex",
+  "Gemini CLI",
+  "xAI Grok",
+  "AWS Kiro",
+  "OpenCode",
+  "OpenRouter",
+  "Anthropic",
+  "OpenAI",
+  "LiteLLM",
+  "Custom / local",
+];
+
+/**
+ * Two different questions, and the honest answer differs for each.
+ *
+ * Which client can be *bound* to a foreign provider: only `claude` and `codex`
+ * — `transportFor` in src/sources/account-adapters.ts returns `unsupported`
+ * for the rest.
+ *
+ * Which surfaces follow an *account switch*: whatever reads the credential
+ * Hotplug restored. `claude` covers the CLI and its IDE extensions (see the
+ * client description in src/clients/claude-code.ts), and a Gemini login may be
+ * the Gemini CLI's or Antigravity's (src/providers/gemini.ts). The Codex
+ * desktop app is the documented exception — the header comment in
+ * src/providers/codex.ts states it keeps its own in-app account and Hotplug can
+ * only restore ~/.codex/auth.json.
+ */
+const clients = {
+  any: ["Claude Code (CLI + IDE)", "Codex CLI"],
+  native: ["Gemini CLI", "Antigravity", "Kiro"],
+};
+---
+
+<BaseLayout
+  title={`${config.title} — ${config.description}`}
+  description={config.description}
+>
+  <div class="flex min-h-screen flex-col">
+    <Header showSidebar={false} />
+
+    <main id="main-content" class="flex-1">
+      {/* ── Hero ─────────────────────────────────────────────── */}
+      <section class="relative isolate overflow-hidden bg-[#0B1020]">
+        <div class="hp-dots pointer-events-none absolute inset-0 -z-10"></div>
+
+        <div class="mx-auto w-full max-w-5xl px-6 pt-20 pb-16 sm:pt-24">
+          <div class="mx-auto max-w-3xl text-center">
+            <p
+              class="hp-rise inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1 font-mono text-xs text-[#B9C2D0]"
+            >
+              <span class="hp-pulse h-1.5 w-1.5 rounded-full bg-[#3DD68C]"></span>
+              One terminal UI for every AI login you own
+            </p>
+
+            <h1
+              class="hp-rise mt-7 text-balance text-[#F2F4F8] leading-[1.05]"
+              style="font-size: clamp(2.5rem, 7.5vw, 4.25rem); font-weight: 650; letter-spacing: -0.035em; --hp-delay: 80ms;"
+            >
+              Plug any AI into<br />
+              <span class="hp-shimmer bg-clip-text text-transparent"
+                >any tool.</span
+              >
+            </h1>
+
+            <p
+              class="hp-rise mx-auto mt-6 max-w-2xl text-lg text-[#B9C2D0] leading-relaxed"
+              style="--hp-delay: 160ms;"
+            >
+              Your Codex login, your Grok subscription, your Gemini account, your
+              OpenRouter key — all usable from whichever coding agent you actually
+              like. Run <code class="font-mono text-[#F2F4F8]">hotplug</code>,
+              press <kbd class="font-mono text-[#F2F4F8]">enter</kbd>, keep
+              working.
+            </p>
+
+            {/* One solid primary, one outlined secondary, one plain link — all
+                on a shared 3rem height so the row has a single baseline. The
+                brand accent is used directly: the theme's `primary` token is
+                cyan, which loses to white text on this navy. */}
+            <div
+              class="hp-rise mt-9 flex flex-wrap items-center justify-center gap-x-3 gap-y-2"
+              style="--hp-delay: 240ms;"
+            >
+              <a
+                href="/docs/getting-started"
+                class="group inline-flex h-12 items-center gap-2 rounded-lg bg-[#2563FF] px-6 font-medium text-white no-underline shadow-lg shadow-[#2563FF]/25 transition-colors hover:bg-[#1B4AE0]"
+              >
+                Get started
+                <Icon
+                  name="ph:arrow-right"
+                  class="h-[1.125rem] w-[1.125rem] transition-transform group-hover:translate-x-0.5"
+                />
+              </a>
+              <a
+                href="/docs/guides/terminal-ui"
+                class="inline-flex h-12 items-center gap-2 rounded-lg border border-white/15 px-5 font-medium text-[#F2F4F8] no-underline transition-colors hover:border-white/30 hover:bg-white/5"
+              >
+                <Icon name="ph:terminal-window" class="h-[1.125rem] w-[1.125rem]" />
+                Tour the terminal UI
+              </a>
+              {
+                config.github && (
+                  <a
+                    href={config.github}
+                    class="inline-flex h-12 items-center gap-2 px-3 font-medium text-[#8792A6] no-underline transition-colors hover:text-[#F2F4F8]"
+                    target="_blank"
+                    rel="noopener"
+                  >
+                    <Icon name="ph:github-logo" class="h-[1.125rem] w-[1.125rem]" />
+                    GitHub
+                  </a>
+                )
+              }
+            </div>
+
+            {/* The whole pill is the copy target, so there is no small icon to
+                aim at. Height matches the CTA row above. */}
+            <button
+              type="button"
+              data-hp-copy="npm install -g hotplug"
+              aria-label="Copy the install command"
+              class="hp-rise group mx-auto mt-7 inline-flex h-12 cursor-pointer items-center gap-3 rounded-lg border border-white/10 bg-black/30 px-4 font-mono text-sm transition-colors hover:border-white/25 hover:bg-black/50"
+              style="--hp-delay: 320ms;"
+            >
+              <span class="text-[#5A6478]">$</span>
+              <span class="text-[#F2F4F8]">npm install -g hotplug</span>
+              <span class="hp-caret text-[#00D4FF]">▌</span>
+              <span
+                class="ml-1 flex items-center border-l border-white/10 pl-3 text-[#8792A6] transition-colors group-hover:text-[#F2F4F8]"
+              >
+                <span data-hp-copy-idle>
+                  <Icon name="ph:copy" class="h-[1.125rem] w-[1.125rem]" />
+                </span>
+                <span class="hidden text-[#3DD68C]" data-hp-copy-done>
+                  <Icon name="ph:check" class="h-[1.125rem] w-[1.125rem]" />
+                </span>
+              </span>
+            </button>
+            <span class="sr-only" role="status" data-hp-copy-status></span>
+            <p
+              class="hp-rise mt-2.5 font-mono text-xs text-[#5A6478]"
+              style="--hp-delay: 360ms;"
+            >
+              Node.js 22.5+ · macOS and Linux · MIT
+            </p>
+          </div>
+
+          {/* Capped near the 74-column width the frame was captured at, so the
+              right-aligned status column stays next to the row it describes.
+              The only glow is light spilling from behind the terminal. */}
+          <div class="hp-rise relative mt-14" style="--hp-delay: 440ms;">
+            <div class="hp-screenlight pointer-events-none absolute -inset-16 -z-10"></div>
+            <TuiFrame {...switchScreen} class="mx-auto max-w-3xl" />
+            <p class="mt-3 text-center font-mono text-xs text-[#5A6478]">
+              The Switch screen, exactly as the binary draws it.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Three keystrokes ─────────────────────────────────── */}
+      <section class="border-b border-border">
+        <div class="hp-reveal mx-auto w-full max-w-5xl px-6 py-20">
+          <h2
+            class="max-w-2xl text-3xl font-semibold tracking-tight text-foreground"
+          >
+            Switching providers is three keystrokes.
+          </h2>
+          <p class="mt-3 max-w-2xl text-muted-foreground leading-relaxed">
+            No config files to hand-edit, no environment variables to remember, no
+            re-authenticating. Every command also exists as a flag, so nothing here
+            is interactive-only.
+          </p>
+
+          <ol class="mt-10 grid gap-6 sm:grid-cols-3">
+            {
+              steps.map((step) => (
+                <li class="relative rounded-xl border border-border bg-card p-6">
+                  <kbd
+                    class:list={[
+                      "inline-block rounded-md border border-border-strong bg-muted px-2.5 py-1 font-mono text-sm font-semibold text-primary",
+                      step.wide && "tracking-tight",
+                    ]}
+                  >
+                    {step.key}
+                  </kbd>
+                  <h3 class="mt-4 font-semibold text-foreground">{step.title}</h3>
+                  <p class="mt-2 text-sm text-muted-foreground leading-relaxed">
+                    {step.body}
+                  </p>
+                </li>
+              ))
+            }
+          </ol>
+        </div>
+      </section>
+
+      {/* ── Cross-provider pairs ─────────────────────────────── */}
+      <section class="border-b border-border bg-muted/40">
+        <div
+          class="hp-reveal mx-auto grid w-full max-w-5xl gap-12 px-6 py-20 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:items-center"
+        >
+          <div>
+            <h2 class="text-3xl font-semibold tracking-tight text-foreground">
+              Claude Code on a Grok subscription.
+            </h2>
+            <p class="mt-4 text-muted-foreground leading-relaxed">
+              Clients and providers speak different protocols. Hotplug runs a local
+              proxy that translates between them, so the pairing your subscriptions
+              never intended just works. Claude Code and Codex are the two clients
+              that can cross the boundary this way.
+            </p>
+
+            <ul class="mt-7 space-y-2.5">
+              {
+                pairs.map((pair) => (
+                  <li class="flex flex-wrap items-center gap-2.5 rounded-lg border border-border bg-card px-3.5 py-2.5">
+                    <span class="font-mono text-sm font-medium text-foreground">
+                      {pair.client}
+                    </span>
+                    <span class="text-xs text-muted-foreground">runs on</span>
+                    <span class="font-mono text-sm font-medium text-primary">
+                      {pair.source}
+                    </span>
+                    <span class="ml-auto rounded-full border border-border px-2 py-0.5 font-mono text-[11px] text-muted-foreground">
+                      {pair.via}
+                    </span>
+                  </li>
+                ))
+              }
+            </ul>
+
+            <p class="mt-6 text-sm text-muted-foreground leading-relaxed">
+              You never start, stop, or port-map a proxy by hand — the board below
+              is one <kbd class="font-mono">tab</kbd> from the switcher.
+            </p>
+          </div>
+
+          <TuiFrame {...proxyScreen} nameWidth="14ch" />
+        </div>
+      </section>
+
+      {/* ── Features ─────────────────────────────────────────── */}
+      <section class="hp-reveal mx-auto w-full max-w-5xl px-6 py-20">
+        <h2 class="text-3xl font-semibold tracking-tight text-foreground">
+          What it actually does
+        </h2>
+        <div class="mt-10 grid gap-6 sm:grid-cols-2">
+          {
+            features.map((f) => (
+              <div class="rounded-xl border border-border bg-card p-6">
+                <span class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
+                  <Icon name={f.icon} class="h-5 w-5 text-primary" />
+                </span>
+                <h3 class="mt-4 font-semibold text-foreground">{f.title}</h3>
+                <p class="mt-2 text-sm text-muted-foreground leading-relaxed">
+                  {f.body}
+                </p>
+              </div>
+            ))
+          }
+        </div>
+      </section>
+
+      {/* ── Coverage ─────────────────────────────────────────── */}
+      <section class="border-t border-border">
+        <div
+          class="mx-auto grid w-full max-w-5xl gap-12 px-6 py-16 sm:grid-cols-2"
+        >
+          <div>
+            <h2
+              class="text-sm font-semibold tracking-wide text-muted-foreground uppercase"
+            >
+              Sources
+            </h2>
+            <p class="mt-2 text-sm text-muted-foreground">
+              Native logins and API gateways you can bind a client to.
+            </p>
+            <ul class="mt-4 flex flex-wrap gap-2">
+              {
+                sources.map((s) => (
+                  <li class="rounded-md border border-border bg-card px-2.5 py-1 font-mono text-xs text-foreground">
+                    {s}
+                  </li>
+                ))
+              }
+            </ul>
+          </div>
+          <div>
+            <h2
+              class="text-sm font-semibold tracking-wide text-muted-foreground uppercase"
+            >
+              Clients
+            </h2>
+            <p class="mt-2 text-sm text-muted-foreground">
+              Where a switch lands. Hotplug writes the tool's own config and
+              credential files, so anything else reading them follows.
+            </p>
+            <p class="mt-4 text-xs text-muted-foreground">
+              Bind to any source above:
+            </p>
+            <ul class="mt-2 flex flex-wrap gap-2">
+              {
+                clients.any.map((c) => (
+                  <li class="rounded-md border border-border-strong bg-card px-2.5 py-1 font-mono text-xs font-medium text-foreground">
+                    {c}
+                  </li>
+                ))
+              }
+            </ul>
+            <p class="mt-4 text-xs text-muted-foreground">
+              Their own provider's login only:
+            </p>
+            <ul class="mt-2 flex flex-wrap gap-2">
+              {
+                clients.native.map((c) => (
+                  <li class="rounded-md border border-border bg-card px-2.5 py-1 font-mono text-xs text-muted-foreground">
+                    {c}
+                  </li>
+                ))
+              }
+            </ul>
+            <p class="mt-5 text-xs text-muted-foreground leading-relaxed">
+              One exception worth knowing: the Codex desktop app keeps its own
+              signed-in account, so it does not follow a switch of <code
+                class="font-mono">~/.codex/auth.json</code
+              >. Hotplug notices the mismatch and hides the quota readout rather
+              than report another account's numbers.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Closing CTA ──────────────────────────────────────── */}
+      <section class="relative isolate overflow-hidden bg-[#0B1020]">
+        <div class="pointer-events-none absolute inset-0 -z-10">
+          <span class="hp-blob-cta"></span>
+        </div>
+        <div class="hp-reveal mx-auto w-full max-w-3xl px-6 py-24 text-center">
+          <h2
+            class="text-balance text-[#F2F4F8] leading-[1.1]"
+            style="font-size: clamp(1.875rem, 5vw, 2.75rem); font-weight: 650; letter-spacing: -0.03em;"
+          >
+            Stop re-authenticating just to switch models.
+          </h2>
+          <p class="mx-auto mt-4 max-w-xl text-[#B9C2D0] leading-relaxed">
+            Install it, run <code class="font-mono text-[#F2F4F8]">hotplug</code>,
+            and let the terminal UI show you what you already have access to.
+          </p>
+          <div class="mt-8 flex flex-wrap items-center justify-center gap-3">
+            <a
+              href="/docs/getting-started"
+              class="group inline-flex h-12 items-center gap-2 rounded-lg bg-[#2563FF] px-6 font-medium text-white no-underline shadow-lg shadow-[#2563FF]/25 transition-colors hover:bg-[#1B4AE0]"
+            >
+              Get started
+              <Icon
+                name="ph:arrow-right"
+                class="h-[1.125rem] w-[1.125rem] transition-transform group-hover:translate-x-0.5"
+              />
+            </a>
+            <a
+              href="/docs/reference/cli"
+              class="inline-flex h-12 items-center gap-2 rounded-lg border border-white/15 px-5 font-medium text-[#F2F4F8] no-underline transition-colors hover:border-white/30 hover:bg-white/5"
+            >
+              CLI reference
+            </a>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="border-t border-border">
+      <div
+        class="mx-auto flex w-full max-w-5xl flex-wrap items-center justify-between gap-4 px-6 py-8"
+      >
+        <div class="flex items-center gap-2">
+          <img src="/logomark.svg" alt="" width="16" height="18" />
+          <span class="text-sm text-muted-foreground">
+            {config.title} — {config.description}
+          </span>
+        </div>
+        <div class="flex items-center gap-4 text-sm text-muted-foreground">
+          <a href="/docs" class="no-underline hover:text-foreground">Docs</a>
+          {
+            config.github && (
+              <a
+                href={config.github}
+                class="no-underline hover:text-foreground"
+                target="_blank"
+                rel="noopener"
+              >
+                GitHub
+              </a>
+            )
+          }
+          <a
+            href="https://www.npmjs.com/package/hotplug"
+            class="no-underline hover:text-foreground"
+            target="_blank"
+            rel="noopener">npm</a
+          >
+          <span>MIT</span>
+        </div>
+      </div>
+    </footer>
+  </div>
+
+  <script>
+    // Reveal-on-scroll. Sections start hidden only once this runs, so a reader
+    // with JS disabled sees the whole page rather than a blank one.
+    const targets = document.querySelectorAll<HTMLElement>(".hp-reveal");
+    if (
+      targets.length > 0 &&
+      !window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    ) {
+      document.documentElement.classList.add("hp-reveal-armed");
+      const observer = new IntersectionObserver(
+        (entries) => {
+          for (const entry of entries) {
+            if (entry.isIntersecting) {
+              entry.target.classList.add("hp-in");
+              observer.unobserve(entry.target);
+            }
+          }
+        },
+        { rootMargin: "0px 0px -12% 0px" },
+      );
+      for (const target of targets) {
+        observer.observe(target);
+      }
+    }
+
+    const copyButton = document.querySelector<HTMLButtonElement>("[data-hp-copy]");
+    if (copyButton) {
+      const idle = copyButton.querySelector<HTMLElement>("[data-hp-copy-idle]");
+      const done = copyButton.querySelector<HTMLElement>("[data-hp-copy-done]");
+      const status = document.querySelector<HTMLElement>("[data-hp-copy-status]");
+      let reset: number | undefined;
+
+      copyButton.addEventListener("click", async () => {
+        try {
+          await navigator.clipboard.writeText(copyButton.dataset.hpCopy ?? "");
+        } catch {
+          // Clipboard needs a secure context and user permission. Leaving the
+          // icon untouched is the honest signal that nothing was copied.
+          return;
+        }
+        idle?.classList.add("hidden");
+        done?.classList.remove("hidden");
+        if (status) {
+          status.textContent = "Install command copied";
+        }
+        clearTimeout(reset);
+        reset = window.setTimeout(() => {
+          idle?.classList.remove("hidden");
+          done?.classList.add("hidden");
+          if (status) {
+            status.textContent = "";
+          }
+        }, 1800);
+      });
+    }
+  </script>
+</BaseLayout>
+
+<style>
+  /* ── Hero atmosphere ────────────────────────────────────────────
+     A fine dot field, and light spilling out from behind the terminal as
+     though the screen were the source. Decoration only, so
+     `prefers-reduced-motion` can freeze all of it. */
+  .hp-dots {
+    opacity: 0.14;
+    background-image: radial-gradient(#fff 1px, transparent 1px);
+    background-size: 1.5rem 1.5rem;
+    mask-image: linear-gradient(to bottom, #000 20%, transparent 90%);
+  }
+
+  .hp-screenlight {
+    background: radial-gradient(
+      ellipse at center,
+      rgba(106, 92, 255, 0.42) 0%,
+      rgba(0, 212, 255, 0.16) 45%,
+      transparent 75%
+    );
+    filter: blur(48px);
+    animation: hp-breathe 9s ease-in-out infinite alternate;
+    will-change: opacity, transform;
+  }
+
+  .hp-blob-cta {
+    position: absolute;
+    display: block;
+    bottom: -20rem;
+    left: 50%;
+    height: 32rem;
+    width: 54rem;
+    margin-left: -27rem;
+    border-radius: 9999px;
+    opacity: 0.6;
+    filter: blur(80px);
+    background: radial-gradient(
+      closest-side,
+      #6a5cff 0%,
+      rgba(0, 212, 255, 0.3) 50%,
+      transparent 100%
+    );
+    animation: hp-drift 20s ease-in-out infinite alternate;
+  }
+
+  @keyframes hp-breathe {
+    from {
+      opacity: 0.75;
+      transform: scale(0.96);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1.06);
+    }
+  }
+
+  @keyframes hp-drift {
+    from {
+      transform: translate3d(-4rem, 0, 0) scale(1);
+    }
+    to {
+      transform: translate3d(4rem, 1.5rem, 0) scale(1.12);
+    }
+  }
+
+  /* ── Wordmark shimmer ───────────────────────────────────────── */
+  .hp-shimmer {
+    background-image: linear-gradient(
+      100deg,
+      #6a5cff 0%,
+      #7c8cff 35%,
+      #00d4ff 50%,
+      #7c8cff 65%,
+      #6a5cff 100%
+    );
+    background-size: 250% 100%;
+    animation: hp-sweep 7s linear infinite;
+  }
+
+  @keyframes hp-sweep {
+    from {
+      background-position: 150% 0;
+    }
+    to {
+      background-position: -150% 0;
+    }
+  }
+
+  .hp-pulse {
+    animation: hp-pulse 2.4s ease-in-out infinite;
+  }
+
+  @keyframes hp-pulse {
+    0%,
+    100% {
+      opacity: 1;
+      box-shadow: 0 0 0 0 rgba(61, 214, 140, 0.5);
+    }
+    50% {
+      opacity: 0.65;
+      box-shadow: 0 0 0 0.25rem rgba(61, 214, 140, 0);
+    }
+  }
+
+  .hp-caret {
+    animation: hp-blink 1.1s steps(1, end) infinite;
+  }
+
+  @keyframes hp-blink {
+    0%,
+    49% {
+      opacity: 1;
+    }
+    50%,
+    100% {
+      opacity: 0;
+    }
+  }
+
+  /* ── Entrance ───────────────────────────────────────────────── */
+  .hp-rise {
+    animation: hp-rise 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+    animation-delay: var(--hp-delay, 0ms);
+  }
+
+  @keyframes hp-rise {
+    from {
+      opacity: 0;
+      transform: translateY(1.25rem);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  :global(.hp-reveal-armed) .hp-reveal {
+    opacity: 0;
+    transform: translateY(1.75rem);
+    transition:
+      opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1),
+      transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  :global(.hp-reveal-armed) .hp-reveal.hp-in {
+    opacity: 1;
+    transform: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .hp-screenlight,
+    .hp-blob-cta,
+    .hp-shimmer,
+    .hp-pulse,
+    .hp-caret,
+    .hp-rise {
+      animation: none;
+    }
+    .hp-shimmer {
+      background-position: 50% 0;
+    }
+  }
+</style>

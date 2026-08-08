@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 103 114" width="103" height="114" role="img" aria-label="Hotplug">
+  <defs>
+    <linearGradient id="hotplug" x1="0" y1="0" x2="110" y2="122" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#6A5CFF"/>
+      <stop offset="0.62" stop-color="#5361FF"/>
+      <stop offset="0.86" stop-color="#2563FF"/>
+      <stop offset="1" stop-color="#00D4FF"/>
+    </linearGradient>
+  </defs>
+  <g fill="url(#hotplug)">
+    <rect x="5" y="0" width="5.5" height="14" rx="2.75"/>
+    <rect x="15.5" y="0" width="5.5" height="14" rx="2.75"/>
+    <rect x="82" y="0" width="5.5" height="14" rx="2.75"/>
+    <rect x="92.5" y="0" width="5.5" height="14" rx="2.75"/>
+
+    <rect x="7.5" y="30" width="11" height="54" rx="5.5"/>
+    <rect x="84.5" y="30" width="11" height="54" rx="5.5"/>
+
+    <rect x="0" y="10" width="26" height="29" rx="6.5"/>
+    <rect x="77" y="10" width="26" height="29" rx="6.5"/>
+    <rect x="0" y="75" width="26" height="29" rx="6.5"/>
+    <rect x="77" y="75" width="26" height="29" rx="6.5"/>
+
+    <rect x="7.5" y="52.5" width="88" height="9" rx="4.5"/>
+    <rect x="38.5" y="42.5" width="26" height="29" rx="8"/>
+
+    <rect x="5" y="100" width="5.5" height="14" rx="2.75"/>
+    <rect x="15.5" y="100" width="5.5" height="14" rx="2.75"/>
+    <rect x="82" y="100" width="5.5" height="14" rx="2.75"/>
+    <rect x="92.5" y="100" width="5.5" height="14" rx="2.75"/>
+  </g>
+</svg>

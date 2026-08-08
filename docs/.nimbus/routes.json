@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "base": "/",
+  "knownRoutes": [
+    "/",
+    "/docs",
+    "/docs/concepts",
+    "/docs/getting-started",
+    "/docs/guides/accounts",
+    "/docs/guides/gateways",
+    "/docs/guides/plugins",
+    "/docs/guides/projects",
+    "/docs/guides/proxies",
+    "/docs/guides/terminal-ui",
+    "/docs/reference/cli",
+    "/docs/reference/troubleshooting"
+  ],
+  "opaqueNamespaces": []
+}

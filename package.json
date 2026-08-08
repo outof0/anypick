@@ -1,0 +1,107 @@
+{
+  "name": "hotplug",
+  "version": "1.0.0",
+  "description": "Plug any AI into any tool. Manage AI accounts, connect any client to any provider.",
+  "keywords": [
+    "accounts",
+    "auth",
+    "bindings",
+    "claude",
+    "cli",
+    "clients",
+    "codex",
+    "gateways",
+    "gemini",
+    "grok",
+    "kiro",
+    "opencode",
+    "proxy"
+  ],
+  "homepage": "https://hotplug.dev",
+  "bugs": {
+    "url": "https://github.com/hotplug-dev/hotplug/issues"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hotplug-dev/hotplug.git"
+  },
+  "bin": {
+    "hotplug": "./dist/cli.js",
+    "rotate": "./dist/cli.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./adapters": {
+      "types": "./dist/adapters.d.ts",
+      "import": "./dist/adapters.js",
+      "default": "./dist/adapters.js"
+    },
+    "./testing": {
+      "types": "./dist/testing.d.ts",
+      "import": "./dist/testing.js",
+      "default": "./dist/testing.js"
+    },
+    "./types": {
+      "types": "./dist/public-types.d.ts",
+      "import": "./dist/types.js",
+      "default": "./dist/types.js"
+    },
+    "./package.json": "./package.json",
+    "./internal/*": null
+  },
+  "scripts": {
+    "build": "pnpm clean && tsc -p tsconfig.json --emitDeclarationOnly && node scripts/rewrite-declaration-specifiers.mjs && vite build",
+    "check": "oxfmt --check && pnpm lint && pnpm typecheck && pnpm test",
+    "clean": "node scripts/clean-dist.mjs",
+    "dev": "tsx src/cli.ts",
+    "format": "oxfmt",
+    "lint": "oxlint --type-aware",
+    "lint:fix": "oxlint --type-aware --fix",
+    "package": "pnpm build && pnpm pack --pack-destination dist",
+    "package:smoke": "pnpm package && node scripts/pack-smoke.mjs",
+    "release": "pnpm check && bumpp",
+    "start": "node dist/cli.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.test.json --noEmit"
+  },
+  "dependencies": {
+    "@clack/core": "0.4.2",
+    "@clack/prompts": "^0.10.1",
+    "commander": "^13.1.0",
+    "ink": "^7.1.1",
+    "picocolors": "^1.1.1",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.21",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "bumpp": "^12.0.0",
+    "changelogithub": "^14.0.0",
+    "ink-testing-library": "^4.0.0",
+    "oxfmt": "^0.59.0",
+    "oxlint": "^1.74.0",
+    "oxlint-tsgolint": "^0.24.0",
+    "tsx": "^4.19.4",
+    "typescript": "7.0.2",
+    "vite": "8.1.5",
+    "vitest": "4.1.10"
+  },
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "packageManager": "pnpm@9.12.0"
+}

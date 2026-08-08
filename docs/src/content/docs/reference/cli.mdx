@@ -1,0 +1,254 @@
+---
+title: CLI reference
+description: Every Hotplug command, global flag, exit code, and environment variable.
+---
+
+The binary is `hotplug`; `rotate` is an alias for the same entry point. Running
+it bare on a TTY opens the [terminal UI](/docs/guides/terminal-ui).
+
+## Global flags
+
+Valid on every command.
+
+| Flag | Effect |
+| --- | --- |
+| `--json` | Machine-readable output |
+| `-v, --verbose` | Verbose logging |
+| `-q, --quiet` | Minimal output |
+| `--dry-run` | Print the plan; write nothing |
+| `--reveal` | Show secrets — dangerous |
+| `--no-input` | Never prompt, even on a TTY |
+| `-y, --yes` | Skip destructive confirmations |
+| `--trace` | Print internal step names, without secrets |
+
+## Bindings
+
+```bash
+hotplug use [client] [--with <source>] [--current]
+                     [--model <id>] [--save <name>]
+hotplug run [client] [--with <source>] [--model <id>]
+hotplug current [client]
+hotplug link <client> [--with <source>] [--model <id>]
+hotplug unlink [client]
+hotplug reset [client]
+```
+
+| Command | Description |
+| --- | --- |
+| `use` | Set what a client uses by default |
+| `use --current` | Re-apply the stored global binding |
+| `use --save <name>` | Bind, and also save the result as a preset |
+| `run` | Launch a client with its effective binding |
+| `current` | Show effective bindings |
+| `link` / `unlink` | Project-scoped bindings for the current directory |
+| `reset` | Remove Hotplug-managed configuration for a client |
+
+`--with` accepts an account (`grok/work`), a gateway name, a pool
+(`pool:gemini`), or a preset (`@work-stack`).
+
+<Aside type="caution" title="Non-interactive use">
+`use <client>` requires `--with` or `--current`. With neither, and no TTY to
+prompt on, it exits `2` instead of guessing.
+</Aside>
+
+## Inventory
+
+```bash
+hotplug list [accounts|gateways|clients|presets]
+hotplug providers
+hotplug clients
+```
+
+`list` with no argument prints all four. `ls` is an alias.
+
+## Adding sources
+
+```bash
+hotplug add account [provider] [--current] [--new]
+    [--name <name>] [--source <id>]
+    [--api-key [key]] [--region <region>]
+hotplug add gateway [name] --provider <id> --endpoint <url>
+    [--api-key <key> | --api-key-env <var>]
+    [--model <id>] [--models <id...>]
+```
+
+`--current` snapshots the login that is live now; `--new` stashes it first so the
+provider's CLI prompts for a fresh one. `--source gemini-cli|antigravity` picks
+which Gemini sign-in to read. `--api-key` saves a key you already hold instead of
+a login — currently `kiro` only — and prompts for the value when it is omitted;
+`--region` pins the API region for it.
+
+## Accounts
+
+```bash
+hotplug account list [provider]
+hotplug account refresh <provider> [name] [--all]
+hotplug account remove <provider> <name>
+hotplug account export <provider> <name> -o <file>
+hotplug account import <provider> <name> -i <file> [-f]
+```
+
+`refresh` with no name refreshes the live login. `rm` is an alias for `remove`,
+`ls` for `list`.
+
+## Gateways
+
+```bash
+hotplug gateway list
+hotplug gateway show <name>
+hotplug gateway edit <name> [--endpoint <url>] [--api-key <key>]
+    [-m <id>] [--models <id...>]
+hotplug gateway remove <name>
+```
+
+`show` masks the API key unless you pass the global `--reveal`.
+
+## Presets
+
+```bash
+hotplug preset list
+hotplug preset show <name>
+hotplug preset remove <name>
+```
+
+Preset names are written without the `@` here; the `@` prefix is only how you
+reference one in `--with`.
+
+## Proxies
+
+```bash
+hotplug proxy
+hotplug proxy status [provider] [name]
+hotplug proxy start [provider] [name] [-p <port>] [--host <host>]
+hotplug proxy stop [provider] [name]
+hotplug proxy enable <provider> <name> [-p <port>] [--host <host>]
+    [--auth-mode auto|public|api] [--no-start]
+    [--oauth-source auto|gemini-cli|antigravity]
+hotplug proxy config <provider> <name> [-p <port>] [--host <host>]
+    [--auth-mode …] [--oauth-source …] [--no-restart]
+hotplug proxy disable <provider> <name>
+hotplug proxy logs <provider> [name] [-n <lines>] [-f]
+```
+
+`config` has the alias `set`. `--host` defaults to `127.0.0.1`. Omitting `-p` on
+`enable` takes the first free port. `stop` with no arguments stops every running
+account proxy.
+
+### Pools
+
+```bash
+hotplug proxy pool status <provider>
+hotplug proxy pool enable <provider> [-p <port>] [--host <host>] [--no-start]
+hotplug proxy pool member <provider> <account> <on|off>
+hotplug proxy pool disable <provider>
+```
+
+## Plugins
+
+```bash
+hotplug plugin list
+hotplug plugin add <dir>
+hotplug plugin enable <name>
+hotplug plugin disable <name>
+hotplug plugin trust <name>
+hotplug plugin remove <name>
+```
+
+`add` installs a local directory **disabled**. `enable` is the trust decision and
+prompts; it needs the global `-y` when there is no TTY. `trust` re-pins the entry
+module digest after the plugin's code changes. See
+[Plugins](/docs/guides/plugins).
+
+## Supervisor
+
+```bash
+hotplug tray start
+hotplug tray status
+hotplug tray stop
+```
+
+`stop` quits the supervisor and stops every Hotplug-owned proxy.
+
+## Health
+
+```bash
+hotplug doctor [target]
+hotplug doctor --fix [--dry-run] [-y]
+```
+
+See [Troubleshooting](/docs/reference/troubleshooting) for what `--fix` is allowed to
+touch.
+
+## Updating
+
+```bash
+hotplug update           # install the latest release
+hotplug update --check   # report only; install nothing
+```
+
+`update` reads the `latest` tag from the npm registry, compares it with the
+running version, and — if there is something newer — runs
+`npm install -g hotplug@<version>` with the exact version it just reported.
+npm's own output is passed straight through. With `--check` it prints the
+comparison and exits `0` either way, so a shell script can gate on `--json`:
+
+```bash
+hotplug update --check --json
+```
+
+```json
+{ "current": "1.0.0", "latest": "1.1.0", "updateAvailable": true, "updated": false }
+```
+
+<Aside type="caution" title="npm-installed builds only">
+The update runs npm regardless of how Hotplug got onto your machine. If you
+installed with pnpm, bun, or Homebrew, update it the same way you installed it —
+otherwise you end up with two copies on `PATH`.
+</Aside>
+
+## Shell completion
+
+```bash
+hotplug completion zsh     # also: bash | fish
+```
+
+Add it to your shell startup file, or evaluate it directly:
+
+```bash
+source <(hotplug completion zsh)
+```
+
+## Exit codes
+
+| Code | Meaning |
+| --- | --- |
+| `0` | Success |
+| `2` | Invalid usage — missing client or source, bare `use` without a TTY |
+| `3` | Not found |
+| `5` | Capability conflict, unsupported transport, or no binding |
+| `7` | Missing required dependency, such as an external proxy binary |
+| `130` | Cancelled with SIGINT |
+
+## Environment variables
+
+### Hotplug
+
+| Variable | Effect |
+| --- | --- |
+| `HOTPLUG_HOME` | Data directory. Default `~/.hotplug` |
+| `HOTPLUG_NO_TRAY=1` | Terminal UI exits without starting a supervisor |
+| `HOTPLUG_NO_PLUGINS=1` | Skip loading plugins entirely |
+| `HOTPLUG_DEBUG=1` | Echo internal events to stderr |
+| `NO_COLOR` | Drop all color; glyphs still carry state |
+
+### Provider overrides
+
+| Variable | Effect |
+| --- | --- |
+| `OPENCODE_PROXY_UPSTREAM` | Override the OpenCode upstream base URL |
+| `OPENCODE_MODEL_METADATA_URL` | Override model metadata source; `none` disables enrichment |
+| `GEMINI_PROXY_UPSTREAM` | Override the Gemini upstream base URL |
+| `GEMINI_CODE_ASSIST_UPSTREAM` | Override the Code Assist endpoint |
+| `GROK_PROXY_UPSTREAM` | Override the Grok upstream base URL |
+| `KIROLINK_BIN` | Path to an external `kirolink` binary |
+| `CLAUDE_BINARY`, `CODEX_BINARY`, `KIRO_BINARY` | Launch a specific client binary |

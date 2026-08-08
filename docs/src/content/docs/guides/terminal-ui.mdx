@@ -1,0 +1,145 @@
+---
+title: Terminal UI
+description: The interactive command center — its four sections, its keys, and what the status glyphs mean.
+---
+
+Running bare `hotplug` on a TTY opens the command center. It is a view over the
+same operations the subcommands perform, so nothing is only reachable
+interactively.
+
+```bash
+hotplug
+```
+
+## Anatomy of a screen
+
+Every screen has the same four parts, so once you can read one you can read all
+of them:
+
+```
+ hotplug / switch                          ← where you are
+
+ codex                                     ← group: the provider
+     work          erik@acme.com    ● live ← row: name, detail, status
+   › personal      erik@personal.dev ○ saved  ← ›  marks the selection
+ ──────────────────────────────────────────
+ Switch codex to personal                  ← what enter will do
+ erik@acme.com  →  erik@personal.dev       ← and its consequence
+ enter switch r refresh / filter tab proxy q quit   ← the entire keymap
+```
+
+The two lines under the dashed rule are the contract: the UI tells you the
+outcome of <kbd>enter</kbd> before you press it, and destructive actions add a
+confirmation on top of that. The footer lists every key that does anything on
+the current row — if it is not in the footer, it is not bound.
+
+## Four sections
+
+<kbd>tab</kbd> cycles them in order:
+
+| Section | What it is for |
+| --- | --- |
+| **Switch** | Pick a client and the source it should use. The default landing view. |
+| **Proxy** | Every proxy-capable account: state, endpoint, model bindings. |
+| **Accounts** | Saved logins — add, import, export, refresh, remove. |
+| **Gateways** | API profiles — endpoint, key, model defaults. |
+
+<kbd>h</kbd> opens contextual help for whichever section you are in, and
+<kbd>q</kbd> quits.
+
+## Keys
+
+Movement is the same everywhere: <kbd>↑</kbd> <kbd>↓</kbd> or <kbd>j</kbd>
+<kbd>k</kbd> to move, <kbd>enter</kbd> for the primary action shown at the
+bottom of the screen, <kbd>esc</kbd> to go back.
+
+Every other key is the first letter of the action it performs — <kbd>a</kbd>
+add, <kbd>e</kbd> export, <kbd>l</kbd> logs, <kbd>s</kbd> stop — so the footer
+doubles as the mnemonic. There is one deliberate exception: **remove is
+<kbd>x</kbd>**, because refresh, restart, and remove all compete for
+<kbd>r</kbd> and the destructive one should not sit under the finger reaching
+for refresh.
+
+### Switch
+
+| Key | Action |
+| --- | --- |
+| <kbd>enter</kbd> | Switch, resolve, or save the current login |
+| <kbd>r</kbd> | Refresh login |
+| <kbd>/</kbd> | Filter |
+
+### Proxy
+
+| Key | Action |
+| --- | --- |
+| <kbd>enter</kbd> | Start, manage apps, or save an unsaved login |
+| <kbd>m</kbd> | Manage apps, then edit that app's models |
+| <kbd>s</kbd> | Stop |
+| <kbd>r</kbd> | Restart |
+| <kbd>d</kbd> | Disable proxy auto-start |
+| <kbd>l</kbd> | Logs |
+| <kbd>p</kbd> | Multi-account pool on/off |
+| <kbd>space</kbd> | Pause or enable a pool member |
+
+### Accounts
+
+| Key | Action |
+| --- | --- |
+| <kbd>enter</kbd> | Open in Switch, or save the current login |
+| <kbd>v</kbd> | View details and usage |
+| <kbd>a</kbd> | Add a login |
+| <kbd>i</kbd> | Import |
+| <kbd>e</kbd> | Export |
+| <kbd>r</kbd> | Refresh |
+| <kbd>x</kbd> | Remove |
+
+### Gateways
+
+| Key | Action |
+| --- | --- |
+| <kbd>enter</kbd> | Manage apps — binds like a proxy |
+| <kbd>m</kbd> | Manage apps |
+| <kbd>d</kbd> | Edit gateway model defaults |
+| <kbd>e</kbd> | Edit endpoint |
+| <kbd>a</kbd> | Add gateway |
+| <kbd>x</kbd> | Remove gateway |
+
+## Status glyphs
+
+| Glyph | State |
+| --- | --- |
+| `●` live | The tool is using this saved login right now |
+| `○` saved | Stored in Hotplug, not currently live |
+| `◐` changed | The live login and the saved snapshot differ |
+| `◐` attention | Not saved yet, or missing an API key |
+| `×` failed | A status check or an action failed |
+
+Set `NO_COLOR=1` and the glyphs carry the state on their own; on a terminal that
+cannot render them, Hotplug falls back to `*`, `o`, `!`, `x`.
+
+## Save current login
+
+When this machine is signed in to a provider but Hotplug has no snapshot of it,
+Switch and Accounts both offer **save current login** on <kbd>enter</kbd>. That
+is the fastest path from "I just logged in with the provider's CLI" to "Hotplug
+can switch back to this later."
+
+## Model bindings
+
+After **manage apps** you land on the model editor. For Claude that means the
+four roles — default, sonnet, opus, haiku — populated from the source's live
+catalog where one is available. On the Gateways side, <kbd>d</kbd> edits
+gateway-wide role defaults that every new binding inherits.
+
+<Aside type="note" title="Gemini proxies need an API key">
+The Gemini proxy reads `GEMINI_API_KEY` from the saved login's `.env`. An
+OAuth-only Gemini account can sign a client in, but cannot drive the proxy.
+</Aside>
+
+## Closing the UI
+
+Closing the terminal UI does not stop your proxies. Ownership passes to the
+supervisor — a macOS menu-bar item, or a headless background process elsewhere —
+so a client you launched keeps working. See
+[Proxies](/docs/guides/proxies#the-supervisor), or set `HOTPLUG_NO_TRAY=1` to exit
+without a supervisor.

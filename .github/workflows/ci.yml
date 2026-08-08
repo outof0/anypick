@@ -1,0 +1,68 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Format / Lint / Typecheck / Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.12.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.5'
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run full check (format + lint + typecheck + test)
+        run: pnpm check
+
+  pack:
+    name: Clean build / pack / consumer verification
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.12.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.5'
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Clean build and pack tarball
+        run: pnpm package
+
+      - name: Smoke-test the tarball (CLI + root import + blocked deep import)
+        run: node scripts/pack-smoke.mjs
+
+      - name: Verify consumer fixtures against the tarball (NodeNext + Bundler)
+        run: |
+          cd tests/consumer/nodenext && npm install --no-save $(ls ../../../dist/hotplug-*.tgz | head -1) && npm run typecheck
+          cd ../bundler && npm install --no-save $(ls ../../../dist/hotplug-*.tgz | head -1) && npm run typecheck
+
+      - name: Upload verified tarball
+        uses: actions/upload-artifact@v4
+        with:
+          name: hotplug-tarball
+          path: dist/hotplug-*.tgz
+          if-no-files-found: error

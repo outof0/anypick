@@ -1,0 +1,68 @@
+name: Bug report
+description: Something in Hotplug behaves incorrectly
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Hotplug rewrites other tools' credential and config files. **Never paste
+        the contents of an `auth.json`, a token, or an exported account file**
+        into this issue — redact them first. Proxy endpoints printed by Hotplug
+        already have their bearer token stripped, so those are safe to include.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you expect instead?
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: The exact commands you ran, in order.
+      placeholder: |
+        1. hotplug add account grok --current --name work
+        2. hotplug use claude --with grok/work
+        3. ...
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: doctor
+    attributes:
+      label: Output of `hotplug doctor --json`
+      description: This reports versions, detected clients, and state health.
+      render: json
+    validations:
+      required: false
+
+  - type: input
+    id: version
+    attributes:
+      label: Hotplug version
+      description: Output of `hotplug --version`
+    validations:
+      required: true
+
+  - type: input
+    id: node
+    attributes:
+      label: Node version
+      description: Output of `node --version` (Hotplug requires >=22.5)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - macOS
+        - Linux
+        - Other
+    validations:
+      required: true

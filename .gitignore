@@ -1,0 +1,11 @@
+node_modules/
+dist/
+*.tgz
+*.log
+.DS_Store
+coverage/
+.hotplug-test/
+*.hotplug.json
+docs/.astro/
+docs/dist/
+.claude/

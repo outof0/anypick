@@ -1,0 +1,30 @@
+name: Feature request
+description: Propose a new capability, client, or account provider
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem are you trying to solve?
+      description: Describe the workflow that is currently awkward or impossible.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: |
+        If you are proposing a new client or account provider, note which
+        transport it would need. Only `claude` and `codex` accept a source from a
+        different provider today — see `transportFor` in
+        `src/sources/account-adapters.ts`.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+    validations:
+      required: false

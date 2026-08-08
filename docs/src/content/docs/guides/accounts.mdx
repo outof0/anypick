@@ -1,0 +1,135 @@
+---
+title: Accounts
+description: Snapshot native provider logins so several can coexist and any client can use them.
+---
+
+An account is a login that some provider's own CLI created. Hotplug snapshots
+it, so you can keep several, switch between them, and lend one to a client that
+was never designed to use it.
+
+## Supported providers
+
+| Provider | Live auth | How other clients reach it |
+| --- | --- | --- |
+| `codex` | `~/.codex/auth.json` | direct, for Codex only |
+| `grok` | `~/.grok/auth.json` | built-in dual proxy (OpenAI + Anthropic) |
+| `opencode` | OpenCode auth store | built-in Zen/Go dual proxy |
+| `gemini` | `~/.gemini/` (`.env`, oauth, accounts) | built-in dual proxy → Gemini API |
+| `kiro` | kiro-cli secret store, `~/.aws/sso/cache`, or an API key you supply | external `kirolink` / `kiro-proxy`, if installed |
+
+`hotplug providers` prints the same table with live status for your machine.
+
+## Saving a login
+
+Hotplug does not implement provider login flows; it reads what the native tool
+produced. Two ways in:
+
+<Tabs>
+<TabItem label="Save the live login">
+```bash
+codex login
+hotplug add account codex --current --name personal
+```
+The credential that is live right now becomes a saved snapshot named
+`codex/personal`.
+</TabItem>
+<TabItem label="Start a fresh login">
+```bash
+hotplug add account codex --new --name work
+```
+Hotplug stashes the live credential and clears it, so the provider CLI offers a
+login prompt instead of reusing the existing session. Log in, and Hotplug saves
+the result under the new name.
+</TabItem>
+</Tabs>
+
+For Gemini, `--source gemini-cli|antigravity` picks which sign-in to read when
+both exist.
+
+## Saving an API key instead of a login
+
+Kiro also accepts a key you already hold:
+
+```bash
+hotplug add account kiro --api-key --name team      # prompts for the key
+hotplug add account kiro --api-key ksk_… --region us-east-1 --name team
+```
+
+Omit the value and Hotplug prompts for it, so the key never enters your shell
+history. `--region` is checked when the account is saved rather than when its
+proxy starts, because a region that looks plausible but is wrong produces an
+account that starts and then fails every request.
+
+In the [terminal UI](/docs/guides/terminal-ui) the same flow is
+**Use an API key instead** on the add-account screen. It is offered even when
+nothing is signed in. The key, the region and the name are one form: tab moves
+between them, the key is hidden as you type it, and the region keeps its known
+values under the arrow keys while staying editable for one this build has not
+heard of.
+
+A key is not a login on this machine: it is stored only in Hotplug, so
+it never shows as the live Kiro credential, activating it leaves any `kiro-cli`
+login on disk untouched, and `account refresh` will not overwrite it. Clients
+reach it exactly like any other Kiro account — through `kirolink`, which the
+account's proxy starts in API-key mode.
+
+<Aside type="caution" title="One live login at a time">
+Provider CLIs keep exactly one credential on disk. That is the constraint
+Hotplug works around: saved accounts live in its own store, and activation
+restores the selected one into the provider's path. Do not edit the provider's
+auth file by hand while a binding is active.
+</Aside>
+
+## Using an account
+
+```bash
+hotplug use codex --with codex/personal    # same-protocol: direct
+hotplug use claude --with grok/work        # cross-protocol: proxy starts on demand
+hotplug run claude
+```
+
+When the client and the account speak different protocols, Hotplug starts a
+local translating proxy and points the client at it. You do not start the proxy
+yourself — see [Proxies](/docs/guides/proxies) if you want to.
+
+## Managing saved accounts
+
+```bash
+hotplug account list                   # or: hotplug list accounts
+hotplug account refresh codex          # refresh the live login
+hotplug account refresh codex work     # refresh one saved account
+hotplug account refresh codex --all    # refresh every saved account
+hotplug account remove codex old -y
+```
+
+`refresh` renews OAuth tokens in place. The account keeps its name, so bindings
+that point at it keep working; nothing needs re-binding. It exits non-zero if any
+target failed, and prints which one.
+
+## Export and import
+
+Move an account to another machine:
+
+```bash
+hotplug account export codex work -o ./work.json
+hotplug account import codex work -i ./work.json
+```
+
+`import` refuses to overwrite an existing name unless you pass `--force`.
+
+<Aside type="danger" title="Exports contain live credentials">
+An exported file holds the real tokens in plain form. Treat it like the
+credential it is: transfer it over a channel you trust and delete it afterwards.
+</Aside>
+
+## Model defaults
+
+When a binding attaches an account proxy to Claude, Hotplug sets the Claude
+model roles:
+
+- `ANTHROPIC_MODEL` — the default
+- `ANTHROPIC_DEFAULT_SONNET_MODEL`, `…_OPUS_MODEL`, `…_HAIKU_MODEL`
+
+The values come from the running proxy's live `/v1/models` catalog when one is
+available, so newly released models appear without a Hotplug update. Change them
+later with `m` on the proxy board, or by re-binding with an explicit `--model`.

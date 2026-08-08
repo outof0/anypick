@@ -1,0 +1,146 @@
+---
+title: Proxies
+description: How Hotplug translates between protocols, and how to inspect or control the local processes.
+---
+
+When a client and an account do not speak the same protocol, Hotplug runs a
+local proxy between them. It starts on demand as part of activation and stops
+with the supervisor, so in normal use there is nothing to manage. Everything on
+this page is for inspection and debugging.
+
+## What the proxy does
+
+Each provider proxy accepts more than one wire format and forwards to the
+provider's real API:
+
+- **grok** — an OpenAI-compatible and an Anthropic-compatible route, forwarding
+  the authenticated upstream `/v1/models` catalog and requested model ids
+  unchanged
+- **opencode** — Zen and Go catalogs, choosing between the Messages, Chat
+  Completions, Responses, and Google protocols based on what the model supports
+- **gemini** — Gemini API by key, or Code Assist by OAuth, including the modern
+  `/v1/responses` request and SSE lifecycle current Codex CLI releases expect
+- **kiro** — delegated to an external `kirolink` / `kiro-proxy` binary if you
+  have one installed
+
+Model discovery is live, never a bundled list: Gemini reads `models.list` for
+API-key accounts and Code Assist `fetchAvailableModels` for OAuth accounts;
+OpenCode intersects the live catalogs with provider metadata. New models show up
+without a Hotplug release.
+
+Reasoning intent survives translation. Codex and OpenAI `reasoning_effort`,
+Responses `reasoning.effort`, Claude `output_config.effort`, adaptive thinking,
+explicit `budget_tokens`, and visible thinking summaries are all preserved;
+Google routes map the same intent onto Gemini's `thinkingConfig` and keep thought
+summaries separate from the final answer. Native Anthropic and OpenAI routes are
+pass-through.
+
+## Default ports
+
+| Provider | Port |
+| --- | --- |
+| `grok` | `8080` |
+| `kiro` | `4119` |
+| `opencode` | `4120` |
+| `gemini` | `4130` |
+
+A proxy that has no configured port takes the first free one.
+
+## Manual lifecycle
+
+```bash
+hotplug proxy                              # board: every proxy-capable account
+hotplug proxy status
+hotplug proxy status gemini work
+hotplug proxy start
+hotplug proxy stop
+hotplug proxy enable grok work -p 8080
+hotplug proxy disable grok work
+hotplug proxy logs gemini -f
+```
+
+`enable` configures a proxy and starts it; `--no-start` writes the config only.
+`disable` is the inverse. `config` (alias `set`) changes host, port, or auth
+options on an existing proxy and restarts it, unless you pass `--no-restart`.
+
+`hotplug proxy stop` with no arguments stops every running account proxy —
+including one left behind by an older session for an account that is no longer
+active.
+
+## Gemini auth sources
+
+Gemini accepts two sign-ins, and `--oauth-source` decides which one a proxy
+uses:
+
+```bash
+hotplug proxy config gemini work --oauth-source auto          # default
+hotplug proxy config gemini work --oauth-source gemini-cli
+hotplug proxy config gemini work --oauth-source antigravity
+```
+
+`auto` honors the Gemini CLI's selected OAuth or API-key login first, then falls
+back to the signed-in Antigravity credential from the macOS Keychain when the
+CLI catalog does not expose the requested model or returns an entitlement error.
+Catalog aliases resolve within a single auth source, so an Antigravity rollout id
+is never sent through Gemini CLI by mistake. Pin a source when you are debugging
+or when policy requires it.
+
+## OpenCode auth mode
+
+```bash
+hotplug proxy config opencode work --auth-mode auto|public|api
+```
+
+`auto` uses whatever the saved credential supports. `public` restricts the proxy
+to the Zen catalog. The upstream base URL can be overridden with
+`OPENCODE_PROXY_UPSTREAM`, and model metadata enrichment with
+`OPENCODE_MODEL_METADATA_URL` (set it to `none` to disable enrichment).
+
+## Multi-account pools
+
+The default is one proxy process per account. A pool puts several accounts of
+one provider behind a single port, so a client sees one endpoint and Hotplug
+handles rotation.
+
+```bash
+hotplug proxy pool enable gemini -p 4130
+hotplug proxy pool member gemini work on
+hotplug proxy pool member gemini alt off      # keep it configured but paused
+hotplug proxy pool status gemini
+
+hotplug use claude --with pool:gemini
+
+hotplug proxy pool disable gemini             # back to one process per account
+```
+
+In the terminal UI's proxy board, `p` toggles the pool and <kbd>space</kbd>
+pauses or re-enables the member under the cursor.
+
+<Aside type="note" title="Opt in deliberately">
+A pool is shared state: one port, several credentials, and rotation you do not
+see per request. Prefer per-account proxies unless you specifically want one
+endpoint with failover.
+</Aside>
+
+## The supervisor
+
+Proxies outlive the terminal UI so a client you launched keeps working after you
+close it.
+
+On macOS, closing the UI hands ownership to a native menu-bar status item with
+no Dock icon. Its menu can reopen Hotplug — in iTerm2 when installed, otherwise
+Terminal — restart enabled proxies, stop every proxy, or quit with a graceful
+shutdown. On Linux the same lifecycle runs as a headless background supervisor,
+with no bundled tray icon; use the CLI to inspect it.
+
+```bash
+hotplug tray start
+hotplug tray status
+hotplug tray stop     # quit the supervisor and stop every Hotplug-owned proxy
+```
+
+Set `HOTPLUG_NO_TRAY=1` to make the terminal UI exit without starting a
+supervisor at all.
+
+Orphans are cleaned up rather than accumulating: on startup, Hotplug releases
+leases whose owning process has exited and stops their proxies.

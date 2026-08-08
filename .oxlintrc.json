@@ -1,0 +1,61 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["typescript", "unicorn", "oxc"],
+  "categories": {
+    "correctness": "error",
+    "suspicious": "warn",
+    "perf": "warn",
+    "style": "off",
+    "pedantic": "off",
+    "restriction": "off"
+  },
+  "rules": {
+    "curly": ["error", "all"],
+    "no-await-in-loop": "off",
+    "no-unused-vars": "error",
+    "no-underscore-dangle": "off",
+    "typescript/no-unnecessary-type-conversion": "off",
+    "typescript/no-explicit-any": "off",
+    "typescript/no-non-null-assertion": "off",
+    "typescript/no-unsafe-type-assertion": "off",
+    "typescript/no-unsafe-assignment": "error",
+    "typescript/no-unsafe-member-access": "error",
+    "typescript/no-unsafe-argument": "error",
+    "typescript/no-unsafe-call": "error",
+    "typescript/no-unsafe-return": "error",
+    "typescript/unbound-method": "off",
+    "typescript/no-base-to-string": "off",
+    "typescript/restrict-template-expressions": "off",
+    "typescript/no-misused-promises": "error",
+    "typescript/no-floating-promises": "error",
+    "typescript/require-await": "off",
+    "unicorn/filename-case": "off",
+    "unicorn/no-null": "off",
+    "unicorn/prefer-module": "off",
+    "unicorn/prefer-top-level-await": "off",
+    "unicorn/no-process-exit": "off",
+    "unicorn/prefer-ternary": "off",
+    "unicorn/no-array-reduce": "off",
+    "unicorn/prefer-spread": "off",
+    "unicorn/no-useless-spread": "warn"
+  },
+  "ignorePatterns": [
+    "dist/**",
+    "node_modules/**",
+    "*.md",
+    "scripts/**",
+    "tests/consumer/**",
+    "docs/**"
+  ],
+  "overrides": [
+    {
+      "files": ["tests/**"],
+      "rules": {
+        "typescript/no-unsafe-call": "off",
+        "typescript/no-unsafe-argument": "off",
+        "typescript/no-unsafe-assignment": "off",
+        "typescript/no-unsafe-member-access": "off"
+      }
+    }
+  ]
+}
