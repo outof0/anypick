@@ -1,13 +1,14 @@
 # AnyPick Tauri tray
 
-This is the Linux/Windows UI helper. It owns no AnyPick state and never reads
+This is the Linux UI helper. It owns no AnyPick state and never reads
 credentials. The Node supervisor spawns it with piped stdin/stdout:
 
 - supervisor → helper: filtered `snapshot`, `result`, and `logs` messages;
 - helper → supervisor: bounded `invoke`, `mutate`, `logs`, and simple commands.
 
 The macOS build continues to use `AnyPickTray.swift`. When a packaged Tauri
-binary is unavailable, Linux/Windows keep the existing headless supervisor.
+binary is unavailable, Linux keeps the existing headless supervisor. Windows
+remains unsupported and is not part of the release matrix.
 AnyPick looks first beside its packaged JavaScript, then for `anypick-tray` on
 `PATH`. Developers can set `ANYPICK_TAURI_TRAY_BINARY` to an absolute path.
 Release artifacts use the platform/architecture suffixes emitted by
@@ -25,7 +26,7 @@ From the repository root:
 | --- | --- |
 | `pnpm dev tray start` | Real tray against your `~/.anypick` data (main path) |
 | `pnpm tray:check` | Compile-check Tauri helper (+ UI typecheck/build) |
-| `pnpm tray:build` | Release helper binary (Linux/Windows only) |
+| `pnpm tray:build` | Release helper binary (Linux release path) |
 | `pnpm tray:smoke` | Full binary protocol suite (one spawn: seed + multi-command + quit) |
 | `pnpm tray:smoke:only` | Short path only (`snapshot` → `refresh` → exit) |
 | `pnpm tray:e2e:ui` | Playwright click-through against the Vite demo fixture |
@@ -41,12 +42,12 @@ Keychain, or real proxy processes.
 
 Path-filtered (only when `src/tray/**`, tray scripts, or lockfile change):
 
-1. **`tray-ui-e2e`** (Linux + Windows) — Playwright against the React demo
+1. **`tray-ui-e2e`** (Linux) — Playwright against the React demo
    bridge. Chromium browsers are cached by lockfile hash.
-2. **`tauri-tray`** (Linux + Windows) — rust-cache + `cargo test` + UI build +
+2. **`tauri-tray`** (Linux) — rust-cache + `cargo test` + UI build +
    release binary + **one** `pnpm tray:smoke` spawn covering seed, multi-command
    probe (`refresh|logs|mutate|invoke|model-roles|navigate|quit`), garbage
-   rejection, and quit. Linux wraps with `xvfb-run`.
+   rejection, and quit. Protocol mode returns before Tauri initializes GTK/WebKit.
 
 Still out of scope for CI (needs a real desktop + installed clients): live
 `pnpm dev tray start` against `~/.anypick`, tray-icon click geometry, and OS

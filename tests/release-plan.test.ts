@@ -128,5 +128,9 @@ describe('release plan', () => {
   it('keeps the headless Tauri protocol smoke out of demo mode', () => {
     expect(tauriSmoke).not.toContain("ANYPICK_TRAY_DEMO: '1'");
     expect(tauriSmoke).toContain("ANYPICK_TRAY_PROBE: '1'");
+    for (const workflow of [ciWorkflow, releaseWorkflow]) {
+      expect(workflow).toContain('pnpm tray:smoke');
+      expect(workflow).not.toContain('xvfb-run');
+    }
   });
 });

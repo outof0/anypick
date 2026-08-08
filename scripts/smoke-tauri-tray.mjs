@@ -10,7 +10,7 @@
  *   --probe | ANYPICK_TRAY_PROBE=1 | default
  *     full multi-command suite
  *
- * Never reads/writes ~/.anypick. Linux CI should wrap with xvfb-run.
+ * Never reads/writes ~/.anypick. Protocol mode exits before desktop initialization.
  */
 import { spawn } from 'node:child_process';
 import { access, constants } from 'node:fs/promises';

@@ -61,6 +61,42 @@ fn is_protocol_mode(smoke: bool, probe: bool) -> bool {
     smoke || probe
 }
 
+fn command_for_probe(kind: &str) -> Option<&'static str> {
+    match kind {
+        "refresh" => Some("refresh"),
+        "logs" => Some("logs\te30="),
+        "mutate" => Some("mutate\te30="),
+        "invoke" => Some("invoke\te30="),
+        "model-roles" => Some("model-roles\te30="),
+        "navigate" => Some("navigate\taccounts"),
+        "quit" => Some("quit"),
+        _ => None,
+    }
+}
+
+fn run_protocol_mode(smoke: bool, probe: bool) {
+    // This path intentionally returns before Tauri/GTK/WebKit initialization.
+    // CI runners may have Xvfb without an accessibility D-Bus service.
+    let stdin = io::stdin();
+    for line in stdin.lock().lines().map_while(Result::ok) {
+        if probe {
+            if let Some(kind) = line.strip_prefix("probe\t") {
+                if let Some(command) = command_for_probe(kind) {
+                    let _ = send_command(command.into());
+                    if command == "quit" {
+                        return;
+                    }
+                }
+                continue;
+            }
+        }
+        if smoke && valid_supervisor_line(&line) {
+            let _ = send_command("refresh".into());
+            return;
+        }
+    }
+}
+
 fn show_main_window(app: &tauri::AppHandle) {
     if let Some(window) = app.get_webview_window("main") {
         let _ = window.unminimize();
@@ -70,45 +106,8 @@ fn show_main_window(app: &tauri::AppHandle) {
 }
 
 fn read_supervisor(app: tauri::AppHandle) {
-    // ANYPICK_TRAY_SMOKE=1: single-shot refresh after first valid snapshot.
-    // ANYPICK_TRAY_PROBE=1: multi-command protocol probe without the webview.
-    //   Supervisor may send: `probe\trefresh|logs|mutate|invoke|model-roles|navigate|quit`
-    //   Helper replies with the matching UI command on stdout, then exits on quit/EOF.
-    let smoke = std::env::var_os("ANYPICK_TRAY_SMOKE").is_some();
-    let probe = std::env::var_os("ANYPICK_TRAY_PROBE").is_some();
     let stdin = io::stdin();
     for line in stdin.lock().lines().map_while(Result::ok) {
-        if probe {
-            if let Some(kind) = line.strip_prefix("probe\t") {
-                match kind {
-                    "refresh" => {
-                        let _ = send_command("refresh".into());
-                    }
-                    "logs" => {
-                        let _ = send_command("logs\te30=".into());
-                    }
-                    "mutate" => {
-                        let _ = send_command("mutate\te30=".into());
-                    }
-                    "invoke" => {
-                        let _ = send_command("invoke\te30=".into());
-                    }
-                    "model-roles" => {
-                        let _ = send_command("model-roles\te30=".into());
-                    }
-                    "navigate" => {
-                        let _ = send_command("navigate\taccounts".into());
-                    }
-                    "quit" => {
-                        let _ = send_command("quit".into());
-                        app.exit(0);
-                        return;
-                    }
-                    _ => {}
-                }
-                continue;
-            }
-        }
         if !valid_supervisor_line(&line) {
             continue;
         }
@@ -116,64 +115,58 @@ fn read_supervisor(app: tauri::AppHandle) {
             *current = Some(line.clone());
         }
         let _ = app.emit("supervisor-line", line);
-        // CI smoke path: prove stdin → state → stdout without driving the webview.
-        // One successful snapshot causes a single refresh, then a clean exit.
-        if smoke {
-            let _ = send_command("refresh".into());
-            app.exit(0);
-            return;
-        }
     }
     app.exit(0);
 }
 
 fn main() {
+    let smoke = std::env::var_os("ANYPICK_TRAY_SMOKE").is_some();
+    let probe = std::env::var_os("ANYPICK_TRAY_PROBE").is_some();
+    if is_protocol_mode(smoke, probe) {
+        run_protocol_mode(smoke, probe);
+        return;
+    }
+
     tauri::Builder::default()
         .manage(BridgeState::default())
         .invoke_handler(tauri::generate_handler![send_command, last_supervisor_line])
         .setup(|app| {
-            let protocol_mode = is_protocol_mode(
-                std::env::var_os("ANYPICK_TRAY_SMOKE").is_some(),
-                std::env::var_os("ANYPICK_TRAY_PROBE").is_some(),
-            );
-            if !protocol_mode {
-                let show = MenuItem::with_id(app, "show", "Open AnyPick", true, None::<&str>)?;
-                let refresh = MenuItem::with_id(app, "refresh", "Refresh", true, None::<&str>)?;
-                let separator = PredefinedMenuItem::separator(app)?;
-                let quit = MenuItem::with_id(app, "quit", "Quit AnyPick", true, None::<&str>)?;
-                let menu = Menu::with_items(app, &[&show, &refresh, &separator, &quit])?;
-                TrayIconBuilder::with_id("anypick")
-                    .icon(tauri::include_image!("../../../../assets/icon-32.png"))
-                    .tooltip("AnyPick")
-                    .menu(&menu)
-                    .show_menu_on_left_click(false)
-                    .on_menu_event(|app, event| match event.id().as_ref() {
-                        "show" => show_main_window(app),
-                        "refresh" => {
-                            let _ = send_command("refresh".into());
-                        }
-                        "quit" => {
-                            let _ = send_command("quit".into());
-                            app.exit(0);
-                        }
-                        _ => {}
-                    })
-                    .on_tray_icon_event(|tray, event| {
-                        if let TrayIconEvent::Click {
-                            button: MouseButton::Left,
-                            button_state: MouseButtonState::Up,
-                            ..
-                        } = event
-                        {
-                            show_main_window(tray.app_handle());
-                        }
-                    })
-                    .build(app)?;
-            }
+            let show = MenuItem::with_id(app, "show", "Open AnyPick", true, None::<&str>)?;
+            let refresh = MenuItem::with_id(app, "refresh", "Refresh", true, None::<&str>)?;
+            let separator = PredefinedMenuItem::separator(app)?;
+            let quit = MenuItem::with_id(app, "quit", "Quit AnyPick", true, None::<&str>)?;
+            let menu = Menu::with_items(app, &[&show, &refresh, &separator, &quit])?;
+            TrayIconBuilder::with_id("anypick")
+                .icon(tauri::include_image!("../../../../assets/icon-32.png"))
+                .tooltip("AnyPick")
+                .menu(&menu)
+                .show_menu_on_left_click(false)
+                .on_menu_event(|app, event| match event.id().as_ref() {
+                    "show" => show_main_window(app),
+                    "refresh" => {
+                        let _ = send_command("refresh".into());
+                    }
+                    "quit" => {
+                        let _ = send_command("quit".into());
+                        app.exit(0);
+                    }
+                    _ => {}
+                })
+                .on_tray_icon_event(|tray, event| {
+                    if let TrayIconEvent::Click {
+                        button: MouseButton::Left,
+                        button_state: MouseButtonState::Up,
+                        ..
+                    } = event
+                    {
+                        show_main_window(tray.app_handle());
+                    }
+                })
+                .build(app)?;
 
             let handle = app.handle().clone();
             std::thread::spawn(move || read_supervisor(handle));
-            if !protocol_mode && std::env::var_os("ANYPICK_TRAY_DEMO").is_some() {
+            if std::env::var_os("ANYPICK_TRAY_DEMO").is_some() {
                 show_main_window(app.handle());
             }
             Ok(())
@@ -209,9 +202,18 @@ mod tests {
     }
 
     #[test]
-    fn protocol_modes_do_not_install_interactive_tray_ui() {
+    fn protocol_modes_bypass_interactive_tray_runtime() {
         assert!(is_protocol_mode(true, false));
         assert!(is_protocol_mode(false, true));
         assert!(!is_protocol_mode(false, false));
+    }
+
+    #[test]
+    fn probe_commands_are_bounded_to_the_supported_bridge_surface() {
+        assert_eq!(command_for_probe("refresh"), Some("refresh"));
+        assert_eq!(command_for_probe("model-roles"), Some("model-roles\te30="));
+        assert_eq!(command_for_probe("navigate"), Some("navigate\taccounts"));
+        assert_eq!(command_for_probe("quit"), Some("quit"));
+        assert_eq!(command_for_probe("unknown"), None);
     }
 }
