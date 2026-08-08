@@ -7,7 +7,7 @@ export function isUnderRoot(path: string, root: string): boolean {
   return rel === '' || (!rel.startsWith('..') && !rel.startsWith('/'));
 }
 
-export async function walkHotplugOwned(
+export async function walkAnyPickOwned(
   root: string,
   visit: (path: string, isDir: boolean) => Promise<void>,
 ): Promise<void> {

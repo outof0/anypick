@@ -16,14 +16,14 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createServer, type Server } from 'node:http';
-import { createAppReady, type HotplugApp } from '../src/core/app';
+import { createAppReady, type AnyPickApp } from '../src/core/app';
 import { ProviderRegistry } from '../src/core/registry';
 import { ClientRegistry } from '../src/clients/registry';
 import { CatalogRegistry } from '../src/catalog/providers';
 import { openDatabase } from '../src/core/db';
 import { FakeProvider } from './helpers';
 
-async function seedAccount(app: HotplugApp, provider: string, name: string): Promise<void> {
+async function seedAccount(app: AnyPickApp, provider: string, name: string): Promise<void> {
   const { snapshotDir } = await app.accountStore.prepareSnapshot(provider, name);
   await writeFile(join(snapshotDir, 'auth.json'), JSON.stringify({ token: 't' }), { mode: 0o600 });
   await app.accountStore.writeMeta({
@@ -45,11 +45,11 @@ async function occupyPort(): Promise<{ port: number; server: Server }> {
 
 describe('ProxyService', () => {
   let root: string;
-  let app: HotplugApp;
+  let app: AnyPickApp;
   const openServers: Server[] = [];
 
   beforeEach(async () => {
-    root = await mkdtemp(join(tmpdir(), 'hotplug-proxysvc-'));
+    root = await mkdtemp(join(tmpdir(), 'anypick-proxysvc-'));
     const accountRegistry = new ProviderRegistry();
     accountRegistry.register(
       new FakeProvider('p', join(root, 'live', 'p'), { withProxy: true, defaultProxyPort: 19100 }),

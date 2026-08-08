@@ -1,19 +1,21 @@
 import React from 'react';
-import type { HotplugApp } from '../core/app';
+import type { AnyPickApp } from '../core/app';
+import { buildClientRows, type ClientRow } from '../cli/launcher-model';
 import {
-  buildHotplugPreview,
+  buildAnyPickPreview,
   formatUsageSummary,
-  hotplugContextFromPreview,
-  hotplugContextLines,
+  anypickContextFromPreview,
+  anypickContextLines,
   loadAppBindings,
   loadGateways,
-  loadHotplugHome,
+  loadAnyPickHome,
   loadProxyOverview,
+  loadProxyHubView,
   type AccountDetailModel,
   type AppBindingRow,
   type GatewayRow,
-  type HotplugHomeModel,
-  type HotplugPreviewModel,
+  type AnyPickHomeModel,
+  type AnyPickPreviewModel,
   type ProxyRow,
 } from './model';
 import type { CatalogPickRow } from './screens/gateway-pick-provider';
@@ -29,46 +31,71 @@ import { errorText, type TuiShell } from './use-tui-shell';
  * proxy hook having to know gateways exist.
  */
 export interface TuiNav {
-  home: HotplugHomeModel | null;
+  clientRows: ClientRow[];
+  home: AnyPickHomeModel | null;
   proxyRows: ProxyRow[];
   gatewayRows: GatewayRow[];
   catalogPicks: CatalogPickRow[];
   setCatalogPicks: React.Dispatch<React.SetStateAction<CatalogPickRow[]>>;
   apps: AppBindingRow[];
   setApps: React.Dispatch<React.SetStateAction<AppBindingRow[]>>;
-  preview: HotplugPreviewModel | null;
-  setPreview: React.Dispatch<React.SetStateAction<HotplugPreviewModel | null>>;
+  preview: AnyPickPreviewModel | null;
+  setPreview: React.Dispatch<React.SetStateAction<AnyPickPreviewModel | null>>;
   accountDetail: AccountDetailModel | null;
   setAccountDetail: React.Dispatch<React.SetStateAction<AccountDetailModel | null>>;
   liveUsageSummary: string | undefined;
   contextLines: string[] | undefined;
-  reloadHome: (focusRef?: string) => Promise<HotplugHomeModel>;
+  reloadHome: (focusRef?: string) => Promise<AnyPickHomeModel>;
+  reloadClients: (focusClientId?: string) => Promise<ClientRow[]>;
   reloadProxies: (focusRef?: string) => Promise<ProxyRow[]>;
   openSwitch: (focusRef?: string) => Promise<void>;
+  openApps: (focusClientId?: string) => Promise<void>;
   openProxy: (focusRef?: string) => Promise<void>;
   openAccounts: (focusRef?: string) => Promise<void>;
   openGateways: (focusName?: string) => Promise<void>;
 }
 
-export function useTuiNav(app: HotplugApp, shell: TuiShell): TuiNav {
+function appRoutingRows(app: AnyPickApp, rows: ClientRow[]): ClientRow[] {
+  const routeClientIds = new Set(
+    app.clients
+      .list()
+      .filter((client) => client.routingSurfacePolicy === 'all-compatible')
+      .map((client) => client.id),
+  );
+  return rows.filter((row) => routeClientIds.has(row.clientId));
+}
+
+export function useTuiNav(app: AnyPickApp, shell: TuiShell): TuiNav {
   const { screen, go, busy, withBusy, selectedIndex, setSelectedIndex } = shell;
 
-  const [home, setHome] = React.useState<HotplugHomeModel | null>(null);
+  const [home, setHome] = React.useState<AnyPickHomeModel | null>(null);
+  const [clientRows, setClientRows] = React.useState<ClientRow[]>([]);
   const [proxyRows, setProxyRows] = React.useState<ProxyRow[]>([]);
   const [gatewayRows, setGatewayRows] = React.useState<GatewayRow[]>([]);
   const [catalogPicks, setCatalogPicks] = React.useState<CatalogPickRow[]>([]);
   const [apps, setApps] = React.useState<AppBindingRow[]>([]);
-  const [preview, setPreview] = React.useState<HotplugPreviewModel | null>(null);
+  const [preview, setPreview] = React.useState<AnyPickPreviewModel | null>(null);
   const [accountDetail, setAccountDetail] = React.useState<AccountDetailModel | null>(null);
   const [liveUsageSummary, setLiveUsageSummary] = React.useState<string | undefined>();
   const [contextLines, setContextLines] = React.useState<string[] | undefined>();
 
   const reloadHome = React.useCallback(
     async (focusRef?: string) => {
-      const model = await loadHotplugHome(app);
+      const model = await loadAnyPickHome(app);
       setHome(model);
       setSelectedIndex(indexOfRef(model.rows, focusRef));
       return model;
+    },
+    [app, setSelectedIndex],
+  );
+
+  const reloadClients = React.useCallback(
+    async (focusClientId?: string) => {
+      const rows = appRoutingRows(app, await buildClientRows(app));
+      setClientRows(rows);
+      const idx = focusClientId ? rows.findIndex((row) => row.clientId === focusClientId) : 0;
+      setSelectedIndex(idx >= 0 ? idx : 0);
+      return rows;
     },
     [app, setSelectedIndex],
   );
@@ -84,7 +111,7 @@ export function useTuiNav(app: HotplugApp, shell: TuiShell): TuiNav {
     try {
       const prev = homeRef.current;
       const prevRef = prev?.rows[selectedIndexRef.current]?.ref;
-      const model = await loadHotplugHome(app);
+      const model = await loadAnyPickHome(app);
       setHome(model);
       if (prevRef) {
         setSelectedIndex(indexOfRef(model.rows, prevRef));
@@ -111,12 +138,36 @@ export function useTuiNav(app: HotplugApp, shell: TuiShell): TuiNav {
     let cancelled = false;
     void (async () => {
       try {
-        const model = await loadHotplugHome(app);
+        const requested = process.env.ANYPICK_TUI_SCREEN;
+        const [model, clients, initialProxies, initialGateways, initialHub] = await Promise.all([
+          loadAnyPickHome(app),
+          buildClientRows(app),
+          requested === 'proxy' ? loadProxyOverview(app) : Promise.resolve([]),
+          requested === 'gateways' || requested === 'add-gateway'
+            ? loadGateways(app)
+            : Promise.resolve([]),
+          requested === 'proxy-hub' ? loadProxyHubView(app) : Promise.resolve(null),
+        ]);
         if (cancelled) {
           return;
         }
         setHome(model);
-        go({ kind: 'hotplug' });
+        setClientRows(appRoutingRows(app, clients));
+        if (requested === 'accounts' || requested === 'add-account') {
+          go({ kind: 'accounts' });
+        } else if (requested === 'gateways' || requested === 'add-gateway') {
+          setGatewayRows(initialGateways);
+          setApps(loadAppBindings(app));
+          go({ kind: 'gateways' });
+        } else if (requested === 'proxy') {
+          setProxyRows(initialProxies);
+          setApps(loadAppBindings(app));
+          go({ kind: 'proxy' });
+        } else if (requested === 'proxy-hub' && initialHub) {
+          go({ kind: 'proxy-hub', view: initialHub });
+        } else {
+          go({ kind: 'apps' });
+        }
         setSelectedIndex(0);
       } catch (err) {
         if (cancelled) {
@@ -125,7 +176,7 @@ export function useTuiNav(app: HotplugApp, shell: TuiShell): TuiNav {
         go({
           kind: 'message',
           msg: `Failed to load: ${errorText(err)}`,
-          back: { kind: 'hotplug' },
+          back: { kind: 'apps' },
         });
       }
     })();
@@ -137,7 +188,7 @@ export function useTuiNav(app: HotplugApp, shell: TuiShell): TuiNav {
   // Re-run detectLive while browsing Switch/Accounts so status tracks the
   // real tool login, not a stale DB snapshot.
   React.useEffect(() => {
-    if (screen.kind !== 'hotplug' && screen.kind !== 'accounts') {
+    if (screen.kind !== 'anypick' && screen.kind !== 'accounts') {
       return;
     }
     if (busy) {
@@ -164,7 +215,7 @@ export function useTuiNav(app: HotplugApp, shell: TuiShell): TuiNav {
   // Keyed by provider so moving the cursor between rows doesn't refetch; only a
   // change of which provider is live triggers a new fetch.
   const liveProviderId =
-    screen.kind === 'hotplug'
+    screen.kind === 'anypick'
       ? home?.rows.find((r) => r.active && r.isLiveMatch)?.providerId
       : undefined;
   React.useEffect(() => {
@@ -192,7 +243,7 @@ export function useTuiNav(app: HotplugApp, shell: TuiShell): TuiNav {
 
   // Debounced plan preview into CONTEXT pane (V2 progressive disclosure)
   React.useEffect(() => {
-    if (screen.kind !== 'hotplug' || !home) {
+    if (screen.kind !== 'anypick' || !home) {
       return;
     }
     const row = home.rows[selectedIndex];
@@ -200,16 +251,16 @@ export function useTuiNav(app: HotplugApp, shell: TuiShell): TuiNav {
       setContextLines(undefined);
       return;
     }
-    setContextLines(hotplugContextLines(row));
+    setContextLines(anypickContextLines(row));
     let cancelled = false;
     const t = setTimeout(() => {
       void (async () => {
         try {
-          const p = await buildHotplugPreview(app, row.providerId, row.name);
+          const p = await buildAnyPickPreview(app, row.providerId, row.name);
           if (cancelled) {
             return;
           }
-          setContextLines(hotplugContextFromPreview(row, p));
+          setContextLines(anypickContextFromPreview(row, p));
         } catch {
           // keep static context
         }
@@ -224,7 +275,14 @@ export function useTuiNav(app: HotplugApp, shell: TuiShell): TuiNav {
   const openSwitch = async (focusRef?: string) => {
     await withBusy('Loading saved logins', async () => {
       await reloadHome(focusRef);
-      go({ kind: 'hotplug', focusRef });
+      go({ kind: 'anypick', focusRef });
+    });
+  };
+
+  const openApps = async (focusClientId?: string) => {
+    await withBusy('Loading apps', async () => {
+      await reloadClients(focusClientId);
+      go({ kind: 'apps', focusClientId });
     });
   };
 
@@ -254,6 +312,7 @@ export function useTuiNav(app: HotplugApp, shell: TuiShell): TuiNav {
   };
 
   return {
+    clientRows,
     home,
     proxyRows,
     gatewayRows,
@@ -268,8 +327,10 @@ export function useTuiNav(app: HotplugApp, shell: TuiShell): TuiNav {
     liveUsageSummary,
     contextLines,
     reloadHome,
+    reloadClients,
     reloadProxies,
     openSwitch,
+    openApps,
     openProxy,
     openAccounts,
     openGateways,

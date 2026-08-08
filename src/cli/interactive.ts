@@ -7,8 +7,8 @@
 
 import * as p from '@clack/prompts';
 import pc from 'picocolors';
-import type { HotplugApp } from '../core/app';
-import { isHotplugError, ExitCode } from '../utils/errors';
+import type { AnyPickApp } from '../core/app';
+import { isAnyPickError, ExitCode } from '../utils/errors';
 import { openRootLauncher, installLauncherSigint } from './launcher';
 import { MARK } from './ux';
 import type { LauncherAction } from './launcher-model';
@@ -21,9 +21,9 @@ function isCancel(value: unknown): boolean {
 }
 
 /**
- * Bare `hotplug` entry (TTY).
+ * Bare `anypick` entry (TTY).
  */
-export async function runInteractive(app: HotplugApp): Promise<void> {
+export async function runInteractive(app: AnyPickApp): Promise<void> {
   const removeSig = installLauncherSigint();
   let previousActionId: string | undefined;
 
@@ -50,7 +50,7 @@ export async function runInteractive(app: HotplugApp): Promise<void> {
 
 type DispatchResult = 'continue' | 'exit';
 
-async function dispatchAction(app: HotplugApp, action: LauncherAction): Promise<DispatchResult> {
+async function dispatchAction(app: AnyPickApp, action: LauncherAction): Promise<DispatchResult> {
   try {
     switch (action.kind) {
       case 'run': {
@@ -109,7 +109,7 @@ async function dispatchAction(app: HotplugApp, action: LauncherAction): Promise<
     }
   } catch (err) {
     // Wizards use clack; print error cleanly then return to launcher
-    const msg = isHotplugError(err)
+    const msg = isAnyPickError(err)
       ? err.message
       : err instanceof Error
         ? err.message
@@ -121,7 +121,7 @@ async function dispatchAction(app: HotplugApp, action: LauncherAction): Promise<
 
 // ── Wizards (@clack/prompts) ─────────────────────────────────────
 
-async function wizardChangeDefault(app: HotplugApp, preselectedClient?: string): Promise<void> {
+async function wizardChangeDefault(app: AnyPickApp, preselectedClient?: string): Promise<void> {
   const { bindingService, clients } = app;
   let client = preselectedClient;
 
@@ -169,7 +169,7 @@ async function wizardChangeDefault(app: HotplugApp, preselectedClient?: string):
   }
 }
 
-async function pickSource(app: HotplugApp, client: string): Promise<string | null> {
+async function pickSource(app: AnyPickApp, client: string): Promise<string | null> {
   const options: { value: string; label: string; hint?: string }[] = [];
 
   for (const a of await app.accounts.list()) {
@@ -222,7 +222,7 @@ async function pickSource(app: HotplugApp, client: string): Promise<string | nul
   return picked;
 }
 
-async function wizardAddConnection(app: HotplugApp): Promise<void> {
+async function wizardAddConnection(app: AnyPickApp): Promise<void> {
   const kind = await p.select({
     message: 'Add connection',
     options: [
@@ -240,7 +240,7 @@ async function wizardAddConnection(app: HotplugApp): Promise<void> {
   }
 }
 
-async function wizardAddGateway(app: HotplugApp): Promise<void> {
+async function wizardAddGateway(app: AnyPickApp): Promise<void> {
   const { profiles, catalog, bindingService, clients } = app;
   const name = await p.text({
     message: 'Gateway name',
@@ -303,11 +303,11 @@ async function wizardAddGateway(app: HotplugApp): Promise<void> {
     const result = await bindingService.use('claude', { with: created.meta.name });
     p.log.success(`${clients.get('claude').name} → ${result.plan.resolvedSource.display}`);
   } else {
-    p.log.message(pc.dim(`  hotplug use claude --with ${created.meta.name}`));
+    p.log.message(pc.dim(`  anypick use claude --with ${created.meta.name}`));
   }
 }
 
-async function wizardLink(app: HotplugApp): Promise<void> {
+async function wizardLink(app: AnyPickApp): Promise<void> {
   const client = await p.select({
     message: 'Link which client?',
     options: app.clients.list().map((c) => ({

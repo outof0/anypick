@@ -1,4 +1,4 @@
-import type { HotplugApp } from '../../core/app';
+import type { AnyPickApp } from '../../core/app';
 import { parseRef } from '../../core/refs';
 import {
   defaultModelRolesForProxy,
@@ -22,6 +22,7 @@ import { errorText, type TuiShell } from '../use-tui-shell';
 import type { TuiNav } from '../use-tui-nav';
 import type { ModelRoleEditor } from './use-model-role-editor';
 import { ensureProxyUp } from './ensure-proxy-up';
+import { fetchModelsFromProxyEndpoint, mergeProxyModelSuggestions } from '../proxy-models-fetch';
 
 /** A previously verified setup offered back to the user as a one-key resume. */
 export interface SourceResumeCandidate {
@@ -97,6 +98,7 @@ export interface AppBindingActions {
   commitProxyModels: (screen: ProxyModelsScreenState) => void;
   /** Back out of the model map, to wherever the batch was entered from. */
   cancelProxyModels: (screen: ProxyModelsScreenState) => void;
+  refreshProxyModelSuggestions: (providerId: string, name: string, forceRefresh?: boolean) => void;
 }
 
 /** The `--with` value a client is bound to for this source. */
@@ -105,6 +107,10 @@ function bindingWith(providerId: string, name: string): string {
   if (providerId === 'gateway') {
     return name;
   }
+  // Proxy Hub uses hub:name (parseRef accepts hub: / hub/).
+  if (providerId === 'proxy-hub') {
+    return `hub:${name}`;
+  }
   if (name === 'pool' || name === '*') {
     return `pool:${providerId}`;
   }
@@ -112,7 +118,7 @@ function bindingWith(providerId: string, name: string): string {
 }
 
 export function useAppBindings(
-  app: HotplugApp,
+  app: AnyPickApp,
   shell: TuiShell,
   nav: TuiNav,
   policyLookup: ModelPolicyLookup,
@@ -240,10 +246,14 @@ export function useAppBindings(
     detach: AppBindingRow[];
     rolesByClient: Record<string, Record<string, string>>;
     reedit?: boolean;
+    forceRefresh?: boolean;
   }) => {
     void (async () => {
       await withBusy('Loading models', async () => {
-        const defaults = defaultModelRolesForProxy(opts.providerId, opts.clientId, policyLookup);
+        const clientAdapter = app.clients.has(opts.clientId)
+          ? app.clients.get(opts.clientId)
+          : opts.clientId;
+        const defaults = defaultModelRolesForProxy(opts.providerId, clientAdapter, policyLookup);
         let existing: Record<string, string> | undefined;
         try {
           const source = bindingWith(opts.providerId, opts.name);
@@ -269,27 +279,36 @@ export function useAppBindings(
                 : await app.proxy.proxyStatus(opts.providerId, opts.name);
             const endpoint = st.endpoint;
             if (endpoint && st.running) {
-              const { fetchModelsFromProxyEndpoint, mergeProxyModelSuggestions } =
-                await import('../proxy-models-fetch');
               const apiKey = await proxyModelListToken(opts.providerId, opts.name);
-              const fetched = await fetchModelsFromProxyEndpoint(endpoint, { apiKey });
-              const merged = mergeProxyModelSuggestions(opts.providerId, fetched.models, {
-                includeStaticFallback: fetched.models.length === 0,
-                policy: policyLookup,
+              const fetched = await fetchModelsFromProxyEndpoint(endpoint, {
+                apiKey,
+                refresh: opts.forceRefresh,
               });
-              suggestions = merged.suggestions;
-              suggestionsSource = merged.source;
-            } else {
-              const { mergeProxyModelSuggestions } = await import('../proxy-models-fetch');
-              const merged = mergeProxyModelSuggestions(opts.providerId, [], {
-                includeStaticFallback: true,
+              const merged = mergeProxyModelSuggestions(opts.providerId, fetched.models, {
+                includeStaticFallback: false,
                 policy: policyLookup,
               });
               suggestions = merged.suggestions;
               suggestionsSource = merged.source;
             }
+            if (suggestions.length === 0) {
+              const liveDiscovery = await app.modelDiscovery.list({
+                providerId: opts.providerId,
+                refresh: opts.forceRefresh,
+              });
+              if (liveDiscovery.models.length > 0) {
+                suggestions = liveDiscovery.models;
+                suggestionsSource = liveDiscovery.source;
+              } else {
+                const merged = mergeProxyModelSuggestions(opts.providerId, [], {
+                  includeStaticFallback: true,
+                  policy: policyLookup,
+                });
+                suggestions = merged.suggestions;
+                suggestionsSource = merged.source;
+              }
+            }
           } catch {
-            const { mergeProxyModelSuggestions } = await import('../proxy-models-fetch');
             const merged = mergeProxyModelSuggestions(opts.providerId, [], {
               includeStaticFallback: true,
               policy: policyLookup,
@@ -331,7 +350,7 @@ export function useAppBindings(
         );
         const firstModel = suggestions[0];
         if (firstModel) {
-          for (const role of modelRolesForClient(opts.clientId)) {
+          for (const role of modelRolesForClient(clientAdapter)) {
             if (!filledDefaults[role.id]?.trim()) {
               filledDefaults[role.id] = firstModel;
             }
@@ -345,7 +364,7 @@ export function useAppBindings(
           name: opts.name,
           clientId: opts.clientId,
           clientName: opts.clientName,
-          roles: [...modelRolesForClient(opts.clientId)],
+          roles: [...modelRolesForClient(clientAdapter)],
           values,
           suggestions,
           suggestionsSource,
@@ -379,9 +398,12 @@ export function useAppBindings(
       }
       for (const a of opts.attach) {
         try {
+          const clientAdapter = app.clients.has(a.clientId)
+            ? app.clients.get(a.clientId)
+            : a.clientId;
           const defaults = isGateway
-            ? defaultModelRolesForProxy('custom', a.clientId, policyLookup)
-            : defaultModelRolesForProxy(opts.providerId, a.clientId, policyLookup);
+            ? defaultModelRolesForProxy('custom', clientAdapter, policyLookup)
+            : defaultModelRolesForProxy(opts.providerId, clientAdapter, policyLookup);
           const modelRoles = normalizeModelRoles(a.modelRoles, defaults);
           await app.bindingService.use(a.clientId, {
             with: withSource,
@@ -665,6 +687,24 @@ export function useAppBindings(
     })();
   };
 
+  const refreshProxyModelSuggestions = (providerId: string, name: string, forceRefresh = false) => {
+    if (shell.screen.kind !== 'proxy-models') {
+      return;
+    }
+    const s = shell.screen;
+    openModelsForAttach({
+      providerId,
+      name,
+      clientId: s.clientId,
+      clientName: s.clientName,
+      queue: s.queue ?? [],
+      detach: s.detach ?? [],
+      rolesByClient: s.rolesByClient ?? {},
+      reedit: s.reedit,
+      forceRefresh,
+    });
+  };
+
   return {
     bindingWith,
     resolveProxyRow,
@@ -677,5 +717,6 @@ export function useAppBindings(
     openModelReedit,
     commitProxyModels,
     cancelProxyModels,
+    refreshProxyModelSuggestions,
   };
 }

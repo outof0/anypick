@@ -3,11 +3,11 @@
  */
 
 import { Command } from 'commander';
-import type { HotplugApp } from '../core/app';
+import type { AnyPickApp } from '../core/app';
 import type { ResolvedTransport } from '../types';
 import { parseNativeAccountShorthand, displayRef } from '../core/refs';
 import { resolveProjectRoot } from '../core/project-root';
-import { ExitCode, hotplugError } from '../utils/errors';
+import { ExitCode, anypickError } from '../utils/errors';
 import { formatModel, formatUseSuccess, handleCliError } from './errors';
 import { MARK, info, success, warn } from './ux';
 import pc from 'picocolors';
@@ -54,7 +54,7 @@ const API_KEY_INPUT = 'api-key';
  * restore — the account exists only to be served through the provider's proxy.
  */
 async function addApiKeyAccount(
-  accounts: HotplugApp['accounts'],
+  accounts: AnyPickApp['accounts'],
   provider: string,
   opts: {
     name?: string;
@@ -66,21 +66,21 @@ async function addApiKeyAccount(
   g: GlobalOpts,
 ): Promise<void> {
   if (opts.current || opts.new) {
-    throw hotplugError(
+    throw anypickError(
       '--api-key saves a key you already hold; drop --current and --new.',
       'INVALID_USAGE',
       { exitCode: ExitCode.INVALID_USAGE },
     );
   }
   if (opts.apiKey == null) {
-    throw hotplugError('--region only applies together with --api-key.', 'INVALID_USAGE', {
+    throw anypickError('--region only applies together with --api-key.', 'INVALID_USAGE', {
       exitCode: ExitCode.INVALID_USAGE,
     });
   }
 
   const target = accounts.provider(provider);
   if (!target.credentialInputs?.includes(API_KEY_INPUT)) {
-    throw hotplugError(`Provider "${provider}" does not accept an API key.`, 'INVALID_USAGE', {
+    throw anypickError(`Provider "${provider}" does not accept an API key.`, 'INVALID_USAGE', {
       exitCode: ExitCode.INVALID_USAGE,
     });
   }
@@ -88,8 +88,8 @@ async function addApiKeyAccount(
   let secret = typeof opts.apiKey === 'string' ? opts.apiKey.trim() : '';
   if (!secret) {
     if (!canPrompt(g)) {
-      throw hotplugError(
-        `An API key is required.\n\n  hotplug add account ${provider} --api-key <key> --name work`,
+      throw anypickError(
+        `An API key is required.\n\n  anypick add account ${provider} --api-key <key> --name work`,
         'INVALID_USAGE',
         { exitCode: ExitCode.INVALID_USAGE },
       );
@@ -170,7 +170,7 @@ function publicTransport(transport: ResolvedTransport): Omit<ResolvedTransport, 
 
 export function registerPrimaryCommands(
   program: Command,
-  app: HotplugApp,
+  app: AnyPickApp,
   globals: () => GlobalOpts,
 ): void {
   const { bindingService, clients, accounts, profiles, presets, bindings } = app;
@@ -199,7 +199,7 @@ export function registerPrimaryCommands(
           let client = clientArg;
           let withSource = opts.with;
 
-          // Native shorthand: hotplug use codex/personal
+          // Native shorthand: anypick use codex/personal
           if (client && !withSource && !opts.current && client.includes('/')) {
             const sh = parseNativeAccountShorthand(client, {
               accountProviders: new Set(app.accountRegistry.ids()),
@@ -227,12 +227,12 @@ export function registerPrimaryCommands(
               }
               client = picked;
             } else {
-              throw hotplugError(
-                'A client is required.\n\nTry:\n  hotplug use claude --with grok/work',
+              throw anypickError(
+                'A client is required.\n\nTry:\n  anypick use claude --with grok/work',
                 'MISSING_CLIENT',
                 {
                   exitCode: ExitCode.INVALID_USAGE,
-                  suggestions: ['hotplug use claude --with grok/work'],
+                  suggestions: ['anypick use claude --with grok/work'],
                 },
               );
             }
@@ -361,7 +361,7 @@ export function registerPrimaryCommands(
   // ── run ────────────────────────────────────────────────────────
   program
     .command('run')
-    .description('Launch a client with its effective Hotplug binding')
+    .description('Launch a client with its effective AnyPick binding')
     .argument('[client]', 'Client id')
     .option('--with <source>', 'Temporary source override')
     .option('--model <model>', 'Explicit model id')
@@ -401,12 +401,12 @@ export function registerPrimaryCommands(
               }
               client = picked;
             } else {
-              throw hotplugError(
-                'A client is required.\n\nTry:\n  hotplug run claude\n  hotplug run codex',
+              throw anypickError(
+                'A client is required.\n\nTry:\n  anypick run claude\n  anypick run codex',
                 'MISSING_CLIENT',
                 {
                   exitCode: ExitCode.INVALID_USAGE,
-                  suggestions: ['hotplug run claude', 'hotplug run codex'],
+                  suggestions: ['anypick run claude', 'anypick run codex'],
                 },
               );
             }
@@ -434,7 +434,7 @@ export function registerPrimaryCommands(
   // ── current ────────────────────────────────────────────────────
   program
     .command('current')
-    .description('Show effective Hotplug bindings')
+    .description('Show effective AnyPick bindings')
     .argument('[client]', 'Optional client filter')
     .action(async (clientArg: string | undefined) => {
       try {
@@ -466,14 +466,14 @@ export function registerPrimaryCommands(
           return;
         }
 
-        console.log(pc.bold('Hotplug current'));
+        console.log(pc.bold('AnyPick current'));
         console.log(pc.dim(`Project root: ${resolveProjectRoot()}`));
         console.log();
         for (const r of rows) {
           console.log(pc.bold(r.clientName) + pc.dim(` (${r.client})`));
           if (!r.binding) {
-            console.log(pc.dim('  No Hotplug binding'));
-            console.log(pc.dim(`  Set one: hotplug use ${r.client} --with <source>`));
+            console.log(pc.dim('  No AnyPick binding'));
+            console.log(pc.dim(`  Set one: anypick use ${r.client} --with <source>`));
           } else {
             console.log(`  Source   ${displayRef(r.binding.spec.source)}`);
             console.log(`  Model    ${formatModel(r.binding.spec.model)}`);
@@ -614,8 +614,8 @@ export function registerPrimaryCommands(
           const g = globals();
           if (!provider) {
             if (!canPrompt(g)) {
-              throw hotplugError(
-                'Provider required.\n\n  hotplug add account codex --current --name personal',
+              throw anypickError(
+                'Provider required.\n\n  anypick add account codex --current --name personal',
                 'INVALID_USAGE',
                 { exitCode: ExitCode.INVALID_USAGE },
               );
@@ -635,7 +635,7 @@ export function registerPrimaryCommands(
           }
 
           if (opts.current && opts.new) {
-            throw hotplugError('--current and --new are mutually exclusive.', 'INVALID_USAGE', {
+            throw anypickError('--current and --new are mutually exclusive.', 'INVALID_USAGE', {
               exitCode: ExitCode.INVALID_USAGE,
             });
           }
@@ -646,7 +646,7 @@ export function registerPrimaryCommands(
           }
 
           if (opts.source && opts.source !== 'gemini-cli' && opts.source !== 'antigravity') {
-            throw hotplugError(
+            throw anypickError(
               `Unknown source "${opts.source}". Use gemini-cli or antigravity.`,
               'INVALID_USAGE',
               { exitCode: ExitCode.INVALID_USAGE },
@@ -654,7 +654,7 @@ export function registerPrimaryCommands(
           }
           const source = opts.source as 'gemini-cli' | 'antigravity' | undefined;
           if (source && !accounts.provider(provider).detectLiveSource) {
-            throw hotplugError(
+            throw anypickError(
               `Provider "${provider}" has a single sign-in source; drop --source.`,
               'INVALID_USAGE',
               { exitCode: ExitCode.INVALID_USAGE },
@@ -663,8 +663,8 @@ export function registerPrimaryCommands(
 
           if (!opts.current && !opts.new) {
             if (!canPrompt(g)) {
-              throw hotplugError(
-                `Choose how to add the ${provider} account.\n\nSave the current login:\n  hotplug add account ${provider} --current --name personal\n\nAdd another login:\n  hotplug add account ${provider} --new --name work`,
+              throw anypickError(
+                `Choose how to add the ${provider} account.\n\nSave the current login:\n  anypick add account ${provider} --current --name personal\n\nAdd another login:\n  anypick add account ${provider} --new --name work`,
                 'INVALID_USAGE',
                 { exitCode: ExitCode.INVALID_USAGE },
               );
@@ -729,7 +729,7 @@ export function registerPrimaryCommands(
           if (opts.new) {
             const label = source ?? provider;
             const nextName = opts.name ?? (source === 'antigravity' ? 'antigravity-2' : 'work');
-            const next = `hotplug add account ${provider} --current --name ${nextName}${
+            const next = `anypick add account ${provider} --current --name ${nextName}${
               source ? ` --source ${source}` : ''
             }`;
             if (g.dryRun) {
@@ -788,15 +788,15 @@ export function registerPrimaryCommands(
           const g = globals();
           if (!name || !opts.provider) {
             if (!canPrompt(g)) {
-              throw hotplugError(
-                'Usage: hotplug add gateway <name> --provider <id> --endpoint <url> --api-key <key>',
+              throw anypickError(
+                'Usage: anypick add gateway <name> --provider <id> --endpoint <url> --api-key <key>',
                 'INVALID_USAGE',
                 { exitCode: ExitCode.INVALID_USAGE },
               );
             }
             // Fall through to interactive is partial — require non-interactive for now if missing
             if (!name || !opts.provider) {
-              throw hotplugError(
+              throw anypickError(
                 'Name and --provider are required for automation.',
                 'INVALID_USAGE',
                 { exitCode: ExitCode.INVALID_USAGE },
@@ -838,7 +838,7 @@ export function registerPrimaryCommands(
             );
           } else {
             success(`Gateway ${profile.meta.name} created`);
-            info(`Use it: hotplug use claude --with ${profile.meta.name}`);
+            info(`Use it: anypick use claude --with ${profile.meta.name}`);
           }
         } catch (err) {
           handleCliError(err);
@@ -920,7 +920,7 @@ export function registerPrimaryCommands(
   // ── reset ──────────────────────────────────────────────────────
   program
     .command('reset')
-    .description('Remove Hotplug-managed configuration for a client')
+    .description('Remove AnyPick-managed configuration for a client')
     .argument('[client]', 'Client id')
     .action(async (clientArg: string | undefined) => {
       try {
@@ -928,7 +928,7 @@ export function registerPrimaryCommands(
         let client = clientArg;
         if (!client) {
           if (!canPrompt(g)) {
-            throw hotplugError('Client required.\n\n  hotplug reset claude', 'INVALID_USAGE', {
+            throw anypickError('Client required.\n\n  anypick reset claude', 'INVALID_USAGE', {
               exitCode: ExitCode.INVALID_USAGE,
             });
           }
@@ -957,7 +957,7 @@ export function registerPrimaryCommands(
               : `No global binding for ${client}`,
           );
         } else {
-          success(`Reset Hotplug-managed state for ${client}`);
+          success(`Reset AnyPick-managed state for ${client}`);
         }
       } catch (err) {
         handleCliError(err);
@@ -990,7 +990,7 @@ export function registerPrimaryCommands(
       const p = presets.getByName(name);
       if (!p) {
         handleCliError(
-          hotplugError(`Preset @${name} not found`, 'PRESET_NOT_FOUND', {
+          anypickError(`Preset @${name} not found`, 'PRESET_NOT_FOUND', {
             exitCode: ExitCode.NOT_FOUND,
             mutated: false,
           }),

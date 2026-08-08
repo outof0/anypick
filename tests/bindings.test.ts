@@ -20,7 +20,7 @@ describe('binding store + presets', () => {
   let root: string;
 
   beforeEach(async () => {
-    root = await mkdtemp(join(tmpdir(), 'hotplug-bind-'));
+    root = await mkdtemp(join(tmpdir(), 'anypick-bind-'));
   });
 
   afterEach(async () => {
@@ -114,8 +114,8 @@ describe('source adapters transportFor', () => {
       profileDir: '/tmp',
     } as RuntimeProfile;
     const clients = new ClientRegistry();
-    clients.register(createClaudeCodeClient('/tmp/hotplug-test-claude'));
-    clients.register(createCodexClient('/tmp/hotplug-test-codex'));
+    clients.register(createClaudeCodeClient('/tmp/anypick-test-claude'));
+    clients.register(createCodexClient('/tmp/anypick-test-codex'));
     const adapter = gatewayAdapterFromProfile(profile, {
       catalogProvider: {
         id: 'openrouter',
@@ -134,7 +134,7 @@ describe('source adapters transportFor', () => {
 
 describe('use non-TTY missing source exits 2', () => {
   it('bindingService.use without with/current throws INVALID_USAGE', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'hotplug-use-'));
+    const root = await mkdtemp(join(tmpdir(), 'anypick-use-'));
     try {
       const app = await createAppReady({ root, skipMigrate: true });
       await expect(app.bindingService.use('claude', {})).rejects.toMatchObject({
@@ -147,7 +147,7 @@ describe('use non-TTY missing source exits 2', () => {
   });
 
   it('run without binding throws NO_ACTIVE_BINDING', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'hotplug-run-'));
+    const root = await mkdtemp(join(tmpdir(), 'anypick-run-'));
     try {
       const app = await createAppReady({ root, skipMigrate: true });
       await expect(app.bindingService.runPrepare('claude', {})).rejects.toMatchObject({
@@ -162,7 +162,7 @@ describe('use non-TTY missing source exits 2', () => {
 
 describe('legacy migration exact evidence', () => {
   it('does not create binding from activeProfile alone', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'hotplug-mig-'));
+    const root = await mkdtemp(join(tmpdir(), 'anypick-mig-'));
     try {
       const app = await createAppReady({ root, skipMigrate: true });
       // only set activeProfile — no ClientState

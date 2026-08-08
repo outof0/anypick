@@ -176,11 +176,11 @@ export function ReceiptView(props: { receipt: OperationReceipt }) {
   );
 }
 
-export function LoadingView(props: { label?: string }) {
+export function LoadingView(props: { label?: string; path?: ScreenPath | string[] }) {
   return (
     <Box flexDirection="column">
-      <ScreenHeader path="switch" />
-      <NoticeSlot notice={{ kind: 'busy', text: props.label ?? 'Loading saved logins' }} />
+      <ScreenHeader path={props.path ?? 'apps'} />
+      <NoticeSlot notice={{ kind: 'busy', text: props.label ?? 'Loading AnyPick' }} />
     </Box>
   );
 }

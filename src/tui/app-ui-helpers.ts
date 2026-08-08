@@ -2,8 +2,8 @@
  * Pure helpers shared across TUI screens.
  * No React state / effect logic lives here — these are testable utilities.
  */
-import type { HotplugApp } from '../core/app';
-import type { AppBindingRow, ProxyRow, HotplugHomeRow } from './model';
+import type { AnyPickApp } from '../core/app';
+import type { AppBindingRow, ProxyRow, AnyPickHomeRow } from './model';
 import { proxyBindingRef } from './model';
 import { modelRolesFromClientOptions } from '../clients/model-roles';
 
@@ -28,7 +28,7 @@ export function toggleChecked(checked: readonly string[], clientId: string): str
 }
 
 export function modelSummariesForApps(
-  app: HotplugApp,
+  app: AnyPickApp,
   proxyRefStr: string,
   apps: AppBindingRow[],
 ): Record<string, string> {
@@ -60,7 +60,7 @@ export function modelSummariesForApps(
   return out;
 }
 
-export function indexOfRef(rows: HotplugHomeRow[], focusRef?: string): number {
+export function indexOfRef(rows: AnyPickHomeRow[], focusRef?: string): number {
   if (!focusRef) {
     return 0;
   }

@@ -2,15 +2,15 @@ import { readdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Account, AccountMeta, AccountProxyConfig } from '../types';
 import { DEFAULT_PROXY_CONFIG } from '../types';
-import { HotplugError } from '../utils/errors';
+import { AnyPickError } from '../utils/errors';
 import { ensureDir, removePath } from '../utils/fs';
 import { decodeWithFallback, decoders } from './codec';
-import type { HotplugDatabase } from './db';
+import type { AnyPickDatabase } from './db';
 import {
   accountDir,
   accountProxyRuntimeDir,
   accountSnapshotDir,
-  getHotplugRoot,
+  getAnyPickRoot,
   proxyLogPath,
   proxyPidPath,
 } from './paths';
@@ -33,17 +33,17 @@ export interface ProxyRuntimeState {
 /**
  * SQLite-backed account store.
  *
- * Structured data lives in ~/.hotplug/hotplug.db.
+ * Structured data lives in ~/.anypick/anypick.db.
  * Snapshot bytes are BLOBs; they are materialized to a cache dir when
  * providers need a real filesystem path for backup/restore.
  * Proxy pid/log runtime stays on disk (process-local).
  */
 export class AccountStore {
   readonly root: string;
-  readonly db: HotplugDatabase;
+  readonly db: AnyPickDatabase;
 
-  constructor(root: string, db: HotplugDatabase) {
-    this.root = getHotplugRoot(root);
+  constructor(root: string, db: AnyPickDatabase) {
+    this.root = getAnyPickRoot(root);
     this.db = db;
   }
 
@@ -92,7 +92,7 @@ export class AccountStore {
   async requireAccount(providerId: string, name: string): Promise<Account> {
     const account = await this.getAccount(providerId, name);
     if (!account) {
-      throw new HotplugError(
+      throw new AnyPickError(
         `No account "${name}" for provider "${providerId}".`,
         'ACCOUNT_NOT_FOUND',
       );
@@ -260,7 +260,7 @@ export class AccountStore {
       return true;
     });
     if (!deleted) {
-      throw new HotplugError(
+      throw new AnyPickError(
         `No account "${name}" for provider "${providerId}".`,
         'ACCOUNT_NOT_FOUND',
       );

@@ -4,10 +4,10 @@
  * Part of BASE-01 (test & package baseline truthfulness). Verifies the exact
  * tarball produced by `pnpm pack`; it never rebuilds or repacks, so CI cannot
  * accidentally test a different artifact from the one it publishes. It asserts:
- *   - hotplug --version / --help print
+ *   - anypick --version / --help print
  *   - root ESM import resolves with no filesystem/process side effects
  *   - .d.ts + declaration maps resolve
- *   - a blocked deep import (hotplug/internal/*) fails
+ *   - a blocked deep import (anypick/internal/*) fails
  *
  * Run via: pnpm package:smoke (or directly after `pnpm package` in CI)
  */
@@ -18,7 +18,7 @@ import { join, resolve } from 'node:path';
 
 const root = resolve(import.meta.dirname, '..');
 const distDir = join(root, 'dist');
-const tarballGlob = join(distDir, 'hotplug-*.tgz');
+const tarballGlob = join(distDir, 'anypick-*.tgz');
 
 function run(cmd, args, opts = {}) {
   return execFileSync(cmd, args, { cwd: root, stdio: 'pipe', ...opts }).toString();
@@ -44,25 +44,25 @@ if (tarballs.length !== 1) {
 const tarball = join(distDir, tarballs[0]);
 
 // Install into an isolated temp dir and run smoke checks there.
-const installDir = mkdtempSync(join(tmpdir(), 'hotplug-smoke-'));
+const installDir = mkdtempSync(join(tmpdir(), 'anypick-smoke-'));
 try {
   run('npm', ['init', '-y'], { cwd: installDir });
   run('npm', ['install', tarball], { cwd: installDir });
 
-  const bin = join(installDir, 'node_modules', 'hotplug', 'dist', 'cli.js');
+  const bin = join(installDir, 'node_modules', 'anypick', 'dist', 'cli.js');
   check('tarball contains cli.js', existsSync(bin));
 
   const version = run('node', [bin, '--version'], { cwd: installDir }).trim();
-  check('hotplug --version prints a semver', /^\d+\.\d+\.\d+/.test(version), `got "${version}"`);
+  check('anypick --version prints a semver', /^\d+\.\d+\.\d+/.test(version), `got "${version}"`);
 
   const help = run('node', [bin, '--help'], { cwd: installDir });
-  check('hotplug --help prints usage', help.includes('Usage') || help.includes('usage'));
+  check('anypick --help prints usage', help.includes('Usage') || help.includes('usage'));
 
   // Root ESM import must resolve with no side effects (no HOME capted, no sqlite open).
   const importProbe = join(installDir, 'import-probe.mjs');
   writeFileSync(
     importProbe,
-    "import('hotplug').then(m => { if (typeof m.createHotplugApp !== 'function') { console.error('missing createHotplugApp'); process.exit(1); } console.log('import-ok'); }).catch(e => { console.error(String(e)); process.exit(1); });",
+    "import('anypick').then(m => { if (typeof m.createAnyPickApp !== 'function') { console.error('missing createAnyPickApp'); process.exit(1); } console.log('import-ok'); }).catch(e => { console.error(String(e)); process.exit(1); });",
   );
   const importOut = run('node', [importProbe], { cwd: installDir }).trim();
   check('root ESM import resolves', importOut === 'import-ok', `got "${importOut}"`);
@@ -70,14 +70,14 @@ try {
   const subpathProbe = join(installDir, 'subpath-probe.mjs');
   writeFileSync(
     subpathProbe,
-    "Promise.all([import('hotplug/adapters'), import('hotplug/types'), import('hotplug/testing')]).then(() => console.log('subpaths-ok')).catch(e => { console.error(String(e)); process.exit(1); });",
+    "Promise.all([import('anypick/adapters'), import('anypick/types'), import('anypick/testing')]).then(() => console.log('subpaths-ok')).catch(e => { console.error(String(e)); process.exit(1); });",
   );
   const subpathOut = run('node', [subpathProbe], { cwd: installDir }).trim();
   check('documented subpaths resolve', subpathOut === 'subpaths-ok', `got "${subpathOut}"`);
 
   // Declarations + maps resolve.
-  const dts = join(installDir, 'node_modules', 'hotplug', 'dist', 'index.d.ts');
-  const dtsMap = join(installDir, 'node_modules', 'hotplug', 'dist', 'index.d.ts.map');
+  const dts = join(installDir, 'node_modules', 'anypick', 'dist', 'index.d.ts');
+  const dtsMap = join(installDir, 'node_modules', 'anypick', 'dist', 'index.d.ts.map');
   check('index.d.ts shipped', existsSync(dts));
   check('index.d.ts.map shipped', existsSync(dtsMap));
 
@@ -85,7 +85,7 @@ try {
   const deepProbe = join(installDir, 'deep-probe.mjs');
   writeFileSync(
     deepProbe,
-    "import('hotplug/internal/store.js').then(() => { console.error('deep import should have failed'); process.exit(1); }).catch(() => { console.log('deep-blocked'); });",
+    "import('anypick/internal/store.js').then(() => { console.error('deep import should have failed'); process.exit(1); }).catch(() => { console.log('deep-blocked'); });",
   );
   const deepOut = run('node', [deepProbe], { cwd: installDir }).trim();
   check('blocked deep import fails', deepOut === 'deep-blocked', `got "${deepOut}"`);

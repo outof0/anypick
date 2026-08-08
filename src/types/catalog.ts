@@ -6,6 +6,37 @@ export type ApiStyle = 'openai' | 'anthropic' | 'custom';
 /** Maps logical alias → provider model id. */
 export type ModelMap = Record<string, string>;
 
+export type ModelInputModality = 'text' | 'image' | 'audio';
+
+export interface ModelReasoningLevel {
+  effort: string;
+  description: string;
+}
+
+/**
+ * Picker-facing model identity and metadata, kept separate from model roles.
+ *
+ * `RuntimeProfileMeta.models` is the authoritative exposed list for a gateway;
+ * `defaultModel`/`sonnetModel`/`opusModel`/`haikuModel` only select models for a
+ * runtime role. Optional metadata must come from a provider response or another
+ * authoritative source—an absent field means unknown, not a generic capability.
+ */
+export interface ModelCatalogDescriptor {
+  id: string;
+  displayName?: string;
+  description?: string;
+  defaultReasoningLevel?: string;
+  supportedReasoningLevels?: readonly ModelReasoningLevel[];
+  contextWindow?: number;
+  maxContextWindow?: number;
+  autoCompactTokenLimit?: number;
+  inputModalities?: readonly ModelInputModality[];
+  supportsParallelToolCalls?: boolean;
+  supportsSearchTool?: boolean;
+  supportsVerbosity?: boolean;
+  supportsImageDetailOriginal?: boolean;
+}
+
 /**
  * A provider's opinion about which model fills each client-shaped role
  * (`default`, `sonnet`, `opus`, `haiku`), plus what to offer when live model
@@ -113,6 +144,8 @@ export interface RuntimeProfileMeta {
   /**
    * Optional alias → model id map (advanced).
    * Prefer the first-class model fields below for day-to-day use.
+   * For clients with a managed picker (currently Codex), this map is the
+   * exposed catalog; the role fields below do not implicitly add entries.
    */
   models: ModelMap;
   /** Default / primary model (bare id for Claude Code, or gateway id for Codex). */

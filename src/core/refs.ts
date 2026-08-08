@@ -17,10 +17,11 @@ import type {
   AccountResourceRef,
   ClientId,
   GatewayResourceRef,
+  ProxyHubResourceRef,
   PresetResourceRef,
   ResourceRef,
 } from '../types';
-import { hotplugError, ExitCode } from '../utils/errors';
+import { anypickError, ExitCode } from '../utils/errors';
 
 /** Known account-auth provider ids (file-snapshot providers). */
 const DEFAULT_ACCOUNT_PROVIDERS = new Set(['codex', 'gemini', 'grok', 'kiro', 'opencode']);
@@ -64,6 +65,7 @@ export function mutationScopeForRef(ref: ResourceRef): string {
     case 'account-pool':
       return providerScope(ref.provider);
     case 'gateway':
+    case 'proxy-hub':
     case 'preset':
       return serializeRef(ref);
     default: {
@@ -79,6 +81,8 @@ export function serializeRef(ref: ResourceRef): string {
       return `account/${ref.provider}/${ref.name}`;
     case 'gateway':
       return `gateway/${ref.name}`;
+    case 'proxy-hub':
+      return `hub/${ref.name}`;
     case 'preset':
       return `preset/${ref.name}`;
     case 'account-pool':
@@ -96,6 +100,8 @@ export function displayRef(ref: ResourceRef): string {
       return `${ref.provider}/${ref.name}`;
     case 'gateway':
       return ref.name;
+    case 'proxy-hub':
+      return `hub:${ref.name}`;
     case 'preset':
       return `@${ref.name}`;
     case 'account-pool':
@@ -115,6 +121,10 @@ export function gatewayRef(name: string): GatewayResourceRef {
   return { kind: 'gateway', name };
 }
 
+export function proxyHubRef(name: string): ProxyHubResourceRef {
+  return { kind: 'proxy-hub', name };
+}
+
 export function presetRef(name: string): PresetResourceRef {
   return { kind: 'preset', name };
 }
@@ -131,7 +141,7 @@ export function accountPoolRef(provider: string): AccountPoolResourceRef {
 export function parseRef(input: string, ctx: ParseRefContext = {}): ResourceRef {
   const raw = input.trim();
   if (!raw) {
-    throw hotplugError('Empty resource reference.', 'INVALID_REFERENCE', {
+    throw anypickError('Empty resource reference.', 'INVALID_REFERENCE', {
       exitCode: ExitCode.INVALID_USAGE,
       suggestions: [
         'Accounts use provider/name:  grok/work',
@@ -147,7 +157,7 @@ export function parseRef(input: string, ctx: ParseRefContext = {}): ResourceRef 
   if (raw.startsWith('@')) {
     const name = raw.slice(1).trim();
     if (!name) {
-      throw hotplugError('Preset name is required after @.', 'INVALID_REFERENCE', {
+      throw anypickError('Preset name is required after @.', 'INVALID_REFERENCE', {
         exitCode: ExitCode.INVALID_USAGE,
       });
     }
@@ -158,11 +168,25 @@ export function parseRef(input: string, ctx: ParseRefContext = {}): ResourceRef 
   if (raw.startsWith('preset/')) {
     const name = raw.slice('preset/'.length).trim();
     if (!name) {
-      throw hotplugError('Preset name is required after preset/.', 'INVALID_REFERENCE', {
+      throw anypickError('Preset name is required after preset/.', 'INVALID_REFERENCE', {
         exitCode: ExitCode.INVALID_USAGE,
       });
     }
     return presetRef(name);
+  }
+
+  // hub:default | hub/default. Hub has an explicit prefix so a plain gateway
+  // name can never be reinterpreted after an upgrade.
+  if (raw.startsWith('hub:') || raw.startsWith('hub/')) {
+    const name = raw.startsWith('hub:')
+      ? raw.slice('hub:'.length).trim()
+      : raw.slice('hub/'.length).trim();
+    if (!name || name.includes('/') || name.includes(':')) {
+      throw anypickError(`Invalid Proxy Hub reference: ${raw}`, 'INVALID_REFERENCE', {
+        exitCode: ExitCode.INVALID_USAGE,
+      });
+    }
+    return proxyHubRef(name);
   }
 
   // pool:grok | pool/grok
@@ -171,14 +195,14 @@ export function parseRef(input: string, ctx: ParseRefContext = {}): ResourceRef 
       ? raw.slice('pool:'.length).trim()
       : raw.slice('pool/'.length).trim();
     if (!provider || provider.includes('/') || provider.includes(':')) {
-      throw hotplugError(
+      throw anypickError(
         `Invalid pool reference: ${raw}. Expected pool:provider (e.g. pool:gemini)`,
         'INVALID_REFERENCE',
         { exitCode: ExitCode.INVALID_USAGE },
       );
     }
     if (!providers.has(provider)) {
-      throw hotplugError(
+      throw anypickError(
         `Unknown account provider "${provider}" in pool reference: ${raw}`,
         'INVALID_REFERENCE',
         {
@@ -193,7 +217,7 @@ export function parseRef(input: string, ctx: ParseRefContext = {}): ResourceRef 
   if (raw.startsWith('gateway/')) {
     const name = raw.slice('gateway/'.length).trim();
     if (!name || name.includes('/')) {
-      throw hotplugError(`Invalid gateway reference: ${raw}`, 'INVALID_REFERENCE', {
+      throw anypickError(`Invalid gateway reference: ${raw}`, 'INVALID_REFERENCE', {
         exitCode: ExitCode.INVALID_USAGE,
       });
     }
@@ -204,7 +228,7 @@ export function parseRef(input: string, ctx: ParseRefContext = {}): ResourceRef 
     const rest = raw.slice('account/'.length);
     const slash = rest.indexOf('/');
     if (slash <= 0 || slash === rest.length - 1) {
-      throw hotplugError(
+      throw anypickError(
         `Invalid account reference: ${raw}. Expected account/provider/name`,
         'INVALID_REFERENCE',
         { exitCode: ExitCode.INVALID_USAGE },
@@ -222,7 +246,7 @@ export function parseRef(input: string, ctx: ParseRefContext = {}): ResourceRef 
     const name = raw.slice(slash + 1);
     if (providers.has(provider)) {
       if (!name || name.includes('/')) {
-        throw hotplugError(
+        throw anypickError(
           `Invalid account reference: ${raw}. Expected provider/account`,
           'INVALID_REFERENCE',
           { exitCode: ExitCode.INVALID_USAGE },
@@ -232,7 +256,7 @@ export function parseRef(input: string, ctx: ParseRefContext = {}): ResourceRef 
     }
     // Unknown provider with slash: treat as invalid account form, not gateway
     // (gateways cannot contain /)
-    throw hotplugError(
+    throw anypickError(
       `Unknown account provider "${provider}" in reference: ${raw}`,
       'INVALID_REFERENCE',
       {
@@ -248,7 +272,7 @@ export function parseRef(input: string, ctx: ParseRefContext = {}): ResourceRef 
 
   // Plain input → gateway only
   if (raw.includes('/') || raw.startsWith('@')) {
-    throw hotplugError(`Invalid gateway name: ${raw}`, 'INVALID_REFERENCE', {
+    throw anypickError(`Invalid gateway name: ${raw}`, 'INVALID_REFERENCE', {
       exitCode: ExitCode.INVALID_USAGE,
     });
   }
@@ -275,27 +299,38 @@ export async function resolveSourceRef(
     if (!exists) {
       const presetHit = ctx.presetExists && (await ctx.presetExists(ref.name));
       if (presetHit) {
-        throw hotplugError(
-          `Gateway \`${ref.name}\` was not found.\n\nA preset with that name exists.\nDid you mean:\n  hotplug use <client> --with @${ref.name}`,
+        throw anypickError(
+          `Gateway \`${ref.name}\` was not found.\n\nA preset with that name exists.\nDid you mean:\n  anypick use <client> --with @${ref.name}`,
           'RESOURCE_NOT_FOUND',
           {
             exitCode: ExitCode.NOT_FOUND,
-            suggestions: [`hotplug use <client> --with @${ref.name}`],
+            suggestions: [`anypick use <client> --with @${ref.name}`],
             details: { kind: 'gateway', name: ref.name, presetSuggestion: ref.name },
           },
         );
       }
-      throw hotplugError(`Gateway \`${ref.name}\` was not found.`, 'GATEWAY_NOT_FOUND', {
+      throw anypickError(`Gateway \`${ref.name}\` was not found.`, 'GATEWAY_NOT_FOUND', {
         exitCode: ExitCode.NOT_FOUND,
         suggestions: [
           'Accounts use provider/name:',
-          '  hotplug use claude --with grok/work',
+          '  anypick use claude --with grok/work',
           'Gateways use their saved name:',
-          '  hotplug use claude --with openrouter-work',
+          '  anypick use claude --with openrouter-work',
           'Presets use @name:',
-          '  hotplug use claude --with @work-grok',
+          '  anypick use claude --with @work-grok',
         ],
         details: { kind: 'gateway', name: ref.name },
+      });
+    }
+    return ref;
+  }
+
+  if (ref.kind === 'proxy-hub') {
+    // `default` is synthesized lazily by ProxyHubStore. Other names are kept
+    // type-valid for future profiles, but are not auto-created by parsing.
+    if (ref.name !== 'default') {
+      throw anypickError(`Proxy Hub \`${ref.name}\` was not found.`, 'RESOURCE_NOT_FOUND', {
+        exitCode: ExitCode.NOT_FOUND,
       });
     }
     return ref;
@@ -304,14 +339,14 @@ export async function resolveSourceRef(
   if (ref.kind === 'account' && ctx.accountExists) {
     const exists = await ctx.accountExists(ref.provider, ref.name);
     if (!exists) {
-      throw hotplugError(
+      throw anypickError(
         `Account \`${ref.provider}/${ref.name}\` was not found.`,
         'ACCOUNT_NOT_FOUND',
         {
           exitCode: ExitCode.NOT_FOUND,
           suggestions: [
-            `hotplug add account ${ref.provider} --current --name ${ref.name}`,
-            `hotplug list accounts`,
+            `anypick add account ${ref.provider} --current --name ${ref.name}`,
+            `anypick list accounts`,
           ],
           details: { kind: 'account', provider: ref.provider, name: ref.name },
         },
@@ -322,9 +357,9 @@ export async function resolveSourceRef(
   if (ref.kind === 'preset' && ctx.presetExists) {
     const exists = await ctx.presetExists(ref.name);
     if (!exists) {
-      throw hotplugError(`Preset \`@${ref.name}\` was not found.`, 'PRESET_NOT_FOUND', {
+      throw anypickError(`Preset \`@${ref.name}\` was not found.`, 'PRESET_NOT_FOUND', {
         exitCode: ExitCode.NOT_FOUND,
-        suggestions: ['hotplug list presets'],
+        suggestions: ['anypick list presets'],
         details: { kind: 'preset', name: ref.name },
       });
     }
@@ -334,7 +369,7 @@ export async function resolveSourceRef(
 }
 
 /**
- * Optional native-account shorthand: `hotplug use codex/personal`
+ * Optional native-account shorthand: `anypick use codex/personal`
  * Valid only when provider is also a supported client and the account
  * is a native source for that same client.
  */

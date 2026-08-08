@@ -25,5 +25,12 @@
     "moduleDetection": "force"
   },
   "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", "tests"]
+  "exclude": [
+    "node_modules",
+    "dist",
+    "tests",
+    "src/tray/tauri/ui/**",
+    "src/tray/tauri/frontend/**",
+    "src/tray/tauri/demo/**"
+  ]
 }

@@ -1,14 +1,14 @@
 {
-  "name": "hotplug-consumer-nodenext",
+  "name": "anypick-consumer-nodenext",
   "version": "0.0.0",
   "private": true,
   "type": "module",
   "scripts": {
-    "prepare": "npm install $(ls ../../../dist/hotplug-*.tgz | head -1)",
+    "prepare": "npm install $(ls ../../../dist/anypick-*.tgz | head -1)",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "hotplug": "file:../../../dist/hotplug-1.0.0.tgz"
+    "anypick": "file:../../../dist/anypick-1.0.0.tgz"
   },
   "devDependencies": {
     "@types/node": "^22.15.21",

@@ -9,20 +9,49 @@ on:
 permissions:
   contents: read
 
+# Cancel superseded runs on the same ref (PR force-push / rapid pushes).
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    outputs:
+      tray: ${{ steps.filter.outputs.tray }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        id: filter
+        with:
+          filters: |
+            tray:
+              - 'src/tray/**'
+              - 'scripts/*tray*'
+              - 'scripts/smoke-tauri-tray.mjs'
+              - 'scripts/e2e-tray-ui.mjs'
+              - 'scripts/build-tauri-tray.mjs'
+              - 'scripts/demo-tauri-tray.mjs'
+              - 'scripts/check-native-tray.mjs'
+              - '.github/workflows/ci.yml'
+              - '.github/workflows/release.yml'
+              - 'package.json'
+              - 'pnpm-lock.yaml'
+
   check:
     name: Format / Lint / Typecheck / Test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
         with:
           version: 9.12.0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: '22.5'
+          node-version: '22.17.1'
           cache: pnpm
 
       - name: Install dependencies
@@ -35,15 +64,15 @@ jobs:
     name: Clean build / pack / consumer verification
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
         with:
           version: 9.12.0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: '22.5'
+          node-version: '22.17.1'
           cache: pnpm
 
       - name: Install dependencies
@@ -57,12 +86,149 @@ jobs:
 
       - name: Verify consumer fixtures against the tarball (NodeNext + Bundler)
         run: |
-          cd tests/consumer/nodenext && npm install --no-save $(ls ../../../dist/hotplug-*.tgz | head -1) && npm run typecheck
-          cd ../bundler && npm install --no-save $(ls ../../../dist/hotplug-*.tgz | head -1) && npm run typecheck
+          cd tests/consumer/nodenext && npm install --no-save $(ls ../../../dist/anypick-*.tgz | head -1) && npm run typecheck
+          cd ../bundler && npm install --no-save $(ls ../../../dist/anypick-*.tgz | head -1) && npm run typecheck
 
       - name: Upload verified tarball
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: hotplug-tarball
-          path: dist/hotplug-*.tgz
+          name: anypick-tarball
+          path: dist/anypick-*.tgz
+          if-no-files-found: error
+
+  docs:
+    name: Docs / Typecheck / Lint / Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+        with:
+          version: 9.12.0
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '22.17.1'
+          cache: pnpm
+          cache-dependency-path: docs/pnpm-lock.yaml
+
+      - name: Install docs dependencies
+        run: cd docs && pnpm install --frozen-lockfile
+
+      - name: Typecheck docs
+        run: cd docs && pnpm typecheck
+
+      - name: Lint docs
+        run: cd docs && pnpm lint:docs
+
+      - name: Build docs
+        run: cd docs && pnpm build
+
+      - name: Validate Cloudflare bundle
+        run: cd docs && pnpm exec wrangler deploy --dry-run
+
+  tray-ui-e2e:
+    name: Tray UI e2e / Linux
+    needs: changes
+    if: needs.changes.outputs.tray == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+        with:
+          version: 9.12.0
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '22.17.1'
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+
+      - name: Install Playwright Chromium
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: pnpm exec playwright install chromium --with-deps
+
+      - name: Install Playwright system deps (cache hit)
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: pnpm exec playwright install-deps chromium
+
+      - name: Typecheck tray UI
+        run: pnpm tray:ui:check
+
+      - name: React UI e2e (demo fixture)
+        run: pnpm tray:e2e:ui
+
+  tauri-tray:
+    name: Tauri tray / Linux
+    needs: changes
+    if: needs.changes.outputs.tray == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install Linux desktop dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            xvfb
+
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+        with:
+          version: 9.12.0
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '22.17.1'
+          cache: pnpm
+
+      - name: Install JS dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Select stable Rust with rustfmt
+        run: |
+          rustup default stable
+          rustup component add rustfmt
+
+      - name: Cache Rust (Tauri helper)
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: src/tray/tauri/src-tauri -> src/tray/tauri/src-tauri/target
+          shared-key: anypick-tray
+          cache-on-failure: true
+
+      - name: Check Rust formatting
+        run: cargo fmt --manifest-path src/tray/tauri/src-tauri/Cargo.toml -- --check
+
+      - name: Unit-test Tauri bridge protocol
+        run: cargo test --locked --manifest-path src/tray/tauri/src-tauri/Cargo.toml
+
+      - name: Typecheck and build tray UI
+        run: pnpm tray:ui:check && pnpm tray:ui:build
+
+      - name: Build release tray helper
+        run: node scripts/build-tauri-tray.mjs
+
+      # One spawn covers seed + multi-command probe + quit (see scripts/smoke-tauri-tray.mjs).
+      - name: Protocol smoke suite
+        run: xvfb-run --auto-servernum pnpm tray:smoke
+
+      - name: Upload tray helper artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: anypick-tray-linux-x64
+          path: dist/tray/bin/anypick-tray-linux-x64
           if-no-files-found: error

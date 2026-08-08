@@ -12,13 +12,13 @@ import { chmod, cp, lstat, mkdir, mkdtemp, readdir, rm, stat } from 'node:fs/pro
 import { tmpdir } from 'node:os';
 import { dirname, isAbsolute, join, normalize, relative, resolve, sep } from 'node:path';
 import type { IsolatablePath, IsolatedClientRuntime } from '../types';
-import { hotplugError, ExitCode } from '../utils/errors';
+import { anypickError, ExitCode } from '../utils/errors';
 import { pathExists } from '../utils/fs';
 
 // Moved to core so core does not take value imports from the clients package.
 export { syntheticProxyProfile } from '../core/profile-synth';
 
-export async function createTempRuntimeRoot(prefix = 'hotplug-client-'): Promise<string> {
+export async function createTempRuntimeRoot(prefix = 'anypick-client-'): Promise<string> {
   const root = await mkdtemp(join(tmpdir(), prefix));
   try {
     await chmod(root, 0o700);
@@ -33,12 +33,12 @@ export async function createTempRuntimeRoot(prefix = 'hotplug-client-'): Promise
  */
 export function resolveSafeDestination(runtimeRoot: string, destinationPath: string): string {
   if (!destinationPath || destinationPath.includes('\0')) {
-    throw hotplugError(`Invalid isolation destination: ${destinationPath}`, 'INVALID_USAGE', {
+    throw anypickError(`Invalid isolation destination: ${destinationPath}`, 'INVALID_USAGE', {
       exitCode: ExitCode.INVALID_USAGE,
     });
   }
   if (isAbsolute(destinationPath)) {
-    throw hotplugError(
+    throw anypickError(
       `Isolation destination must be relative: ${destinationPath}`,
       'INVALID_USAGE',
       { exitCode: ExitCode.INVALID_USAGE },
@@ -51,7 +51,7 @@ export function resolveSafeDestination(runtimeRoot: string, destinationPath: str
     normalized.includes(`${sep}..${sep}`) ||
     normalized.endsWith(`${sep}..`)
   ) {
-    throw hotplugError(
+    throw anypickError(
       `Isolation destination escapes runtime root: ${destinationPath}`,
       'INVALID_USAGE',
       { exitCode: ExitCode.INVALID_USAGE },
@@ -60,7 +60,7 @@ export function resolveSafeDestination(runtimeRoot: string, destinationPath: str
   const abs = resolve(runtimeRoot, normalized);
   const rel = relative(resolve(runtimeRoot), abs);
   if (rel.startsWith('..') || isAbsolute(rel)) {
-    throw hotplugError(
+    throw anypickError(
       `Isolation destination escapes runtime root: ${destinationPath}`,
       'INVALID_USAGE',
       { exitCode: ExitCode.INVALID_USAGE },
@@ -77,7 +77,7 @@ export async function assertSafeSource(sourcePath: string): Promise<void> {
   try {
     const st = await lstat(sourcePath);
     if (st.isSymbolicLink()) {
-      throw hotplugError(`Isolation refuses to copy symlink: ${sourcePath}`, 'INVALID_USAGE', {
+      throw anypickError(`Isolation refuses to copy symlink: ${sourcePath}`, 'INVALID_USAGE', {
         exitCode: ExitCode.INVALID_USAGE,
       });
     }
@@ -104,7 +104,7 @@ export async function materializeIsolatablePaths(
     const exists = await pathExists(entry.sourcePath);
     if (!exists) {
       if (entry.required) {
-        throw hotplugError(
+        throw anypickError(
           `Required client path missing for isolation: ${entry.sourcePath}`,
           'MISSING_DEPENDENCY',
           { exitCode: ExitCode.MISSING_DEPENDENCY },

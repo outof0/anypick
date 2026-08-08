@@ -17,9 +17,9 @@ describe('project binding scope isolation', () => {
   let project: string;
 
   beforeEach(async () => {
-    root = await mkdtemp(join(tmpdir(), 'hotplug-scope-'));
-    home = await mkdtemp(join(tmpdir(), 'hotplug-scope-home-'));
-    project = await mkdtemp(join(tmpdir(), 'hotplug-scope-proj-'));
+    root = await mkdtemp(join(tmpdir(), 'anypick-scope-'));
+    home = await mkdtemp(join(tmpdir(), 'anypick-scope-home-'));
+    project = await mkdtemp(join(tmpdir(), 'anypick-scope-proj-'));
   });
 
   afterEach(async () => {
@@ -71,7 +71,7 @@ describe('project binding scope isolation', () => {
       MY_GLOBAL_VAR: 'keep-me',
       ANTHROPIC_BASE_URL: 'https://api.anthropic.com',
     });
-    expect(JSON.stringify(after)).not.toContain('HOTPLUG_MANAGED');
+    expect(JSON.stringify(after)).not.toContain('ANYPICK_MANAGED');
   });
 
   it('link from a global binding records a project binding and still leaves global config untouched', async () => {

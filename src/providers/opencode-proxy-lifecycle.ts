@@ -2,7 +2,7 @@ import { join } from 'node:path';
 import { writeFile } from 'node:fs/promises';
 import type { ProxyContext, ProxyHandle, ProxyStatus } from '../types';
 import { ensureDir, pathExists, readJsonFile } from '../utils/fs';
-import { HotplugError } from '../utils/errors';
+import { AnyPickError } from '../utils/errors';
 import { assertLoopbackHost } from '../utils/network';
 import {
   isProcessRunning,
@@ -12,7 +12,7 @@ import {
   waitForHttp,
 } from '../utils/process';
 import { listZenGoCredentials } from './opencode-proxy/auth';
-import { resolveCliEntry } from './opencode-cli-entry';
+import { resolveAnyPickCliLaunch } from './opencode-cli-entry';
 
 export interface OpenCodeProxyLifecycleOptions {
   authPath: string;
@@ -34,16 +34,8 @@ export async function startOpenCodeProxy(
     authMode !== 'public' &&
     authMode !== 'api'
   ) {
-    throw new HotplugError('OpenCode auth mode must be auto, public, or api.', 'INVALID_USAGE');
+    throw new AnyPickError('OpenCode auth mode must be auto, public, or api.', 'INVALID_USAGE');
   }
-  const cliJs = resolveCliEntry();
-  if (!(await pathExists(cliJs))) {
-    throw new HotplugError(
-      `Hotplug CLI entry not found at ${cliJs}. Run: pnpm build`,
-      'PROXY_BINARY_MISSING',
-    );
-  }
-
   await ensureDir(ctx.runtimeDir);
   const logPath = join(ctx.runtimeDir, 'proxy.log');
   const pidPath = join(ctx.runtimeDir, 'proxy.pid');
@@ -55,6 +47,11 @@ export async function startOpenCodeProxy(
       )
     : [];
   const poolAuthPaths = poolDirs.map((dir) => join(dir, 'auth.json'));
+  const poolAccountNames = Array.isArray(ctx.config.options?.quotaGuardAccountNames)
+    ? (ctx.config.options.quotaGuardAccountNames as unknown[]).filter(
+        (name): name is string => typeof name === 'string' && name.trim().length > 0,
+      )
+    : [];
   // A pool must be isolated from whichever unrelated account happens to be
   // live in ~/.local/share/opencode. Its configured member order is the
   // credential failover order.
@@ -63,8 +60,8 @@ export async function startOpenCodeProxy(
     ((await pathExists(opts.authPath)) ? opts.authPath : join(ctx.snapshotDir, 'auth.json'));
 
   if (authMode !== 'public' && !(await pathExists(authPath))) {
-    throw new HotplugError(
-      'No OpenCode auth available. Run: opencode auth login  then  hotplug add account opencode --current --name <name>',
+    throw new AnyPickError(
+      'No OpenCode auth available. Run: opencode auth login  then  anypick add account opencode --current --name <name>',
       'NO_LIVE_AUTH',
     );
   }
@@ -73,13 +70,13 @@ export async function startOpenCodeProxy(
   try {
     const data = await readJsonFile<Record<string, unknown>>(authPath);
     if (authMode === 'api' && listZenGoCredentials(data).length === 0) {
-      throw new HotplugError(
-        'OpenCode proxy needs a Zen/Go API key in auth.json (opencode auth login → OpenCode Zen or Go). OAuth providers (ChatGPT, etc.) are activated via hotplug use, not this proxy.',
+      throw new AnyPickError(
+        'OpenCode proxy needs a Zen/Go API key in auth.json (opencode auth login → OpenCode Zen or Go). OAuth providers (ChatGPT, etc.) are activated via anypick use, not this proxy.',
         'NO_LIVE_AUTH',
       );
     }
   } catch (err) {
-    if (err instanceof HotplugError) {
+    if (err instanceof AnyPickError) {
       throw err;
     }
     // unreadable — let proxy process fail with clearer log
@@ -91,8 +88,7 @@ export async function startOpenCodeProxy(
     process.env.OPENCODE_PROXY_UPSTREAM ??
     undefined;
 
-  const args = [
-    cliJs,
+  const subArgs = [
     'proxy',
     'serve',
     'opencode',
@@ -104,23 +100,50 @@ export async function startOpenCodeProxy(
     authMode ?? 'auto',
   ];
   if (authMode !== 'public') {
-    args.push('--auth-path', authPath);
+    subArgs.push('--auth-path', authPath);
   }
-  if (poolAuthPaths.length > 0) {
-    args.push('--auth-paths', poolAuthPaths.join(','));
+  if (poolAuthPaths.length > 1) {
+    // auth-path already contains the primary member. Do not repeat it: the
+    // account-name vector must remain exactly aligned with the credential ring.
+    subArgs.push('--auth-paths', poolAuthPaths.slice(1).join(','));
+  }
+  if (poolAccountNames.length > 0) {
+    subArgs.push('--auth-account-names', poolAccountNames.join(','));
+  }
+  const quotaGuard = ctx.config.options?.quotaGuard;
+  if (quotaGuard && typeof quotaGuard === 'object' && !Array.isArray(quotaGuard)) {
+    const policy = quotaGuard as Record<string, unknown>;
+    if (policy.enabled === true) {
+      subArgs.push('--quota-guard');
+      if (typeof policy.cooldownMs === 'number' && Number.isFinite(policy.cooldownMs)) {
+        subArgs.push(
+          '--quota-guard-cooldown-ms',
+          String(Math.max(1_000, Math.floor(policy.cooldownMs))),
+        );
+      }
+      subArgs.push('--quota-guard-state', join(ctx.runtimeDir, 'quota-guard.json'));
+    }
   }
   if (upstream) {
-    args.push('--upstream', upstream);
+    subArgs.push('--upstream', upstream);
   }
   const modelMetadataUrl = ctx.config.options?.modelMetadataUrl;
   if (modelMetadataUrl === false) {
-    args.push('--model-metadata-url', 'none');
+    subArgs.push('--model-metadata-url', 'none');
   } else if (typeof modelMetadataUrl === 'string' && modelMetadataUrl.trim()) {
-    args.push('--model-metadata-url', modelMetadataUrl.trim());
+    subArgs.push('--model-metadata-url', modelMetadataUrl.trim());
+  }
+
+  const launch = resolveAnyPickCliLaunch(subArgs);
+  if (!(await pathExists(launch.entry))) {
+    throw new AnyPickError(
+      `AnyPick CLI entry not found at ${launch.entry}. Run: pnpm build`,
+      'PROXY_BINARY_MISSING',
+    );
   }
 
   const endpoint = `http://${host}:${port}`;
-  const { pid, instanceId } = await spawnDetached(process.execPath, args, {
+  const { pid, instanceId } = await spawnDetached(launch.command, launch.args, {
     logPath,
     pidPath,
     endpoint,
@@ -129,13 +152,14 @@ export async function startOpenCodeProxy(
     env: {
       ...process.env,
       OPENCODE_AUTH_PATH: authPath,
-      ...(ctx.token ? { HOTPLUG_PROXY_TOKEN: ctx.token } : {}),
-      HOTPLUG_PROXY_LOG: logPath,
+      ...(ctx.token ? { ANYPICK_PROXY_TOKEN: ctx.token } : {}),
+      ANYPICK_PROXY_LOG: logPath,
+      ...(launch.watch ? { ANYPICK_DEV_WATCH: process.env.ANYPICK_DEV_WATCH ?? '1' } : {}),
     },
   });
 
   const ready = await waitForHttp(`${endpoint}/health`, {
-    timeoutMs: 5000,
+    timeoutMs: launch.watch ? 15_000 : 5_000,
     requirePid: pid,
     expectInstanceId: instanceId,
   });
@@ -157,8 +181,8 @@ export async function startOpenCodeProxy(
         // ignore
       }
     }
-    throw new HotplugError(
-      `OpenCode proxy failed to bind ${host}:${port} (port busy or crash). Hotplug will try the next free port on retry.${tail ? `\n${tail}` : ''}`,
+    throw new AnyPickError(
+      `OpenCode proxy failed to bind ${host}:${port} (port busy or crash). AnyPick will try the next free port on retry.${tail ? `\n${tail}` : ''}`,
       'PROXY_START_FAILED',
     );
   }

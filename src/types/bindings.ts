@@ -13,7 +13,7 @@ export type TransportCapability =
   | 'external_manual_proxy'
   | 'unsupported';
 
-export type ResourceKind = 'account' | 'gateway' | 'preset' | 'account-pool';
+export type ResourceKind = 'account' | 'gateway' | 'proxy-hub' | 'preset' | 'account-pool';
 
 export interface AccountResourceRef {
   kind: 'account';
@@ -23,6 +23,12 @@ export interface AccountResourceRef {
 
 export interface GatewayResourceRef {
   kind: 'gateway';
+  name: string;
+}
+
+/** Unified local Proxy Hub profile. Display: hub:default. */
+export interface ProxyHubResourceRef {
+  kind: 'proxy-hub';
   name: string;
 }
 
@@ -40,6 +46,7 @@ export interface AccountPoolResourceRef {
 export type ResourceRef =
   | AccountResourceRef
   | GatewayResourceRef
+  | ProxyHubResourceRef
   | PresetResourceRef
   | AccountPoolResourceRef;
 
@@ -65,6 +72,17 @@ export interface ProviderProxyPool {
   strategy: 'failover' | 'round-robin';
   members: PoolMember[];
   updatedAt: string;
+}
+
+/**
+ * Explicit policy for quota-driven pool failover. It is deliberately separate
+ * from normal request retries: only an authoritative credential quota/balance
+ * response may advance a pool, and native client logins are never touched.
+ */
+export interface QuotaGuardPolicy {
+  enabled: boolean;
+  /** Conservative fallback when the provider gives no Retry-After header. */
+  cooldownMinutes: number;
 }
 
 export type ModelSelection =
@@ -147,7 +165,7 @@ export interface SavedPreset {
 }
 
 export interface SourceCapabilities {
-  sourceKind: 'account' | 'gateway';
+  sourceKind: 'account' | 'gateway' | 'proxy-hub';
   /** Provider/catalog identity, e.g. grok, openrouter, custom. */
   provider: string;
   /**
@@ -174,7 +192,7 @@ export interface SourceAdapter {
 
 export interface ResolvedSource {
   ref: ResourceRef;
-  kind: 'account' | 'gateway';
+  kind: 'account' | 'gateway' | 'proxy-hub';
   adapter: SourceAdapter;
   /** Display label for UX (e.g. grok/work, openrouter-work). */
   display: string;
@@ -240,7 +258,7 @@ export interface ResolvedClientPlan {
   account?: Account;
   dryRun: boolean;
   verbose: boolean;
-  hotplugRoot: string;
+  anypickRoot: string;
 }
 
 export type PlanStepKind =
@@ -254,6 +272,10 @@ export type PlanStepKind =
   | 'AllocateProxyLease'
   | 'StartProxy'
   | 'WaitForHealth'
+  | 'EnsureProxyHub'
+  | 'AttachProxyHubRoute'
+  | 'WaitForHubHealth'
+  | 'ValidateProxyHubRoute'
   | 'WriteNativeAuth'
   | 'WriteClientConfig'
   | 'CreateEnvironmentOverlay'

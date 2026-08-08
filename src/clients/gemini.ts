@@ -2,7 +2,7 @@
  * Gemini CLI client adapter.
  *
  * Persistent writes:
- * - ~/.hotplug/clients/gemini/env.sh (+ env.ps1)
+ * - ~/.anypick/clients/gemini/env.sh (+ env.ps1)
  * - ~/.gemini/.env managed keys (GEMINI_API_KEY, GEMINI_MODEL, …)
  *
  * Gemini CLI primarily authenticates via API key or Google OAuth.
@@ -23,13 +23,13 @@ import type {
   IsolatedClientRuntime,
   ResolvedClientPlan,
 } from '../types';
-import { HotplugError } from '../utils/errors';
+import { AnyPickError } from '../utils/errors';
 import { ensureDir, pathExists } from '../utils/fs';
 import { resolveFromContext } from './resolve';
 import {
   managedMarker,
   removeClientEnvFiles,
-  HOTPLUG_MANAGED_KEY,
+  ANYPICK_MANAGED_KEY,
   writeClientEnvFiles,
 } from './env-files';
 import {
@@ -104,8 +104,8 @@ export function createGeminiClient(home = process.env.HOME ?? homedir()): Client
       return {
         managedPaths: [
           ...managedPaths,
-          join(ctx.hotplugRoot, 'clients', 'gemini', 'env.sh'),
-          join(ctx.hotplugRoot, 'clients', 'gemini', 'env.ps1'),
+          join(ctx.anypickRoot, 'clients', 'gemini', 'env.sh'),
+          join(ctx.anypickRoot, 'clients', 'gemini', 'env.ps1'),
         ],
         managedEnvKeys,
       };
@@ -123,7 +123,7 @@ export function createGeminiClient(home = process.env.HOME ?? homedir()): Client
         }
         doc = parsed as Record<string, unknown>;
       } catch (err) {
-        throw new HotplugError(
+        throw new AnyPickError(
           `Refusing to overwrite unreadable Gemini settings at ${targetSettings}: ${err instanceof Error ? err.message : String(err)}`,
           'CLIENT_CONFIG_INVALID',
         );
@@ -132,14 +132,14 @@ export function createGeminiClient(home = process.env.HOME ?? homedir()): Client
 
     let envPaths: string[] = [];
     if (!ctx.isolatedHome) {
-      envPaths = await writeClientEnvFiles(ctx.hotplugRoot, 'gemini', env);
+      envPaths = await writeClientEnvFiles(ctx.anypickRoot, 'gemini', env);
     }
 
     await ensureDir(geminiDir(targetHome));
     await upsertEnvFile(targetEnv, env);
 
     // Mark managed keys in settings.json (non-destructive)
-    doc[HOTPLUG_MANAGED_KEY] = managedMarker(managedEnvKeys);
+    doc[ANYPICK_MANAGED_KEY] = managedMarker(managedEnvKeys);
     await writeJsonFile(targetSettings, doc, 0o600);
 
     return {
@@ -151,8 +151,18 @@ export function createGeminiClient(home = process.env.HOME ?? homedir()): Client
   const adapter: ClientAdapter = {
     id: 'gemini',
     name: 'Gemini CLI',
+    shortName: 'Gemini',
+    binaryName: 'gemini',
+    binaryEnvVar: 'GEMINI_BINARY',
     description: 'Google Gemini CLI (API key / env runtime)',
     supportedApiStyles: ['custom', 'openai'],
+    nativeInstallations: [
+      { sourceId: 'gemini-cli', executables: ['gemini'] },
+      {
+        sourceId: 'antigravity',
+        macApplications: ['Antigravity.app', 'Antigravity IDE.app'],
+      },
+    ],
     capabilities: {
       id: 'gemini',
       acceptedProtocols: ['openai'],
@@ -167,7 +177,7 @@ export function createGeminiClient(home = process.env.HOME ?? homedir()): Client
       const r = resolveFromContext(ctx);
       // API key optional when user relies on OAuth account switch (direct transport)
       if (!r.apiKey && !r.endpoint) {
-        throw new HotplugError(
+        throw new AnyPickError(
           'Gemini apply needs an API key or endpoint. Use a gateway profile, or switch a Gemini account directly.',
           'CLIENT_CONFIG_INVALID',
         );
@@ -199,7 +209,7 @@ export function createGeminiClient(home = process.env.HOME ?? homedir()): Client
       plan: ResolvedClientPlan,
       paths: readonly IsolatablePath[],
     ): Promise<IsolatedClientRuntime> {
-      const runtimeRoot = await createTempRuntimeRoot('hotplug-gemini-');
+      const runtimeRoot = await createTempRuntimeRoot('anypick-gemini-');
       const isoHome = join(runtimeRoot, 'home');
       await ensureDir(isoHome);
       await materializeIsolatablePaths(isoHome, paths);
@@ -210,7 +220,7 @@ export function createGeminiClient(home = process.env.HOME ?? homedir()): Client
         syntheticProxyProfile({
           name: `ephemeral-${plan.source.display}`,
           endpoint,
-          apiKey: 'hotplug-proxy',
+          apiKey: 'anypick-proxy',
           defaultModel: plan.model.mode === 'explicit' ? plan.model.id : undefined,
         });
 
@@ -220,14 +230,14 @@ export function createGeminiClient(home = process.env.HOME ?? homedir()): Client
           meta: { ...profile.meta, endpoint: endpoint || profile.meta.endpoint },
           secrets: {
             ...profile.secrets,
-            apiKey: profile.secrets.apiKey ?? 'hotplug-proxy',
+            apiKey: profile.secrets.apiKey ?? 'anypick-proxy',
           },
         },
         clientId: 'gemini',
         dryRun: plan.dryRun,
         verbose: plan.verbose,
         proxyEndpoint: endpoint || undefined,
-        hotplugRoot: plan.hotplugRoot,
+        anypickRoot: plan.anypickRoot,
         isolatedHome: isoHome,
       };
 
@@ -249,7 +259,7 @@ export function createGeminiClient(home = process.env.HOME ?? homedir()): Client
         syntheticProxyProfile({
           name: plan.source.display,
           endpoint: plan.transport.endpoint ?? '',
-          apiKey: 'hotplug-proxy',
+          apiKey: 'anypick-proxy',
           defaultModel: plan.model.mode === 'explicit' ? plan.model.id : undefined,
         });
       const endpoint =
@@ -266,7 +276,7 @@ export function createGeminiClient(home = process.env.HOME ?? homedir()): Client
         dryRun: plan.dryRun,
         verbose: plan.verbose,
         proxyEndpoint: endpoint || undefined,
-        hotplugRoot: plan.hotplugRoot,
+        anypickRoot: plan.anypickRoot,
       };
       await adapter.validate(ctx);
       return applyToHome(ctx, home);
@@ -286,7 +296,7 @@ export function createGeminiClient(home = process.env.HOME ?? homedir()): Client
       if (await pathExists(liveSettings)) {
         try {
           const doc = await readJsonFile<Record<string, unknown>>(liveSettings);
-          delete doc[HOTPLUG_MANAGED_KEY];
+          delete doc[ANYPICK_MANAGED_KEY];
           await writeJsonFile(liveSettings, doc, 0o600);
         } catch {
           // ignore
@@ -301,9 +311,9 @@ export function createGeminiClient(home = process.env.HOME ?? homedir()): Client
       if (await pathExists(liveSettings)) {
         try {
           const doc = await readJsonFile<Record<string, unknown>>(liveSettings);
-          const managed = doc[HOTPLUG_MANAGED_KEY] as { keys?: string[] } | undefined;
+          const managed = doc[ANYPICK_MANAGED_KEY] as { keys?: string[] } | undefined;
           summary = managed?.keys?.length
-            ? `hotplug-managed env keys: ${managed.keys.length}`
+            ? `anypick-managed env keys: ${managed.keys.length}`
             : 'settings present';
         } catch {
           issues.push('settings.json unreadable');

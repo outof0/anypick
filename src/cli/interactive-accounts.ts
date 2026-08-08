@@ -1,8 +1,8 @@
 import * as p from '@clack/prompts';
 import pc from 'picocolors';
-import type { HotplugApp } from '../core/app';
+import type { AnyPickApp } from '../core/app';
 
-async function pickProvider(accounts: HotplugApp['accounts']): Promise<string | null> {
+async function pickProvider(accounts: AnyPickApp['accounts']): Promise<string | null> {
   const choice = await p.select({
     message: 'Which provider?',
     options: accounts.listProviders().map((provider) => ({
@@ -16,7 +16,7 @@ async function pickProvider(accounts: HotplugApp['accounts']): Promise<string | 
 
 /** Ask which sign-in source to use, for providers that expose more than one. */
 async function pickSource(
-  accounts: HotplugApp['accounts'],
+  accounts: AnyPickApp['accounts'],
   provider: string,
 ): Promise<'gemini-cli' | 'antigravity' | null | undefined> {
   if (provider !== 'gemini' || !accounts.provider(provider).detectLiveSource) {
@@ -32,7 +32,7 @@ async function pickSource(
   return p.isCancel(choice) ? null : choice;
 }
 
-export async function wizardAddAccount(accounts: HotplugApp['accounts']): Promise<void> {
+export async function wizardAddAccount(accounts: AnyPickApp['accounts']): Promise<void> {
   const provider = await pickProvider(accounts);
   if (!provider) {
     return;
@@ -68,7 +68,7 @@ export async function wizardAddAccount(accounts: HotplugApp['accounts']): Promis
         `Live ${label} auth cleared (tokens kept on server).`,
         '',
         '1. Log in with the official tool',
-        `2. hotplug add account ${provider} --current --name work${sourceFlag}`,
+        `2. anypick add account ${provider} --current --name work${sourceFlag}`,
       ].join('\n'),
       'next',
     );
@@ -91,5 +91,5 @@ export async function wizardAddAccount(accounts: HotplugApp['accounts']): Promis
     ? await accounts.save(provider, name, { force: true, source })
     : await accounts.saveCurrent(provider, name);
   p.log.success(`Saved ${provider}/${meta.name}`);
-  p.log.message(pc.dim(`  hotplug use claude --with ${provider}/${meta.name}`));
+  p.log.message(pc.dim(`  anypick use claude --with ${provider}/${meta.name}`));
 }

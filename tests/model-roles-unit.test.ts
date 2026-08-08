@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   CLAUDE_MODEL_ROLES,
+  CODEX_DESKTOP_MODEL_ROLES,
   defaultModelRolesForProxy,
   modelDefaultsForSuggestions,
   modelRolesForClient,
@@ -9,6 +10,7 @@ import {
   normalizeModelRoles,
   suggestModelsForProxyProvider,
 } from '../src/clients/model-roles';
+import { codexClient } from '../src/clients/codex';
 import { syntheticProxyProfile } from '../src/clients/isolation';
 import { ProviderRegistry } from '../src/core/registry';
 import { CatalogRegistry, registerBuiltinCatalog } from '../src/catalog/providers';
@@ -26,22 +28,46 @@ registerBuiltinProviders(accountRegistry);
 registerBuiltinCatalog(catalog);
 const policy = modelPolicyLookup({ accountRegistry, catalog });
 
+const claudeAdapter = {
+  id: 'claude',
+  modelRoles: () => CLAUDE_MODEL_ROLES,
+};
+
 describe('modelRolesForClient', () => {
-  it('claude exposes default + sonnet/opus/haiku', () => {
-    const roles = modelRolesForClient('claude');
+  it('adapter with modelRoles() exposes those roles', () => {
+    const roles = modelRolesForClient(claudeAdapter);
     expect(roles.map((r) => r.id)).toEqual(['default', 'sonnet', 'opus', 'haiku']);
     expect(CLAUDE_MODEL_ROLES).toHaveLength(4);
   });
 
-  it('codex and kiro expose default only', () => {
+  it('string client ids stay vendor-neutral (single default role)', () => {
+    // Bare ids must not invent Anthropic multi-roles by coincidence — only a
+    // ClientAdapter with modelRoles() may expose them.
+    expect(modelRolesForClient('claude').map((r) => r.id)).toEqual(['default']);
     expect(modelRolesForClient('codex').map((r) => r.id)).toEqual(['default']);
     expect(modelRolesForClient('kiro').map((r) => r.id)).toEqual(['default']);
+  });
+
+  it('adapters without modelRoles() fall back to default only', () => {
+    expect(modelRolesForClient({ id: 'codex' }).map((r) => r.id)).toEqual(['default']);
+    expect(modelRolesForClient({ id: 'kiro' }).map((r) => r.id)).toEqual(['default']);
+  });
+
+  it('Codex adapter exposes Default + Desktop list slots', () => {
+    expect(modelRolesForClient(codexClient).map((r) => r.id)).toEqual([
+      'default',
+      'list2',
+      'list3',
+      'list4',
+      'list5',
+    ]);
+    expect(CODEX_DESKTOP_MODEL_ROLES).toHaveLength(5);
   });
 });
 
 describe('defaultModelRolesForProxy', () => {
   it('does not pin Grok Claude roles to a release-specific model', () => {
-    const m = defaultModelRolesForProxy('grok', 'claude', policy);
+    const m = defaultModelRolesForProxy('grok', claudeAdapter, policy);
     expect(m).toEqual({});
   });
 

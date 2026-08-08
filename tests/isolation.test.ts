@@ -68,11 +68,11 @@ describe('client isolation capabilities', () => {
 
 describe('claude isolated runtime does not touch live settings', () => {
   let liveHome: string;
-  let hotplugRoot: string;
+  let anypickRoot: string;
 
   beforeEach(async () => {
     liveHome = await mkdtemp(join(tmpdir(), 'claude-live-'));
-    hotplugRoot = await mkdtemp(join(tmpdir(), 'claude-hotplug-'));
+    anypickRoot = await mkdtemp(join(tmpdir(), 'claude-anypick-'));
     await mkdir(join(liveHome, '.claude'), { recursive: true });
     await writeFile(
       join(liveHome, '.claude', 'settings.json'),
@@ -83,7 +83,7 @@ describe('claude isolated runtime does not touch live settings', () => {
 
   afterEach(async () => {
     await rm(liveHome, { recursive: true, force: true });
-    await rm(hotplugRoot, { recursive: true, force: true });
+    await rm(anypickRoot, { recursive: true, force: true });
   });
 
   it('writes only into temp home', async () => {
@@ -120,7 +120,7 @@ describe('claude isolated runtime does not touch live settings', () => {
       mode: 'ephemeral',
       dryRun: false,
       verbose: false,
-      hotplugRoot,
+      anypickRoot,
     };
 
     const paths = await client.listIsolatablePaths!({ home: liveHome });
@@ -147,7 +147,7 @@ describe('claude isolated runtime does not touch live settings', () => {
 describe('applyPersistent injects proxy endpoint (account path)', () => {
   it('claude applyPersistent sets ANTHROPIC_BASE_URL', async () => {
     const liveHome = await mkdtemp(join(tmpdir(), 'claude-persist-'));
-    const hotplugRoot = await mkdtemp(join(tmpdir(), 'hotplug-persist-'));
+    const anypickRoot = await mkdtemp(join(tmpdir(), 'anypick-persist-'));
     try {
       const client = createClaudeCodeClient(liveHome);
       const plan: ResolvedClientPlan = {
@@ -179,11 +179,11 @@ describe('applyPersistent injects proxy endpoint (account path)', () => {
         profile: syntheticProxyProfile({
           name: 'proxy:grok/work',
           endpoint: 'http://127.0.0.1:9999',
-          apiKey: 'hotplug-proxy',
+          apiKey: 'anypick-proxy',
         }),
         dryRun: false,
         verbose: false,
-        hotplugRoot,
+        anypickRoot,
       };
 
       await client.applyPersistent!(plan);
@@ -191,10 +191,10 @@ describe('applyPersistent injects proxy endpoint (account path)', () => {
         join(liveHome, '.claude', 'settings.json'),
       );
       expect(doc.env.ANTHROPIC_BASE_URL).toBe('http://127.0.0.1:9999');
-      expect(doc.env.ANTHROPIC_AUTH_TOKEN).toBe('hotplug-proxy');
+      expect(doc.env.ANTHROPIC_AUTH_TOKEN).toBe('anypick-proxy');
     } finally {
       await rm(liveHome, { recursive: true, force: true });
-      await rm(hotplugRoot, { recursive: true, force: true });
+      await rm(anypickRoot, { recursive: true, force: true });
     }
   });
 });
@@ -238,7 +238,7 @@ describe('Codex isolated profile selection', () => {
         }),
         dryRun: false,
         verbose: false,
-        hotplugRoot: root,
+        anypickRoot: root,
       };
 
       const runtime = await client.createIsolatedRuntime!(plan, []);
@@ -246,7 +246,7 @@ describe('Codex isolated profile selection', () => {
         expect(runtime.args).toEqual(['--profile', codexProfileName('proxy:grok/work')]);
         expect(Object.keys(runtime.environment)).toContain('CODEX_HOME');
         expect(
-          Object.keys(runtime.environment).some((key) => key.startsWith('HOTPLUG_CODEX_')),
+          Object.keys(runtime.environment).some((key) => key.startsWith('ANYPICK_CODEX_')),
         ).toBe(true);
       } finally {
         await runtime.cleanup();
@@ -259,7 +259,7 @@ describe('Codex isolated profile selection', () => {
 
 describe('gatewayTransportFor', () => {
   const clients = new ClientRegistry();
-  clients.register(createClaudeCodeClient('/tmp/hotplug-test-claude'));
+  clients.register(createClaudeCodeClient('/tmp/anypick-test-claude'));
   const catalogProvider = {
     id: 'openrouter',
     name: 'OpenRouter',

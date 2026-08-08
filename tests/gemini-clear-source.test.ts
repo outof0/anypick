@@ -28,7 +28,7 @@ describe('gemini clearLiveSource', () => {
   let provider: InstanceType<typeof GeminiProvider>;
 
   beforeEach(async () => {
-    home = await mkdtemp(join(tmpdir(), 'hotplug-gemini-clear-'));
+    home = await mkdtemp(join(tmpdir(), 'anypick-gemini-clear-'));
     provider = new GeminiProvider(home);
     deleteCredential.mockClear();
     const dir = join(home, '.gemini');

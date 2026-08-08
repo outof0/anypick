@@ -14,4 +14,12 @@
 export * from './anthropic-types';
 export * from './anthropic-convert';
 export * from './anthropic-stream';
+export {
+  deepSanitizeRequiredFields,
+  sanitizeAnthropicToolSchemas,
+  sanitizeInferenceToolSchemas,
+  sanitizeJsonSchema,
+  sanitizeOpenAIToolSchemas,
+} from './json-schema';
 export { fixMissingToolResponses, sse } from './anthropic-helpers';
+export { estimateAnthropicInputTokens } from './token-estimate';

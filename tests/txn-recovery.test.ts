@@ -10,7 +10,7 @@ import { ClientStateStore } from '../src/core/client-state-store';
 import { createHash } from 'node:crypto';
 
 // TXN-01: durable write-ahead recovery.
-// - Crash backups live in the owner-only Hotplug recovery dir (not the system
+// - Crash backups live in the owner-only AnyPick recovery dir (not the system
 //   temp dir) with collision-free hashed filenames, so concurrent activations
 //   or two targets sharing a basename never clobber each other.
 // - A simulated crash mid-activation leaves a journal entry whose recorded
@@ -21,8 +21,8 @@ describe('TXN-01 recovery storage + restore', () => {
   let home: string;
 
   beforeEach(async () => {
-    root = await mkdtemp(join(tmpdir(), 'hotplug-txn-'));
-    home = await mkdtemp(join(tmpdir(), 'hotplug-txn-home-'));
+    root = await mkdtemp(join(tmpdir(), 'anypick-txn-'));
+    home = await mkdtemp(join(tmpdir(), 'anypick-txn-home-'));
   });
 
   afterEach(async () => {

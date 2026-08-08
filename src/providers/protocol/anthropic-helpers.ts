@@ -52,9 +52,21 @@ export function anthropicMessageToOpenAI(msg: AnthropicMessage): OpenAIMessage[]
   if (msg.role === 'assistant') {
     const textParts: string[] = [];
     const toolCalls: OpenAIToolCall[] = [];
+    const reasoningParts: string[] = [];
+    let reasoningSignature: string | undefined = undefined;
+    let hadThinking = false;
+
     for (const b of blocks) {
       if (b.type === 'text' && 'text' in b) {
         textParts.push(String(b.text ?? ''));
+      } else if (b.type === 'thinking' && 'thinking' in b) {
+        hadThinking = true;
+        if (typeof b.thinking === 'string' && b.thinking) {
+          reasoningParts.push(b.thinking);
+        }
+        if ('signature' in b && typeof b.signature === 'string' && b.signature) {
+          reasoningSignature = b.signature;
+        }
       } else if (b.type === 'tool_use' && 'id' in b && 'name' in b) {
         toolCalls.push({
           id: String(b.id),
@@ -70,6 +82,18 @@ export function anthropicMessageToOpenAI(msg: AnthropicMessage): OpenAIMessage[]
       role: 'assistant',
       content: textParts.length ? textParts.join('\n') : null,
     };
+    // DeepSeek (and similar) requires reasoning_content to be echoed back
+    // on assistant messages that originally had reasoning — omitting it when
+    // tool_calls are present triggers a 400.  Always emit the field when any
+    // thinking block existed, even if the accumulated text is empty.
+    if (reasoningParts.length) {
+      m.reasoning_content = reasoningParts.join('\n');
+    } else if (hadThinking) {
+      m.reasoning_content = '';
+    }
+    if (reasoningSignature) {
+      m.reasoning_signature = reasoningSignature;
+    }
     if (toolCalls.length) {
       m.tool_calls = toolCalls;
     }
@@ -179,11 +203,63 @@ export function mapFinishReason(
   return 'end_turn';
 }
 
+export function escapeJsonControlCharacters(str: string): string {
+  let insideString = false;
+  let escaped = false;
+  let result = '';
+
+  for (let i = 0; i < str.length; i++) {
+    const char = str[i];
+    const code = char.charCodeAt(0);
+
+    if (insideString) {
+      if (escaped) {
+        result += char;
+        escaped = false;
+      } else if (char === '\\') {
+        result += char;
+        escaped = true;
+      } else if (char === '"') {
+        result += char;
+        insideString = false;
+      } else if (code < 32) {
+        if (char === '\n') {
+          result += '\\n';
+        } else if (char === '\r') {
+          result += '\\r';
+        } else if (char === '\t') {
+          result += '\\t';
+        } else {
+          const hex = code.toString(16).padStart(4, '0');
+          result += `\\u${hex}`;
+        }
+      } else {
+        result += char;
+      }
+    } else {
+      if (char === '"') {
+        insideString = true;
+      }
+      result += char;
+    }
+  }
+
+  return result;
+}
+
 export function safeJsonParse(raw: string): unknown {
+  if (!raw) {
+    return {};
+  }
+  const sanitized = escapeJsonControlCharacters(raw);
   try {
-    return JSON.parse(raw || '{}');
+    return JSON.parse(sanitized);
   } catch {
-    return { raw };
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return { raw };
+    }
   }
 }
 

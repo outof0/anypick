@@ -57,7 +57,7 @@ describe('parseAntigravityOAuthCredential', () => {
 
 describe('loadAntigravityOAuthCredentials from a file', () => {
   it('reads and parses a portable credential file', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'hotplug-antigravity-'));
+    const dir = await mkdtemp(join(tmpdir(), 'anypick-antigravity-'));
     try {
       const file = join(dir, 'cred.json');
       await writeFile(file, JSON.stringify({ refresh_token: 'rt', token_type: 'Bearer' }));
@@ -76,7 +76,7 @@ describe('loadAntigravityOAuthCredentials from a file', () => {
  */
 describe('readAntigravityOAuthPayload', () => {
   async function withFile<T>(contents: string, fn: (file: string) => Promise<T>): Promise<T> {
-    const dir = await mkdtemp(join(tmpdir(), 'hotplug-antigravity-'));
+    const dir = await mkdtemp(join(tmpdir(), 'anypick-antigravity-'));
     try {
       const file = join(dir, 'cred.json');
       await writeFile(file, contents);
@@ -134,19 +134,47 @@ describe('hydrateAntigravityOAuthPayload', () => {
     expect(payload.token?.expiry).toMatch(/^\d{4}-\d{2}-\d{2}T/);
   });
 
-  it('does not refresh a complete credential', async () => {
-    const complete = { token: { refresh_token: 'rt', access_token: 'at' } };
+  it('does not refresh a credential whose access token is still valid', async () => {
+    const future = new Date(Date.now() + 3_600_000).toISOString();
+    const complete = { token: { refresh_token: 'rt', access_token: 'at', expiry: future } };
     const fetchImpl = async () => {
       throw new Error('should not fetch');
     };
 
     await expect(hydrateAntigravityOAuthPayload(complete, fetchImpl)).resolves.toBe(complete);
   });
+
+  it('refreshes an expired access token before writing back to the keychain', async () => {
+    const past = new Date(Date.now() - 1_000).toISOString();
+    const expired = {
+      token: { refresh_token: 'rt', access_token: 'stale-at', token_type: 'Bearer', expiry: past },
+    };
+
+    const payload = await hydrateAntigravityOAuthPayload(
+      expired,
+      async () => new Response(JSON.stringify({ access_token: 'fresh-at', expires_in: 3_600 })),
+    );
+
+    expect(payload.token?.access_token).toBe('fresh-at');
+    expect(payload.token?.refresh_token).toBe('rt');
+  });
+
+  it('refreshes a credential with no expiry field (older snapshot)', async () => {
+    const noExpiry = { token: { refresh_token: 'rt', access_token: 'at' } };
+    const payload = await hydrateAntigravityOAuthPayload(
+      noExpiry,
+      async () => new Response(JSON.stringify({ access_token: 'fresh-at', expires_in: 3_600 })),
+    );
+
+    expect(payload.token?.access_token).toBe('fresh-at');
+    expect(payload.token?.refresh_token).toBe('rt');
+    expect(payload.token?.expiry).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+  });
 });
 
 describe('Antigravity restore', () => {
   it('fails the account restore when the credential store rejects the write', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'hotplug-antigravity-'));
+    const dir = await mkdtemp(join(tmpdir(), 'anypick-antigravity-'));
     try {
       await writeFile(
         join(dir, 'antigravity_oauth.json'),

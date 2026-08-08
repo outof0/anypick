@@ -1,8 +1,8 @@
 /**
- * Shared client launch path used by `hotplug run` and the root launcher.
+ * Shared client launch path used by `anypick run` and the root launcher.
  */
 
-import type { HotplugApp } from '../core/app';
+import type { AnyPickApp } from '../core/app';
 import type { ResolvedTransport } from '../types';
 import { ExitCode } from '../utils/errors';
 
@@ -15,17 +15,18 @@ export interface LaunchClientOpts {
   childArgs?: string[];
 }
 
-function clientBinary(client: string): string {
-  switch (client) {
-    case 'claude':
-      return process.env.CLAUDE_BINARY ?? 'claude';
-    case 'codex':
-      return process.env.CODEX_BINARY ?? 'codex';
-    case 'kiro':
-      return process.env.KIRO_BINARY ?? 'kiro';
-    default:
-      return client;
+function clientBinary(app: AnyPickApp, clientId: string): string {
+  if (!app.clients.has(clientId)) {
+    return clientId;
   }
+  const client = app.clients.get(clientId);
+  if (client.binaryEnvVar) {
+    const fromEnv = process.env[client.binaryEnvVar];
+    if (fromEnv && fromEnv.length > 0) {
+      return fromEnv;
+    }
+  }
+  return client.binaryName ?? clientId;
 }
 
 function publicTransport(transport: ResolvedTransport): Record<string, unknown> {
@@ -49,7 +50,7 @@ function publicTransport(transport: ResolvedTransport): Record<string, unknown> 
  * Returns the process exit code (does not call process.exit).
  */
 export async function launchClient(
-  app: HotplugApp,
+  app: AnyPickApp,
   client: string,
   opts: LaunchClientOpts = {},
 ): Promise<number> {
@@ -85,7 +86,7 @@ export async function launchClient(
     return 0;
   }
 
-  const bin = clientBinary(client);
+  const bin = clientBinary(app, client);
   const childArgs = [...(result.isolated?.args ?? []), ...(opts.childArgs ?? [])];
   const { spawn } = await import('node:child_process');
   const inherited = result.isolated
@@ -102,10 +103,13 @@ export async function launchClient(
     ...inherited,
     ...result.isolated?.environment,
   };
+  // When the ephemeral plan did not materialize an isolated home, still point
+  // Anthropic-protocol clients at the managed proxy endpoint via env.
   if (!result.isolated && result.proxyEndpoint) {
-    if (client === 'claude') {
+    const protocol = result.plan.transport.protocol;
+    if (protocol === 'anthropic') {
       env.ANTHROPIC_BASE_URL = result.proxyEndpoint;
-      env.ANTHROPIC_AUTH_TOKEN = env.ANTHROPIC_AUTH_TOKEN ?? 'hotplug';
+      env.ANTHROPIC_AUTH_TOKEN = env.ANTHROPIC_AUTH_TOKEN ?? 'anypick';
     }
   }
 

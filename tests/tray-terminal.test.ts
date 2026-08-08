@@ -3,7 +3,7 @@ import { terminalLaunchCandidates } from '../src/tray/terminal-launcher';
 
 describe('tray terminal launcher', () => {
   it('prefers iTerm2 and falls back to Terminal on macOS', () => {
-    expect(terminalLaunchCandidates('darwin', {}, '/node', '/hotplug.js')).toEqual([
+    expect(terminalLaunchCandidates('darwin', {}, '/node', '/anypick.js')).toEqual([
       { kind: 'mac-app', application: 'iTerm2' },
       { kind: 'mac-app', application: 'Terminal' },
     ]);
@@ -14,22 +14,22 @@ describe('tray terminal launcher', () => {
       'linux',
       { TERMINAL: 'kitty' },
       '/node',
-      '/hotplug.js',
+      '/anypick.js',
     );
     expect(candidates[0]).toEqual({
       kind: 'process',
       command: 'kitty',
-      args: ['--', '/node', '/hotplug.js'],
+      args: ['--', '/node', '/anypick.js'],
     });
     expect(candidates.some((candidate) => candidate.kind === 'mac-app')).toBe(false);
   });
 
   it('prefers Windows Terminal and keeps PowerShell/cmd fallbacks', () => {
-    const candidates = terminalLaunchCandidates('win32', {}, 'node.exe', 'hotplug.js');
+    const candidates = terminalLaunchCandidates('win32', {}, 'node.exe', 'anypick.js');
     expect(candidates[0]).toEqual({
       kind: 'process',
       command: 'wt.exe',
-      args: ['new-tab', 'node.exe', 'hotplug.js'],
+      args: ['new-tab', 'node.exe', 'anypick.js'],
     });
     expect(candidates.map((candidate) => candidate.kind)).toEqual([
       'process',

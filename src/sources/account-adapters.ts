@@ -14,7 +14,7 @@ import type {
 } from '../types';
 import { accountRef } from '../core/refs';
 import { providerCanProxy } from '../core/capabilities';
-import { whichExecutable } from '../utils/process';
+import { resolveKiroProxyCommand, resolveKiroProxyCommandCached } from './kiro-proxy-bin';
 
 function baseAccountCapabilities(
   provider: string,
@@ -49,6 +49,22 @@ export function codexAccountAdapter(account: Account): SourceAdapter {
       }
       // Codex native auth is not a gateway for Claude/Kiro
       return 'unsupported';
+    },
+  };
+}
+
+/** Claude Code native login: direct only for Claude Code. */
+export function claudeAccountAdapter(account: Account): SourceAdapter {
+  const sourceRef = accountRef(account.meta.provider, account.meta.name);
+  return {
+    sourceRef,
+    capabilities: baseAccountCapabilities('claude', {
+      nativeClients: ['claude'],
+      protocols: ['anthropic'],
+      requiresNativeAuthWrite: true,
+    }),
+    transportFor(clientId: ClientId): TransportCapability {
+      return clientId === 'claude' ? 'direct' : 'unsupported';
     },
   };
 }
@@ -115,15 +131,18 @@ export function opencodeAccountAdapter(account: Account): SourceAdapter {
 }
 
 /**
- * Kiro: external kirolink proxy. Discovery from PATH only.
- * Missing executable → external_manual_proxy (activation exits 7 before mutation).
+ * Kiro: external kirolink proxy (spec §19.5).
+ *
+ * Classification shares `resolveKiroProxyCommand` with the launcher in
+ * `providers/kiro.ts`, so the gate and the spawn can never disagree on a
+ * binary name or on an env override. Missing → external_manual_proxy
+ * (activation exits 7 before any mutation).
  */
 export function kiroAccountAdapter(
   account: Account,
   opts: { findExecutable?: (name: string) => string | null } = {},
 ): SourceAdapter {
   const sourceRef = accountRef(account.meta.provider, account.meta.name);
-  const find = opts.findExecutable ?? ((name: string) => whichExecutable(name));
 
   return {
     sourceRef,
@@ -138,11 +157,11 @@ export function kiroAccountAdapter(
         return 'direct';
       }
       if (clientId === 'claude' || clientId === 'codex') {
-        const path = find('kirolink') ?? find('kiro-link');
-        if (path) {
-          return 'managed_external_proxy';
-        }
-        return 'external_manual_proxy';
+        // The test seam bypasses env-driven discovery; the live path caches.
+        const command = opts.findExecutable
+          ? resolveKiroProxyCommand({ findExecutable: opts.findExecutable })
+          : resolveKiroProxyCommandCached();
+        return command ? 'managed_external_proxy' : 'external_manual_proxy';
       }
       return 'unsupported';
     },

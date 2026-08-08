@@ -3,7 +3,7 @@ import { dirname, join } from 'node:path';
 import { homedir } from 'node:os';
 import { existsSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
-import { HotplugError } from './errors';
+import { AnyPickError } from './errors';
 
 /** Expand ~ and normalize a path. */
 export function expandHome(path: string): string {
@@ -26,7 +26,7 @@ export async function pathExists(path: string): Promise<boolean> {
 }
 
 export async function ensureDir(path: string): Promise<void> {
-  // Hotplug stores credentials, snapshots, and proxy logs below this tree.
+  // AnyPick stores credentials, snapshots, and proxy logs below this tree.
   // New directories are owner-only even under a permissive umask.
   await mkdir(path, { recursive: true, mode: 0o700 });
 }
@@ -122,7 +122,7 @@ export async function backupRequiredFile(
 ): Promise<void> {
   const ok = await copyFileSafe(livePath, destPath);
   if (!ok) {
-    throw new HotplugError(`No live ${label} found at ${livePath}. Log in first, then save.`, {
+    throw new AnyPickError(`No live ${label} found at ${livePath}. Log in first, then save.`, {
       code: 'NO_LIVE_AUTH',
       suggestions: [`Sign in with the official tool, then try again.`],
     });

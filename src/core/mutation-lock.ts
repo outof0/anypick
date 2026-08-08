@@ -1,5 +1,5 @@
 /**
- * Scoped mutation locks for hotplug data root (spec §23.3, ADR 0009).
+ * Scoped mutation locks for anypick data root (spec §23.3, ADR 0009).
  *
  * Locks are re-entrant *within one async context*. Services own their locking
  * (ADR 0009: correctness must not depend on the caller), which means a service
@@ -13,7 +13,7 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { join } from 'node:path';
 import { withFileLock, type WithFileLockOptions } from '../utils/lock';
-import { getHotplugRoot } from './paths';
+import { getAnyPickRoot } from './paths';
 
 /**
  * Lock file paths held by the current async context. Identity is the resolved
@@ -25,7 +25,7 @@ const NO_LOCKS: ReadonlySet<string> = new Set<string>();
 
 export function mutationLockPath(root: string, scope: string): string {
   const safe = scope.replace(/[^a-zA-Z0-9._@/-]+/g, '_').replace(/\//g, '__');
-  return join(getHotplugRoot(root), 'locks', `${safe}.lock`);
+  return join(getAnyPickRoot(root), 'locks', `${safe}.lock`);
 }
 
 /** Lock paths held by the current async context. Exposed for assertions and tests. */

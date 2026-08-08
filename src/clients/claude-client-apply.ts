@@ -1,11 +1,11 @@
 import { join } from 'node:path';
 import { homedir } from 'node:os';
 import type { ApplyContext } from '../types';
-import { HotplugError } from '../utils/errors';
+import { AnyPickError } from '../utils/errors';
 import { copyFileSafe, ensureDir, pathExists, readJsonFile, writeJsonFile } from '../utils/fs';
 import { clientBackupDir } from '../core/paths';
 import { resolveFromContext } from './resolve';
-import { managedMarker, HOTPLUG_MANAGED_KEY, writeClientEnvFiles } from './env-files';
+import { managedMarker, ANYPICK_MANAGED_KEY, writeClientEnvFiles } from './env-files';
 
 export function settingsPath(home = process.env.HOME ?? homedir()): string {
   return join(home, '.claude', 'settings.json');
@@ -32,10 +32,10 @@ function isOfficialAnthropicEndpoint(endpoint: string): boolean {
   }
 }
 
-function expectedEnvPaths(hotplugRoot: string): string[] {
+function expectedEnvPaths(anypickRoot: string): string[] {
   return [
-    join(hotplugRoot, 'clients', 'claude', 'env.sh'),
-    join(hotplugRoot, 'clients', 'claude', 'env.ps1'),
+    join(anypickRoot, 'clients', 'claude', 'env.sh'),
+    join(anypickRoot, 'clients', 'claude', 'env.ps1'),
   ];
 }
 
@@ -89,7 +89,7 @@ export async function applyClaudeToHome(ctx: ApplyContext, targetHome: string) {
 
   if (ctx.dryRun) {
     return {
-      managedPaths: [settings, ...expectedEnvPaths(ctx.hotplugRoot)],
+      managedPaths: [settings, ...expectedEnvPaths(ctx.anypickRoot)],
       managedEnvKeys: Object.keys(env),
     };
   }
@@ -105,14 +105,14 @@ export async function applyClaudeToHome(ctx: ApplyContext, targetHome: string) {
       }
       doc = parsed as Record<string, unknown>;
     } catch (err) {
-      throw new HotplugError(
+      throw new AnyPickError(
         `Refusing to overwrite unreadable Claude settings at ${settings}: ${err instanceof Error ? err.message : String(err)}`,
         'CLIENT_CONFIG_INVALID',
       );
     }
   }
 
-  const prevManaged = doc[HOTPLUG_MANAGED_KEY] as { keys?: string[] } | undefined;
+  const prevManaged = doc[ANYPICK_MANAGED_KEY] as { keys?: string[] } | undefined;
   const prevKeys = prevManaged?.keys ?? [];
   const existingEnv =
     doc.env && typeof doc.env === 'object' && !Array.isArray(doc.env)
@@ -149,14 +149,14 @@ export async function applyClaudeToHome(ctx: ApplyContext, targetHome: string) {
     official ? 'ANTHROPIC_AUTH_TOKEN' : 'ANTHROPIC_API_KEY',
   ];
   doc.env = existingEnv;
-  doc[HOTPLUG_MANAGED_KEY] = managedMarker([...new Set(managedKeys)]);
+  doc[ANYPICK_MANAGED_KEY] = managedMarker([...new Set(managedKeys)]);
 
   // Env files only for live (persistent) applies — not for isolated runtimes.
   // Keep the shell environment and settings.json in sync.
   let envPaths: string[] = [];
   if (!ctx.isolatedHome) {
-    envPaths = await writeClientEnvFiles(ctx.hotplugRoot, 'claude', env);
-    const backupDir = clientBackupDir(ctx.hotplugRoot, 'claude');
+    envPaths = await writeClientEnvFiles(ctx.anypickRoot, 'claude', env);
+    const backupDir = clientBackupDir(ctx.anypickRoot, 'claude');
     await ensureDir(backupDir);
     const backupFile = join(backupDir, 'settings.json');
     if ((await pathExists(settings)) && !(await pathExists(backupFile))) {
@@ -175,16 +175,16 @@ export async function applyClaudeToHome(ctx: ApplyContext, targetHome: string) {
         ? (verify.env as Record<string, string>)
         : {};
     if (venv.ANTHROPIC_BASE_URL !== r.endpoint) {
-      throw new HotplugError(
+      throw new AnyPickError(
         `Failed to write proxy into ${settings}: ANTHROPIC_BASE_URL is "${venv.ANTHROPIC_BASE_URL ?? ''}" (expected ${r.endpoint})`,
         'CLIENT_CONFIG_INVALID',
       );
     }
   } catch (err) {
-    if (err instanceof HotplugError) {
+    if (err instanceof AnyPickError) {
       throw err;
     }
-    throw new HotplugError(
+    throw new AnyPickError(
       `Could not verify ${settings} after write: ${err instanceof Error ? err.message : String(err)}`,
       'CLIENT_CONFIG_INVALID',
     );

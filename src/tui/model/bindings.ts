@@ -1,4 +1,4 @@
-import type { HotplugApp } from '../../core/app';
+import type { AnyPickApp } from '../../core/app';
 import type { ProxyRow } from './types';
 import { proxyRowLabel } from './proxy-labels';
 import { shortAppName } from './names';
@@ -10,7 +10,7 @@ export interface ClaudeBindStatus {
   scope?: string | null;
 }
 
-/** One app (client) and whether it uses a Hotplug proxy source. */
+/** One app (client) and whether it uses a AnyPick proxy source. */
 export interface AppBindingRow {
   clientId: string;
   /** User-facing app name (Claude, Codex, Kiro). */
@@ -43,14 +43,18 @@ function sourceDisplayFromBinding(binding: unknown): string | undefined {
   if (source.kind === 'gateway' && typeof source.name === 'string') {
     return source.name;
   }
+  // Match proxyBindingRef / displayRef — manage-apps checked state compares to hub:name.
+  if (source.kind === 'proxy-hub' && typeof source.name === 'string') {
+    return `hub:${source.name}`;
+  }
   if (source.kind === 'preset' && typeof source.name === 'string') {
     return `@${source.name}`;
   }
   return undefined;
 }
 
-/** All registered apps and their current Hotplug proxy source. */
-export function loadAppBindings(app: HotplugApp): AppBindingRow[] {
+/** All registered apps and their current AnyPick proxy source. */
+export function loadAppBindings(app: AnyPickApp): AppBindingRow[] {
   try {
     return app.bindingService.current().map((r) => ({
       clientId: r.client,
@@ -67,7 +71,7 @@ export function loadAppBindings(app: HotplugApp): AppBindingRow[] {
 /** Short UI label for an app/client. */
 
 export async function compatibleAppsForProxy(
-  app: HotplugApp,
+  app: AnyPickApp,
   providerId: string,
   accountName: string,
 ): Promise<AppBindingRow[]> {
@@ -152,7 +156,7 @@ export function proxyOutcome(
   }
   return {
     outcome: `Turn on and start ${ref}`,
-    support: 'Hotplug chooses the address automatically.',
+    support: 'AnyPick chooses the address automatically.',
   };
 }
 
@@ -169,7 +173,7 @@ export function appsUsingProxy(apps: AppBindingRow[] | ClaudeBindStatus, ref: st
 }
 
 /** Effective Claude binding (global/project) for Proxy board status. */
-export function loadClaudeBindStatus(app: HotplugApp): ClaudeBindStatus {
+export function loadClaudeBindStatus(app: AnyPickApp): ClaudeBindStatus {
   const apps = loadAppBindings(app);
   const claude = apps.find((a) => a.clientId === 'claude');
   if (!claude?.bound) {
@@ -179,6 +183,6 @@ export function loadClaudeBindStatus(app: HotplugApp): ClaudeBindStatus {
 }
 
 /**
- * Flat list of all saved accounts for Hotplug home.
+ * Flat list of all saved accounts for AnyPick home.
  * Primary action on a row: make live (accounts.use).
  */

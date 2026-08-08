@@ -106,12 +106,12 @@ export function renderLauncherFrame(model: LauncherModel, opts: RenderFrameOpts)
 }
 
 function renderHeader(model: LauncherModel, cols: number, layout: LayoutWidth, c: Paint): string {
-  const brand = c.bold(' hotplug');
+  const brand = c.bold(' anypick');
   if (layout === 'narrow') {
     return brand;
   }
   const right = c.dim(model.cwdShort);
-  const gap = Math.max(2, cols - visibleLen(` hotplug`) - visibleLen(model.cwdShort) - 1);
+  const gap = Math.max(2, cols - visibleLen(` anypick`) - visibleLen(model.cwdShort) - 1);
   return brand + ' '.repeat(gap) + right;
 }
 

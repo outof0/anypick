@@ -1,7 +1,7 @@
 /**
  * OpenAI Chat Completions + Anthropic Messages → Google Gemini generateContent.
  *
- * Scope: text + basic function/tool calls. Enough for Claude Code / Codex via Hotplug.
+ * Scope: text + basic function/tool calls. Enough for Claude Code / Codex via AnyPick.
  */
 
 export interface GeminiPart {

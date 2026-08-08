@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { JournalState, OperationJournalEntry } from '../types';
 import { decode, decoders } from './codec';
-import type { HotplugDatabase } from './db';
+import type { AnyPickDatabase } from './db';
 
 interface JournalRow {
   id: string;
@@ -48,7 +48,7 @@ function parse(row: JournalRow): OperationJournalEntry {
 }
 
 export class OperationJournal {
-  constructor(private readonly db: HotplugDatabase) {}
+  constructor(private readonly db: AnyPickDatabase) {}
 
   create(
     type: string,

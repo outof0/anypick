@@ -4,8 +4,21 @@ dist/
 *.log
 .DS_Store
 coverage/
-.hotplug-test/
-*.hotplug.json
+.anypick-test/
+*.anypick.json
 docs/.astro/
 docs/dist/
 .claude/
+src/tray/tauri/src-tauri/gen/
+src/tray/tauri/src-tauri/target/
+
+# Tauri tray UI is built from ui/ into frontend/
+src/tray/tauri/frontend/
+
+# Local design mocks / ad-hoc screenshots — not product source
+design/
+/brand.png
+/*.png
+/*.jpg
+/*.jpeg
+/*.webp

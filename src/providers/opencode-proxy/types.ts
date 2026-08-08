@@ -2,13 +2,17 @@ import type { ServerResponse } from 'node:http';
 import type { EgressTransport } from '../../network/egress/types';
 import type { OpenCodeAuthMode, OpenCodeCatalog, OpenCodeCredential } from './auth';
 import type { OpenCodeModelDescriptor, OpenCodeModelProtocol } from './models';
+import type { QuotaGuardOptions } from '../quota-guard';
 
 export interface OpenCodeProxyServerOptions {
   host: string;
   port: number;
   authPath: string;
   authPaths?: string[];
+  /** Pool account labels in the same order as authPath + authPaths. */
+  authAccountNames?: string[];
   authMode?: OpenCodeAuthMode;
+  quotaGuard?: QuotaGuardOptions;
   upstream?: string;
   zenUpstream?: string;
   goUpstream?: string;
@@ -69,6 +73,8 @@ export interface OpenCodeProxyRuntime {
 export interface OpenCodeCatalogStore {
   live(): Promise<CatalogCache>;
   route(modelId: string): Promise<{ catalog: OpenCodeCatalog; base: string }>;
+  /** Drop the cached model list so the next read refetches from upstream. */
+  invalidate(): void;
 }
 
 export interface OpenAIResponsesResult {

@@ -43,7 +43,7 @@ describe('launcher model + render', () => {
   let root: string;
 
   beforeEach(async () => {
-    root = await mkdtemp(join(tmpdir(), 'hotplug-launch-'));
+    root = await mkdtemp(join(tmpdir(), 'anypick-launch-'));
   });
   afterEach(async () => {
     await rm(root, { recursive: true, force: true });
@@ -153,13 +153,13 @@ describe('launcher model + render', () => {
       color: false,
     });
 
-    expect(frame).toMatch(/hotplug/);
+    expect(frame).toMatch(/anypick/);
     expect(frame).toMatch(/RUN|Run/i);
     expect(frame).toMatch(/Claude/);
     expect(frame).not.toMatch(/Claude Code/); // short label
     expect(frame).toMatch(/grok\/work/);
     expect(frame).toMatch(/ready/);
-    expect(frame).toMatch(/hotplug run claude/); // contextual preview
+    expect(frame).toMatch(/anypick run claude/); // contextual preview
     expect(frame).toMatch(/↑↓|esc/);
     // no clack vertical rails
     expect(frame).not.toMatch(/^[│┌└├]/m);
@@ -200,6 +200,6 @@ describe('launcher model + render', () => {
     const model = await buildLauncherModel(app);
     const frame = renderLauncherFrame(model, { cursor: 0, columns: 40, color: false });
     expect(frame.split('\n').length).toBeGreaterThan(3);
-    expect(frame).toMatch(/Get started|Add account|hotplug/);
+    expect(frame).toMatch(/Get started|Add account|anypick/);
   });
 });

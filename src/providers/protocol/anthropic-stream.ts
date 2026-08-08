@@ -4,7 +4,7 @@ import type {
   PipeOpenAIStreamOptions,
   PipeOpenAIStreamResult,
 } from './anthropic-types';
-import { mapFinishReason, randomId, sse } from './anthropic-helpers';
+import { escapeJsonControlCharacters, mapFinishReason, randomId, sse } from './anthropic-helpers';
 import { createIdleStreamReader } from './anthropic-stream-reader';
 
 export async function pipeOpenAIStreamToAnthropic(
@@ -321,13 +321,14 @@ export async function pipeOpenAIStreamToAnthropic(
   for (const [idx, state] of toolBlocks) {
     const buffered = toolArgBuffers.get(idx) ?? state.args;
     if (buffered) {
+      const sanitized = escapeJsonControlCharacters(buffered);
       write(
         sse('content_block_delta', {
           type: 'content_block_delta',
           index: state.anthropicIndex,
           delta: {
             type: 'input_json_delta',
-            partial_json: buffered,
+            partial_json: sanitized,
           },
         }),
       );

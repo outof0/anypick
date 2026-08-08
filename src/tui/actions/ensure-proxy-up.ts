@@ -1,4 +1,4 @@
-import type { HotplugApp } from '../../core/app';
+import type { AnyPickApp } from '../../core/app';
 import type { ProxyRow } from '../model';
 import { proxyRef } from '../app-ui-helpers';
 
@@ -14,7 +14,7 @@ export interface ProxyUpResult {
  * `enableProxy` only auto-starts the *active* account, so a row the user picked
  * off the board still has to be started explicitly.
  */
-export async function ensureProxyUp(app: HotplugApp, row: ProxyRow): Promise<ProxyUpResult> {
+export async function ensureProxyUp(app: AnyPickApp, row: ProxyRow): Promise<ProxyUpResult> {
   if (row.needsApiKey) {
     throw new Error(
       row.attentionHint ?? `${proxyRef(row)} needs GEMINI_API_KEY in the saved login .env`,

@@ -5,64 +5,86 @@ import TuiFrame from "../components/TuiFrame.astro";
 import { Icon } from "astro-icon/components";
 import { config } from "virtual:nimbus/config";
 
-/** The Switch screen, as `hotplug` renders it at 74 columns. */
-const switchScreen = {
-  path: "switch",
+/** The Apps screen — default landing, as `anypick` renders it. */
+const appsScreen = {
+  path: "apps",
   blocks: [
     {
-      group: "codex",
+      group: "Routes for Claude Code and Codex",
       rows: [
         {
-          name: "work",
-          detail: "erik@acme.com",
+          name: "Claude",
+          detail: "grok/work · grok-code-fast-1",
+          status: "● ready",
+          kind: "live" as const,
+          selected: true,
+        },
+        {
+          name: "Codex",
+          detail: "openrouter-work · openai/gpt-5.6",
+          status: "● ready",
+          kind: "live" as const,
+        },
+      ],
+    },
+  ],
+  outcome: "Claude uses grok/work",
+  support: "model grok-code-fast-1 · enter to preview a different route",
+  hints: [
+    ["enter", "change route"],
+    ["a", "accounts"],
+    ["g", "gateways"],
+    ["p", "proxies"],
+    ["d", "diagnose"],
+  ] as Array<[string, string]>,
+};
+
+/** Source picker — second step of the Apps route builder. */
+const appsSourceScreen = {
+  path: "apps / Claude / source",
+  nameWidth: "22ch",
+  blocks: [
+    {
+      group: "Native accounts",
+      rows: [
+        {
+          name: "Anthropic · work",
+          detail: "current live login",
           status: "● live",
           kind: "live" as const,
         },
+      ],
+    },
+    {
+      group: "Gateways & proxies",
+      rows: [
         {
-          name: "personal",
-          detail: "erik@personal.dev",
+          name: "grok/work",
+          detail: "account proxy",
           status: "○ saved",
           kind: "saved" as const,
           selected: true,
         },
-      ],
-    },
-    {
-      group: "gemini",
-      rows: [
         {
-          name: "work",
-          detail: "erik@acme.com",
-          status: "● live",
-          kind: "live" as const,
+          name: "openrouter-work",
+          detail: "gateway",
+          status: "○ saved",
+          kind: "saved" as const,
         },
       ],
     },
-    {
-      group: "grok",
-      rows: [
-        {
-          name: "work",
-          detail: "erik@acme.com",
-          status: "● live",
-          kind: "live" as const,
-        },
-      ],
-    },
-    { group: "opencode", note: "No saved logins." },
   ],
-  outcome: "Switch codex to personal",
-  support: "erik@acme.com  →  erik@personal.dev",
+  outcome: "Route Claude through grok/work",
+  support: "account proxy · model routing is configured next",
   hints: [
-    ["enter", "switch"],
-    ["r", "refresh"],
-    ["/", "filter"],
-    ["tab", "proxy"],
-    ["q", "quit"],
+    ["enter", "choose route"],
+    ["a", "accounts"],
+    ["g", "gateways"],
+    ["esc", "back"],
   ] as Array<[string, string]>,
 };
 
-/** The Proxy board, same binary, one `tab` away. */
+/** The Proxy board, same binary, one key from Apps. */
 const proxyScreen = {
   path: "proxy",
   blocks: [
@@ -79,32 +101,31 @@ const proxyScreen = {
     },
   ],
   outcome: "Turn on and start gemini/work",
-  support: "Hotplug chooses the address automatically.",
+  support: "AnyPick chooses the address automatically.",
   hints: [
     ["enter", "turn on and start"],
-    ["tab", "accounts"],
+    ["tab", "apps"],
   ] as Array<[string, string]>,
 };
 
 const steps = [
   {
-    key: "hotplug",
+    key: "anypick",
     wide: true,
-    title: "Run it with no arguments",
-    body: "Every login you have, every client it can drive, and what is live right now — on one screen.",
-  },
-  {
-    key: "j k",
-    title: "Move to the one you want",
-    body: "The footer never lies: each key is the first letter of what it does. Nothing is hidden in a menu.",
+    title: "Open Apps",
+    body: "Claude Code and Codex each get a row: who powers them, which model, and whether the route is ready. That list is the whole home screen.",
   },
   {
     key: "enter",
-    title: "It is already switched",
-    body: "Hotplug rewrites the client config, starts a proxy if the pair needs one, and rolls back if any step fails.",
+    title: "Pick who powers the app",
+    body: "Native logins, gateways, account proxies, pools, or a saved preset. Only pairings that actually work appear — no dead ends.",
+  },
+  {
+    key: "a",
+    title: "Set models, then confirm",
+    body: "When the route needs it, choose the default model (and Claude roles). A preview lists every write and proxy start before anything changes.",
   },
 ];
-
 /**
  * Only `claude` and `codex` can consume a source that is not their own
  * provider — see `transportFor` in src/sources/account-adapters.ts. Every pair
@@ -121,7 +142,7 @@ const features = [
   {
     icon: "ph:identification-card",
     title: "Reuse the logins you have",
-    body: "Hotplug snapshots the credential a provider's own CLI wrote, so a subscription you already pay for becomes a source you can point any client at. It never performs the sign-in itself.",
+    body: "AnyPick snapshots the credential a provider's own CLI wrote, so a subscription you already pay for becomes a source you can point any client at. It never performs the sign-in itself.",
   },
   {
     icon: "ph:arrows-left-right",
@@ -161,11 +182,11 @@ const sources = [
  * for the rest.
  *
  * Which surfaces follow an *account switch*: whatever reads the credential
- * Hotplug restored. `claude` covers the CLI and its IDE extensions (see the
+ * AnyPick restored. `claude` covers the CLI and its IDE extensions (see the
  * client description in src/clients/claude-code.ts), and a Gemini login may be
  * the Gemini CLI's or Antigravity's (src/providers/gemini.ts). The Codex
  * desktop app is the documented exception — the header comment in
- * src/providers/codex.ts states it keeps its own in-app account and Hotplug can
+ * src/providers/codex.ts states it keeps its own in-app account and AnyPick can
  * only restore ~/.codex/auth.json.
  */
 const clients = {
@@ -183,50 +204,50 @@ const clients = {
 
     <main id="main-content" class="flex-1">
       {/* ── Hero ─────────────────────────────────────────────── */}
-      <section class="relative isolate overflow-hidden bg-[#0B1020]">
+      <section class="relative isolate overflow-hidden bg-[#15151D]">
         <div class="hp-dots pointer-events-none absolute inset-0 -z-10"></div>
 
         <div class="mx-auto w-full max-w-5xl px-6 pt-20 pb-16 sm:pt-24">
           <div class="mx-auto max-w-3xl text-center">
             <p
-              class="hp-rise inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1 font-mono text-xs text-[#B9C2D0]"
+              class="hp-rise inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1 font-mono text-xs text-[#C7C7D0]"
             >
-              <span class="hp-pulse h-1.5 w-1.5 rounded-full bg-[#3DD68C]"></span>
-              One terminal UI for every AI login you own
+              <span class="hp-pulse h-1.5 w-1.5 rounded-full bg-[#A6FF4D]"></span>
+              Apps · pick a source · keep coding
             </p>
 
             <h1
-              class="hp-rise mt-7 text-balance text-[#F2F4F8] leading-[1.05]"
+              class="hp-rise mt-7 text-balance text-[#F7F7FA] leading-[1.05]"
               style="font-size: clamp(2.5rem, 7.5vw, 4.25rem); font-weight: 650; letter-spacing: -0.035em; --hp-delay: 80ms;"
             >
-              Plug any AI into<br />
+              Pick any.<br />
               <span class="hp-shimmer bg-clip-text text-transparent"
-                >any tool.</span
+                >Code on.</span
               >
             </h1>
 
             <p
-              class="hp-rise mx-auto mt-6 max-w-2xl text-lg text-[#B9C2D0] leading-relaxed"
+              class="hp-rise mx-auto mt-6 max-w-2xl text-lg text-[#C7C7D0] leading-relaxed"
               style="--hp-delay: 160ms;"
             >
-              Your Codex login, your Grok subscription, your Gemini account, your
-              OpenRouter key — all usable from whichever coding agent you actually
-              like. Run <code class="font-mono text-[#F2F4F8]">hotplug</code>,
-              press <kbd class="font-mono text-[#F2F4F8]">enter</kbd>, keep
-              working.
+              Point <strong class="font-medium text-[#F7F7FA]">Claude Code</strong> or{" "}
+              <strong class="font-medium text-[#F7F7FA]">Codex</strong> at the login
+              you already pay for — Grok, Gemini, OpenRouter, a second work
+              account. Run{" "}
+              <code class="font-mono text-[#F7F7FA]">anypick</code>, open{" "}
+              <strong class="font-medium text-[#F7F7FA]">Apps</strong>, press{" "}
+              <kbd class="font-mono text-[#F7F7FA]">enter</kbd>. No config files.
             </p>
 
             {/* One solid primary, one outlined secondary, one plain link — all
-                on a shared 3rem height so the row has a single baseline. The
-                brand accent is used directly: the theme's `primary` token is
-                cyan, which loses to white text on this navy. */}
+                on a shared 3rem height so the row has a single baseline. */}
             <div
               class="hp-rise mt-9 flex flex-wrap items-center justify-center gap-x-3 gap-y-2"
               style="--hp-delay: 240ms;"
             >
               <a
                 href="/docs/getting-started"
-                class="group inline-flex h-12 items-center gap-2 rounded-lg bg-[#2563FF] px-6 font-medium text-white no-underline shadow-lg shadow-[#2563FF]/25 transition-colors hover:bg-[#1B4AE0]"
+                class="group inline-flex h-12 items-center gap-2 rounded-lg bg-[#7357FF] px-6 font-medium text-white no-underline transition-colors hover:bg-[#6146E6]"
               >
                 Get started
                 <Icon
@@ -236,16 +257,16 @@ const clients = {
               </a>
               <a
                 href="/docs/guides/terminal-ui"
-                class="inline-flex h-12 items-center gap-2 rounded-lg border border-white/15 px-5 font-medium text-[#F2F4F8] no-underline transition-colors hover:border-white/30 hover:bg-white/5"
+                class="inline-flex h-12 items-center gap-2 rounded-lg border border-white/15 px-5 font-medium text-[#F7F7FA] no-underline transition-colors hover:border-white/30 hover:bg-white/5"
               >
                 <Icon name="ph:terminal-window" class="h-[1.125rem] w-[1.125rem]" />
-                Tour the terminal UI
+                How Apps works
               </a>
               {
                 config.github && (
                   <a
                     href={config.github}
-                    class="inline-flex h-12 items-center gap-2 px-3 font-medium text-[#8792A6] no-underline transition-colors hover:text-[#F2F4F8]"
+                    class="inline-flex h-12 items-center gap-2 px-3 font-medium text-[#8792A6] no-underline transition-colors hover:text-[#F7F7FA]"
                     target="_blank"
                     rel="noopener"
                   >
@@ -260,21 +281,21 @@ const clients = {
                 aim at. Height matches the CTA row above. */}
             <button
               type="button"
-              data-hp-copy="npm install -g hotplug"
+              data-hp-copy="npm install -g anypick"
               aria-label="Copy the install command"
               class="hp-rise group mx-auto mt-7 inline-flex h-12 cursor-pointer items-center gap-3 rounded-lg border border-white/10 bg-black/30 px-4 font-mono text-sm transition-colors hover:border-white/25 hover:bg-black/50"
               style="--hp-delay: 320ms;"
             >
               <span class="text-[#5A6478]">$</span>
-              <span class="text-[#F2F4F8]">npm install -g hotplug</span>
-              <span class="hp-caret text-[#00D4FF]">▌</span>
+              <span class="text-[#F7F7FA]">npm install -g anypick</span>
+              <span class="hp-caret text-[#35D6E8]">▌</span>
               <span
-                class="ml-1 flex items-center border-l border-white/10 pl-3 text-[#8792A6] transition-colors group-hover:text-[#F2F4F8]"
+                class="ml-1 flex items-center border-l border-white/10 pl-3 text-[#8792A6] transition-colors group-hover:text-[#F7F7FA]"
               >
                 <span data-hp-copy-idle>
                   <Icon name="ph:copy" class="h-[1.125rem] w-[1.125rem]" />
                 </span>
-                <span class="hidden text-[#3DD68C]" data-hp-copy-done>
+                <span class="hidden text-[#A6FF4D]" data-hp-copy-done>
                   <Icon name="ph:check" class="h-[1.125rem] w-[1.125rem]" />
                 </span>
               </span>
@@ -293,9 +314,9 @@ const clients = {
               The only glow is light spilling from behind the terminal. */}
           <div class="hp-rise relative mt-14" style="--hp-delay: 440ms;">
             <div class="hp-screenlight pointer-events-none absolute -inset-16 -z-10"></div>
-            <TuiFrame {...switchScreen} class="mx-auto max-w-3xl" />
+            <TuiFrame {...appsScreen} class="mx-auto max-w-3xl" />
             <p class="mt-3 text-center font-mono text-xs text-[#5A6478]">
-              The Switch screen, exactly as the binary draws it.
+              Apps — what each coding tool uses right now.
             </p>
           </div>
         </div>
@@ -307,11 +328,11 @@ const clients = {
           <h2
             class="max-w-2xl text-3xl font-semibold tracking-tight text-foreground"
           >
-            Switching providers is three keystrokes.
+            Connect an app without touching config files.
           </h2>
           <p class="mt-3 max-w-2xl text-muted-foreground leading-relaxed">
-            No config files to hand-edit, no environment variables to remember, no
-            re-authenticating. Every command also exists as a flag, so nothing here
+            Apps is a short wizard: who powers the tool, which model, then a
+            written preview. Every step also exists as a CLI flag, so nothing here
             is interactive-only.
           </p>
 
@@ -319,12 +340,7 @@ const clients = {
             {
               steps.map((step) => (
                 <li class="relative rounded-xl border border-border bg-card p-6">
-                  <kbd
-                    class:list={[
-                      "inline-block rounded-md border border-border-strong bg-muted px-2.5 py-1 font-mono text-sm font-semibold text-primary",
-                      step.wide && "tracking-tight",
-                    ]}
-                  >
+                  <kbd class="inline-block rounded-md border border-border-strong bg-muted px-2.5 py-1 font-mono text-sm font-semibold text-primary tracking-tight">
                     {step.key}
                   </kbd>
                   <h3 class="mt-4 font-semibold text-foreground">{step.title}</h3>
@@ -335,6 +351,13 @@ const clients = {
               ))
             }
           </ol>
+
+          <div class="mt-12">
+            <TuiFrame {...appsSourceScreen} class="mx-auto max-w-3xl" />
+            <p class="mt-3 text-center font-mono text-xs text-muted-foreground">
+              Step 2 — only sources this app can actually use.
+            </p>
+          </div>
         </div>
       </section>
 
@@ -348,7 +371,7 @@ const clients = {
               Claude Code on a Grok subscription.
             </h2>
             <p class="mt-4 text-muted-foreground leading-relaxed">
-              Clients and providers speak different protocols. Hotplug runs a local
+              Clients and providers speak different protocols. AnyPick runs a local
               proxy that translates between them, so the pairing your subscriptions
               never intended just works. Claude Code and Codex are the two clients
               that can cross the boundary this way.
@@ -375,7 +398,7 @@ const clients = {
 
             <p class="mt-6 text-sm text-muted-foreground leading-relaxed">
               You never start, stop, or port-map a proxy by hand — the board below
-              is one <kbd class="font-mono">tab</kbd> from the switcher.
+              is one <kbd class="font-mono">p</kbd> from Apps.
             </p>
           </div>
 
@@ -436,7 +459,7 @@ const clients = {
               Clients
             </h2>
             <p class="mt-2 text-sm text-muted-foreground">
-              Where a switch lands. Hotplug writes the tool's own config and
+              Where a switch lands. AnyPick writes the tool's own config and
               credential files, so anything else reading them follows.
             </p>
             <p class="mt-4 text-xs text-muted-foreground">
@@ -467,7 +490,7 @@ const clients = {
               One exception worth knowing: the Codex desktop app keeps its own
               signed-in account, so it does not follow a switch of <code
                 class="font-mono">~/.codex/auth.json</code
-              >. Hotplug notices the mismatch and hides the quota readout rather
+              >. AnyPick notices the mismatch and hides the quota readout rather
               than report another account's numbers.
             </p>
           </div>
@@ -475,25 +498,25 @@ const clients = {
       </section>
 
       {/* ── Closing CTA ──────────────────────────────────────── */}
-      <section class="relative isolate overflow-hidden bg-[#0B1020]">
+      <section class="relative isolate overflow-hidden bg-[#15151D]">
         <div class="pointer-events-none absolute inset-0 -z-10">
           <span class="hp-blob-cta"></span>
         </div>
         <div class="hp-reveal mx-auto w-full max-w-3xl px-6 py-24 text-center">
           <h2
-            class="text-balance text-[#F2F4F8] leading-[1.1]"
+            class="text-balance text-[#F7F7FA] leading-[1.1]"
             style="font-size: clamp(1.875rem, 5vw, 2.75rem); font-weight: 650; letter-spacing: -0.03em;"
           >
             Stop re-authenticating just to switch models.
           </h2>
-          <p class="mx-auto mt-4 max-w-xl text-[#B9C2D0] leading-relaxed">
-            Install it, run <code class="font-mono text-[#F2F4F8]">hotplug</code>,
+          <p class="mx-auto mt-4 max-w-xl text-[#C7C7D0] leading-relaxed">
+            Install it, run <code class="font-mono text-[#F7F7FA]">anypick</code>,
             and let the terminal UI show you what you already have access to.
           </p>
           <div class="mt-8 flex flex-wrap items-center justify-center gap-3">
             <a
               href="/docs/getting-started"
-              class="group inline-flex h-12 items-center gap-2 rounded-lg bg-[#2563FF] px-6 font-medium text-white no-underline shadow-lg shadow-[#2563FF]/25 transition-colors hover:bg-[#1B4AE0]"
+              class="group inline-flex h-12 items-center gap-2 rounded-lg bg-[#60A5FA] px-6 font-medium text-white no-underline shadow-lg shadow-[#60A5FA]/25 transition-colors hover:bg-[#1B4AE0]"
             >
               Get started
               <Icon
@@ -503,7 +526,7 @@ const clients = {
             </a>
             <a
               href="/docs/reference/cli"
-              class="inline-flex h-12 items-center gap-2 rounded-lg border border-white/15 px-5 font-medium text-[#F2F4F8] no-underline transition-colors hover:border-white/30 hover:bg-white/5"
+              class="inline-flex h-12 items-center gap-2 rounded-lg border border-white/15 px-5 font-medium text-[#F7F7FA] no-underline transition-colors hover:border-white/30 hover:bg-white/5"
             >
               CLI reference
             </a>
@@ -537,7 +560,7 @@ const clients = {
             )
           }
           <a
-            href="https://www.npmjs.com/package/hotplug"
+            href="https://www.npmjs.com/package/anypick"
             class="no-underline hover:text-foreground"
             target="_blank"
             rel="noopener">npm</a
@@ -621,8 +644,8 @@ const clients = {
   .hp-screenlight {
     background: radial-gradient(
       ellipse at center,
-      rgba(106, 92, 255, 0.42) 0%,
-      rgba(0, 212, 255, 0.16) 45%,
+      rgba(115, 87, 255, 0.42) 0%,
+      rgba(53, 214, 232, 0.16) 45%,
       transparent 75%
     );
     filter: blur(48px);
@@ -643,8 +666,8 @@ const clients = {
     filter: blur(80px);
     background: radial-gradient(
       closest-side,
-      #6a5cff 0%,
-      rgba(0, 212, 255, 0.3) 50%,
+      #7357ff 0%,
+      rgba(53, 214, 232, 0.3) 50%,
       transparent 100%
     );
     animation: hp-drift 20s ease-in-out infinite alternate;
@@ -670,27 +693,9 @@ const clients = {
     }
   }
 
-  /* ── Wordmark shimmer ───────────────────────────────────────── */
+  /* ── Tagline emphasis ────────────────────────────────────────── */
   .hp-shimmer {
-    background-image: linear-gradient(
-      100deg,
-      #6a5cff 0%,
-      #7c8cff 35%,
-      #00d4ff 50%,
-      #7c8cff 65%,
-      #6a5cff 100%
-    );
-    background-size: 250% 100%;
-    animation: hp-sweep 7s linear infinite;
-  }
-
-  @keyframes hp-sweep {
-    from {
-      background-position: 150% 0;
-    }
-    to {
-      background-position: -150% 0;
-    }
+    background-image: linear-gradient(90deg, #7357ff, #35d6e8);
   }
 
   .hp-pulse {
@@ -701,11 +706,11 @@ const clients = {
     0%,
     100% {
       opacity: 1;
-      box-shadow: 0 0 0 0 rgba(61, 214, 140, 0.5);
+      box-shadow: 0 0 0 0 rgb(166 255 77 / 0.5);
     }
     50% {
       opacity: 0.65;
-      box-shadow: 0 0 0 0.25rem rgba(61, 214, 140, 0);
+      box-shadow: 0 0 0 0.25rem rgb(166 255 77 / 0);
     }
   }
 

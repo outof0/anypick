@@ -48,7 +48,7 @@ describe('ProxyPortAllocator', () => {
   const servers: Server[] = [];
 
   beforeEach(async () => {
-    root = await mkdtemp(join(tmpdir(), 'hotplug-ports-'));
+    root = await mkdtemp(join(tmpdir(), 'anypick-ports-'));
     registry = new ProviderRegistry();
     provider = new FakeProvider('p', join(root, 'live', 'p'), {
       withProxy: true,

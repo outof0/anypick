@@ -15,7 +15,7 @@ import type {
   ResourceRef,
   RollbackStep,
 } from '../types';
-import { hotplugError, ExitCode } from '../utils/errors';
+import { anypickError, ExitCode } from '../utils/errors';
 import { displayRef, serializeRef } from './refs';
 import {
   expandPreset,
@@ -29,6 +29,7 @@ import {
 import type { ClientRegistry } from '../clients/registry';
 import { mergeModelRolesIntoClientOptions, modelFromRolesOrSelection } from './activation-models';
 import { buildTransport } from './activation-transport';
+import { randomUUID } from 'node:crypto';
 
 export interface PlanOptions {
   dryRun?: boolean;
@@ -53,7 +54,7 @@ export async function planActivation(
 ): Promise<ActivationPlan> {
   const clientId = request.client;
   if (!deps.clients.has(clientId)) {
-    throw hotplugError(`Unknown client "${clientId}".`, 'CLIENT_NOT_FOUND', {
+    throw anypickError(`Unknown client "${clientId}".`, 'CLIENT_NOT_FOUND', {
       exitCode: ExitCode.NOT_FOUND,
       suggestions: [`Known clients: ${deps.clients.ids().join(', ')}`],
     });
@@ -76,7 +77,7 @@ export async function planActivation(
   if (opts.reapplySnapshot) {
     sourceRef = opts.reapplySnapshot.spec.source;
     if (sourceRef.kind === 'preset') {
-      throw hotplugError('Stored binding has invalid preset source pointer.', 'STATE_CONFLICT', {
+      throw anypickError('Stored binding has invalid preset source pointer.', 'STATE_CONFLICT', {
         exitCode: ExitCode.CAPABILITY_CONFLICT,
       });
     }
@@ -93,7 +94,7 @@ export async function planActivation(
     const presetName =
       request.preset ?? (request.source?.kind === 'preset' ? request.source.name : undefined);
     if (!presetName) {
-      throw hotplugError('Preset name required.', 'INVALID_USAGE', {
+      throw anypickError('Preset name required.', 'INVALID_USAGE', {
         exitCode: ExitCode.INVALID_USAGE,
       });
     }
@@ -149,9 +150,9 @@ export async function planActivation(
     bindingSpec = { ...bindingSpec, model };
     provenance = { kind: 'direct' };
   } else {
-    throw hotplugError('A source or --current is required.', 'MISSING_SOURCE', {
+    throw anypickError('A source or --current is required.', 'MISSING_SOURCE', {
       exitCode: ExitCode.INVALID_USAGE,
-      suggestions: [`hotplug use ${clientId} --with <source>`, `hotplug use ${clientId} --current`],
+      suggestions: [`anypick use ${clientId} --with <source>`, `anypick use ${clientId} --current`],
     });
   }
 
@@ -167,12 +168,12 @@ export async function planActivation(
   });
 
   if (capability === 'unsupported') {
-    throw hotplugError(
+    throw anypickError(
       `Source ${resolvedSource.display} cannot be used with client ${clientId} (unsupported transport).`,
       'UNSUPPORTED_TRANSPORT',
       {
         exitCode: ExitCode.CAPABILITY_CONFLICT,
-        suggestions: ['Try a different source or client.', `hotplug list`],
+        suggestions: ['Try a different source or client.', `anypick list`],
       },
     );
   }
@@ -200,6 +201,20 @@ export async function planActivation(
     profile,
     poolPort,
   );
+  if (resolvedSource.ref.kind === 'proxy-hub') {
+    const hubService = deps.hub;
+    if (!hubService) {
+      throw new Error('Proxy Hub service is unavailable in this composition.');
+    }
+    const hub = await hubService.get(resolvedSource.ref.name);
+    transport.endpoint = `http://${hub.host}:${hub.port}`;
+    transport.managedProxy = {
+      provider: 'proxy-hub',
+      account: hub.name,
+      port: hub.port,
+      leaseId: 'pending',
+    };
+  }
 
   // Model unknown handling
   if (model.mode === 'unknown') {
@@ -215,6 +230,32 @@ export async function planActivation(
   // the proxy is started when `run` resolves the binding into an isolated
   // session (spec decision #7).
   if (
+    resolvedSource.ref.kind === 'proxy-hub' &&
+    (request.mode === 'persistent' || request.mode === 'ephemeral')
+  ) {
+    const routeId =
+      request.mode === 'persistent'
+        ? `global/${clientId}`
+        : `ephemeral/${clientId}/${randomUUID()}`;
+    steps.push({ kind: 'EnsureProxyHub', params: { hub: resolvedSource.ref.name } });
+    steps.push({
+      kind: 'AttachProxyHubRoute',
+      params: { hub: resolvedSource.ref.name, routeId },
+    });
+    steps.push({ kind: 'WaitForHubHealth', params: { hub: resolvedSource.ref.name } });
+    steps.push({
+      kind: 'ValidateProxyHubRoute',
+      params: { hub: resolvedSource.ref.name, routeId },
+    });
+    rollback.push({
+      kind: 'DetachProxyHubRoute',
+      params: { hub: resolvedSource.ref.name, routeId },
+    });
+    rollback.push({
+      kind: 'StopProxyHubIfStartedAndIdle',
+      params: { hub: resolvedSource.ref.name },
+    });
+  } else if (
     (request.mode === 'persistent' || request.mode === 'ephemeral') &&
     (capability === 'managed_builtin_proxy' || capability === 'managed_external_proxy')
   ) {
@@ -236,8 +277,8 @@ export async function planActivation(
     resolvedSource.adapter.capabilities.requiresNativeAuthWrite &&
     capability === 'direct'
   ) {
-    throw hotplugError(
-      `Safe ephemeral execution is not available for ${resolvedSource.display} × ${clientId}: this source requires live native auth. Use \`hotplug use\` first or add an isolated-auth adapter.`,
+    throw anypickError(
+      `Safe ephemeral execution is not available for ${resolvedSource.display} × ${clientId}: this source requires live native auth. Use \`anypick use\` first or add an isolated-auth adapter.`,
       'UNSUPPORTED_TRANSPORT',
       { exitCode: ExitCode.CAPABILITY_CONFLICT },
     );
@@ -268,7 +309,7 @@ export async function planActivation(
       steps.push({ kind: 'CreateEnvironmentOverlay' });
       rollback.push({ kind: 'RestoreTemporaryState' });
     } else {
-      throw hotplugError(
+      throw anypickError(
         `Client ${clientId} cannot run ephemerally: no isolated home or environment overlay support.`,
         'UNSUPPORTED_TRANSPORT',
         { exitCode: ExitCode.CAPABILITY_CONFLICT },
@@ -301,6 +342,12 @@ export async function planActivation(
     const bad = steps.find((s) => s.kind === 'WriteNativeAuth');
     if (bad) {
       throw new Error('Internal planner error: WriteNativeAuth for gateway');
+    }
+  }
+  if (resolvedSource.kind === 'proxy-hub') {
+    const bad = steps.find((step) => step.kind === 'WriteNativeAuth');
+    if (bad) {
+      throw new Error('Internal planner error: WriteNativeAuth for Proxy Hub');
     }
   }
 

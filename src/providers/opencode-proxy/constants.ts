@@ -1,5 +1,5 @@
 export const COMPAT_LABEL = 'OpenAI + Anthropic API';
-export const USER_AGENT = 'hotplug-opencode-proxy/0.8';
+export const USER_AGENT = 'anypick-opencode-proxy/0.8';
 export const DEFAULT_MODEL_METADATA_URL = 'https://models.dev/api.json';
 export const CATALOG_TTL_MS = 10 * 60_000;
 export const CATALOG_STALE_MAX_MS = 60 * 60_000;

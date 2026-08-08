@@ -1,16 +1,16 @@
 ---
 title: Plugins
-description: Extend Hotplug with your own provider, client, or gateway catalog — and what enabling one actually grants.
+description: Extend AnyPick with your own provider, client, or gateway catalog — and what enabling one actually grants.
 ---
 
-A plugin adds a provider, a client, or a gateway catalog entry to the `hotplug`
+A plugin adds a provider, a client, or a gateway catalog entry to the `anypick`
 you already have installed. It is the answer to "we run our own model endpoint
 internally" and "we wrote our own coding agent" without forking the CLI.
 
 <Aside type="caution" title="Enabling a plugin is a trust decision">
-Plugins run **inside the Hotplug process**, which reads and rewrites the live
+Plugins run **inside the AnyPick process**, which reads and rewrites the live
 credential files for Claude, Codex, Gemini, and Kiro. Enabling one is closer to
-installing a shell plugin than to changing a setting. Hotplug never downloads,
+installing a shell plugin than to changing a setting. AnyPick never downloads,
 discovers, or auto-updates a plugin — you install a directory by path, and it
 stays inert until you enable it by name.
 </Aside>
@@ -18,12 +18,12 @@ stays inert until you enable it by name.
 ## Install one
 
 ```bash
-hotplug plugin add ./acme-provider   # recorded, disabled, digest pinned
-hotplug plugin list
-hotplug plugin enable acme-provider  # prompts — this is the trust decision
+anypick plugin add ./acme-provider   # recorded, disabled, digest pinned
+anypick plugin list
+anypick plugin enable acme-provider  # prompts — this is the trust decision
 ```
 
-`add` never enables. Between the two commands the plugin exists in Hotplug's
+`add` never enables. Between the two commands the plugin exists in AnyPick's
 registry and does not run.
 
 ```
@@ -31,9 +31,10 @@ registry and does not run.
     /Users/you/src/acme-provider
 ```
 
-The short hex is a SHA-256 digest of the plugin's entry module, pinned when you
-added it. Hotplug recomputes it and compares **before** importing the module, so
-code that changed since you approved it never executes.
+The short hex is a SHA-256 digest of the whole plugin package (manifest and every
+shipped file under the directory), pinned when you added it. AnyPick recomputes
+it and compares **before** importing the entry module, so code — including
+helpers the entry imports — that changed since you approved it never executes.
 
 ## When the code changes
 
@@ -42,14 +43,14 @@ Pull a new version, or rebuild during development, and the plugin stops loading:
 ```
   fail acme-provider        1.0.0      82aae3b7898d
     Plugin acme-provider has changed since you trusted it.
-    → hotplug plugin trust acme-provider
+    → anypick plugin trust acme-provider
 ```
 
-Nothing else breaks — the rest of Hotplug works normally, and `hotplug doctor`
+Nothing else breaks — the rest of AnyPick works normally, and `anypick doctor`
 reports the refusal. Review the diff, then re-pin:
 
 ```bash
-hotplug plugin trust acme-provider
+anypick plugin trust acme-provider
 ```
 
 This is intentional friction, not a cache miss. The digest is what you approved.
@@ -57,18 +58,18 @@ This is intentional friction, not a cache miss. The digest is what you approved.
 ## Turning plugins off
 
 ```bash
-hotplug plugin disable acme-provider  # keep it installed, stop loading it
-hotplug plugin remove acme-provider   # uninstall
-HOTPLUG_NO_PLUGINS=1 hotplug doctor   # skip every plugin for one run
+anypick plugin disable acme-provider  # keep it installed, stop loading it
+anypick plugin remove acme-provider   # uninstall
+ANYPICK_NO_PLUGINS=1 anypick doctor   # skip every plugin for one run
 ```
 
-The environment variable is the fast way to tell a plugin bug from a Hotplug bug.
+The environment variable is the fast way to tell a plugin bug from a AnyPick bug.
 
 ## Writing one
 
-A plugin is a directory with a `hotplug.plugin.json` and an ESM entry module:
+A plugin is a directory with a `anypick.plugin.json` and an ESM entry module:
 
-```json title="hotplug.plugin.json"
+```json title="anypick.plugin.json"
 {
   "name": "acme-provider",
   "version": "1.0.0",
@@ -86,7 +87,7 @@ export default {
 ```
 
 `activate` is synchronous and runs during startup, in the same window where
-Hotplug's built-in providers register and immediately before the registries are
+AnyPick's built-in providers register and immediately before the registries are
 sealed. Register everything there; the context is not usable afterwards.
 
 `ctx` is deliberately narrow — `registerProvider`, `registerClient`,
@@ -96,7 +97,7 @@ receiving a general capability to read the accounts that graph manages.
 
 `main` must resolve inside the plugin directory; an absolute path or one that
 escapes with `../` is refused. `apiVersion` is checked against the version this
-Hotplug build supports, so a mismatched plugin is refused with a version message
+AnyPick build supports, so a mismatched plugin is refused with a version message
 rather than a stack trace.
 
 The `Provider`, `ClientAdapter`, and `CatalogProvider` interfaces are exported

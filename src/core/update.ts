@@ -6,9 +6,9 @@
  * copies on PATH.
  */
 import { spawn } from 'node:child_process';
-import { ExitCode, HotplugError } from '../utils/errors';
+import { ExitCode, AnyPickError } from '../utils/errors';
 
-export const PACKAGE_NAME = 'hotplug';
+export const PACKAGE_NAME = 'anypick';
 
 const REGISTRY_ORIGIN = 'https://registry.npmjs.org';
 const FETCH_TIMEOUT_MS = 10_000;
@@ -96,7 +96,7 @@ export async function fetchLatestVersion(options: RegistryOptions = {}): Promise
       signal: AbortSignal.timeout(options.timeoutMs ?? FETCH_TIMEOUT_MS),
     });
   } catch (cause) {
-    throw new HotplugError(
+    throw new AnyPickError(
       `Could not reach the npm registry: ${cause instanceof Error ? cause.message : String(cause)}`,
       {
         code: 'UPDATE_REGISTRY_UNREACHABLE',
@@ -108,20 +108,20 @@ export async function fetchLatestVersion(options: RegistryOptions = {}): Promise
     );
   }
   if (response.status === 404) {
-    throw new HotplugError(`npm has no published package named "${PACKAGE_NAME}".`, {
+    throw new AnyPickError(`npm has no published package named "${PACKAGE_NAME}".`, {
       code: 'UPDATE_NOT_PUBLISHED',
       suggestions: ['Nothing to update. Builds installed from source update with git + pnpm build'],
     });
   }
   if (!response.ok) {
-    throw new HotplugError(`npm registry returned HTTP ${response.status} for ${PACKAGE_NAME}.`, {
+    throw new AnyPickError(`npm registry returned HTTP ${response.status} for ${PACKAGE_NAME}.`, {
       code: 'UPDATE_REGISTRY_UNREACHABLE',
       suggestions: [`Retry shortly, or install by hand: ${installCommand()}`],
     });
   }
   const body = (await response.json()) as { version?: unknown };
   if (typeof body.version !== 'string' || body.version === '') {
-    throw new HotplugError(`npm registry returned no version for ${PACKAGE_NAME}.`, {
+    throw new AnyPickError(`npm registry returned no version for ${PACKAGE_NAME}.`, {
       code: 'UPDATE_REGISTRY_UNREACHABLE',
       suggestions: [`Install by hand: ${installCommand()}`],
     });
@@ -160,7 +160,7 @@ export async function installLatest(
     });
     child.on('error', (cause: NodeJS.ErrnoException) => {
       reject(
-        new HotplugError(`Could not run npm: ${cause.message}`, {
+        new AnyPickError(`Could not run npm: ${cause.message}`, {
           code: 'UPDATE_NPM_UNAVAILABLE',
           exitCode: ExitCode.MISSING_DEPENDENCY,
           suggestions: ['npm must be on PATH to self-update'],
@@ -170,7 +170,7 @@ export async function installLatest(
     child.on('close', (code) => resolve(code ?? 1));
   });
   if (exitCode !== 0) {
-    throw new HotplugError(`npm exited with code ${exitCode}.`, {
+    throw new AnyPickError(`npm exited with code ${exitCode}.`, {
       code: 'UPDATE_INSTALL_FAILED',
       suggestions: [
         `Run it directly to see npm's own error: ${installCommand(version)}`,

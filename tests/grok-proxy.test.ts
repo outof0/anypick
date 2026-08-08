@@ -198,6 +198,87 @@ describe('grok-proxy server', () => {
     expect(bad.status).toBe(404);
   });
 
+  it('forces required:[] on tool schemas for Anthropic pass-through', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'grok-proxy-'));
+    const authPath = await writeAuth(dir);
+
+    let sawBody = '';
+    const up = await mockUpstream((_url, _headers, body) => {
+      sawBody = body;
+      return {
+        status: 200,
+        body: JSON.stringify({
+          id: 'msg_schema',
+          type: 'message',
+          role: 'assistant',
+          model: 'grok-4.5',
+          content: [{ type: 'text', text: 'ok' }],
+          stop_reason: 'end_turn',
+          usage: { input_tokens: 1, output_tokens: 1 },
+        }),
+      };
+    });
+
+    const { server, endpoint } = await listenGrokProxy({
+      token: TEST_TOKEN,
+      host: '127.0.0.1',
+      port: 0,
+      authPath,
+      upstream: up.url,
+      quiet: true,
+    });
+    servers.push(server);
+
+    const res = await fetch(`${endpoint}/v1/messages`, {
+      method: 'POST',
+      headers: {
+        ...AUTH,
+        'content-type': 'application/json',
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: 'grok-4.5',
+        max_tokens: 64,
+        messages: [{ role: 'user', content: 'run tool' }],
+        tools: [
+          {
+            name: 'Bash',
+            description: 'run a shell command',
+            input_schema: {
+              type: 'object',
+              properties: {
+                command: { type: 'string' },
+                nested: {
+                  type: 'object',
+                  properties: { flag: { type: 'boolean' } },
+                  required: null,
+                },
+              },
+              // Claude Code often omits required or sends null — xAI needs [].
+              required: null,
+              additionalProperties: false,
+            },
+          },
+        ],
+      }),
+    });
+
+    expect(res.status).toBe(200);
+    const upstream = JSON.parse(sawBody) as {
+      tools: Array<{ input_schema: Record<string, unknown> }>;
+    };
+    const schema = upstream.tools[0].input_schema;
+    expect(schema.required).toEqual([]);
+    expect(schema.properties).toMatchObject({
+      command: { type: 'string' },
+      nested: {
+        type: 'object',
+        properties: { flag: { type: 'boolean' } },
+        required: [],
+      },
+    });
+  });
+
   it('pass-through Anthropic /v1/messages (Claude native)', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'grok-proxy-'));
     const authPath = await writeAuth(dir);
@@ -375,5 +456,185 @@ describe('grok-proxy server', () => {
     expect(res.status).toBe(200);
     const data = (await res.json()) as { data: { id: string }[] };
     expect(data.data[0].id).toBe(futureModel);
+  });
+
+  it('falls back to static GROK_MODELS when upstream /v1/models fails', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'grok-proxy-'));
+    const authPath = await writeAuth(dir);
+    const up = await mockUpstream(() => ({
+      status: 404,
+      body: JSON.stringify({ error: { message: 'not found' } }),
+    }));
+
+    const { server, endpoint } = await listenGrokProxy({
+      token: TEST_TOKEN,
+      host: '127.0.0.1',
+      port: 0,
+      authPath,
+      upstream: up.url,
+      quiet: true,
+    });
+    servers.push(server);
+
+    const res = await fetch(`${endpoint}/v1/models`, { headers: AUTH });
+    expect(res.status).toBe(200);
+    const data = (await res.json()) as { object: string; data: { id: string }[] };
+    expect(data.object).toBe('list');
+    expect(data.data.length).toBeGreaterThan(0);
+    expect(data.data.some((entry) => entry.id === 'grok-4.5')).toBe(true);
+  });
+
+  it('falls back when upstream returns an empty model list', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'grok-proxy-'));
+    const authPath = await writeAuth(dir);
+    const up = await mockUpstream(() => ({
+      status: 200,
+      body: JSON.stringify({ object: 'list', data: [] }),
+    }));
+
+    const { server, endpoint } = await listenGrokProxy({
+      token: TEST_TOKEN,
+      host: '127.0.0.1',
+      port: 0,
+      authPath,
+      upstream: up.url,
+      quiet: true,
+    });
+    servers.push(server);
+
+    const res = await fetch(`${endpoint}/v1/models`, { headers: AUTH });
+    expect(res.status).toBe(200);
+    const data = (await res.json()) as { data: { id: string }[] };
+    expect(data.data.some((entry) => entry.id === 'grok-4.5')).toBe(true);
+  });
+
+  it('serves /v1/messages/count_tokens locally without contacting upstream', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'grok-proxy-'));
+    const authPath = await writeAuth(dir);
+    let upstreamHits = 0;
+    const up = await mockUpstream(() => {
+      upstreamHits += 1;
+      return { status: 500, body: '{"error":"should not be called"}' };
+    });
+
+    const { server, endpoint } = await listenGrokProxy({
+      token: TEST_TOKEN,
+      host: '127.0.0.1',
+      port: 0,
+      authPath,
+      upstream: up.url,
+      quiet: true,
+    });
+    servers.push(server);
+
+    const res = await fetch(`${endpoint}/v1/messages/count_tokens`, {
+      method: 'POST',
+      headers: {
+        ...AUTH,
+        'content-type': 'application/json',
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: 'grok-4.5',
+        system: 'You are a helpful assistant.',
+        messages: [
+          { role: 'user', content: 'hello world, please count these tokens carefully' },
+          {
+            role: 'assistant',
+            content: [{ type: 'tool_use', id: 't1', name: 'Bash', input: { command: 'ls' } }],
+          },
+          {
+            role: 'user',
+            content: [{ type: 'tool_result', tool_use_id: 't1', content: 'ok' }],
+          },
+        ],
+        tools: [
+          {
+            name: 'Bash',
+            description: 'run shell',
+            input_schema: { type: 'object', properties: { command: { type: 'string' } } },
+          },
+        ],
+      }),
+    });
+
+    expect(res.status).toBe(200);
+    const data = (await res.json()) as { input_tokens: number };
+    expect(data.input_tokens).toBeGreaterThan(20);
+    expect(res.headers.get('content-type')).toMatch(/json/);
+    expect(upstreamHits).toBe(0);
+  });
+
+  it('cancels upstream stream when the client disconnects mid-body', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'grok-proxy-'));
+    const authPath = await writeAuth(dir);
+
+    let upstreamCancelled = false;
+    const upstream = createServer((req, res) => {
+      const chunks: Buffer[] = [];
+      req.on('data', (c: Buffer) => chunks.push(c));
+      req.on('end', () => {
+        res.writeHead(200, {
+          'content-type': 'text/event-stream',
+          'cache-control': 'no-cache',
+        });
+        let n = 0;
+        const tick = () => {
+          if (res.writableEnded || res.destroyed) {
+            return;
+          }
+          res.write(`data: ${n}\n\n`);
+          n += 1;
+          setTimeout(tick, 40);
+        };
+        tick();
+        res.on('close', () => {
+          upstreamCancelled = true;
+        });
+      });
+    });
+    servers.push(upstream);
+    await new Promise<void>((resolve) => upstream.listen(0, '127.0.0.1', () => resolve()));
+    const addr = upstream.address();
+    if (!addr || typeof addr === 'string') {
+      throw new Error('bind failed');
+    }
+
+    const logs: string[] = [];
+    const { server, endpoint } = await listenGrokProxy({
+      token: TEST_TOKEN,
+      host: '127.0.0.1',
+      port: 0,
+      authPath,
+      upstream: `http://127.0.0.1:${addr.port}`,
+      log: (line) => logs.push(line),
+    });
+    servers.push(server);
+
+    const controller = new AbortController();
+    const res = await fetch(`${endpoint}/v1/messages`, {
+      method: 'POST',
+      headers: {
+        ...AUTH,
+        'content-type': 'application/json',
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: 'grok-4.5',
+        max_tokens: 64,
+        stream: true,
+        messages: [{ role: 'user', content: 'stream please' }],
+      }),
+      signal: controller.signal,
+    });
+    expect(res.status).toBe(200);
+    const reader = res.body!.getReader();
+    await reader.read();
+    controller.abort();
+    await expect(reader.read()).rejects.toThrow();
+    await new Promise((r) => setTimeout(r, 200));
+
+    expect(upstreamCancelled).toBe(true);
+    expect(logs.some((line) => /client disconnected/i.test(line))).toBe(true);
   });
 });

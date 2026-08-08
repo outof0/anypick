@@ -14,7 +14,7 @@ import { describe, expect, it, beforeEach, afterEach } from 'vitest';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { createAppReady, type HotplugApp } from '../src/core/app';
+import { createAppReady, type AnyPickApp } from '../src/core/app';
 import { ProviderRegistry } from '../src/core/registry';
 import { ClientRegistry } from '../src/clients/registry';
 import { CatalogRegistry } from '../src/catalog/providers';
@@ -31,7 +31,7 @@ import type {
   SourceAdapter,
 } from '../src/types';
 
-async function seedAccount(app: HotplugApp, provider: string, name: string): Promise<void> {
+async function seedAccount(app: AnyPickApp, provider: string, name: string): Promise<void> {
   const { snapshotDir } = await app.accountStore.prepareSnapshot(provider, name);
   await writeFile(join(snapshotDir, 'auth.json'), JSON.stringify({ token: 't' }), {
     mode: 0o600,
@@ -104,7 +104,7 @@ function planWith(steps: PlanStep[], resolved: ResolvedSource): ActivationPlan {
 
 describe('plan step execution', () => {
   let root: string;
-  let app: HotplugApp;
+  let app: AnyPickApp;
   let events: InMemoryEventSink;
 
   async function makeApp(clientPresent: boolean): Promise<void> {
@@ -127,7 +127,7 @@ describe('plan step execution', () => {
   }
 
   beforeEach(async () => {
-    root = await mkdtemp(join(tmpdir(), 'hotplug-steps-'));
+    root = await mkdtemp(join(tmpdir(), 'anypick-steps-'));
   });
 
   afterEach(async () => {

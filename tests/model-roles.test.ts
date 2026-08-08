@@ -11,16 +11,16 @@ import { gatewayRef } from '../src/core/refs';
 
 describe('claude apply with role models', () => {
   let home: string;
-  let hotplugRoot: string;
+  let anypickRoot: string;
 
   beforeEach(async () => {
-    home = await mkdtemp(join(tmpdir(), 'hotplug-claude-home-'));
-    hotplugRoot = await mkdtemp(join(tmpdir(), 'hotplug-root-'));
+    home = await mkdtemp(join(tmpdir(), 'anypick-claude-home-'));
+    anypickRoot = await mkdtemp(join(tmpdir(), 'anypick-root-'));
   });
 
   afterEach(async () => {
     await rm(home, { recursive: true, force: true });
-    await rm(hotplugRoot, { recursive: true, force: true });
+    await rm(anypickRoot, { recursive: true, force: true });
   });
 
   it('writes ANTHROPIC_* model env for all roles', async () => {
@@ -28,7 +28,7 @@ describe('claude apply with role models', () => {
     const profile = syntheticProxyProfile({
       name: 'proxy:grok/work',
       endpoint: 'http://127.0.0.1:9090',
-      apiKey: 'hotplug-proxy',
+      apiKey: 'anypick-proxy',
       modelRoles: {
         default: 'grok-4.5',
         sonnet: 'grok-4.5',
@@ -41,7 +41,7 @@ describe('claude apply with role models', () => {
       clientId: 'claude',
       dryRun: false,
       verbose: false,
-      hotplugRoot,
+      anypickRoot,
       proxyEndpoint: 'http://127.0.0.1:9090',
     });
 
@@ -64,7 +64,7 @@ describe('claude apply with role models', () => {
       const profile = syntheticProxyProfile({
         name: 'proxy:opencode/default',
         endpoint: 'http://127.0.0.1:4122',
-        apiKey: 'hotplug-secret',
+        apiKey: 'anypick-secret',
         modelRoles: {
           default: 'deepseek-v4-flash-free',
           sonnet: 'deepseek-v4-flash-free',
@@ -77,32 +77,32 @@ describe('claude apply with role models', () => {
         clientId: 'claude',
         dryRun: false,
         verbose: false,
-        hotplugRoot,
+        anypickRoot,
       });
 
       expect(fetchMock).not.toHaveBeenCalled();
       const settingsPath = join(home, '.claude', 'settings.json');
       const doc = JSON.parse(await readFile(settingsPath, 'utf8')) as {
         env: Record<string, string>;
-        _hotplugManaged?: { keys?: string[] };
+        _anypickManaged?: { keys?: string[] };
       };
       expect(doc.env.CLAUDE_CODE_AUTO_COMPACT_WINDOW).toBeUndefined();
       expect(doc.env.CLAUDE_CODE_MAX_CONTEXT_TOKENS).toBeUndefined();
-      expect(doc._hotplugManaged?.keys).not.toContain('CLAUDE_CODE_AUTO_COMPACT_WINDOW');
+      expect(doc._anypickManaged?.keys).not.toContain('CLAUDE_CODE_AUTO_COMPACT_WINDOW');
       expect(applied.managedEnvKeys).not.toContain('CLAUDE_CODE_AUTO_COMPACT_WINDOW');
     } finally {
       fetchMock.mockRestore();
     }
   });
 
-  it('removes a previously Hotplug-managed auto-compact window', async () => {
+  it('removes a previously AnyPick-managed auto-compact window', async () => {
     const settingsPath = join(home, '.claude', 'settings.json');
     await mkdir(join(home, '.claude'), { recursive: true });
     await writeFile(
       settingsPath,
       JSON.stringify({
         env: { CLAUDE_CODE_AUTO_COMPACT_WINDOW: '200000' },
-        _hotplugManaged: {
+        _anypickManaged: {
           keys: ['CLAUDE_CODE_AUTO_COMPACT_WINDOW'],
           updatedAt: new Date().toISOString(),
         },
@@ -114,7 +114,7 @@ describe('claude apply with role models', () => {
     const profile = syntheticProxyProfile({
       name: 'proxy:opencode/default',
       endpoint: 'http://127.0.0.1:4122',
-      apiKey: 'hotplug-secret',
+      apiKey: 'anypick-secret',
       defaultModel: 'deepseek-v4-flash-free',
     });
     const applied = await client.apply({
@@ -122,15 +122,15 @@ describe('claude apply with role models', () => {
       clientId: 'claude',
       dryRun: false,
       verbose: false,
-      hotplugRoot,
+      anypickRoot,
     });
 
     const doc = JSON.parse(await readFile(settingsPath, 'utf8')) as {
       env: Record<string, string>;
-      _hotplugManaged?: { keys?: string[] };
+      _anypickManaged?: { keys?: string[] };
     };
     expect(doc.env.CLAUDE_CODE_AUTO_COMPACT_WINDOW).toBeUndefined();
-    expect(doc._hotplugManaged?.keys).not.toContain('CLAUDE_CODE_AUTO_COMPACT_WINDOW');
+    expect(doc._anypickManaged?.keys).not.toContain('CLAUDE_CODE_AUTO_COMPACT_WINDOW');
     expect(applied.managedEnvKeys).not.toContain('CLAUDE_CODE_AUTO_COMPACT_WINDOW');
   });
 
@@ -149,7 +149,7 @@ describe('claude apply with role models', () => {
       const profile = syntheticProxyProfile({
         name: 'proxy:opencode/default',
         endpoint: 'http://127.0.0.1:4122',
-        apiKey: 'hotplug-secret',
+        apiKey: 'anypick-secret',
         defaultModel: 'deepseek-v4-flash-free',
       });
       await client.apply({
@@ -157,16 +157,16 @@ describe('claude apply with role models', () => {
         clientId: 'claude',
         dryRun: false,
         verbose: false,
-        hotplugRoot,
+        anypickRoot,
       });
 
       expect(fetchMock).not.toHaveBeenCalled();
       const doc = JSON.parse(await readFile(settingsPath, 'utf8')) as {
         env: Record<string, string>;
-        _hotplugManaged?: { keys?: string[] };
+        _anypickManaged?: { keys?: string[] };
       };
       expect(doc.env.CLAUDE_CODE_AUTO_COMPACT_WINDOW).toBe('150000');
-      expect(doc._hotplugManaged?.keys).not.toContain('CLAUDE_CODE_AUTO_COMPACT_WINDOW');
+      expect(doc._anypickManaged?.keys).not.toContain('CLAUDE_CODE_AUTO_COMPACT_WINDOW');
     } finally {
       fetchMock.mockRestore();
     }
@@ -177,7 +177,7 @@ describe('bindingService.use persists modelRoles', () => {
   let root: string;
 
   beforeEach(async () => {
-    root = await mkdtemp(join(tmpdir(), 'hotplug-roles-bind-'));
+    root = await mkdtemp(join(tmpdir(), 'anypick-roles-bind-'));
   });
 
   afterEach(async () => {
@@ -254,7 +254,7 @@ describe('bindingService.use persists modelRoles', () => {
   });
 
   it('re-syncs ~/.claude/settings.json on already-active use (drift repair)', async () => {
-    const home = await mkdtemp(join(tmpdir(), 'hotplug-claude-home-'));
+    const home = await mkdtemp(join(tmpdir(), 'anypick-claude-home-'));
     try {
       const { ClientRegistry } = await import('../src/clients/registry');
       const clients = new ClientRegistry();

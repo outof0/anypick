@@ -1,28 +1,28 @@
 /**
  * Structured event sink for degraded / lifecycle conditions (spec OBS-01).
  *
- * Hotplug surfaces partial failures — startup recovery refusal, lease mismatch,
+ * AnyPick surfaces partial failures — startup recovery refusal, lease mismatch,
  * proxy realignment failure, unverified processes, cleanup failure — as typed
  * events rather than swallowing them or leaking them into stderr with secrets.
  * Library consumers can supply their own sink (e.g. to feed a TUI status bar);
  * when none is supplied, events are recorded in an in-memory ring that `doctor`
- * / `status` can read, and (optionally) echoed to stderr behind HOTPLUG_DEBUG.
+ * / `status` can read, and (optionally) echoed to stderr behind ANYPICK_DEBUG.
  *
  * All event context is sanitized at the boundary: secret material (keys,
  * tokens, auth files, full headers, complete imported payloads) is never placed
  * into an event.
  */
 
-export type HotplugEventSeverity = 'info' | 'warn' | 'error';
+export type AnyPickEventSeverity = 'info' | 'warn' | 'error';
 
-export interface HotplugEvent {
+export interface AnyPickEvent {
   /** Correlation id (e.g. a journal operation id) when available. */
   opId?: string;
   /** Resource ids touched by the condition (scoped, not secret). */
   resourceIds?: string[];
   /** Lifecycle step the event corresponds to, when relevant. */
   step?: string;
-  severity: HotplugEventSeverity;
+  severity: AnyPickEventSeverity;
   /** Stable machine-readable code (no spaces). */
   code: string;
   /** Human-readable message; must not contain secrets. */
@@ -33,8 +33,8 @@ export interface HotplugEvent {
   timestamp: string;
 }
 
-export interface HotplugEventSink {
-  emit(event: HotplugEvent): void;
+export interface AnyPickEventSink {
+  emit(event: AnyPickEvent): void;
 }
 
 /**
@@ -89,9 +89,9 @@ export interface EmitOptions {
 }
 
 /** Build a sanitized event and hand it to the sink. */
-export function makeEmitter(sink: HotplugEventSink | undefined) {
+export function makeEmitter(sink: AnyPickEventSink | undefined) {
   return function emit(
-    severity: HotplugEventSeverity,
+    severity: AnyPickEventSeverity,
     code: string,
     message: string,
     opts: EmitOptions = {},
@@ -113,22 +113,22 @@ export function makeEmitter(sink: HotplugEventSink | undefined) {
 }
 
 /** In-memory ring buffer used when no external sink is supplied. */
-export class InMemoryEventSink implements HotplugEventSink {
-  private readonly events: HotplugEvent[] = [];
+export class InMemoryEventSink implements AnyPickEventSink {
+  private readonly events: AnyPickEvent[] = [];
   private readonly max: number;
 
   constructor(max = 200) {
     this.max = max;
   }
 
-  emit(event: HotplugEvent): void {
+  emit(event: AnyPickEvent): void {
     this.events.push(event);
     if (this.events.length > this.max) {
       this.events.shift();
     }
   }
 
-  list(): readonly HotplugEvent[] {
+  list(): readonly AnyPickEvent[] {
     return this.events;
   }
 
@@ -137,13 +137,13 @@ export class InMemoryEventSink implements HotplugEventSink {
   }
 }
 
-/** Sink that echoes to stderr (only when HOTPLUG_DEBUG is set). */
-export class DebugStderrEventSink implements HotplugEventSink {
-  emit(event: HotplugEvent): void {
-    if (process.env.HOTPLUG_DEBUG !== '1' && process.env.HOTPLUG_DEBUG !== 'true') {
+/** Sink that echoes to stderr (only when ANYPICK_DEBUG is set). */
+export class DebugStderrEventSink implements AnyPickEventSink {
+  emit(event: AnyPickEvent): void {
+    if (process.env.ANYPICK_DEBUG !== '1' && process.env.ANYPICK_DEBUG !== 'true') {
       return;
     }
     const loc = [event.code, event.opId, ...(event.resourceIds ?? [])].filter(Boolean).join(' ');
-    process.stderr.write(`[hotplug:event:${event.severity}] ${loc}: ${event.message}\n`);
+    process.stderr.write(`[anypick:event:${event.severity}] ${loc}: ${event.message}\n`);
   }
 }

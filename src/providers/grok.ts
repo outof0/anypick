@@ -1,11 +1,15 @@
+import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
+import { fileURLToPath } from 'node:url';
 import type {
   Account,
   AccountMeta,
   LiveAuthStatus,
   Provider,
   ProxyContext,
+  ProxyHubBackendContext,
+  ProxyHubBackendHandle,
   ProxyHandle,
   ProxyStatus,
   SourceAdapter,
@@ -19,12 +23,14 @@ import {
   stopPidFile,
   waitForHttp,
 } from '../utils/process';
-import { HotplugError } from '../utils/errors';
+import { AnyPickError } from '../utils/errors';
 import { snapshotMatchesLiveDefault } from './auth-fingerprint';
 import { ensureDir } from '../utils/fs';
 import { writeFile } from 'node:fs/promises';
 import { assertLoopbackHost } from '../utils/network';
 import { rolesFromLiveDiscovery } from './model-policy';
+import { listenGrokProxy } from './grok-proxy/server';
+import { closeProxyHubBackend } from './proxy-hub-backend';
 
 /**
  * xAI Grok CLI / Grok Build
@@ -48,10 +54,23 @@ export class GrokProvider implements Provider {
   readonly defaultProxyPort = DEFAULT_PORT;
   readonly proxyCompatibility = 'OpenAI + Anthropic API';
 
-  // Grok accounts can be entitled to different catalogs, so the model list comes
-  // from the running proxy's /v1/models rather than a release-pinned map here.
+  // Prefer the running proxy's /v1/models (account-scoped). Static maps are the
+  // offline fallback so tray/TUI still offer a usable catalog when the proxy is
+  // stopped or discovery fails.
   roleDefaults(): Record<string, string> {
     return rolesFromLiveDiscovery();
+  }
+
+  suggestModels(): Record<string, string> {
+    return {};
+  }
+
+  roleFriendlyModels(): readonly string[] {
+    return [];
+  }
+
+  staticFallbackModels(): readonly string[] {
+    return [];
   }
 
   constructor(private readonly home = homedir()) {}
@@ -62,6 +81,27 @@ export class GrokProvider implements Provider {
 
   poolSourceAdapter(): SourceAdapter {
     return poolAdapterFor(this.id, this);
+  }
+
+  async createProxyHubBackend(ctx: ProxyHubBackendContext): Promise<ProxyHubBackendHandle> {
+    if (ctx.accounts.length !== 1) {
+      throw new AnyPickError(
+        'Grok multi-account pools are not available through Proxy Hub yet.',
+        'POOL_NOT_ENABLED',
+      );
+    }
+    const account = ctx.accounts[0];
+    const options = account.proxy.options ?? {};
+    const { server, endpoint } = await listenGrokProxy({
+      host: '127.0.0.1',
+      port: 0,
+      authPath: join(account.snapshotDir, 'auth.json'),
+      upstream: typeof options.upstream === 'string' ? options.upstream : undefined,
+      clientVersion: typeof options.clientVersion === 'string' ? options.clientVersion : undefined,
+      token: ctx.token,
+      log: ctx.log,
+    });
+    return { endpoint, close: () => closeProxyHubBackend(server) };
   }
 
   private get authPath(): string {
@@ -171,7 +211,7 @@ export class GrokProvider implements Provider {
     const port = ctx.config.port ?? DEFAULT_PORT;
     const mainJs = resolveProxyMain();
     if (!(await pathExists(mainJs))) {
-      throw new HotplugError(
+      throw new AnyPickError(
         `Grok proxy entry not found at ${mainJs}. Run: pnpm build`,
         'PROXY_BINARY_MISSING',
       );
@@ -188,7 +228,7 @@ export class GrokProvider implements Provider {
       : join(ctx.snapshotDir, 'auth.json');
 
     if (!(await pathExists(authPath))) {
-      throw new HotplugError(
+      throw new AnyPickError(
         'No Grok auth available to start proxy. Save/login first.',
         'NO_LIVE_AUTH',
       );
@@ -233,8 +273,8 @@ export class GrokProvider implements Provider {
         env: {
           ...process.env,
           GROK_AUTH_PATH: authPath,
-          ...(ctx.token ? { HOTPLUG_PROXY_TOKEN: ctx.token } : {}),
-          HOTPLUG_PROXY_LOG: logPath,
+          ...(ctx.token ? { ANYPICK_PROXY_TOKEN: ctx.token } : {}),
+          ANYPICK_PROXY_LOG: logPath,
         },
       },
     );
@@ -261,7 +301,7 @@ export class GrokProvider implements Provider {
           // ignore
         }
       }
-      throw new HotplugError(
+      throw new AnyPickError(
         `Grok proxy failed to bind ${host}:${port}.${tail ? `\n${tail}` : ''}`,
         'PROXY_START_FAILED',
       );
@@ -339,5 +379,3 @@ function firstEmail(sessions: Record<string, unknown>[]): string | undefined {
 }
 
 export const grokProvider = new GrokProvider();
-import { existsSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';

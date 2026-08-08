@@ -23,7 +23,7 @@ import type {
   ProxyHandle,
   ProxyStatus,
 } from '../types';
-import { HotplugError } from '../utils/errors';
+import { AnyPickError } from '../utils/errors';
 import { normalizeAccountName } from '../utils/slug';
 import { ensureDir, pathExists } from '../utils/fs';
 import {
@@ -48,6 +48,8 @@ import { readFile } from 'node:fs/promises';
 import { randomBytes } from 'node:crypto';
 import { assertLoopbackHost } from '../utils/network';
 import { withMutationLock } from './mutation-lock';
+import type { QuotaGuardPolicy } from '../types';
+import { readQuotaGuardState, type QuotaGuardEvent } from '../providers/quota-guard';
 
 /** Best-effort port extraction from an endpoint like http://127.0.0.1:8080. */
 function portFromEndpoint(endpoint: string): number {
@@ -104,11 +106,33 @@ export class ProxyService {
     pools?: PoolStore,
     realign?: RealignProxyClientsDeps,
     leases?: LeaseStore,
+    private readonly quotaGuardPolicy: () => Promise<QuotaGuardPolicy> = async () => ({
+      enabled: false,
+      cooldownMinutes: 60,
+    }),
   ) {
     this.pools = pools ?? new PoolStore(store.root, store.db);
     this.realign = realign;
     this.leases = leases;
     this.ports = new ProxyPortAllocator(registry, store);
+  }
+
+  /**
+   * Optional re-publisher for the live Codex config block, wired in app.ts so this
+   * service does not depend on Hub/Codex services it was not constructed with.
+   */
+  private codexLiveConfigSync?: () => Promise<void>;
+
+  setCodexLiveConfigSync(fn: () => Promise<void>): void {
+    this.codexLiveConfigSync = fn;
+  }
+
+  private async syncCodexLiveConfig(): Promise<void> {
+    try {
+      await this.codexLiveConfigSync?.();
+    } catch {
+      // Best-effort: a failed live-block refresh must never fail a proxy op.
+    }
   }
 
   /**
@@ -190,7 +214,7 @@ export class ProxyService {
     const provider = this.requireProxyProvider(providerId);
     const accounts = await this.store.listAccounts(providerId);
     if (accounts.length === 0) {
-      throw new HotplugError(`No saved logins for ${providerId}. Save one first.`, 'NO_ACCOUNTS');
+      throw new AnyPickError(`No saved logins for ${providerId}. Save one first.`, 'NO_ACCOUNTS');
     }
     const port = validatePort(opts.port ?? provider.defaultProxyPort ?? 8080);
     assertLoopbackHost(opts.host ?? '127.0.0.1');
@@ -240,14 +264,14 @@ export class ProxyService {
     const provider = this.requireProxyProvider(providerId);
     const pool = await this.getPool(providerId);
     if (pool.mode !== 'multi') {
-      throw new HotplugError(
-        `Pool multi-mode is off for ${providerId} (default is single account). Enable with: hotplug proxy pool enable ${providerId}`,
+      throw new AnyPickError(
+        `Pool multi-mode is off for ${providerId} (default is single account). Enable with: anypick proxy pool enable ${providerId}`,
         'POOL_NOT_ENABLED',
       );
     }
     const enabled = pool.members.filter((m) => m.enabled);
     if (enabled.length === 0) {
-      throw new HotplugError(
+      throw new AnyPickError(
         `No enabled accounts in ${providerId} pool. Enable a member first.`,
         'POOL_EMPTY',
       );
@@ -285,7 +309,7 @@ export class ProxyService {
     await ensureDir(runtimeDir);
 
     if (!provider.startProxy) {
-      throw new HotplugError('PROXY_NOT_IMPLEMENTED', 'PROXY_NOT_IMPLEMENTED');
+      throw new AnyPickError('PROXY_NOT_IMPLEMENTED', 'PROXY_NOT_IMPLEMENTED');
     }
 
     // Stop previous pool / primary proxy
@@ -305,6 +329,7 @@ export class ProxyService {
       priorState?.token && priorState.token.length > 0
         ? priorState.token
         : randomBytes(32).toString('hex');
+    const quotaGuard = await this.quotaGuardPolicy();
     const ctx: ProxyContext = {
       providerId,
       accountName: primary.account,
@@ -315,6 +340,11 @@ export class ProxyService {
         options: {
           pool: true,
           authDirs: enabled.map((m) => accountSnapshotDir(this.store.root, providerId, m.account)),
+          quotaGuardAccountNames: enabled.map((m) => m.account),
+          quotaGuard: {
+            enabled: quotaGuard.enabled,
+            cooldownMs: quotaGuard.cooldownMinutes * 60_000,
+          },
         },
       },
       token: poolToken,
@@ -332,6 +362,46 @@ export class ProxyService {
     this.recordLease(providerId, undefined, handle);
     handle.startedNow = true;
     return handle;
+  }
+
+  /** Restart only pools that are currently serving, after changing a pool-wide policy. */
+  async restartRunningPools(): Promise<void> {
+    for (const provider of this.registry.list().filter((entry) => providerCanProxy(entry))) {
+      try {
+        const pool = await this.getPool(provider.id);
+        const status = await this.poolProxyStatus(provider.id);
+        if (pool.mode === 'multi' && pool.enabled && status.running) {
+          await this.startPoolProxy(provider.id);
+        }
+      } catch {
+        // An unrelated provider must not prevent a setting from applying to its pool.
+      }
+    }
+  }
+
+  /** Secret-free audit events written by an enabled compatibility proxy pool. */
+  async quotaGuardEvents(): Promise<QuotaGuardEvent[]> {
+    const events: QuotaGuardEvent[] = [];
+    for (const provider of this.registry.list().filter((entry) => providerCanProxy(entry))) {
+      try {
+        const pool = await this.getPool(provider.id);
+        if (pool.mode !== 'multi') {
+          continue;
+        }
+        const state = await readQuotaGuardState(
+          `${poolRuntimeDir(this.store.root, provider.id)}/quota-guard.json`,
+        );
+        events.push(
+          ...state.events.map((event) => ({
+            ...event,
+            providerId: event.providerId ?? provider.id,
+          })),
+        );
+      } catch {
+        // Runtime observability is best-effort and must never make a proxy unavailable.
+      }
+    }
+    return events.toSorted((left, right) => right.createdAt.localeCompare(left.createdAt));
   }
 
   async stopPoolProxy(providerId: string): Promise<void> {
@@ -390,7 +460,7 @@ export class ProxyService {
   requireProxyProvider(providerId: string): Provider {
     const provider = this.registry.get(providerId);
     if (!providerCanProxy(provider)) {
-      throw new HotplugError(
+      throw new AnyPickError(
         `Provider "${providerId}" does not support a compatibility proxy.`,
         'PROXY_UNSUPPORTED',
       );
@@ -436,6 +506,7 @@ export class ProxyService {
     if (shouldStart) {
       started = await this.startProxyInternal(provider, accountName, config);
     }
+    void this.syncCodexLiveConfig();
 
     return { config, started };
   }
@@ -476,7 +547,7 @@ export class ProxyService {
     await this.store.requireAccount(providerId, accountName);
 
     if (opts.port == null && opts.host == null && opts.options == null) {
-      throw new HotplugError(
+      throw new AnyPickError(
         'Pass --port and/or --host to configure the proxy.',
         'PROXY_CONFIG_EMPTY',
       );
@@ -513,6 +584,7 @@ export class ProxyService {
       await this.stopProxyInternal(provider, accountName);
       restarted = await this.startProxyInternal(provider, accountName, config);
     }
+    void this.syncCodexLiveConfig();
 
     return { config, restarted, wasRunning };
   }
@@ -527,6 +599,7 @@ export class ProxyService {
     await this.store.setProxyConfig(providerId, accountName, config);
 
     await this.stopProxyInternal(provider, accountName);
+    void this.syncCodexLiveConfig();
     return config;
   }
 
@@ -543,8 +616,8 @@ export class ProxyService {
     const account = await this.store.requireAccount(providerId, accountName);
     assertLoopbackHost(opts.host ?? account.proxy.host ?? '127.0.0.1');
     if (!account.proxy.enabled) {
-      throw new HotplugError(
-        `Proxy is not enabled for ${providerId}/${accountName}. Run: hotplug proxy enable ${providerId} ${accountName}`,
+      throw new AnyPickError(
+        `Proxy is not enabled for ${providerId}/${accountName}. Run: anypick proxy enable ${providerId} ${accountName}`,
         'PROXY_DISABLED',
       );
     }
@@ -580,7 +653,9 @@ export class ProxyService {
       await this.store.setProxyConfig(providerId, accountName, config);
     }
 
-    return this.startProxyInternal(provider, accountName, config);
+    const handle = await this.startProxyInternal(provider, accountName, config);
+    void this.syncCodexLiveConfig();
+    return handle;
   }
 
   async stopProxy(providerId: string, name?: string): Promise<void> {
@@ -590,6 +665,7 @@ export class ProxyService {
       : await this.requireActiveName(providerId);
     await this.store.requireAccount(providerId, accountName);
     await this.stopProxyInternal(provider, accountName);
+    void this.syncCodexLiveConfig();
   }
 
   async proxyStatus(providerId: string, name?: string): Promise<ProxyStatus> {
@@ -714,7 +790,7 @@ export class ProxyService {
   }
 
   /**
-   * List proxy-capable accounts (for `hotplug proxy` / status).
+   * List proxy-capable accounts (for `anypick proxy` / status).
    * If provider omitted → all proxy providers. If name omitted → active or all enabled.
    */
   async listProxyRows(providerId?: string): Promise<
@@ -882,6 +958,7 @@ export class ProxyService {
   /** Stop a proxy during account lifecycle ops (switch/stash/delete). */
   async stopProxyForAccount(provider: Provider, accountName: string): Promise<void> {
     await this.stopProxyInternal(provider, accountName);
+    void this.syncCodexLiveConfig();
   }
 
   /** Start a proxy as part of account switch (when enabled). */
@@ -895,6 +972,7 @@ export class ProxyService {
     }
     try {
       const handle = await this.startProxyInternal(provider, accountName, config);
+      void this.syncCodexLiveConfig();
       return {
         endpoint: handle.endpoint,
         running: true,
@@ -970,7 +1048,7 @@ export class ProxyService {
   private async requireActiveName(providerId: string): Promise<string> {
     const active = await this.store.getActive(providerId);
     if (!active) {
-      throw new HotplugError(
+      throw new AnyPickError(
         `No active account for "${providerId}". Pass an account name.`,
         'NO_ACTIVE_ACCOUNT',
       );
@@ -1010,7 +1088,7 @@ export class ProxyService {
     config: AccountProxyConfig,
   ): Promise<ProxyHandle> {
     if (!provider.startProxy) {
-      throw new HotplugError(
+      throw new AnyPickError(
         `Provider "${provider.id}" declares proxy support but does not implement startProxy().`,
         'PROXY_NOT_IMPLEMENTED',
       );
@@ -1136,8 +1214,8 @@ export class ProxyService {
           return retry;
         }
       }
-      throw new HotplugError(
-        `Proxy for ${provider.id}/${accountName} failed to bind (tried port ${port}). Check: hotplug proxy logs ${provider.id} ${accountName}`,
+      throw new AnyPickError(
+        `Proxy for ${provider.id}/${accountName} failed to bind (tried port ${port}). Check: anypick proxy logs ${provider.id} ${accountName}`,
         'PROXY_START_FAILED',
       );
     }
@@ -1217,11 +1295,11 @@ export class ProxyService {
       // still fail closed if their recorded process remains alive.
       const status = provider.proxyStatus ? await provider.proxyStatus(ctx) : undefined;
       if (!status || status.running) {
-        throw new HotplugError(
+        throw new AnyPickError(
           `Could not verify that the ${provider.name} proxy stopped (pid ${before.pid}).`,
           {
             code: 'PROXY_STOP_UNVERIFIED',
-            suggestions: ['Run hotplug doctor to inspect the proxy record before retrying.'],
+            suggestions: ['Run anypick doctor to inspect the proxy record before retrying.'],
           },
         );
       }

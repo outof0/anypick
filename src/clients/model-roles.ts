@@ -21,41 +21,59 @@ export const CLAUDE_MODEL_ROLES: readonly ClientModelRole[] = [
   { id: 'haiku', label: 'Haiku' },
 ] as const;
 
+/**
+ * Codex Desktop only surfaces ~5 allowlisted GPT picker slots. AnyPick maps
+ * Hub models onto those slots (see `codex-desktop-catalog.ts`). Configure Models
+ * exposes one required Default plus four optional models — same multi-picker
+ * shape as Claude's Default/Sonnet/Opus/Haiku, but for the Desktop list rather
+ * than Claude Code env roles. Stable ids stay `list2`…`list5` (binding storage).
+ */
+export const CODEX_DESKTOP_MODEL_ROLES: readonly ClientModelRole[] = [
+  { id: 'default', label: 'Default' },
+  { id: 'list2', label: 'Model 2' },
+  { id: 'list3', label: 'Model 3' },
+  { id: 'list4', label: 'Model 4' },
+  { id: 'list5', label: 'Model 5' },
+] as const;
+
 export const DEFAULT_MODEL_ROLE: readonly ClientModelRole[] = [
   { id: 'default', label: 'Default' },
 ] as const;
 
-/** Roles an app can map when applying a proxy/profile. */
+/**
+ * Roles an app can map when applying a proxy/profile.
+ *
+ * Prefer passing a `ClientAdapter` (or anything with `modelRoles()`). The string
+ * overload is only a fallback for call sites that have not resolved the
+ * adapter yet — it returns the neutral single-role default so third-party
+ * clients never inherit Anthropic's multi-role labels by id coincidence.
+ */
 export function modelRolesForClient(
   client: Pick<ClientAdapter, 'id' | 'modelRoles'> | string,
 ): readonly ClientModelRole[] {
   if (typeof client === 'string') {
-    switch (client) {
-      case 'claude':
-        return CLAUDE_MODEL_ROLES;
-      case 'codex':
-      case 'gemini':
-      case 'kiro':
-      default:
-        return DEFAULT_MODEL_ROLE;
-    }
+    return DEFAULT_MODEL_ROLE;
   }
   if (typeof client.modelRoles === 'function') {
     return client.modelRoles();
   }
-  return modelRolesForClient(client.id);
+  return DEFAULT_MODEL_ROLE;
 }
 
 /**
  * Default role → model id when pointing a client at a proxy for this provider.
  * Values are bare ids suitable for Claude Code / Codex env injection.
+ *
+ * Pass a ClientAdapter (or anything with modelRoles) as the second argument so
+ * multi-role clients keep their slots. A bare client id falls back to the
+ * neutral single-role default.
  */
 export function defaultModelRolesForProxy(
   providerId: string,
-  clientId: string,
+  client: Pick<ClientAdapter, 'id' | 'modelRoles'> | string,
   lookup?: ModelPolicyLookup,
 ): Record<string, string> {
-  const roles = modelRolesForClient(clientId);
+  const roles = modelRolesForClient(client);
   const template = providerModelTemplate(providerId, lookup);
   const out: Record<string, string> = {};
   for (const role of roles) {

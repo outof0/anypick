@@ -31,10 +31,15 @@ silenceSqliteExperimentalWarning();
 const earlyArgs = process.argv.slice(2);
 const openCodeProxyCommand =
   earlyArgs[0] === 'proxy' && earlyArgs[1] === 'serve' && earlyArgs[2] === 'opencode';
+const proxyHubCommand =
+  earlyArgs[0] === 'proxy' && earlyArgs[1] === 'serve' && earlyArgs[2] === 'hub';
 if (openCodeProxyCommand) {
   const { runOpenCodeProxyCli } = await import('./providers/opencode-proxy/cli');
   await runOpenCodeProxyCli(earlyArgs.slice(3));
+} else if (proxyHubCommand) {
+  const { runProxyHubCli } = await import('./core/proxy-hub-cli');
+  await runProxyHubCli(earlyArgs.slice(3));
 } else {
-  const { runHotplugCli } = await import('./cli/bootstrap');
-  await runHotplugCli(earlyArgs);
+  const { runAnyPickCli } = await import('./cli/bootstrap');
+  await runAnyPickCli(earlyArgs);
 }

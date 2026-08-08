@@ -18,7 +18,9 @@ immutable once accepted.
 | [0009](0009-mutation-coordinator.md) | Every persisted mutation runs under the internal coordinator with sorted, scoped locks; correctness never depends on the caller locking. (CONC-01) | accepted, amended by [0011](0011-reentrant-provider-scoped-locks.md) |
 | [0010](0010-observable-degraded-state.md) | Degraded and lifecycle conditions are emitted through an injectable, redacting event port instead of being swallowed in `catch`. (OBS-01) | accepted |
 | [0011](0011-reentrant-provider-scoped-locks.md) | Account mutations lock one re-entrant `provider/<id>` scope covering the live credential file and every snapshot; activation maps its source ref onto the same scope. (CONC-02) | accepted |
-| [0012](0012-plugin-trust-boundary.md) | Plugins are installed disabled, enabled by an explicit decision, pinned to a digest verified before `import()`, activated inside the sealing window, and never fatal. (EXT-01) | accepted |
+| [0012](0012-plugin-trust-boundary.md) | Plugins are installed disabled, enabled by an explicit decision, pinned to a digest verified before `import()`, activated inside the sealing window, and never fatal. (EXT-01) | accepted, amended by [0014](0014-plugin-package-digest.md) |
+| [0013](0013-model-routed-proxy-hub.md) | One loopback Proxy Hub keeps provider model IDs unchanged, routes exact IDs only after explicit collision resolution, and gives each client a token-scoped manifest. (HUB-01) | accepted |
+| [0014](0014-plugin-package-digest.md) | The plugin trust pin is a SHA-256 of the whole package (not only `main`), verified before `import()`. (EXT-02) | accepted |
 
 ## Writing a new one
 

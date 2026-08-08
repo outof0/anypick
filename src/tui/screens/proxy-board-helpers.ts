@@ -76,6 +76,18 @@ export function boardOutcome(
       support: 'enter save this login',
     };
   }
+  if (selected.rowKind === 'hub') {
+    if (selected.status.running) {
+      return {
+        outcome: 'Proxy Hub is routing selected models',
+        support: 'enter configure sources and review model routes',
+      };
+    }
+    return {
+      outcome: selected.status.enabled ? 'Start Proxy Hub' : 'Configure Proxy Hub',
+      support: 'enter choose sources and start one local endpoint',
+    };
+  }
   if (selected.rowKind === 'member') {
     return {
       outcome: selected.memberEnabled

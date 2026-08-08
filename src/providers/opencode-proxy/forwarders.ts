@@ -47,7 +47,7 @@ export async function forwardAnthropicAsGoogle(
       headers: {
         'content-type': 'application/json',
         accept: 'application/json',
-        'user-agent': 'hotplug-opencode-proxy/0.8',
+        'user-agent': 'anypick-opencode-proxy/0.8',
         'x-goog-api-key': cred.apiKey,
         'x-opencode-client': 'desktop',
         'x-opencode-session': runtime.sessionId,
@@ -182,6 +182,22 @@ export async function forwardAnthropicAsOpenAI(
       include_usage: true,
     };
   }
+
+  // DeepSeek (and similar reasoning models) requires reasoning_content on
+  // every assistant message with tool_calls when the conversation used
+  // thinking mode.  The client may strip thinking blocks entirely, so
+  // backfill the field after conversion if any message already carries it.
+  const hasReasoning = openaiBody.messages.some(
+    (m) => m.role === 'assistant' && m.reasoning_content != null,
+  );
+  if (hasReasoning) {
+    for (const m of openaiBody.messages) {
+      if (m.role === 'assistant' && m.tool_calls?.length && m.reasoning_content == null) {
+        m.reasoning_content = '';
+      }
+    }
+  }
+
   const model = String(body.model ?? '');
   const translatedBytes = jsonByteLength(openaiBody);
   log(

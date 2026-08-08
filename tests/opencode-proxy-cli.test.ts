@@ -7,6 +7,6 @@ describe('opencode proxy CLI dispatch', () => {
   it('owns proxy serving under the main CLI command', async () => {
     const write = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
     await runOpenCodeProxyCli(['--help']);
-    expect(write).toHaveBeenCalledWith(expect.stringContaining('hotplug proxy serve opencode'));
+    expect(write).toHaveBeenCalledWith(expect.stringContaining('anypick proxy serve opencode'));
   });
 });

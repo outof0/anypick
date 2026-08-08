@@ -2,7 +2,7 @@
  * Live model discovery with a cached fallback chain.
  *
  * The static catalog in `src/catalog/providers.ts` goes stale the moment a
- * vendor ships a model, and a user should not need a Hotplug release to select
+ * vendor ships a model, and a user should not need a AnyPick release to select
  * one. So the answer is resolved in order:
  *
  *   1. a cache row younger than `TTL_MS`,
@@ -16,7 +16,7 @@
  *
  * Egress is allowlisted per call (ADR 0006 keeps proxy traffic on loopback; this
  * is the opposite direction — outbound, with the user's key attached). The
- * allowlist is the vendor origins Hotplug ships plus the origin already stored
+ * allowlist is the vendor origins AnyPick ships plus the origin already stored
  * in the user's own profile, so a rewritten endpoint cannot quietly receive a
  * credential that was issued for somewhere else.
  */

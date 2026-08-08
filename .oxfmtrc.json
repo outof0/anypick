@@ -8,5 +8,13 @@
   "useTabs": false,
   "arrowParens": "always",
   "endOfLine": "lf",
-  "ignorePatterns": ["dist/**", "node_modules/**", "pnpm-lock.yaml", "*.md", "docs/**"]
+  "ignorePatterns": [
+    "dist/**",
+    "node_modules/**",
+    "pnpm-lock.yaml",
+    "*.md",
+    "docs/**",
+    "design/**",
+    "src/tray/tauri/**"
+  ]
 }

@@ -46,7 +46,7 @@ describe('§28.2 #31 missing Kiro executable → exit 7 before mutation', () => 
   let root: string;
 
   beforeEach(async () => {
-    root = await mkdtemp(join(tmpdir(), 'hotplug-31-'));
+    root = await mkdtemp(join(tmpdir(), 'anypick-31-'));
   });
   afterEach(async () => {
     await rm(root, { recursive: true, force: true });
@@ -176,7 +176,7 @@ describe('§28.2 #31 missing Kiro executable → exit 7 before mutation', () => 
 describe('§28.2 #34 incompatible transport → exit 5', () => {
   let root: string;
   beforeEach(async () => {
-    root = await mkdtemp(join(tmpdir(), 'hotplug-34-'));
+    root = await mkdtemp(join(tmpdir(), 'anypick-34-'));
   });
   afterEach(async () => {
     await rm(root, { recursive: true, force: true });
@@ -229,7 +229,7 @@ describe('§28.2 #34 incompatible transport → exit 5', () => {
 describe('§28.2 #43 gateway plan never emits WriteNativeAuth', () => {
   let root: string;
   beforeEach(async () => {
-    root = await mkdtemp(join(tmpdir(), 'hotplug-43-'));
+    root = await mkdtemp(join(tmpdir(), 'anypick-43-'));
   });
   afterEach(async () => {
     await rm(root, { recursive: true, force: true });
@@ -298,7 +298,7 @@ describe('§28.2 #43 gateway plan never emits WriteNativeAuth', () => {
 describe('§28.2 #47–48 journal recovery re-resolve', () => {
   let root: string;
   beforeEach(async () => {
-    root = await mkdtemp(join(tmpdir(), 'hotplug-47-'));
+    root = await mkdtemp(join(tmpdir(), 'anypick-47-'));
   });
   afterEach(async () => {
     await rm(root, { recursive: true, force: true });
@@ -387,13 +387,13 @@ describe('§28.2 #47–48 journal recovery re-resolve', () => {
 describe('§28.2 #50–52 doctor fix stale lock / orphan / refuse native', () => {
   let root: string;
   beforeEach(async () => {
-    root = await mkdtemp(join(tmpdir(), 'hotplug-50-'));
+    root = await mkdtemp(join(tmpdir(), 'anypick-50-'));
   });
   afterEach(async () => {
     await rm(root, { recursive: true, force: true });
   });
 
-  it('#50 deletes stale Hotplug-owned lock after verifying owner absent', async () => {
+  it('#50 deletes stale AnyPick-owned lock after verifying owner absent', async () => {
     const app = await createAppReady({ root, skipMigrate: true });
     const lockPath = mutationLockPath(root, 'client/claude');
     await mkdir(join(lockPath, '..'), { recursive: true });
@@ -540,7 +540,7 @@ describe('§28.2 #50–52 doctor fix stale lock / orphan / refuse native', () =>
 describe('§28.2 #67 concurrent mutations are locked', () => {
   let root: string;
   beforeEach(async () => {
-    root = await mkdtemp(join(tmpdir(), 'hotplug-67-'));
+    root = await mkdtemp(join(tmpdir(), 'anypick-67-'));
   });
   afterEach(async () => {
     await rm(root, { recursive: true, force: true });
@@ -568,7 +568,7 @@ describe('§28.2 #67 concurrent mutations are locked', () => {
     expect(order).toEqual([1, 2, 3, 4]);
   });
 
-  it('withMutationLock under hotplug root is exclusive', async () => {
+  it('withMutationLock under anypick root is exclusive', async () => {
     const order: string[] = [];
     await Promise.all([
       withMutationLock(root, 'client/claude', async () => {

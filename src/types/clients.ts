@@ -10,7 +10,8 @@ export type ClientConfigMode = 'none' | 'profile' | 'account';
 
 /**
  * One model slot an app exposes in its settings (client-shaped, not provider-shaped).
- * Claude Code: default + sonnet/opus/haiku. Codex/Kiro: default only.
+ * Claude Code: default + sonnet/opus/haiku. Codex Desktop/Hub: default + list2–5.
+ * Kiro (and other single-model apps): default only.
  */
 export interface ClientModelRole {
   /** Stable id stored in BindingSpec.clientOptions.modelRoles */
@@ -38,8 +39,8 @@ export interface ApplyContext {
   verbose: boolean;
   /** Active proxy endpoint if started for this apply. */
   proxyEndpoint?: string;
-  /** Hotplug data root (for client-local backups under clients/). */
-  hotplugRoot: string;
+  /** AnyPick data root (for client-local backups under clients/). */
+  anypickRoot: string;
   /**
    * When set, client adapters write into this home instead of the live user home.
    * Used by isolated ephemeral runtimes (spec §9.7.1).
@@ -59,6 +60,14 @@ export interface ClientInspectResult {
   issues?: string[];
 }
 
+export interface NativeClientInstallation {
+  /** Provider-owned native source id, e.g. `gemini-cli` or `antigravity`. */
+  sourceId: string;
+  /** Any matching executable or macOS application makes this source installed. */
+  executables?: readonly string[];
+  macApplications?: readonly string[];
+}
+
 /**
  * Applies / resets runtime configuration for one AI application.
  * Core must never contain client-specific write logic.
@@ -68,6 +77,31 @@ export interface ClientAdapter {
   readonly name: string;
   readonly description: string;
   readonly supportedApiStyles: ApiStyle[];
+  /**
+   * Short UI label for compact lists (Run column, tray). Defaults to `name`
+   * truncated by the presentation layer when omitted — never hardcode client
+   * ids in CLI/TUI switches.
+   */
+  readonly shortName?: string;
+  /**
+   * Executable name (or env-overridable default) used by `anypick run`.
+   * When omitted, the client id is used. Env overrides still win when set
+   * (`CLAUDE_BINARY`, `CODEX_BINARY`, …) via `binaryEnvVar`.
+   */
+  readonly binaryName?: string;
+  /**
+   * Environment variable that overrides `binaryName` for this client
+   * (e.g. `CLAUDE_BINARY`). Optional.
+   */
+  readonly binaryEnvVar?: string;
+  /**
+   * Sources worth exposing in compact app-routing surfaces such as Apps and
+   * the macOS tray. Native-only is the safe default: clients opt into gateway
+   * routing only when that is a first-class workflow.
+   */
+  readonly routingSurfacePolicy?: 'native-only' | 'all-compatible';
+  /** Installation probes for native-only account switches in compact surfaces. */
+  readonly nativeInstallations?: readonly NativeClientInstallation[];
   /**
    * Capability flags for activation planner (spec §20.2).
    * supportsIsolatedHome may be true only when isolation methods exist.
@@ -92,7 +126,7 @@ export interface ClientAdapter {
   }>;
 
   /**
-   * Remove hotplug-managed configuration; restore backups when present.
+   * Remove anypick-managed configuration; restore backups when present.
    * Preserve unrelated user configuration.
    */
   reset(state: ClientState): Promise<void>;
@@ -142,6 +176,19 @@ export interface GlobalConfig {
   };
   ui?: {
     color?: boolean;
+    /** Surface opened by bare `anypick` in an interactive terminal. */
+    defaultSurface?: 'tui' | 'tray';
+    /** Opt-in automatic failover for multi-account compatibility proxies only. */
+    quotaGuard?: {
+      enabled?: boolean;
+      cooldownMinutes?: number;
+    };
+    tray?: {
+      startEnabledProxies?: boolean;
+      showQuota?: boolean;
+      /** Legacy one-time guide marker, kept for config compatibility. */
+      guideSeen?: boolean;
+    };
   };
 }
 

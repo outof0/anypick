@@ -10,8 +10,8 @@
  * different model lists.
  */
 
-import type { HotplugDatabase } from './db';
-import { getHotplugRoot } from './paths';
+import type { AnyPickDatabase } from './db';
+import { getAnyPickRoot } from './paths';
 
 export interface CachedModelList {
   provider: string;
@@ -22,10 +22,10 @@ export interface CachedModelList {
 
 export class ModelCacheStore {
   readonly root: string;
-  readonly db: HotplugDatabase;
+  readonly db: AnyPickDatabase;
 
-  constructor(root: string, db: HotplugDatabase) {
-    this.root = getHotplugRoot(root);
+  constructor(root: string, db: AnyPickDatabase) {
+    this.root = getAnyPickRoot(root);
     this.db = db;
   }
 

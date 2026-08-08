@@ -524,7 +524,7 @@ describe('listenGeminiProxy (mock upstream)', () => {
     const u = upstream.address();
     const upPort = u && typeof u === 'object' ? u.port : 0;
 
-    const dir = await mkdtemp(join(tmpdir(), 'hotplug-gproxy-'));
+    const dir = await mkdtemp(join(tmpdir(), 'anypick-gproxy-'));
     dirs.push(dir);
     await mkdir(dir, { recursive: true });
     await writeFile(join(dir, '.env'), 'GEMINI_API_KEY=test-key\n', { mode: 0o600 });
@@ -580,6 +580,74 @@ describe('listenGeminiProxy (mock upstream)', () => {
     });
   });
 
+  it('uses a second pooled key only for an explicit credential quota response', async () => {
+    const seenKeys: string[] = [];
+    const upstream = createServer((req, res) => {
+      if (!(req.url ?? '').includes(':generateContent')) {
+        res.writeHead(200, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({ models: [{ name: 'models/gemini-3.5-flash' }] }));
+        return;
+      }
+      const key = String(req.headers['x-goog-api-key'] ?? '');
+      seenKeys.push(key);
+      if (key === 'first-key') {
+        res.writeHead(429, { 'content-type': 'application/json', 'retry-after': '120' });
+        res.end(
+          JSON.stringify({
+            error: { status: 'RESOURCE_EXHAUSTED', message: 'API key quota exceeded' },
+          }),
+        );
+        return;
+      }
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          candidates: [
+            { content: { parts: [{ text: 'served by backup' }] }, finishReason: 'STOP' },
+          ],
+        }),
+      );
+    });
+    await new Promise<void>((resolve) => upstream.listen(0, '127.0.0.1', resolve));
+    servers.push(upstream);
+    const address = upstream.address();
+    const port = address && typeof address === 'object' ? address.port : 0;
+    const firstDir = await mkdtemp(join(tmpdir(), 'anypick-gproxy-quota-'));
+    const secondDir = await mkdtemp(join(tmpdir(), 'anypick-gproxy-quota-'));
+    dirs.push(firstDir, secondDir);
+    await writeFile(join(firstDir, '.env'), 'GEMINI_API_KEY=first-key\n', { mode: 0o600 });
+    await writeFile(join(secondDir, '.env'), 'GEMINI_API_KEY=second-key\n', { mode: 0o600 });
+
+    const { endpoint, server } = await listenGeminiProxy({
+      token: TEST_TOKEN,
+      host: '127.0.0.1',
+      port: 0,
+      authDir: firstDir,
+      authDirs: [firstDir, secondDir],
+      authAccountNames: ['first', 'second'],
+      upstream: `http://127.0.0.1:${port}`,
+      quiet: true,
+      quotaGuard: {
+        enabled: true,
+        cooldownMs: 60_000,
+        statePath: join(firstDir, 'quota-guard.json'),
+        providerId: 'gemini',
+      },
+    });
+    servers.push(server);
+
+    const response = await fetch(`${endpoint}/v1/chat/completions`, {
+      method: 'POST',
+      headers: { ...AUTH, 'content-type': 'application/json' },
+      body: JSON.stringify({
+        model: 'gemini-3.5-flash',
+        messages: [{ role: 'user', content: 'hi' }],
+      }),
+    });
+    expect(response.status).toBe(200);
+    expect(seenKeys).toEqual(['first-key', 'second-key']);
+  });
+
   it('GET /v1/models requests Google ListModels and ranks live ids (no hardcode inject)', async () => {
     let listHits = 0;
     const upstream = createServer((req, res) => {
@@ -623,7 +691,7 @@ describe('listenGeminiProxy (mock upstream)', () => {
     const u = upstream.address();
     const upPort = u && typeof u === 'object' ? u.port : 0;
 
-    const dir = await mkdtemp(join(tmpdir(), 'hotplug-gproxy-list-'));
+    const dir = await mkdtemp(join(tmpdir(), 'anypick-gproxy-list-'));
     dirs.push(dir);
     await mkdir(dir, { recursive: true });
     await writeFile(join(dir, '.env'), 'GEMINI_API_KEY=test-key\n', { mode: 0o600 });
@@ -702,7 +770,7 @@ describe('listenGeminiProxy (mock upstream)', () => {
     const address = codeAssist.address();
     const codeAssistPort = address && typeof address === 'object' ? address.port : 0;
 
-    const dir = await mkdtemp(join(tmpdir(), 'hotplug-gproxy-oauth-list-'));
+    const dir = await mkdtemp(join(tmpdir(), 'anypick-gproxy-oauth-list-'));
     dirs.push(dir);
     await writeFile(
       join(dir, 'oauth_creds.json'),
@@ -770,7 +838,7 @@ describe('listenGeminiProxy (mock upstream)', () => {
     servers.push(codeAssist);
     const address = codeAssist.address();
     const codeAssistPort = address && typeof address === 'object' ? address.port : 0;
-    const dir = await createOAuthDir('hotplug-gproxy-oauth-quota-');
+    const dir = await createOAuthDir('anypick-gproxy-oauth-quota-');
 
     const { endpoint, server } = await listenGeminiProxy({
       token: TEST_TOKEN,
@@ -828,7 +896,7 @@ describe('listenGeminiProxy (mock upstream)', () => {
     servers.push(codeAssist);
     const address = codeAssist.address();
     const codeAssistPort = address && typeof address === 'object' ? address.port : 0;
-    const dir = await mkdtemp(join(tmpdir(), 'hotplug-gproxy-antigravity-'));
+    const dir = await mkdtemp(join(tmpdir(), 'anypick-gproxy-antigravity-'));
     dirs.push(dir);
     const credentialFile = join(dir, 'antigravity-oauth.json');
     await writeFile(
@@ -914,7 +982,7 @@ describe('listenGeminiProxy (mock upstream)', () => {
     servers.push(codeAssist);
     const address = codeAssist.address();
     const codeAssistPort = address && typeof address === 'object' ? address.port : 0;
-    const dir = await createOAuthDir('hotplug-gproxy-oauth-alias-');
+    const dir = await createOAuthDir('anypick-gproxy-oauth-alias-');
 
     const { endpoint, server } = await listenGeminiProxy({
       token: TEST_TOKEN,
@@ -1005,7 +1073,7 @@ describe('listenGeminiProxy (mock upstream)', () => {
     servers.push(codeAssist);
     const address = codeAssist.address();
     const codeAssistPort = address && typeof address === 'object' ? address.port : 0;
-    const dir = await createOAuthDir('hotplug-gproxy-auto-auth-');
+    const dir = await createOAuthDir('anypick-gproxy-auto-auth-');
     const credentialFile = join(dir, 'antigravity-oauth.json');
     await writeFile(
       credentialFile,
@@ -1102,7 +1170,7 @@ describe('listenGeminiProxy (mock upstream)', () => {
     servers.push(codeAssist);
     const address = codeAssist.address();
     const codeAssistPort = address && typeof address === 'object' ? address.port : 0;
-    const dir = await createOAuthDir('hotplug-gproxy-sticky-auth-');
+    const dir = await createOAuthDir('anypick-gproxy-sticky-auth-');
     const credentialFile = join(dir, 'antigravity-oauth.json');
     await writeFile(
       credentialFile,
@@ -1154,7 +1222,7 @@ describe('listenGeminiProxy (mock upstream)', () => {
     const u = upstream.address();
     const upPort = u && typeof u === 'object' ? u.port : 0;
 
-    const dir = await mkdtemp(join(tmpdir(), 'hotplug-gproxy-list-fail-'));
+    const dir = await mkdtemp(join(tmpdir(), 'anypick-gproxy-list-fail-'));
     dirs.push(dir);
     await mkdir(dir, { recursive: true });
     await writeFile(join(dir, '.env'), 'GEMINI_API_KEY=test-key\n', { mode: 0o600 });

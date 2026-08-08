@@ -35,5 +35,5 @@ export function stateHomeRoot(state: ClientState, fallbackHome: string): string 
       return p.slice(0, idx);
     }
   }
-  return process.env.HOTPLUG_HOME ?? join(fallbackHome, '.hotplug');
+  return process.env.ANYPICK_HOME ?? join(fallbackHome, '.anypick');
 }

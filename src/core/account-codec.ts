@@ -13,11 +13,11 @@
  * bad key cannot write outside the staging root.
  */
 import { isAbsolute, normalize, relative, resolve, sep } from 'node:path';
-import { hotplugError, type ExitCodeValue, type HotplugError } from '../utils/errors';
+import { anypickError, type ExitCodeValue, type AnyPickError } from '../utils/errors';
 import type { AccountMeta, AccountProxyConfig } from '../types';
 
 export const ACCOUNT_ENVELOPE_VERSION = 1 as const;
-export const ACCOUNT_ENVELOPE_KIND = 'hotplug-account' as const;
+export const ACCOUNT_ENVELOPE_KIND = 'anypick-account' as const;
 
 /** Reject obviously abusive envelopes without streaming unbounded memory. */
 export const MAX_IMPORT_FILES = 4096;
@@ -30,7 +30,7 @@ export const MAX_FIELD_LEN = 4096;
 
 export interface DecodedAccountEnvelope {
   version: 1;
-  kind: 'hotplug-account';
+  kind: 'anypick-account';
   meta: AccountMeta;
   proxy: AccountProxyConfig | null;
   /** Relative key → base64 content. Keys are validated, never trusted raw. */
@@ -80,7 +80,7 @@ export function decodeAccountEnvelope(
  * Validate a single import file key purely (no staging root needed). Rejects
  * empty keys, NUL bytes, absolute POSIX/Windows paths, mixed separators, and
  * any normalized escape ('..' segments / leading-traversal). Throws a
- * `HotplugError` on violation. Called from the codec (before any mutation) and
+ * `AnyPickError` on violation. Called from the codec (before any mutation) and
  * from `stagedFilePath` (defense-in-depth at write time).
  */
 export function validateImportFileKey(key: string): void {
@@ -268,13 +268,13 @@ function error(
   message: string,
   code: 'IMPORT_FORMAT' | 'IMPORT_LIMIT',
   opts: { exitCode?: ExitCodeValue } = {},
-): HotplugError {
-  return hotplugError(message, code, {
+): AnyPickError {
+  return anypickError(message, code, {
     exitCode: opts.exitCode ?? (code === 'IMPORT_LIMIT' ? 9 : 8),
     mutated: false,
   });
 }
 
-function limit(message: string): HotplugError {
+function limit(message: string): AnyPickError {
   return error(message, 'IMPORT_LIMIT');
 }

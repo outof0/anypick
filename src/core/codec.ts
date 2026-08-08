@@ -43,6 +43,12 @@ import {
   type DecodedJournalEntry,
   type DecodedProxyLease,
 } from './codec/operations';
+import {
+  decodeProxyHubConfig,
+  decodeProxyHubRuntimeState,
+  type DecodedProxyHubConfig,
+  type DecodedProxyHubRuntimeState,
+} from './codec/proxy-hub';
 
 export function decode<T>(
   json: string,
@@ -114,6 +120,8 @@ export const decoders = {
   bindingSpecFromJson: decodeBindingSpecFromJson,
   bindingProvenance: decodeBindingProvenance,
   bindingProvenanceFromJson: decodeBindingProvenanceFromJson,
+  proxyHubConfig: decodeProxyHubConfig,
+  proxyHubRuntimeState: decodeProxyHubRuntimeState,
 } as const;
 
 export type {
@@ -134,4 +142,6 @@ export type {
   DecodedBindingProvenance,
   DecodedResourceRef,
   DecodedModelSelection,
+  DecodedProxyHubConfig,
+  DecodedProxyHubRuntimeState,
 };

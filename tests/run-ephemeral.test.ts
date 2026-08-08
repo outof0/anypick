@@ -62,7 +62,7 @@ function ephemeralPlan(
 
 describe('RUN-01 ephemeral execution is one scoped lifecycle', () => {
   beforeEach(async () => {
-    root = await mkdtemp(join(tmpdir(), 'hotplug-run01-'));
+    root = await mkdtemp(join(tmpdir(), 'anypick-run01-'));
   });
   afterEach(async () => {
     await rm(root, { recursive: true, force: true });

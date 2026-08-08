@@ -1,6 +1,7 @@
 import type { ServerResponse } from 'node:http';
 import {
   anthropicToOpenAI,
+  sanitizeJsonSchema,
   type AnthropicMessageRequest,
   type AnthropicMessageResponse,
 } from '../protocol/anthropic';
@@ -23,6 +24,15 @@ export function anthropicToResponses(req: AnthropicMessageRequest): Record<strin
     if (message.role === 'tool') {
       input.push({ type: 'function_call_output', call_id: message.tool_call_id, output: content });
       continue;
+    }
+    // The Responses API requires reasoning from previous assistant turns to be
+    // passed back verbatim; omitting it triggers an invalid_request_error.
+    if (message.role === 'assistant' && message.reasoning_content) {
+      input.push({
+        type: 'reasoning',
+        content: [{ type: 'reasoning_text', text: message.reasoning_content }],
+        ...(message.reasoning_signature ? { signature: message.reasoning_signature } : {}),
+      });
     }
     if (content) {
       input.push({ role: message.role, content });
@@ -50,7 +60,7 @@ export function anthropicToResponses(req: AnthropicMessageRequest): Record<strin
             type: 'function',
             name: tool.name,
             description: tool.description,
-            parameters: tool.input_schema ?? { type: 'object', properties: {} },
+            parameters: sanitizeJsonSchema(tool.input_schema ?? { type: 'object', properties: {} }),
           })),
         }
       : {}),

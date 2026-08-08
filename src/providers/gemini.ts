@@ -27,6 +27,8 @@ import type {
   LiveAuthStatus,
   Provider,
   ProxyContext,
+  ProxyHubBackendContext,
+  ProxyHubBackendHandle,
   ProxyHandle,
   ProxyStatus,
   SourceAdapter,
@@ -40,7 +42,7 @@ import {
   writeJsonFile,
   writeTextFile,
 } from '../utils/fs';
-import { HotplugError } from '../utils/errors';
+import { AnyPickError } from '../utils/errors';
 import { readGeminiApiKeyFromEnvFile, stripEnvAuthKeys } from './gemini-env';
 import { readIdentityFromDir } from './gemini-identity';
 import {
@@ -53,6 +55,11 @@ import {
   antigravityKeychainSupported,
   type AntigravityKeyringPayload,
 } from './gemini-antigravity-oauth';
+import {
+  antigravityApplicationRunning,
+  assertAntigravityStateSafeToMutate,
+  readAntigravityStateOAuthPayload,
+} from './gemini-antigravity-state';
 import { rolesFromLiveDiscovery } from './model-policy';
 import {
   startGeminiProxy,
@@ -60,6 +67,8 @@ import {
   geminiProxyStatus,
   readGeminiProxyLogs,
 } from './gemini-proxy-lifecycle';
+import { listenGeminiProxy } from './gemini-proxy/server';
+import { closeProxyHubBackend } from './proxy-hub-backend';
 
 const SNAPSHOT_FILES = ['.env', 'oauth_creds.json', 'google_accounts.json'] as const;
 const ANTIGRAVITY_SNAPSHOT_FILE = 'antigravity_oauth.json';
@@ -94,10 +103,23 @@ async function geminiAuthFingerprint(dir: string): Promise<string | null> {
   return parts.length > 0 ? parts.sort().join('|') : null;
 }
 
+/**
+ * Antigravity exposes no email, so identify a login by its durable grant.
+ * Keep the refresh token itself out of account metadata and UI output.
+ */
+function antigravityIdentity(payload: AntigravityKeyringPayload | null): string | undefined {
+  const refreshToken = payload?.token?.refresh_token?.trim();
+  return refreshToken
+    ? `antigravity:${createHash('sha256').update(refreshToken).digest('hex').slice(0, 12)}`
+    : undefined;
+}
+
 export class GeminiProvider implements Provider {
   readonly id = 'gemini';
   readonly name = 'Gemini CLI';
   readonly shortName = 'Gemini';
+  /** Gemini CLI vs Antigravity — TUI offers a source picker before mode. */
+  readonly requiresAccountSourcePick = true;
   readonly description = 'Manages ~/.gemini auth + OpenAI/Anthropic→Gemini proxy (Codex + Claude)';
   readonly defaultProxyPort = DEFAULT_PORT;
   readonly proxyCompatibility = 'OpenAI + Anthropic → Gemini API';
@@ -143,6 +165,8 @@ export class GeminiProvider implements Provider {
     private readonly hydrateAntigravityCredential: (
       payload: AntigravityKeyringPayload,
     ) => Promise<AntigravityKeyringPayload> = hydrateAntigravityOAuthPayload,
+    private readonly deleteAntigravityCredential: () => Promise<boolean> = deleteAntigravityOAuthCredential,
+    private readonly readAntigravityStateCredential: () => Promise<AntigravityKeyringPayload | null> = readAntigravityStateOAuthPayload,
   ) {}
 
   sourceAdapter(account: Account): SourceAdapter {
@@ -151,6 +175,36 @@ export class GeminiProvider implements Provider {
 
   poolSourceAdapter(): SourceAdapter {
     return poolAdapterFor(this.id, this);
+  }
+
+  async createProxyHubBackend(ctx: ProxyHubBackendContext): Promise<ProxyHubBackendHandle> {
+    const [primary, ...rest] = ctx.accounts;
+    if (!primary) {
+      throw new Error('Gemini Hub backend requires at least one account');
+    }
+    const options = primary.proxy.options ?? {};
+    const oauthSource =
+      options.oauthSource === 'gemini-cli' ||
+      options.oauthSource === 'antigravity' ||
+      options.oauthSource === 'auto'
+        ? options.oauthSource
+        : 'auto';
+    const { server, endpoint } = await listenGeminiProxy({
+      host: '127.0.0.1',
+      port: 0,
+      authDir: primary.snapshotDir,
+      authDirs: rest.map((account) => account.snapshotDir),
+      authAccountNames: ctx.accounts.map((account) => account.name),
+      oauthSource,
+      antigravityOAuthFile:
+        typeof options.antigravityOAuthFile === 'string' ? options.antigravityOAuthFile : undefined,
+      upstream: typeof options.upstream === 'string' ? options.upstream : undefined,
+      codeAssistUpstream:
+        typeof options.codeAssistUpstream === 'string' ? options.codeAssistUpstream : undefined,
+      token: ctx.token,
+      log: ctx.log,
+    });
+    return { endpoint, close: () => closeProxyHubBackend(server) };
   }
 
   private get geminiDir(): string {
@@ -189,9 +243,17 @@ export class GeminiProvider implements Provider {
       return cli;
     }
     // Existence-only probe: reads no secret, so no Keychain prompt.
-    return (await antigravityCredentialExists())
-      ? { present: true, details: 'antigravity oauth' }
-      : { present: false };
+    if (!(await antigravityCredentialExists())) {
+      return { present: false };
+    }
+    // Unified state is a local SQLite database, so it is safe to fingerprint
+    // during routine detection. Never fall back to reading the Keychain here.
+    const payload = await this.readAntigravityStateCredential().catch(() => null);
+    return {
+      present: true,
+      identity: antigravityIdentity(payload),
+      details: 'antigravity oauth',
+    };
   }
 
   private async detectGeminiCliLive(): Promise<LiveAuthStatus> {
@@ -229,7 +291,7 @@ export class GeminiProvider implements Provider {
    */
   async detectAntigravityLive(credentialFile?: string): Promise<LiveAuthStatus> {
     if (!credentialFile && !antigravityKeychainSupported()) {
-      throw new HotplugError(
+      throw new AnyPickError(
         `Antigravity accounts are not supported on ${process.platform} yet.`,
         'NO_LIVE_AUTH',
       );
@@ -239,7 +301,10 @@ export class GeminiProvider implements Provider {
       if (!creds) {
         return { present: false };
       }
-      return { present: true, details: 'antigravity oauth' };
+      const identity = creds.refresh_token
+        ? antigravityIdentity({ token: { refresh_token: creds.refresh_token } })
+        : undefined;
+      return { present: true, identity, details: 'antigravity oauth' };
     } catch {
       return { present: false };
     }
@@ -259,22 +324,21 @@ export class GeminiProvider implements Provider {
     credentialFile?: string,
   ): Promise<Partial<Pick<AccountMeta, 'identity' | 'label' | 'notes'>>> {
     if (!credentialFile && !antigravityKeychainSupported()) {
-      throw new HotplugError(
+      throw new AnyPickError(
         `Antigravity accounts are not supported on ${process.platform} yet.`,
         'NO_LIVE_AUTH',
       );
     }
     const payload = await readAntigravityOAuthPayload(credentialFile);
     if (!payload) {
-      throw new HotplugError(
+      throw new AnyPickError(
         'No Antigravity OAuth credential found. Sign in with Antigravity first.',
         'NO_LIVE_AUTH',
       );
     }
     await ensureDir(destDir);
     await writeJsonFile(join(destDir, ANTIGRAVITY_SNAPSHOT_FILE), payload, 0o600);
-    // Antigravity does not expose an email, so identity stays undefined.
-    return { notes: 'Antigravity login' };
+    return { identity: antigravityIdentity(payload), notes: 'Antigravity login' };
   }
 
   async detectLiveSource(source: string): Promise<LiveAuthStatus> {
@@ -301,7 +365,7 @@ export class GeminiProvider implements Provider {
    */
   async clearAntigravityLive(): Promise<void> {
     if (!antigravityKeychainSupported()) {
-      throw new HotplugError(
+      throw new AnyPickError(
         `Antigravity accounts are not supported on ${process.platform} yet.`,
         'NO_LIVE_AUTH',
       );
@@ -336,7 +400,7 @@ export class GeminiProvider implements Provider {
     }
 
     if (copied === 0) {
-      throw new HotplugError(
+      throw new AnyPickError(
         'No Gemini CLI auth found under ~/.gemini (.env, oauth_creds.json, or google_accounts.json).',
         'NO_LIVE_AUTH',
       );
@@ -347,7 +411,7 @@ export class GeminiProvider implements Provider {
       (await pathExists(join(destDir, '.env'))) ||
       (await pathExists(join(destDir, 'oauth_creds.json')));
     if (!hasCred) {
-      throw new HotplugError(
+      throw new AnyPickError(
         'Gemini google_accounts.json alone is not enough — need .env (API key) or oauth_creds.json.',
         'NO_LIVE_AUTH',
       );
@@ -369,8 +433,12 @@ export class GeminiProvider implements Provider {
       if (await pathExists(src)) {
         await copyFileSafe(src, this.livePath(file));
         restored += 1;
-      } else if (file === '.env' || file === 'oauth_creds.json') {
-        // Clear stale credential of the other kind so accounts do not mix
+      } else {
+        // Clear every credential file not present in the snapshot so accounts
+        // do not mix. Previously only .env and oauth_creds.json were removed;
+        // google_accounts.json had the same stale-state risk when restoring an
+        // Antigravity-only snapshot — the ghost identity confused
+        // snapshotMatchesLive into fingerprint-matching the wrong account.
         await rm(this.livePath(file), { force: true }).catch(() => {});
       }
     }
@@ -387,31 +455,89 @@ export class GeminiProvider implements Provider {
     }
 
     // An Antigravity credential has no home under ~/.gemini: it lives in the OS
-    // credential store. Hotplug's own proxy reads it straight from the snapshot
+    // credential store. AnyPick's own proxy reads it straight from the snapshot
     // dir, but Antigravity itself only ever reads the store — so without this
     // write a switch changes nothing the user can see.
     const antigravitySnapshot = join(srcDir, ANTIGRAVITY_SNAPSHOT_FILE);
     if (await pathExists(antigravitySnapshot)) {
       await this.restoreAntigravity(antigravitySnapshot);
       restored += 1;
+    } else if (antigravityKeychainSupported()) {
+      // Restoring a Gemini CLI account: clear the Antigravity credential so
+      // Antigravity itself follows the switch rather than retaining a stale
+      // login from the previous account. Best-effort — a missing or
+      // inaccessible entry is the desired end state either way (ADR 0004).
+      await this.deleteAntigravityCredential().catch(() => {});
     }
 
     if (restored === 0) {
-      throw new HotplugError(`No Gemini auth files in snapshot: ${srcDir}`, 'SNAPSHOT_INVALID');
+      throw new AnyPickError(`No Gemini auth files in snapshot: ${srcDir}`, 'SNAPSHOT_INVALID');
     }
+  }
+
+  /**
+   * Refuse an Antigravity switch before AccountService checkpoints or mutates
+   * anything. Without this early guard, the late SQLite rejection caused core
+   * to attempt a rollback that the same running app also rejected.
+   */
+  async preflightRestore(srcDir: string): Promise<void> {
+    const snapshotFile = join(srcDir, ANTIGRAVITY_SNAPSHOT_FILE);
+    if (!(await pathExists(snapshotFile))) {
+      return;
+    }
+    const payload = await readAntigravityOAuthPayload(snapshotFile);
+    if (!payload) {
+      throw new AnyPickError(
+        'Saved Antigravity credential has no refresh token and cannot be restored.',
+        'ANTIGRAVITY_RESTORE_FAILED',
+      );
+    }
+    try {
+      await assertAntigravityStateSafeToMutate({ expectedPayload: payload });
+    } catch (err) {
+      if (err instanceof Error && /Antigravity is running/i.test(err.message)) {
+        throw new AnyPickError('Antigravity is still open.', {
+          code: 'RESTORE_OWNER_RUNNING',
+          suggestions: ['Quit Antigravity completely, return to AnyPick, then press Enter again.'],
+        });
+      }
+      throw err;
+    }
+  }
+
+  async restoreOwnerStatus(srcDir: string): Promise<{ name: string; running: boolean } | null> {
+    if (!(await pathExists(join(srcDir, ANTIGRAVITY_SNAPSHOT_FILE)))) {
+      return null;
+    }
+    return {
+      name: 'Antigravity',
+      running: await antigravityApplicationRunning(),
+    };
+  }
+
+  async accountSource(srcDir: string): Promise<{ id: string; name: string }> {
+    return (await pathExists(join(srcDir, ANTIGRAVITY_SNAPSHOT_FILE)))
+      ? { id: 'antigravity', name: 'Antigravity' }
+      : { id: 'gemini-cli', name: 'Gemini CLI' };
+  }
+
+  async liveAccountSource(live: LiveAuthStatus): Promise<{ id: string; name: string }> {
+    return live.details?.toLowerCase().includes('antigravity')
+      ? { id: 'antigravity', name: 'Antigravity' }
+      : { id: 'gemini-cli', name: 'Gemini CLI' };
   }
 
   /** Push a snapshotted Antigravity credential back into the OS credential store. */
   private async restoreAntigravity(snapshotFile: string): Promise<void> {
     if (!antigravityKeychainSupported()) {
-      throw new HotplugError(
+      throw new AnyPickError(
         `Writing the Antigravity OAuth credential is not supported on ${process.platform}.`,
         'ANTIGRAVITY_RESTORE_FAILED',
       );
     }
     const payload = await readAntigravityOAuthPayload(snapshotFile);
     if (!payload) {
-      throw new HotplugError(
+      throw new AnyPickError(
         'Saved Antigravity credential has no refresh token and cannot be restored.',
         'ANTIGRAVITY_RESTORE_FAILED',
       );
@@ -508,14 +634,22 @@ export class GeminiProvider implements Provider {
    */
   async snapshotMatchesLive(snapshotDir: string): Promise<boolean> {
     if (await pathExists(join(snapshotDir, ANTIGRAVITY_SNAPSHOT_FILE))) {
-      // The counterpart of an Antigravity snapshot is the OS credential store,
-      // and naming the account inside it means reading the secret — a Keychain
-      // prompt, on a call that runs on every list refresh. Hand the question
-      // back to the caller's identity comparison instead of answering it wrong.
-      throw new HotplugError(
-        'An Antigravity login cannot be matched without reading the credential store.',
-        'NOT_DETERMINABLE',
+      // Compare against the local unified-state token rather than Keychain.
+      // This avoids permission prompts on every list refresh while still
+      // preventing an identity-less active pointer from choosing a snapshot.
+      const snapshot = await readAntigravityOAuthPayload(
+        join(snapshotDir, ANTIGRAVITY_SNAPSHOT_FILE),
       );
+      const live = await this.readAntigravityStateCredential().catch(() => null);
+      const snapshotIdentity = antigravityIdentity(snapshot);
+      const liveIdentity = antigravityIdentity(live);
+      if (!snapshotIdentity || !liveIdentity) {
+        throw new AnyPickError(
+          'The current Antigravity login cannot be fingerprinted from unified state.',
+          'NOT_DETERMINABLE',
+        );
+      }
+      return snapshotIdentity === liveIdentity;
     }
     const snap = await geminiAuthFingerprint(snapshotDir);
     if (!snap) {

@@ -1,16 +1,21 @@
-import type { HotplugApp } from '../../core/app';
+import type { AnyPickApp } from '../../core/app';
 import type { LiveAuthStatus } from '../../types';
 import { providerCapabilities } from '../../core/capabilities';
 import type { LiveAccountRelation, ProviderPoolRow, RootModel } from './types';
-import { deriveLiveRelation, formatProxyPortLabel, relationStatusHint } from './identity';
+import {
+  deriveLiveRelation,
+  formatProxyPortLabel,
+  identityDisplayText,
+  relationStatusHint,
+} from './identity';
 
 export async function safeCurrent(
-  app: HotplugApp,
+  app: AnyPickApp,
   providerId: string,
 ): Promise<
   | {
       ok: true;
-      data: Awaited<ReturnType<HotplugApp['accounts']['current']>>;
+      data: Awaited<ReturnType<AnyPickApp['accounts']['current']>>;
     }
   | { ok: false; error: string }
 > {
@@ -23,10 +28,10 @@ export async function safeCurrent(
 }
 
 export async function safeList(
-  app: HotplugApp,
+  app: AnyPickApp,
   providerId: string,
 ): Promise<
-  | { ok: true; data: Awaited<ReturnType<HotplugApp['accounts']['list']>> }
+  | { ok: true; data: Awaited<ReturnType<AnyPickApp['accounts']['list']>> }
   | { ok: false; error: string }
 > {
   try {
@@ -49,7 +54,7 @@ function identityLabelFor(
     return 'signed out';
   }
   if (live?.present) {
-    return live.identity?.trim() || activeIdentity?.trim() || 'signed in';
+    return identityDisplayText(live.identity ?? activeIdentity, 'signed in');
   }
   return 'signed out';
 }
@@ -89,7 +94,7 @@ export function liveSummary(
   }
 }
 
-export async function loadRootModel(app: HotplugApp): Promise<RootModel> {
+export async function loadRootModel(app: AnyPickApp): Promise<RootModel> {
   const providers = app.accounts.listProviders();
   const rows: ProviderPoolRow[] = [];
   let totalAccounts = 0;

@@ -3,13 +3,14 @@
  */
 
 import type { ActivationPlan, BindingProvenance, BindingSpec, ClientId } from '../types';
-import { hotplugError, ExitCode } from '../utils/errors';
+import { anypickError, ExitCode } from '../utils/errors';
 import { planActivation, planFromWith } from './activation-planner';
 import { executeActivation, type ExecuteResult, type ExecutorDeps } from './activation-executor';
 import { resolveEffectiveBinding, type ResolveSourceDeps } from './resolve-source';
 import { resolveProjectRoot } from './project-root';
 import type { ClientRegistry } from '../clients/registry';
 import type { PresetStore } from './preset-store';
+import { withMutationLocks } from './mutation-lock';
 
 export interface BindingServiceDeps extends ExecutorDeps {
   clients: ClientRegistry;
@@ -50,7 +51,7 @@ export class BindingService {
   constructor(private readonly deps: BindingServiceDeps) {}
 
   /**
-   * hotplug use <client> [--with <source|@preset> | --current]
+   * anypick use <client> [--with <source|@preset> | --current]
    */
   async use(
     client: ClientId,
@@ -59,12 +60,12 @@ export class BindingService {
     this.requireClient(client);
 
     if (opts.current && opts.with) {
-      throw hotplugError('--current is mutually exclusive with --with.', 'INVALID_USAGE', {
+      throw anypickError('--current is mutually exclusive with --with.', 'INVALID_USAGE', {
         exitCode: ExitCode.INVALID_USAGE,
       });
     }
     if (opts.current && (opts.model || opts.save)) {
-      throw hotplugError(
+      throw anypickError(
         '--current is mutually exclusive with --model and --save.',
         'INVALID_USAGE',
         { exitCode: ExitCode.INVALID_USAGE },
@@ -76,18 +77,18 @@ export class BindingService {
     // --current: re-apply stored global snapshot (never dereference preset)
     if (opts.current) {
       if (opts.with) {
-        throw hotplugError('--current is mutually exclusive with --with.', 'INVALID_USAGE', {
+        throw anypickError('--current is mutually exclusive with --with.', 'INVALID_USAGE', {
           exitCode: ExitCode.INVALID_USAGE,
         });
       }
       const existing = this.deps.bindings.getGlobal(client);
       if (!existing) {
-        throw hotplugError(
+        throw anypickError(
           `No global binding for ${client}. Use --with <source> first.`,
           'NO_ACTIVE_BINDING',
           {
             exitCode: ExitCode.CAPABILITY_CONFLICT,
-            suggestions: [`hotplug use ${client} --with <source>`],
+            suggestions: [`anypick use ${client} --with <source>`],
           },
         );
       }
@@ -113,18 +114,18 @@ export class BindingService {
           );
         }
         // No binding — signal caller to open picker
-        throw hotplugError(`No global binding for ${client}.`, 'MISSING_SOURCE', {
+        throw anypickError(`No global binding for ${client}.`, 'MISSING_SOURCE', {
           exitCode: ExitCode.INVALID_USAGE,
-          suggestions: [`hotplug use ${client} --with <source>`],
+          suggestions: [`anypick use ${client} --with <source>`],
           details: { needsPicker: true },
         });
       }
-      throw hotplugError(
-        `A source or --current is required.\n\nSpecify a source:\n  hotplug use ${client} --with grok/work\n  hotplug use ${client} --with openrouter-work\n\nOr re-apply the stored global binding:\n  hotplug use ${client} --current`,
+      throw anypickError(
+        `A source or --current is required.\n\nSpecify a source:\n  anypick use ${client} --with grok/work\n  anypick use ${client} --with openrouter-work\n\nOr re-apply the stored global binding:\n  anypick use ${client} --current`,
         'MISSING_SOURCE',
         {
           exitCode: ExitCode.INVALID_USAGE,
-          suggestions: [`hotplug use ${client} --with <source>`, `hotplug use ${client} --current`],
+          suggestions: [`anypick use ${client} --with <source>`, `anypick use ${client} --current`],
         },
       );
     }
@@ -193,7 +194,7 @@ export class BindingService {
   }
 
   /**
-   * hotplug run <client> [--with] — plan + execute ephemeral (or dry-run).
+   * anypick run <client> [--with] — plan + execute ephemeral (or dry-run).
    * Child spawn is handled by CLI layer; this returns the plan/result for setup.
    */
   async runPrepare(client: ClientId, opts: RunOptions = {}): Promise<ExecuteResult> {
@@ -212,7 +213,7 @@ export class BindingService {
       const effective = resolveEffectiveBinding(client, this.deps, projectRoot);
       const source = effective.binding.spec.source;
       if (source.kind === 'preset') {
-        throw hotplugError('Binding snapshot has invalid preset pointer.', 'STATE_CONFLICT', {
+        throw anypickError('Binding snapshot has invalid preset pointer.', 'STATE_CONFLICT', {
           exitCode: ExitCode.CAPABILITY_CONFLICT,
         });
       }
@@ -261,7 +262,7 @@ export class BindingService {
   }
 
   /**
-   * hotplug link <client> [--with]
+   * anypick link <client> [--with]
    */
   async link(client: ClientId, opts: LinkOptions = {}): Promise<ExecuteResult> {
     this.requireClient(client);
@@ -326,14 +327,14 @@ export class BindingService {
       });
     }
 
-    throw hotplugError(
-      `No global or project binding for ${client} to link.\n\nSet a global binding first:\n  hotplug use ${client} --with <source>\n\nOr link with an explicit source:\n  hotplug link ${client} --with <source>`,
+    throw anypickError(
+      `No global or project binding for ${client} to link.\n\nSet a global binding first:\n  anypick use ${client} --with <source>\n\nOr link with an explicit source:\n  anypick link ${client} --with <source>`,
       'NO_ACTIVE_BINDING',
       {
         exitCode: ExitCode.CAPABILITY_CONFLICT,
         suggestions: [
-          `hotplug use ${client} --with <source>`,
-          `hotplug link ${client} --with <source>`,
+          `anypick use ${client} --with <source>`,
+          `anypick link ${client} --with <source>`,
         ],
       },
     );
@@ -353,17 +354,19 @@ export class BindingService {
     opts: { dryRun?: boolean } = {},
   ): Promise<{ client: ClientId; removedGlobal: boolean; dryRun: boolean }> {
     this.requireClient(client);
-    if (opts.dryRun) {
-      const g = this.deps.bindings.getGlobal(client);
-      return { client, removedGlobal: Boolean(g), dryRun: true };
-    }
-    const removedGlobal = this.deps.bindings.deleteGlobal(client);
-    try {
+    return withMutationLocks(this.deps.runtime.root, [`client/${client}`], async () => {
+      if (opts.dryRun) {
+        const g = this.deps.bindings.getGlobal(client);
+        return { client, removedGlobal: Boolean(g), dryRun: true };
+      }
+      // RuntimeService synthesizes an empty state when the client has never
+      // been managed, so any rejection here is a real cleanup failure and must
+      // reach the caller. Reporting success while an endpoint/token override
+      // remains would make the Reset action actively misleading.
       await this.deps.runtime.reset(client, { dryRun: false });
-    } catch {
-      // client may have no runtime state
-    }
-    return { client, removedGlobal, dryRun: false };
+      const removedGlobal = this.deps.bindings.deleteGlobal(client);
+      return { client, removedGlobal, dryRun: false };
+    });
   }
 
   current(client?: ClientId, cwd?: string) {
@@ -391,7 +394,7 @@ export class BindingService {
 
   private requireClient(client: ClientId): ClientId {
     if (!this.deps.clients.has(client)) {
-      throw hotplugError(`Unknown client "${client}".`, 'CLIENT_NOT_FOUND', {
+      throw anypickError(`Unknown client "${client}".`, 'CLIENT_NOT_FOUND', {
         exitCode: ExitCode.NOT_FOUND,
         suggestions: [`Known: ${this.deps.clients.ids().join(', ')}`],
       });

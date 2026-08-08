@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { launchClient } from '../src/cli/launch-client';
-import type { HotplugApp } from '../src/core/app';
+import type { AnyPickApp } from '../src/core/app';
 
 describe('launch-client JSON output', () => {
   afterEach(() => {
@@ -27,7 +27,7 @@ describe('launch-client JSON output', () => {
         steps: [],
       },
     });
-    const app = { bindingService: { runPrepare } } as unknown as HotplugApp;
+    const app = { bindingService: { runPrepare } } as unknown as AnyPickApp;
     const log = vi.spyOn(console, 'log').mockImplementation(() => {});
 
     await launchClient(app, 'codex', { json: true });

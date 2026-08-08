@@ -29,7 +29,7 @@ const { values } = parseArgs({
 });
 
 if (values.help) {
-  process.stdout.write(`hotplug-grok-proxy — OpenAI + Anthropic proxy using Grok CLI OIDC auth
+  process.stdout.write(`anypick-grok-proxy — OpenAI + Anthropic proxy using Grok CLI OIDC auth
   OpenAI:    POST /v1/chat/completions  (Codex)
   Anthropic: POST /v1/messages          (Claude Code)
 
@@ -66,9 +66,9 @@ function log(line: string): void {
   const msg = `[grok-proxy] ${line}\n`;
   process.stderr.write(msg);
   // Detached proxies already have stderr redirected to this file.
-  if (process.env.HOTPLUG_PROXY_LOG && process.stderr.isTTY) {
+  if (process.env.ANYPICK_PROXY_LOG && process.stderr.isTTY) {
     try {
-      appendFileSync(process.env.HOTPLUG_PROXY_LOG, msg);
+      appendFileSync(process.env.ANYPICK_PROXY_LOG, msg);
     } catch {
       // ignore
     }
@@ -81,13 +81,13 @@ const { endpoint, server } = await listenGrokProxy({
   authPath: expandHome(authPath),
   upstream: values.upstream,
   clientVersion: values['client-version'],
-  token: values['proxy-token'] || process.env.HOTPLUG_PROXY_TOKEN || undefined,
+  token: values['proxy-token'] || process.env.ANYPICK_PROXY_TOKEN || undefined,
   quiet: values.quiet,
   log: values.quiet ? () => {} : log,
 });
 
 // Single-line marker the parent can scrape if needed
-process.stdout.write(`hotplug-grok-proxy listening on ${endpoint}\n`);
+process.stdout.write(`anypick-grok-proxy listening on ${endpoint}\n`);
 log(`listening on ${endpoint}`);
 log(`auth: ${expandHome(authPath)}`);
 log(`upstream: ${values.upstream}`);

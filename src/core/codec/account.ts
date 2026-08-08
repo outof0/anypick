@@ -125,7 +125,12 @@ export interface DecodedGlobalConfig {
   defaultClient?: string;
   activeProfile?: string;
   defaults?: { proxyHost?: string };
-  ui?: { color?: boolean };
+  ui?: {
+    color?: boolean;
+    defaultSurface?: 'tui' | 'tray';
+    quotaGuard?: { enabled?: boolean; cooldownMinutes?: number };
+    tray?: { startEnabledProxies?: boolean; showQuota?: boolean; guideSeen?: boolean };
+  };
 }
 
 export function decodeGlobalConfig(v: unknown, key: string): DecoderResult<DecodedGlobalConfig> {
@@ -150,6 +155,55 @@ export function decodeGlobalConfig(v: unknown, key: string): DecoderResult<Decod
             color:
               typeof (v.ui as Record<string, unknown>).color === 'boolean'
                 ? ((v.ui as Record<string, unknown>).color as boolean)
+                : undefined,
+            defaultSurface:
+              (v.ui as Record<string, unknown>).defaultSurface === 'tui' ||
+              (v.ui as Record<string, unknown>).defaultSurface === 'tray'
+                ? ((v.ui as Record<string, unknown>).defaultSurface as 'tui' | 'tray')
+                : undefined,
+            quotaGuard:
+              (v.ui as Record<string, unknown>).quotaGuard &&
+              typeof (v.ui as Record<string, unknown>).quotaGuard === 'object'
+                ? {
+                    enabled:
+                      typeof (
+                        (v.ui as Record<string, unknown>).quotaGuard as Record<string, unknown>
+                      ).enabled === 'boolean'
+                        ? (((v.ui as Record<string, unknown>).quotaGuard as Record<string, unknown>)
+                            .enabled as boolean)
+                        : undefined,
+                    cooldownMinutes: isOptionalNumber(
+                      ((v.ui as Record<string, unknown>).quotaGuard as Record<string, unknown>)
+                        .cooldownMinutes,
+                    )
+                      ? (((v.ui as Record<string, unknown>).quotaGuard as Record<string, unknown>)
+                          .cooldownMinutes as number)
+                      : undefined,
+                  }
+                : undefined,
+            tray:
+              (v.ui as Record<string, unknown>).tray &&
+              typeof (v.ui as Record<string, unknown>).tray === 'object'
+                ? {
+                    startEnabledProxies:
+                      typeof ((v.ui as Record<string, unknown>).tray as Record<string, unknown>)
+                        .startEnabledProxies === 'boolean'
+                        ? (((v.ui as Record<string, unknown>).tray as Record<string, unknown>)
+                            .startEnabledProxies as boolean)
+                        : undefined,
+                    showQuota:
+                      typeof ((v.ui as Record<string, unknown>).tray as Record<string, unknown>)
+                        .showQuota === 'boolean'
+                        ? (((v.ui as Record<string, unknown>).tray as Record<string, unknown>)
+                            .showQuota as boolean)
+                        : undefined,
+                    guideSeen:
+                      typeof ((v.ui as Record<string, unknown>).tray as Record<string, unknown>)
+                        .guideSeen === 'boolean'
+                        ? (((v.ui as Record<string, unknown>).tray as Record<string, unknown>)
+                            .guideSeen as boolean)
+                        : undefined,
+                  }
                 : undefined,
           }
         : undefined,

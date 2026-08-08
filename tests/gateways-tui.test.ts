@@ -42,7 +42,7 @@ describe('loadGateways', () => {
   let root: string;
 
   beforeEach(async () => {
-    root = await mkdtemp(join(tmpdir(), 'hotplug-gw-'));
+    root = await mkdtemp(join(tmpdir(), 'anypick-gw-'));
   });
 
   afterEach(async () => {

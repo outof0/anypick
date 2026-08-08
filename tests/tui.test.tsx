@@ -1,6 +1,6 @@
 /**
  * TUI tests: pure account model + Ink screen navigation.
- * Uses temp roots / FakeProvider — never touches real ~/.hotplug.
+ * Uses temp roots / FakeProvider — never touches real ~/.anypick.
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
@@ -13,26 +13,33 @@ import { createAppReady } from '../src/core/app';
 import { ProviderRegistry } from '../src/core/registry';
 import { FakeProvider } from './helpers';
 import {
-  buildHotplugPreview,
+  buildAnyPickPreview,
+  accountProviderFilterOptions,
   collectViewModelStrings,
+  filterHomeByProvider,
   filterProviderRows,
   loadProviderPool,
   loadProxyOverview,
   loadRootModel,
-  loadHotplugHome,
+  loadAnyPickHome,
   loadClaudeBindStatus,
-  formatHotplugHomeLine,
-  formatHotplugHomeFlatLine,
-  filterHotplugHomeRows,
-  groupHotplugHomeRows,
-  hotplugContextLines,
+  formatAnyPickHomeLine,
+  formatAnyPickHomeFlatLine,
+  filterAnyPickHomeRows,
+  groupAnyPickHomeRows,
+  anypickContextLines,
+  identityDisplayText,
+  nextProviderFilter,
   providerCapabilities,
   receiptFromSwitchResult,
 } from '../src/tui/model';
-import { HotplugHomeScreen } from '../src/tui/screens/hotplug-home';
+import { AnyPickHomeScreen } from '../src/tui/screens/anypick-home';
 import { ProxyBoardScreen } from '../src/tui/screens/proxy-board';
 import { AccountsHomeScreen } from '../src/tui/screens/accounts-home';
-import { HotplugPreviewScreen } from '../src/tui/screens/hotplug-preview';
+import { GatewaysHomeScreen } from '../src/tui/screens/gateways-home';
+import { TrayRuntimeScreen } from '../src/tui/screens/tray-runtime';
+import { AnyPickPreviewScreen } from '../src/tui/screens/anypick-preview';
+import { AppRouteSourceScreen } from '../src/tui/screens/app-route-source';
 import { ConfirmScreen } from '../src/tui/screens/confirm';
 import { ProxyListScreen } from '../src/tui/screens/proxy';
 import { ProxyModelsScreen } from '../src/tui/screens/proxy-models';
@@ -40,8 +47,9 @@ import { GatewayConnectionFormScreen } from '../src/tui/screens/gateway-connecti
 import { StashResultScreen } from '../src/tui/screens/add-account';
 import { ProxyLogsView } from '../src/tui/components';
 import type { SwitchResult } from '../src/core/service';
-import type { HotplugApp } from '../src/core/app';
-import { HotplugError } from '../src/utils/errors';
+import type { AnyPickApp } from '../src/core/app';
+import type { GatewayRow } from '../src/tui/model';
+import { AnyPickError } from '../src/utils/errors';
 
 async function createTuiTestApp(
   providerSpecs: Array<{
@@ -51,7 +59,7 @@ async function createTuiTestApp(
     withStash?: boolean;
   }>,
 ) {
-  const root = await mkdtemp(join(tmpdir(), 'hotplug-tui-'));
+  const root = await mkdtemp(join(tmpdir(), 'anypick-tui-'));
   const liveRoot = join(root, 'live');
   const registry = new ProviderRegistry();
   const fakes: Record<string, FakeProvider> = {};
@@ -146,7 +154,7 @@ describe('tui model — with FakeProvider app', () => {
         now,
       );
 
-    const home = await loadHotplugHome(env.app);
+    const home = await loadAnyPickHome(env.app);
 
     expect(home.rows.map((row) => row.name)).toEqual(['march']);
   });
@@ -163,7 +171,7 @@ describe('tui model — with FakeProvider app', () => {
       updatedAt: new Date().toISOString(),
     });
 
-    const home = await loadHotplugHome(env.app);
+    const home = await loadAnyPickHome(env.app);
     const labels = home.rows.map((row) => row.label);
 
     expect(labels).toContain('hassock');
@@ -234,31 +242,76 @@ describe('tui model — with FakeProvider app', () => {
     expect(personal.isLiveMatch).toBe(false);
   });
 
-  it('loadHotplugHome flattens accounts with provider/name refs', async () => {
+  it('loadAnyPickHome flattens accounts with provider/name refs', async () => {
     await env.fakes.codex.setLive({ email: 'work@x.com', token: 't1' });
     await env.app.accounts.save('codex', 'work');
     await env.fakes.codex.setLive({ email: 'personal@x.com', token: 't2' });
     await env.app.accounts.save('codex', 'personal');
     await env.app.accounts.use('codex', 'work');
 
-    const home = await loadHotplugHome(env.app);
+    const home = await loadAnyPickHome(env.app);
     expect(home.totalAccounts).toBe(2);
     expect(home.rows.map((r) => r.ref).toSorted()).toEqual(['codex/personal', 'codex/work']);
     const work = home.rows.find((r) => r.name === 'work')!;
     expect(work.active).toBe(true);
     expect(work.isLiveMatch).toBe(true);
-    expect(formatHotplugHomeLine(work, true)).toMatch(/›/);
-    expect(formatHotplugHomeLine(work, true)).toMatch(/work/);
-    expect(formatHotplugHomeFlatLine(work, true)).toMatch(/codex\/work/);
-    expect(filterHotplugHomeRows(home.rows, 'personal')).toHaveLength(1);
-    const grouped = groupHotplugHomeRows(home.rows, home.providers);
+    expect(formatAnyPickHomeLine(work, true)).toMatch(/›/);
+    expect(formatAnyPickHomeLine(work, true)).toMatch(/work/);
+    expect(formatAnyPickHomeFlatLine(work, true)).toMatch(/codex\/work/);
+    expect(filterAnyPickHomeRows(home.rows, 'personal')).toHaveLength(1);
+    const grouped = groupAnyPickHomeRows(home.rows, home.providers);
     expect(grouped.some((g) => g.kind === 'provider' && g.provider.providerId === 'codex')).toBe(
       true,
     );
     expect(home.chrome.version).toBeTruthy();
-    const ctx = hotplugContextLines(work).join('\n');
+    const ctx = anypickContextLines(work).join('\n');
     expect(ctx).toMatch(/already uses|Switch |Sign in/i);
     expect(ctx).not.toMatch(/snapshot|make-live|drift/i);
+  });
+
+  it('filters account management by provider and cycles back to all providers', async () => {
+    await env.fakes.codex.setLive({ email: 'codex@example.test', token: 'codex-token' });
+    await env.app.accounts.save('codex', 'work');
+    await env.fakes.grok.setLive({ email: 'grok@example.test', token: 'grok-token' });
+    await env.app.accounts.save('grok', 'personal');
+
+    const home = await loadAnyPickHome(env.app);
+    const options = accountProviderFilterOptions(home);
+    const codex = options.find((option) => option.id === 'codex');
+    expect(codex).toBeDefined();
+    expect(filterHomeByProvider(home, 'codex').rows.map((row) => row.ref)).toEqual(['codex/work']);
+    expect(filterHomeByProvider(home, 'kiro').rows).toEqual([]);
+
+    let selected: string | undefined;
+    for (let index = 0; index < options.length; index += 1) {
+      selected = nextProviderFilter(selected, options);
+    }
+    expect(selected).toBe(options.at(-1)?.id);
+    expect(nextProviderFilter(selected, options)).toBeUndefined();
+  });
+
+  it('splits one provider into distinct native product groups', async () => {
+    const provider = env.fakes.codex as typeof env.fakes.codex & {
+      accountSource(snapshotDir: string): Promise<{ id: string; name: string }>;
+    };
+    provider.accountSource = async (snapshotDir) => {
+      const auth = JSON.parse(await readFile(join(snapshotDir, 'auth.json'), 'utf8')) as {
+        token: string;
+      };
+      return auth.token === 'antigravity'
+        ? { id: 'antigravity', name: 'Antigravity' }
+        : { id: 'gemini-cli', name: 'Gemini CLI' };
+    };
+    await provider.setLive({ email: 'one@example.test', token: 'antigravity' });
+    await env.app.accounts.save('codex', 'one');
+    await provider.setLive({ email: 'two@example.test', token: 'gemini' });
+    await env.app.accounts.save('codex', 'two');
+
+    const home = await loadAnyPickHome(env.app);
+    const headers = groupAnyPickHomeRows(home.rows, home.providers)
+      .filter((item) => item.kind === 'provider')
+      .map((item) => item.provider.providerName);
+    expect(headers).toEqual(expect.arrayContaining(['Antigravity', 'Gemini CLI']));
   });
 
   it('treats an active account as live when its secret store cannot be compared', async () => {
@@ -268,13 +321,13 @@ describe('tui model — with FakeProvider app', () => {
       snapshotMatchesLive?: (snapshotDir: string) => Promise<boolean>;
     };
     provider.snapshotMatchesLive = async () => {
-      throw new HotplugError(
+      throw new AnyPickError(
         'Live credential comparison needs a secret prompt.',
         'NOT_DETERMINABLE',
       );
     };
 
-    const home = await loadHotplugHome(env.app);
+    const home = await loadAnyPickHome(env.app);
     const work = home.rows.find((row) => row.name === 'work')!;
 
     expect(work).toMatchObject({ active: true, isLiveMatch: true, statusText: 'live' });
@@ -286,19 +339,45 @@ describe('tui model — with FakeProvider app', () => {
     expect(status.bound).toBe(false);
   });
 
-  it('buildHotplugPreview describes switch without proxy for codex', async () => {
+  it('buildAnyPickPreview describes switch without proxy for codex', async () => {
     await env.fakes.codex.setLive({ email: 'work@x.com', token: 't1' });
     await env.app.accounts.save('codex', 'work');
     await env.fakes.codex.setLive({ email: 'personal@x.com', token: 't2' });
     await env.app.accounts.save('codex', 'personal');
     await env.app.accounts.use('codex', 'work');
 
-    const preview = await buildHotplugPreview(env.app, 'codex', 'personal');
+    const preview = await buildAnyPickPreview(env.app, 'codex', 'personal');
     expect(preview.alreadyActive).toBe(false);
     expect(preview.fromName).toBe('work');
     expect(preview.toName).toBe('personal');
     expect(preview.canProxy).toBe(false);
     expect(preview.steps.notes.some((n) => /no proxy/i.test(n))).toBe(true);
+  });
+
+  it('previews the external-app quit requirement before switching', async () => {
+    await env.fakes.codex.setLive({ email: 'work@x.com', token: 't1' });
+    await env.app.accounts.save('codex', 'work');
+    await env.fakes.codex.setLive({ email: 'personal@x.com', token: 't2' });
+    await env.app.accounts.save('codex', 'personal');
+    await env.app.accounts.use('codex', 'work');
+    const provider = env.fakes.codex as typeof env.fakes.codex & {
+      restoreOwnerStatus(): Promise<{ name: string; running: boolean }>;
+    };
+    provider.restoreOwnerStatus = async () => ({ name: 'Antigravity', running: true });
+
+    const preview = await buildAnyPickPreview(env.app, 'codex', 'personal');
+    expect(preview.restoreOwner).toEqual({ name: 'Antigravity', running: true });
+    const view = render(
+      <AnyPickPreviewScreen preview={preview} onConfirm={() => {}} onCancel={() => {}} />,
+    );
+    expect(view.lastFrame() ?? '').toMatch(/Antigravity is open/i);
+    expect(view.lastFrame() ?? '').toMatch(/quit it completely/i);
+    expect(view.lastFrame() ?? '').toMatch(/check & switch/i);
+  });
+
+  it('hides Antigravity credential fingerprints from display copy', () => {
+    expect(identityDisplayText('antigravity:79b6f7f4e95f')).toBe('Antigravity OAuth');
+    expect(identityDisplayText('person@example.test')).toBe('person@example.test');
   });
 
   it('proxy overview labels inactive enabled accounts', async () => {
@@ -307,7 +386,7 @@ describe('tui model — with FakeProvider app', () => {
     await env.fakes.grok.setLive({ email: 'b@x.com', token: 't2' });
     await env.app.accounts.save('grok', 'personal');
     await env.app.accounts.use('grok', 'work');
-    await env.app.proxy.enableProxy('grok', 'personal', { port: 19101 });
+    await env.app.proxy.enableProxy('grok', 'personal', { port: 0, start: false });
 
     const rows = await loadProxyOverview(env.app);
     const personal = rows.find((r) => r.name === 'personal');
@@ -431,10 +510,10 @@ describe('tui ink screens', () => {
   it('switch screen matches DESIGN-TUI chrome (path + outcome + keys)', async () => {
     await env.fakes.codex.setLive({ email: 'erik@acme.com', token: 't' });
     await env.app.accounts.save('codex', 'work');
-    const home = await loadHotplugHome(env.app);
+    const home = await loadAnyPickHome(env.app);
 
     const { lastFrame, stdin } = render(
-      <HotplugHomeScreen
+      <AnyPickHomeScreen
         model={home}
         selectedIndex={0}
         columns={120}
@@ -449,8 +528,8 @@ describe('tui ink screens', () => {
     );
 
     const frame = lastFrame() ?? '';
-    // Header path: hotplug / switch
-    expect(frame).toMatch(/hotplug\s*\/\s*switch/i);
+    // Header path: AnyPick / switch
+    expect(frame).toMatch(/anypick\s*\/\s*switch/i);
     expect(frame).toMatch(/\bwork\b/);
     expect(frame).toMatch(/live|already uses/i);
     expect(frame).not.toMatch(/cyan|INSPECT|make-live|stash|CONTEXT/i);
@@ -460,7 +539,7 @@ describe('tui ink screens', () => {
 
     const quit = vi.fn();
     const { stdin: s2 } = render(
-      <HotplugHomeScreen
+      <AnyPickHomeScreen
         model={home}
         selectedIndex={0}
         columns={80}
@@ -482,13 +561,13 @@ describe('tui ink screens', () => {
   it('a committed filter that matches nothing says so and can be cleared with esc', async () => {
     await env.fakes.codex.setLive({ email: 'erik@acme.com', token: 't' });
     await env.app.accounts.save('codex', 'work');
-    const home = await loadHotplugHome(env.app);
-    const narrowed = { ...home, rows: filterHotplugHomeRows(home.rows, 'zzz') };
+    const home = await loadAnyPickHome(env.app);
+    const narrowed = { ...home, rows: filterAnyPickHomeRows(home.rows, 'zzz') };
     expect(narrowed.rows).toHaveLength(0);
 
     const onFilterClear = vi.fn();
     const { lastFrame, stdin } = render(
-      <HotplugHomeScreen
+      <AnyPickHomeScreen
         model={narrowed}
         selectedIndex={0}
         columns={80}
@@ -519,7 +598,7 @@ describe('tui ink screens', () => {
     await env.fakes.grok.setLive({ email: 'g@x.com', token: 't' });
     await env.app.accounts.save('grok', 'work');
     await env.app.proxy.enableProxy('grok', 'work', {
-      port: 18080,
+      port: 0,
       start: false,
     });
     const rows = await loadProxyOverview(env.app);
@@ -527,10 +606,11 @@ describe('tui ink screens', () => {
 
     const manage = vi.fn();
     const primary = vi.fn();
+    const grokIndex = rows.findIndex((row) => row.providerId === 'grok' && row.name === 'work');
     const { lastFrame, stdin } = render(
       <ProxyBoardScreen
         rows={rows}
-        selectedIndex={0}
+        selectedIndex={grokIndex}
         apps={[]}
         columns={120}
         onMove={() => {}}
@@ -547,7 +627,7 @@ describe('tui ink screens', () => {
       />,
     );
     const frame = lastFrame() ?? '';
-    expect(frame).toMatch(/hotplug\s*\/\s*proxy/i);
+    expect(frame).toMatch(/anypick\s*\/\s*proxy/i);
     expect(frame).toMatch(/grok\/work/);
     expect(frame).not.toMatch(/INSPECT/i);
     expect(frame).toMatch(/start|stopped|off|running/i);
@@ -583,7 +663,7 @@ describe('tui ink screens', () => {
   it('wired accounts screen renders saved providers and bans cyan', async () => {
     await env.fakes.codex.setLive({ email: 'erik@acme.com', token: 't' });
     await env.app.accounts.save('codex', 'work');
-    const model = await loadHotplugHome(env.app);
+    const model = await loadAnyPickHome(env.app);
 
     const { lastFrame } = render(
       <AccountsHomeScreen
@@ -614,18 +694,139 @@ describe('tui ink screens', () => {
     expect(frame).not.toMatch(new RegExp(`${esc}\\[[0-9;]*36m`));
   });
 
+  it('accounts provider filter is visible, actionable, and clears before leaving Manage', async () => {
+    const model = await loadAnyPickHome(env.app);
+    const options = accountProviderFilterOptions(model);
+    const filtered = filterHomeByProvider(model, 'kiro');
+    const cycle = vi.fn();
+    const clear = vi.fn();
+    const back = vi.fn();
+    const { lastFrame, stdin } = render(
+      <AccountsHomeScreen
+        model={filtered}
+        selectedIndex={0}
+        columns={100}
+        providerFilterId="kiro"
+        providerFilterLabel="Kiro"
+        providerFilterOptions={options}
+        onCycleProvider={cycle}
+        onClearProvider={clear}
+        onMove={() => {}}
+        onAdd={() => {}}
+        onRefresh={() => {}}
+        onDelete={() => {}}
+        onExport={() => {}}
+        onImport={() => {}}
+        onOpenSwitch={() => {}}
+        onBack={back}
+        onQuit={() => {}}
+      />,
+    );
+
+    const frame = lastFrame() ?? '';
+    expect(frame).toMatch(/anypick\s*\/\s*manage\s*\/\s*accounts/i);
+    expect(frame).toMatch(/Provider Kiro/i);
+    expect(frame).toMatch(/No saved accounts for Kiro/i);
+    stdin.write('f');
+    expect(cycle).toHaveBeenCalledTimes(1);
+    stdin.write('\x1b');
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(clear).toHaveBeenCalledTimes(1);
+    expect(back).not.toHaveBeenCalled();
+  });
+
+  it('enter switches an inactive account directly and opens details for the live account', async () => {
+    await env.fakes.codex.setLive({ email: 'work@example.test', token: 'work-token' });
+    await env.app.accounts.save('codex', 'work');
+    await env.fakes.codex.setLive({ email: 'personal@example.test', token: 'personal-token' });
+    await env.app.accounts.save('codex', 'personal');
+    await env.app.accounts.use('codex', 'work');
+    const model = await loadAnyPickHome(env.app);
+    const liveIndex = model.rows.findIndex((row) => row.name === 'work');
+    const savedIndex = model.rows.findIndex((row) => row.name === 'personal');
+    const openSwitch = vi.fn();
+    const viewDetail = vi.fn();
+    const renderAccounts = (selectedIndex: number) =>
+      render(
+        <AccountsHomeScreen
+          model={model}
+          selectedIndex={selectedIndex}
+          columns={100}
+          onMove={() => {}}
+          onAdd={() => {}}
+          onRefresh={() => {}}
+          onDelete={() => {}}
+          onExport={() => {}}
+          onImport={() => {}}
+          onOpenSwitch={openSwitch}
+          onViewDetail={viewDetail}
+          onBack={() => {}}
+          onQuit={() => {}}
+        />,
+      );
+
+    const savedView = renderAccounts(savedIndex);
+    expect(savedView.lastFrame() ?? '').toMatch(/enter\s+switch account/i);
+    savedView.stdin.write('\r');
+    expect(openSwitch).toHaveBeenCalledWith(model.rows[savedIndex]);
+
+    const liveView = renderAccounts(liveIndex);
+    expect(liveView.lastFrame() ?? '').toMatch(/enter\s+view details/i);
+    liveView.stdin.write('\r');
+    expect(viewDetail).toHaveBeenCalledWith(model.rows[liveIndex]);
+  });
+
+  it('gateway management exposes the same provider filter and section navigation', () => {
+    const row: GatewayRow = {
+      name: 'work',
+      providerId: 'openrouter',
+      providerName: 'OpenRouter',
+      endpointShort: 'openrouter.ai/api/v1',
+      hasApiKey: true,
+      usedByApps: [],
+      updatedAt: new Date(0).toISOString(),
+      updatedRelative: 'now',
+    };
+    const cycle = vi.fn();
+    const next = vi.fn();
+    const view = render(
+      <GatewaysHomeScreen
+        rows={[row]}
+        selectedIndex={0}
+        columns={100}
+        providerFilterLabel="All providers"
+        providerFilterOptions={[{ id: 'openrouter', label: 'OpenRouter' }]}
+        onCycleProvider={cycle}
+        onMove={() => {}}
+        onAdd={() => {}}
+        onUseApps={() => {}}
+        onEditModels={() => {}}
+        onEditEndpoint={() => {}}
+        onDelete={() => {}}
+        onSwitch={() => {}}
+        onNextSection={next}
+        onQuit={() => {}}
+      />,
+    );
+    expect(view.lastFrame() ?? '').toMatch(/anypick\s*\/\s*manage\s*\/\s*gateways/i);
+    view.stdin.write('f');
+    view.stdin.write('\t');
+    expect(cycle).toHaveBeenCalledTimes(1);
+    expect(next).toHaveBeenCalledTimes(1);
+  });
+
   it('a reaches a provider with nothing saved, from Switch and Accounts', async () => {
     // Only codex has a saved login; kiro is registered but empty. The cursor can
     // never land on a kiro row, so `a` must still be able to add one.
     await env.fakes.codex.setLive({ email: 'erik@acme.com', token: 't' });
     await env.app.accounts.save('codex', 'work');
-    const model = await loadHotplugHome(env.app);
+    const model = await loadAnyPickHome(env.app);
     expect(model.rows.some((r) => r.providerId === 'kiro')).toBe(false);
     expect(model.providers.some((p) => p.providerId === 'kiro')).toBe(true);
 
     const switchAdd = vi.fn();
     const sw = render(
-      <HotplugHomeScreen
+      <AnyPickHomeScreen
         model={model}
         selectedIndex={0}
         columns={100}
@@ -672,21 +873,63 @@ describe('tui ink screens', () => {
     expect(accountsAdd).toHaveBeenCalled();
   });
 
-  it('hotplug preview confirm calls onConfirm once', async () => {
+  it('anypick preview confirm calls onConfirm once', async () => {
     await env.fakes.codex.setLive({ email: 'work@x.com', token: 't1' });
     await env.app.accounts.save('codex', 'work');
     await env.fakes.codex.setLive({ email: 'personal@x.com', token: 't2' });
     await env.app.accounts.save('codex', 'personal');
     await env.app.accounts.use('codex', 'work');
 
-    const preview = await buildHotplugPreview(env.app, 'codex', 'personal');
+    const preview = await buildAnyPickPreview(env.app, 'codex', 'personal');
     const onConfirm = vi.fn();
     const { stdin, lastFrame } = render(
-      <HotplugPreviewScreen preview={preview} onConfirm={onConfirm} onCancel={() => {}} />,
+      <AnyPickPreviewScreen preview={preview} onConfirm={onConfirm} onCancel={() => {}} />,
     );
     expect(lastFrame() ?? '').toMatch(/Switch|after|enter confirm/i);
     stdin.write('\r');
     expect(onConfirm).toHaveBeenCalledTimes(1);
+  });
+
+  it('separates native accounts from gateways in the app source picker', () => {
+    const view = render(
+      <AppRouteSourceScreen
+        clientName="Codex"
+        rows={[
+          {
+            ref: { kind: 'account', provider: 'codex', name: 'personal' },
+            sourceId: 'codex',
+            value: 'codex/personal',
+            label: 'Codex · personal',
+            detail: 'person@example.test · native account',
+            providerId: 'codex',
+            transport: 'direct',
+            category: 'native',
+          },
+          {
+            ref: { kind: 'gateway', name: 'router-work' },
+            sourceId: 'openrouter',
+            value: 'router-work',
+            label: 'router-work',
+            detail: 'OpenRouter · managed proxy',
+            providerId: 'openrouter',
+            transport: 'managed_builtin_proxy',
+            category: 'gateway',
+          },
+        ]}
+        selectedIndex={0}
+        columns={100}
+        onMove={() => {}}
+        onSelect={() => {}}
+        onAccounts={() => {}}
+        onGateways={() => {}}
+        onBack={() => {}}
+      />,
+    );
+    const frame = view.lastFrame() ?? '';
+    expect(frame).toMatch(/Native accounts/i);
+    expect(frame).toMatch(/Gateways & proxies/i);
+    expect(frame).toMatch(/switch account/i);
+    expect(frame).toMatch(/own model settings/i);
   });
 
   it('confirm screen requires explicit enter for destructive action', async () => {
@@ -717,7 +960,7 @@ describe('tui ink screens', () => {
     await env.fakes.grok.setLive({ email: 'b@x.com', token: 't2' });
     await env.app.accounts.save('grok', 'personal');
     await env.app.accounts.use('grok', 'work');
-    await env.app.proxy.enableProxy('grok', 'personal', { port: 19102 });
+    await env.app.proxy.enableProxy('grok', 'personal', { port: 0, start: false });
 
     const rows = await loadProxyOverview(env.app);
     const { lastFrame } = render(
@@ -761,7 +1004,7 @@ describe('tui ink screens', () => {
   it('q quits from accounts screen', async () => {
     await env.fakes.codex.setLive({ email: 'erik@acme.com', token: 't' });
     await env.app.accounts.save('codex', 'work');
-    const model = await loadHotplugHome(env.app);
+    const model = await loadAnyPickHome(env.app);
     const onQuit = vi.fn();
     const { stdin } = render(
       <AccountsHomeScreen
@@ -785,10 +1028,45 @@ describe('tui ink screens', () => {
     expect(onQuit).toHaveBeenCalled();
   });
 
+  it('shows Tray status, toggles runtime, changes default, and detaches explicitly', () => {
+    const onRefresh = vi.fn();
+    const onToggle = vi.fn();
+    const onToggleDefaultSurface = vi.fn();
+    const onDetach = vi.fn();
+    const onBack = vi.fn();
+    const onQuit = vi.fn();
+    const ui = render(
+      <TrayRuntimeScreen
+        available
+        status={{ running: true, pid: 42, proxyCount: 2, mode: 'native' }}
+        defaultSurface="tray"
+        onRefresh={onRefresh}
+        onToggle={onToggle}
+        onToggleDefaultSurface={onToggleDefaultSurface}
+        onDetach={onDetach}
+        onBack={onBack}
+        onQuit={onQuit}
+      />,
+    );
+
+    expect(ui.lastFrame() ?? '').toMatch(/Tray is running|runtime.*running/i);
+    expect(ui.lastFrame() ?? '').toMatch(/Menu bar Tray/i);
+    ui.stdin.write('r');
+    ui.stdin.write('t');
+    ui.stdin.write('f');
+    ui.stdin.write('D');
+    ui.stdin.write('q');
+    expect(onRefresh).toHaveBeenCalledTimes(1);
+    expect(onToggle).toHaveBeenCalledTimes(1);
+    expect(onToggleDefaultSurface).toHaveBeenCalledTimes(1);
+    expect(onDetach).toHaveBeenCalledTimes(1);
+    expect(onQuit).toHaveBeenCalledTimes(1);
+  });
+
   it('uses the shared account shortcuts for add, refresh, delete, export, and next section', async () => {
     await env.fakes.codex.setLive({ email: 'erik@acme.com', token: 't' });
     await env.app.accounts.save('codex', 'work');
-    const model = await loadHotplugHome(env.app);
+    const model = await loadAnyPickHome(env.app);
     const onAdd = vi.fn();
     const onRefresh = vi.fn();
     const onDelete = vi.fn();
@@ -833,7 +1111,7 @@ describe('tui ink screens', () => {
   it('saves the current login when an active snapshot has changed', async () => {
     await env.fakes.codex.setLive({ email: 'erik@acme.com', token: 't' });
     await env.app.accounts.save('codex', 'work');
-    const model = await loadHotplugHome(env.app);
+    const model = await loadAnyPickHome(env.app);
     const changed = {
       ...model,
       rows: model.rows.map((row) => ({
@@ -902,7 +1180,7 @@ describe('tui ink screens', () => {
     try {
       await env.fakes.codex.setLive({ email: 'erik@acme.com', token: 't' });
       await env.app.accounts.save('codex', 'work');
-      const model = await loadHotplugHome(env.app);
+      const model = await loadAnyPickHome(env.app);
       const { lastFrame } = render(
         <AccountsHomeScreen
           model={model}
@@ -932,7 +1210,7 @@ describe('tui ink screens', () => {
     }
   });
 
-  it('accounts.use is called once on hotplug confirm integration', async () => {
+  it('accounts.use is called once on anypick confirm integration', async () => {
     await env.fakes.codex.setLive({ email: 'work@x.com', token: 't1' });
     await env.app.accounts.save('codex', 'work');
     await env.fakes.codex.setLive({ email: 'personal@x.com', token: 't2' });
@@ -972,7 +1250,7 @@ describe('tui ink screens', () => {
     );
     const app = {
       proxy: { proxyLogsFollow },
-    } as unknown as HotplugApp;
+    } as unknown as AnyPickApp;
     const view = render(
       <ProxyLogsView
         app={app}
@@ -1012,7 +1290,7 @@ describe('tui ink screens', () => {
       );
       const app = {
         proxy: { proxyLogsFollow },
-      } as unknown as HotplugApp;
+      } as unknown as AnyPickApp;
       const view = render(
         <ProxyLogsView
           app={app}
@@ -1042,4 +1320,4 @@ describe('tui ink screens', () => {
 });
 
 // silence unused type import if tree-shaken
-void (null as unknown as HotplugApp);
+void (null as unknown as AnyPickApp);

@@ -71,35 +71,4 @@ export function waitForRetry(ms: number, signal?: AbortSignal | null): Promise<v
   });
 }
 
-export function estimateAnthropicInputTokens(body: {
-  system?: unknown;
-  messages?: unknown;
-  tools?: unknown;
-  [k: string]: unknown;
-}): number {
-  let chars = 0;
-  const add = (value: unknown) => {
-    if (value == null) {
-      return;
-    }
-    if (typeof value === 'string') {
-      chars += value.length;
-      return;
-    }
-    try {
-      chars += JSON.stringify(value).length;
-    } catch {
-      chars += 16;
-    }
-  };
-  add(body.system);
-  add(body.messages);
-  add(body.tools);
-  if (body.tool_choice != null) {
-    add(body.tool_choice);
-  }
-  if (body.metadata != null) {
-    add(body.metadata);
-  }
-  return Math.max(1, Math.ceil(chars / 4) + 8);
-}
+export { estimateAnthropicInputTokens } from '../protocol/token-estimate';

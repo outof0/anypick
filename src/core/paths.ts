@@ -3,17 +3,19 @@ import { homedir } from 'node:os';
 import { expandHome } from '../utils/fs';
 
 /**
- * Resolve the hotplug data root.
- * Override with HOTPLUG_HOME env var (useful for tests / portable installs).
+ * Resolve the AnyPick data root.
+ *
+ * AnyPick always keeps its state under ~/.anypick unless an explicit override
+ * or ANYPICK_HOME is supplied.
  */
-export function getHotplugRoot(override?: string): string {
+export function getAnyPickRoot(override?: string): string {
   if (override) {
     return expandHome(override);
   }
-  if (process.env.HOTPLUG_HOME) {
-    return expandHome(process.env.HOTPLUG_HOME);
+  if (process.env.ANYPICK_HOME) {
+    return expandHome(process.env.ANYPICK_HOME);
   }
-  return join(homedir(), '.hotplug');
+  return join(homedir(), '.anypick');
 }
 
 export function providerDir(root: string, providerId: string): string {
@@ -74,15 +76,29 @@ export function proxyStatePath(root: string, providerId: string, accountName: st
   return join(accountProxyRuntimeDir(root, providerId, accountName), 'state.json');
 }
 
+// ── Unified Proxy Hub ────────────────────────────────────────────
+
+export function proxyHubRuntimeDir(root: string, name: string): string {
+  return join(root, 'proxy-hub', name);
+}
+
+export function proxyHubPidPath(root: string, name: string): string {
+  return join(proxyHubRuntimeDir(root, name), 'hub.pid');
+}
+
+export function proxyHubLogPath(root: string, name: string): string {
+  return join(proxyHubRuntimeDir(root, name), 'hub.log');
+}
+
 // ── Global config / database ─────────────────────────────────────
 
 export function configPath(root: string): string {
   return join(root, 'config.json');
 }
 
-/** Primary SQLite database for structured hotplug data. */
-export function hotplugDbPath(root: string): string {
-  return join(root, 'hotplug.db');
+/** Primary SQLite database for structured anypick data. */
+export function anypickDbPath(root: string): string {
+  return join(root, 'anypick.db');
 }
 
 // ── Runtime profiles ─────────────────────────────────────────────
@@ -123,7 +139,7 @@ export function clientBackupDir(root: string, clientId: string): string {
 
 /**
  * Owner-only recovery directory for durable crash backups (TXN-01). Backups of
- * overwritten client config files live here — inside the Hotplug root, not the
+ * overwritten client config files live here — inside the AnyPick root, not the
  * system temp dir — so they survive a crash and are never world-readable.
  * Created with mode 0o700 (owner-only).
  */

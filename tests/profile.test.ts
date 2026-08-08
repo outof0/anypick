@@ -3,14 +3,14 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createApp } from '../src/core/app';
-import type { HotplugApp } from '../src/core/app';
+import type { AnyPickApp } from '../src/core/app';
 
 describe('ProfileService', () => {
   let root: string;
-  let app: HotplugApp;
+  let app: AnyPickApp;
 
   beforeEach(async () => {
-    root = await mkdtemp(join(tmpdir(), 'hotplug-profile-'));
+    root = await mkdtemp(join(tmpdir(), 'anypick-profile-'));
     app = createApp({ root });
   });
 

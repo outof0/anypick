@@ -1,0 +1,38 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "AnyPick Tray",
+  "version": "1.0.0",
+  "identifier": "dev.anypick.tray",
+  "build": {
+    "frontendDist": "../frontend"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "label": "main",
+        "title": "AnyPick",
+        "width": 520,
+        "height": 640,
+        "minWidth": 460,
+        "minHeight": 520,
+        "resizable": true,
+        "visible": false,
+        "center": true,
+        "skipTaskbar": true
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "../../../../assets/icon-32.png",
+      "../../../../assets/icon-128.png",
+      "../../../../assets/icon-256.png"
+    ]
+  }
+}

@@ -7,8 +7,8 @@ export interface TrayRuntimeState {
   ready: boolean;
   proxyCount: number;
   startedAt: string;
-  /** Native menu-bar icon on macOS; background owner on other platforms. */
-  mode?: 'native' | 'headless';
+  /** SwiftUI on macOS, Tauri on Linux/Windows, or background-only fallback. */
+  mode?: 'native' | 'tauri' | 'headless';
 }
 
 export function trayRuntimeDir(root: string): string {

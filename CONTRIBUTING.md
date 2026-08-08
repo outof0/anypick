@@ -1,6 +1,6 @@
-# Contributing to hotplug
+# Contributing to anypick
 
-Thanks for your interest in improving `hotplug`!
+Thanks for your interest in improving `anypick`!
 
 Working with an AI coding tool? `AGENTS.md` (symlinked as `CLAUDE.md` and
 `GEMINI.md`) holds the invariants and the traps that have cost real time. This
@@ -10,17 +10,21 @@ file stays the reference for layering and lint policy.
 
 ```bash
 pnpm install
-pnpm build
-pnpm dev --help
+pnpm dev --help   # app from source (one entry for CLI / TUI / tray / proxies)
 ```
 
 ## Development workflow
 
+- `pnpm dev …` — run the app from source (no rebuild). Long-running
+  `tui` / `tray` / `proxy serve` auto-restart on file changes.
 - `pnpm format` — reformat with oxfmt
 - `pnpm lint` — static analysis with oxlint (type-aware)
 - `pnpm typecheck` — strict production and test type contracts
 - `pnpm test` — run the vitest suite
-- `pnpm check` — runs all of the above in order (what CI runs)
+- `pnpm check` — format + lint + typecheck + test (what CI runs)
+- `pnpm build` / `pnpm start` — production `dist/` only (releases, pack smoke)
+
+Docs are a separate package: `cd docs && pnpm dev`.
 
 Please run `pnpm check` before opening a pull request. CI will run the same
 command and will fail the build on any failure.
@@ -52,12 +56,12 @@ one return removed 42 downstream violations.
 
 ## Architecture overview
 
-`hotplug` is layered. Read `src/core/app.ts` first — it is the composition
+`anypick` is layered. Read `src/core/app.ts` first — it is the composition
 root that wires every store, registry, and service together and is the single
 place to understand the dependency graph.
 
 - **Stores** (`src/core/*-store.ts`) own persistence (a single SQLite
-  database under `~/.hotplug/hotplug.db`). Services never embed SQL.
+  database under `~/.anypick/anypick.db`). Services never embed SQL.
 - **Registries** (`ProviderRegistry`, `ClientRegistry`, `CatalogRegistry`)
   hold the pluggable implementations. Adding a client or account provider
   means implementing its interface and registering it in
@@ -92,7 +96,7 @@ place to understand the dependency graph.
 
 A plugin ships the same `Provider` / `ClientAdapter` / `CatalogProvider` you
 would write in-tree, but installs into a released binary instead of requiring a
-fork. It is a directory with a `hotplug.plugin.json` and an ESM entry module:
+fork. It is a directory with a `anypick.plugin.json` and an ESM entry module:
 
 ```json
 {
@@ -119,16 +123,17 @@ you need something more, open an issue; widening it is a security decision
 (ADR-0012), not an ergonomics one.
 
 ```bash
-hotplug plugin add ./acme-provider   # installs it disabled
-hotplug plugin enable acme-provider  # the trust decision — prompts
-hotplug plugin trust acme-provider   # re-pin after you rebuild
+anypick plugin add ./acme-provider   # installs it disabled
+anypick plugin enable acme-provider  # the trust decision — prompts
+anypick plugin trust acme-provider   # re-pin after you rebuild
 ```
 
 The last one is the part that surprises people during development: the enabled
-digest covers your entry module, so every rebuild needs a `trust` before the
-plugin will load again. `HOTPLUG_NO_PLUGINS=1` disables loading if you need to
-tell a plugin bug from a framework bug. `tests/plugins.test.ts` writes a real
-plugin directory to a temp root and loads it end to end — copy its shape.
+digest covers the whole plugin package (not only `main`), so every rebuild needs
+a `trust` before the plugin will load again (ADR-0014). `ANYPICK_NO_PLUGINS=1`
+disables loading if you need to tell a plugin bug from a framework bug.
+`tests/plugins.test.ts` writes a real plugin directory to a temp root and loads
+it end to end — copy its shape.
 
 ## Commit and PR guidelines
 
@@ -156,9 +161,43 @@ fix(gemini): write the Antigravity credential back to the OS credential store
 
 ### Cutting a release
 
-`pnpm release` runs the full check, then `bumpp` picks the version, commits the
-bump, tags it and pushes. Pushing the tag is what triggers `release.yml`, which
-publishes the generated notes. Nothing is published to npm automatically.
+Release is a single manually dispatched GitHub Actions workflow. Land a clean
+`main`, open **Actions → Release → Run workflow**, and select `main`. There is no
+version field to type:
+
+- With no previous release tag, the workflow publishes the checked-in version.
+  The first AnyPick release is therefore `1.0.0`.
+- Later releases are calculated from Conventional Commits since the previous
+  tag: a breaking change bumps major, `feat` bumps minor, and `fix` / `perf`
+  bumps patch. A run with no release-worthy commit stops before changing anything.
+
+The workflow synchronizes the npm, Cargo and Tauri versions; runs every root,
+consumer, docs and Linux tray gate; then pushes the version commit and tag. Only
+after all gates pass does it create or update the GitHub Release, publish the
+exact verified tarball to npm, attach the Linux tray helper, and deploy the docs.
+It is safe to rerun after a partial external failure: an existing tag/npm version
+is verified and reused rather than recreated. `pnpm release` previews the plan
+locally and never publishes.
+
+### One-time release setup
+
+Create a GitHub environment named `release` and protect it with the desired
+reviewers. The workflow needs:
+
+- permission for `github-actions[bot]` to push the generated release commit and
+  tag to `main` (add a narrowly scoped ruleset bypass if `main` is protected);
+- `CLOUDFLARE_ACCOUNT_ID` and a narrowly scoped `CLOUDFLARE_API_TOKEN` as
+  environment secrets. The token must deploy the `anypick-docs` Worker and its
+  `anypick.dev` custom domain;
+- for the first npm publish only, an `NPM_TOKEN` environment secret that can
+  publish `anypick`. After the package exists, configure npm Trusted Publishing
+  for repository `outof0/anypick`, workflow `release.yml`, environment
+  `release`, then delete `NPM_TOKEN`. Subsequent publishes use GitHub OIDC and
+  include provenance automatically.
+
+`GITHUB_TOKEN` is provided by Actions; do not create or commit a GitHub token.
+The workflow intentionally does not edit `CHANGELOG.md`: `changelogithub`
+generates release notes directly from the tagged Conventional Commits.
 
 ## Code of conduct
 

@@ -8,18 +8,21 @@
  * Upstream cli-chat-proxy.grok.com already speaks both shapes; we inject the
  * CLI OIDC Bearer and forward. Model IDs and /v1/models are deliberately
  * passed through without a local catalog, so newly released models work
- * without a Hotplug update. Optional translate mode
+ * without a AnyPick update. Optional translate mode
  * (GROK_PROXY_TRANSLATE_ANTHROPIC=1) rewrites Anthropic → chat/completions
  * for OpenAI-only upstreams.
  *
  * Clients point BASE_URL here with any dummy API key / auth token.
  */
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
+import { GROK_MODELS } from '../../catalog/providers';
 import { ensureAccessToken, type GrokSession } from './auth';
 import {
   anthropicToOpenAI,
+  estimateAnthropicInputTokens,
   openAIToAnthropic,
   pipeOpenAIStreamToAnthropic,
+  sanitizeInferenceToolSchemas,
   type AnthropicMessageRequest,
   type OpenAIChatResponse,
 } from '../protocol/anthropic';
@@ -57,7 +60,7 @@ export function createGrokProxyServer(opts: GrokProxyServerOptions): Server {
   const clientVersion = opts.clientVersion ?? DEFAULT_CLIENT_VERSION;
   const translateAnthropic =
     opts.translateAnthropic ?? process.env.GROK_PROXY_TRANSLATE_ANTHROPIC === '1';
-  const proxyToken = opts.token ?? process.env.HOTPLUG_PROXY_TOKEN ?? '';
+  const proxyToken = opts.token ?? process.env.ANYPICK_PROXY_TOKEN ?? '';
   const log =
     opts.log ?? (opts.quiet ? () => {} : (line: string) => process.stderr.write(`${line}\n`));
 
@@ -85,16 +88,16 @@ export function createGrokProxyServer(opts: GrokProxyServerOptions): Server {
     if ((method === 'GET' || method === 'HEAD') && (path === '/' || path === '/health')) {
       json(res, 200, {
         ok: true,
-        service: 'hotplug-grok-proxy',
+        service: 'anypick-grok-proxy',
         compatibility: COMPAT_LABEL,
-        instanceId: process.env.HOTPLUG_INSTANCE_ID ?? null,
+        instanceId: process.env.ANYPICK_INSTANCE_ID ?? null,
         clients: {
           codex: 'OPENAI_BASE_URL → /v1/chat/completions',
           claude: 'ANTHROPIC_BASE_URL → /v1/messages',
         },
         endpoints: {
           openai: ['/v1/chat/completions', '/v1/responses', '/v1/models'],
-          anthropic: ['/v1/messages'],
+          anthropic: ['/v1/messages', '/v1/messages/count_tokens'],
         },
         translateAnthropic,
         upstream,
@@ -118,9 +121,23 @@ export function createGrokProxyServer(opts: GrokProxyServerOptions): Server {
       return;
     }
 
+    // Claude Code polls this for context sizing. xAI does not implement it;
+    // answer locally so we never spam cli-chat-proxy with 404 traffic.
+    if (method === 'POST' && path === '/v1/messages/count_tokens') {
+      await handleCountTokens(req, res);
+      return;
+    }
+
     // Optional Anthropic → OpenAI translation for OpenAI-only upstreams
     if (translateAnthropic && method === 'POST' && path === '/v1/messages') {
       await handleAnthropicTranslated(req, res);
+      return;
+    }
+
+    // Hub catalog discovery needs a usable OpenAI-shaped list even when
+    // cli-chat-proxy.grok.com returns 404/empty for /v1/models.
+    if ((method === 'GET' || method === 'HEAD') && path === '/v1/models') {
+      await handleListModels(req, res, url, method);
       return;
     }
 
@@ -128,7 +145,117 @@ export function createGrokProxyServer(opts: GrokProxyServerOptions): Server {
     await proxyPassThrough(req, res, url, method);
   }
 
-  /** Native pass-through (default): inject OIDC Bearer, forward as-is. */
+  async function handleCountTokens(req: IncomingMessage, res: ServerResponse): Promise<void> {
+    try {
+      let body: {
+        model?: string;
+        system?: unknown;
+        messages?: unknown;
+        tools?: unknown;
+        [key: string]: unknown;
+      };
+      try {
+        body = JSON.parse((await readBody(req)).toString('utf8') || '{}') as typeof body;
+      } catch {
+        json(res, 400, {
+          type: 'error',
+          error: { type: 'invalid_request_error', message: 'Invalid JSON body' },
+        });
+        return;
+      }
+      const inputTokens = estimateAnthropicInputTokens(body);
+      const model = typeof body.model === 'string' && body.model.trim() ? body.model.trim() : '?';
+      log(`POST /v1/messages/count_tokens → ${inputTokens} (local · ${model})`);
+      json(res, 200, { input_tokens: inputTokens });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      log(`  ✗ count_tokens ${message}`);
+      if (!res.headersSent) {
+        json(res, 502, {
+          type: 'error',
+          error: { type: 'proxy_error', message },
+        });
+      }
+    }
+  }
+
+  /**
+   * Prefer the live upstream catalog. If it is missing or empty, fall back to
+   * the static GROK_MODELS map so Proxy Hub can still publish routes.
+   */
+  async function handleListModels(
+    req: IncomingMessage,
+    res: ServerResponse,
+    url: string,
+    method: string,
+  ): Promise<void> {
+    try {
+      const { token, session } = await ensureAccessToken(opts.authPath, cached);
+      cached = session;
+      const target = `${upstream}${url}`;
+      const headers = buildUpstreamHeaders(req, token, clientVersion);
+      let upstreamRes = await fetchGrok(
+        target,
+        {
+          method,
+          headers,
+          signal: AbortSignal.timeout(12_000),
+          redirect: 'manual',
+        },
+        `${method}:${url}`,
+      );
+
+      if (upstreamRes.status === 401 && cached?.refreshToken) {
+        log('  → 401 on /v1/models, refreshing OIDC token…');
+        const refreshed = await ensureAccessToken(opts.authPath);
+        cached = refreshed.session;
+        const retryHeaders = buildUpstreamHeaders(req, refreshed.token, clientVersion);
+        upstreamRes = await fetchGrok(
+          target,
+          {
+            method,
+            headers: retryHeaders,
+            signal: AbortSignal.timeout(12_000),
+            redirect: 'manual',
+          },
+          `${method}:${url}`,
+        );
+      }
+
+      if (upstreamRes.ok) {
+        const text = await upstreamRes.text();
+        const models = modelIdsFromCatalogBody(text);
+        if (models.length > 0) {
+          log(`  list models ← ${models.length} (upstream)`);
+          // Re-emit a normalized OpenAI list so Hub parsing stays strict.
+          json(res, 200, {
+            object: 'list',
+            data: models.map((id) => ({ id, object: 'model', owned_by: 'xai' })),
+          });
+          return;
+        }
+        log('  list models ← empty upstream; using static GROK_MODELS');
+      } else {
+        log(`  list models ← ${upstreamRes.status}; using static GROK_MODELS`);
+      }
+    } catch (err) {
+      log(
+        `  list models ✗ ${err instanceof Error ? err.message : String(err)}; using static GROK_MODELS`,
+      );
+    }
+
+    const models = staticGrokModelIds();
+    log(`  list models ← ${models.length} (fallback)`);
+    json(res, 200, {
+      object: 'list',
+      data: models.map((id) => ({ id, object: 'model', owned_by: 'xai' })),
+    });
+  }
+
+  /**
+   * Native pass-through (default): inject OIDC Bearer, forward with only the
+   * tool-schema hygiene needed for strict xAI validation.
+   */
   async function proxyPassThrough(
     req: IncomingMessage,
     res: ServerResponse,
@@ -140,12 +267,18 @@ export function createGrokProxyServer(opts: GrokProxyServerOptions): Server {
       cached = session;
 
       const target = `${upstream}${url}`;
-      const body =
+      const rawBody =
         method === 'GET' || method === 'HEAD' || method === 'OPTIONS'
           ? undefined
           : await readBody(req);
+      const body = rawBody ? sanitizePassThroughBody(pathOf(url), rawBody) : undefined;
 
+      // content-length must match the body we actually send — schema sanitize can
+      // shrink the payload when stripping null tool-schema keywords.
       const headers = buildUpstreamHeaders(req, token, clientVersion, body?.byteLength);
+      if (body) {
+        headers['content-length'] = String(body.byteLength);
+      }
 
       const upstreamRes = await fetchGrok(
         target,
@@ -169,6 +302,9 @@ export function createGrokProxyServer(opts: GrokProxyServerOptions): Server {
           clientVersion,
           body?.byteLength,
         );
+        if (body) {
+          retryHeaders['content-length'] = String(body.byteLength);
+        }
         const retry = await fetchGrok(
           target,
           {
@@ -343,8 +479,8 @@ export function createGrokProxyServer(opts: GrokProxyServerOptions): Server {
           'content-type': 'application/json',
           accept: 'application/json',
           'x-grok-client-version': clientVersion,
-          'x-grok-client-identifier': 'hotplug-grok-proxy',
-          'user-agent': `hotplug-grok-proxy/${clientVersion}`,
+          'x-grok-client-identifier': 'anypick-grok-proxy',
+          'user-agent': `anypick-grok-proxy/${clientVersion}`,
         },
         body: new Uint8Array(payload),
         signal: AbortSignal.timeout(600_000),
@@ -408,8 +544,8 @@ function buildUpstreamHeaders(
   const headers: Record<string, string> = {
     authorization: `Bearer ${token}`,
     'x-grok-client-version': clientVersion,
-    'x-grok-client-identifier': 'hotplug-grok-proxy',
-    'user-agent': `hotplug-grok-proxy/${clientVersion}`,
+    'x-grok-client-identifier': 'anypick-grok-proxy',
+    'user-agent': `anypick-grok-proxy/${clientVersion}`,
     accept: req.headers.accept ?? 'application/json',
   };
 
@@ -462,6 +598,29 @@ async function pipeResponse(
   res: ServerResponse,
   log: (line: string) => void,
 ): Promise<void> {
+  // Buffer small error bodies so the hub log shows the real upstream reason
+  // (e.g. xAI schema validation) without replaying multi-MB success streams.
+  if (upstreamRes.status >= 400) {
+    const errText = await upstreamRes.text();
+    const snippet = errText.replaceAll(/[\r\n\t]+/gu, ' ').slice(0, 400);
+    log(`  ← ${upstreamRes.status} ${snippet}`);
+    const outHeaders: Record<string, string> = {};
+    upstreamRes.headers.forEach((value, key) => {
+      if (HOP_BY_HOP.has(key.toLowerCase()) || key.toLowerCase() === 'content-encoding') {
+        return;
+      }
+      if (key.toLowerCase() === 'content-length') {
+        return;
+      }
+      outHeaders[key] = value;
+    });
+    const payload = Buffer.from(errText, 'utf8');
+    outHeaders['content-length'] = String(payload.byteLength);
+    res.writeHead(upstreamRes.status, outHeaders);
+    res.end(payload);
+    return;
+  }
+
   log(`  ← ${upstreamRes.status}`);
   const outHeaders: Record<string, string> = {};
   upstreamRes.headers.forEach((value, key) => {
@@ -481,20 +640,94 @@ async function pipeResponse(
     return;
   }
 
+  // Mirror opencode-proxy/stream.ts: honor backpressure and cancel xAI when the
+  // hub/client hangs up. Without this, concurrent Claude tool rounds leave
+  // half-open upstream streams and the hub logs "Premature close".
+  let bytes = 0;
+  let clientGone = false;
+  const onClose = () => {
+    clientGone = true;
+    void upstreamRes.body?.cancel().catch(() => {});
+  };
+  res.once('close', onClose);
   const reader = upstreamRes.body.getReader() as ReadableStreamDefaultReader<Uint8Array>;
   try {
-    while (true) {
+    while (!clientGone && !res.writableEnded && !res.destroyed) {
       const { done, value } = await reader.read();
       if (done) {
         break;
       }
-      if (value) {
-        res.write(Buffer.from(value));
+      if (!value?.byteLength) {
+        continue;
+      }
+      bytes += value.byteLength;
+      if (!res.write(Buffer.from(value))) {
+        if (!(await waitForDrain(res))) {
+          clientGone = true;
+          void reader.cancel().catch(() => {});
+          break;
+        }
       }
     }
+    if (clientGone) {
+      log(`  ✗ client disconnected after ${bytes} bytes`);
+    }
+  } catch (err) {
+    if (!clientGone && !isBenignStreamError(err)) {
+      log(
+        `  ✗ stream interrupted after ${bytes} bytes: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
   } finally {
-    res.end();
+    res.removeListener('close', onClose);
+    try {
+      reader.releaseLock();
+    } catch {
+      // already released / cancelled
+    }
+    if (!res.writableEnded) {
+      res.end();
+    }
   }
+}
+
+function waitForDrain(res: ServerResponse): Promise<boolean> {
+  if (res.writableEnded || res.destroyed || res.socket?.destroyed) {
+    return Promise.resolve(false);
+  }
+  if (!res.writableNeedDrain) {
+    return Promise.resolve(true);
+  }
+  return new Promise((resolve) => {
+    const done = (ok: boolean) => {
+      res.removeListener('drain', onDrain);
+      res.removeListener('close', onFail);
+      res.removeListener('error', onFail);
+      resolve(ok);
+    };
+    const onDrain = () => done(true);
+    const onFail = () => done(false);
+    res.once('drain', onDrain);
+    res.once('close', onFail);
+    res.once('error', onFail);
+  });
+}
+
+function isBenignStreamError(err: unknown): boolean {
+  if (!err || typeof err !== 'object') {
+    return false;
+  }
+  const value = err as { name?: string; code?: string; message?: string };
+  if (value.name === 'AbortError' || value.code === 'ABORT_ERR') {
+    return true;
+  }
+  if (value.code === 'ERR_STREAM_PREMATURE_CLOSE') {
+    return true;
+  }
+  return (
+    typeof value.message === 'string' &&
+    /aborted|premature close|ECONNRESET|EPIPE|socket hang up/i.test(value.message)
+  );
 }
 
 function checkCors(req: IncomingMessage, res: ServerResponse): boolean {
@@ -541,6 +774,53 @@ function checkCors(req: IncomingMessage, res: ServerResponse): boolean {
   return true;
 }
 
+/** Canonical ids from the static map (unique, stable order). */
+export function staticGrokModelIds(): string[] {
+  return [...new Set(Object.values(GROK_MODELS).filter((id) => id.trim().length > 0))];
+}
+
+/** Accept OpenAI `{ data:[{id}] }`, `{ models:[] }`, or a bare string array. */
+export function modelIdsFromCatalogBody(text: string): string[] {
+  let value: unknown;
+  try {
+    value = JSON.parse(text) as unknown;
+  } catch {
+    return [];
+  }
+  if (Array.isArray(value)) {
+    return value
+      .map((entry) =>
+        typeof entry === 'string'
+          ? entry
+          : entry && typeof entry === 'object'
+            ? (entry as { id?: unknown }).id
+            : undefined,
+      )
+      .filter((id): id is string => typeof id === 'string' && id.trim().length > 0);
+  }
+  if (!value || typeof value !== 'object') {
+    return [];
+  }
+  const record = value as { data?: unknown; models?: unknown };
+  const list = Array.isArray(record.data)
+    ? record.data
+    : Array.isArray(record.models)
+      ? record.models
+      : null;
+  if (!list) {
+    return [];
+  }
+  return list
+    .map((entry) =>
+      typeof entry === 'string'
+        ? entry
+        : entry && typeof entry === 'object'
+          ? (entry as { id?: unknown }).id
+          : undefined,
+    )
+    .filter((id): id is string => typeof id === 'string' && id.trim().length > 0);
+}
+
 function json(res: ServerResponse, status: number, body: unknown): void {
   const raw = JSON.stringify(body);
   res.writeHead(status, {
@@ -548,6 +828,35 @@ function json(res: ServerResponse, status: number, body: unknown): void {
     'content-length': Buffer.byteLength(raw),
   });
   res.end(raw);
+}
+
+function pathOf(url: string): string {
+  return url.split('?')[0] ?? url;
+}
+
+/**
+ * Claude Code (and some MCP tool packs) put `"required": null` on tool
+ * input_schema. xAI schema validation rejects that; strip null keywords
+ * before the body leaves the loopback proxy.
+ */
+function sanitizePassThroughBody(path: string, body: Buffer): Buffer {
+  if (body.length === 0) {
+    return body;
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(body.toString('utf8')) as unknown;
+  } catch {
+    return body;
+  }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    return body;
+  }
+  const { body: next, changed } = sanitizeInferenceToolSchemas(
+    path,
+    parsed as Record<string, unknown>,
+  );
+  return changed ? Buffer.from(JSON.stringify(next), 'utf8') : body;
 }
 
 export function listenGrokProxy(

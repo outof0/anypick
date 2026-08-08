@@ -17,7 +17,7 @@ afterEach(async () => {
 
 describe('client env file safety', () => {
   it('rejects an overlay key that could inject shell syntax', async () => {
-    root = await mkdtemp(join(tmpdir(), 'hotplug-env-files-'));
+    root = await mkdtemp(join(tmpdir(), 'anypick-env-files-'));
 
     await expect(
       writeClientEnvFiles(root, 'claude', { 'SAFE; touch /tmp/pwned': 'value' }),

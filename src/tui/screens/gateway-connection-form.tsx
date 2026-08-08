@@ -120,7 +120,7 @@ export function GatewayConnectionFormScreen(props: Props) {
     >
       <Box flexDirection="column">
         <Text bold> Connect {props.gatewayName}</Text>
-        <Text dimColor> {props.providerName} credentials stay in Hotplug's local secrets.</Text>
+        <Text dimColor> {props.providerName} credentials stay in AnyPick's local secrets.</Text>
         <Text> </Text>
         {renderRow('endpoint', 'Endpoint', endpointLine)}
         {renderRow('api-key', 'API key', apiKeyLine)}

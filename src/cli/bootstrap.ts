@@ -20,8 +20,8 @@ const ROOT_INFO_ONLY_ARGS = new Set([
   '--reveal',
 ]);
 
-/** Run the regular Hotplug CLI after internal process commands are dispatched. */
-export async function runHotplugCli(args: string[]): Promise<void> {
+/** Run the regular AnyPick CLI after internal process commands are dispatched. */
+export async function runAnyPickCli(args: string[]): Promise<void> {
   const rootInfoOnly = args.length > 0 && args.every((arg) => ROOT_INFO_ONLY_ARGS.has(arg));
   const versionOnly = rootInfoOnly && args.some((arg) => arg === '--version' || arg === '-V');
   const helpOnly = rootInfoOnly && args.some((arg) => arg === '--help' || arg === '-h');
@@ -52,13 +52,15 @@ function packageVersion(): string {
 }
 
 function rootHelp(version: string): string {
-  return `${brandTint('hotplug')} ${version}
+  return `${brandTint('AnyPick')} ${version}
 
 ${BRAND_TAGLINE}
 
-Usage: hotplug [options] <command>
+Usage: anypick [options] [command]
 
 Core commands:
+  tui                Open the Terminal UI explicitly
+  tray               Open the desktop Tray
   use <client>       Set a client's default source
   run <client>       Launch with the effective source
   current            Show effective bindings
@@ -67,9 +69,11 @@ Core commands:
   link/unlink        Manage project-scoped bindings
   proxy              Manage local compatibility proxies
   doctor             Diagnose and repair safe local state
-  update             Update Hotplug to the latest npm release
+  update             Update AnyPick to the latest npm release
 
 Options:
+  --tui              Open the Terminal UI for this run
+  --tray             Open the desktop Tray for this run
   --json             Machine-readable output
   --dry-run          Plan only; no writes
   --no-input         Never prompt

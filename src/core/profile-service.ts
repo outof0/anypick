@@ -1,5 +1,5 @@
 import type { RuntimeProfile, RuntimeProfileMeta, RuntimeProfileSecrets } from '../types';
-import { HotplugError } from '../utils/errors';
+import { AnyPickError } from '../utils/errors';
 import { displayLabelFromName, normalizeProfileName } from '../utils/slug';
 import type { CatalogRegistry } from '../catalog/providers';
 import type { ProfileStore } from './profile-store';
@@ -55,7 +55,7 @@ export class ProfileService {
     const profileName = normalizeProfileName(name);
     const existing = await this.store.get(profileName);
     if (existing && !opts.force) {
-      throw new HotplugError(
+      throw new AnyPickError(
         `Profile "${profileName}" already exists. Use --force to overwrite.`,
         'PROFILE_EXISTS',
       );
@@ -162,7 +162,7 @@ export class ProfileService {
     const source = await this.store.require(normalizeProfileName(sourceName));
     const dest = normalizeProfileName(newName);
     if (await this.store.get(dest)) {
-      throw new HotplugError(`Profile "${dest}" already exists.`, 'PROFILE_EXISTS');
+      throw new AnyPickError(`Profile "${dest}" already exists.`, 'PROFILE_EXISTS');
     }
     return this.create(dest, {
       provider: source.meta.provider,

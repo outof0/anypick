@@ -8,6 +8,8 @@ import type {
   Provider,
   ProxyContext,
   ProxyHandle,
+  ProxyHubBackendContext,
+  ProxyHubBackendHandle,
   ProxyStatus,
 } from '../src/types';
 import { AccountStore } from '../src/core/store';
@@ -43,6 +45,7 @@ export class FakeProvider implements Provider {
   stopProxy?: (ctx: ProxyContext) => Promise<void>;
   proxyStatus?: (ctx: ProxyContext) => Promise<ProxyStatus>;
   readProxyLogs?: (ctx: ProxyContext, lines?: number) => Promise<string>;
+  createProxyHubBackend?: (ctx: ProxyHubBackendContext) => Promise<ProxyHubBackendHandle>;
 
   constructor(
     id: string,
@@ -259,7 +262,7 @@ export async function createTestEnv(
   providerIds: string[] = ['fake'],
   opts: { supportsProxy?: boolean } = {},
 ) {
-  const root = await mkdtemp(join(tmpdir(), 'hotplug-test-'));
+  const root = await mkdtemp(join(tmpdir(), 'anypick-test-'));
   const liveRoot = join(root, 'live');
   const storeRoot = join(root, 'store');
   const store = new AccountStore(storeRoot, openDatabase(storeRoot));

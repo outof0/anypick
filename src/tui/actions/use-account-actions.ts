@@ -1,13 +1,15 @@
 import React from 'react';
-import type { HotplugApp } from '../../core/app';
+import type { AnyPickApp } from '../../core/app';
+import { isAnyPickError } from '../../utils/errors';
 import { normalizeAccountName } from '../../utils/slug';
 import {
-  buildHotplugPreview,
+  buildAnyPickPreview,
+  identityDisplayText,
   loadAccountDetail,
   loadRootModel,
   receiptFromSwitchResult,
   suggestAccountSlug,
-  type HotplugHomeRow,
+  type AnyPickHomeRow,
   type ProviderPoolRow,
 } from '../model';
 import type { CredentialDraft, Screen } from '../model/screen';
@@ -28,20 +30,20 @@ export interface AccountActions {
   startAdd: (providerId?: string) => void;
   startImport: () => void;
   openAccountDetail: (providerId: string, name: string, back: Screen) => void;
-  openSwitchConfirm: (row: HotplugHomeRow) => Promise<void>;
+  openSwitchConfirm: (row: AnyPickHomeRow) => Promise<void>;
   doSwitch: (providerId: string, name: string) => Promise<void>;
-  doRefresh: (row: HotplugHomeRow, all?: boolean) => Promise<void>;
-  confirmSaveCurrent: (row: HotplugHomeRow) => void;
+  doRefresh: (row: AnyPickHomeRow, all?: boolean) => Promise<void>;
+  confirmSaveCurrent: (row: AnyPickHomeRow) => void;
   doSave: (providerId: string, rawName: string, opts?: { source?: 'antigravity' }) => Promise<void>;
   doSaveCredential: (draft: CredentialDraft) => Promise<void>;
   startCredentialInput: (providerId: string, kind: string) => void;
   doPrepareAnother: (providerId: string, source?: 'antigravity') => Promise<void>;
   startSaveName: (providerId: string, identity?: string, source?: 'antigravity') => void;
   recheckLogin: (providerId: string, source?: 'antigravity') => Promise<void>;
-  confirmDelete: (row: HotplugHomeRow, usingApps: readonly string[]) => void;
+  confirmDelete: (row: AnyPickHomeRow, usingApps: readonly string[]) => void;
 }
 
-export function useAccountActions(app: HotplugApp, shell: TuiShell, nav: TuiNav): AccountActions {
+export function useAccountActions(app: AnyPickApp, shell: TuiShell, nav: TuiNav): AccountActions {
   const { screen, go, setSelectedIndex, withBusy, setError, setReceipt, reportOk, reportFail } =
     shell;
   const { setPreview, setAccountDetail, openSwitch, openAccounts } = nav;
@@ -97,15 +99,32 @@ export function useAccountActions(app: HotplugApp, shell: TuiShell, nav: TuiNav)
     await withBusy(`Switching to ${name}`, async () => {
       try {
         const result = await app.accounts.use(providerId, name);
-        setReceipt(receiptFromSwitchResult(result));
+        const receipt = receiptFromSwitchResult(result);
+        const target = await app.accounts.get(providerId, name);
+        const provider = app.accounts.provider(providerId);
+        const restoreOwner =
+          target && provider.restoreOwnerStatus
+            ? await provider.restoreOwnerStatus(target.snapshotDir).catch(() => null)
+            : null;
+        if (restoreOwner) {
+          receipt.lines.push({
+            kind: 'info',
+            text: `Open ${restoreOwner.name} to use ${name}.`,
+          });
+        }
+        setReceipt(receipt);
         await openSwitch(`${providerId}/${result.to}`);
       } catch (err) {
-        setError(errorText(err));
+        setError(
+          isAnyPickError(err) && err.code === 'RESTORE_OWNER_RUNNING'
+            ? 'Antigravity is still open. Quit it completely, then press Enter again.'
+            : errorText(err),
+        );
       }
     });
   };
 
-  const openSwitchConfirm = async (row: HotplugHomeRow) => {
+  const openSwitchConfirm = async (row: AnyPickHomeRow) => {
     if (row.rowKind === 'save-live') {
       const slug = suggestAccountSlug(row.liveIdentity ?? row.identity);
       go({
@@ -118,13 +137,13 @@ export function useAccountActions(app: HotplugApp, shell: TuiShell, nav: TuiNav)
           ? `Save ${row.liveIdentity} as a ${row.providerName} login.`
           : `Save the live ${row.providerName} login.`,
         preview: `Saved as ${row.providerId}/${slug}`,
-        back: { kind: 'hotplug', focusRef: row.ref },
+        back: { kind: 'anypick', focusRef: row.ref },
       });
       return;
     }
     await withBusy(`Checking ${row.providerName}`, async () => {
       try {
-        const p = await buildHotplugPreview(app, row.providerId, row.name);
+        const p = await buildAnyPickPreview(app, row.providerId, row.name);
         if (p.alreadyActive && row.isLiveMatch) {
           setReceipt({
             title: '',
@@ -140,18 +159,32 @@ export function useAccountActions(app: HotplugApp, shell: TuiShell, nav: TuiNav)
         }
         // Changed login decision
         if (p.alreadyActive && row.providerRelation === 'drift') {
+          const ownerInstructions = p.restoreOwner?.running
+            ? [
+                '',
+                `${p.restoreOwner.name} is open and keeps the current login in memory.`,
+                'Quit it completely, return here, then press Enter.',
+              ]
+            : [];
           go({
             kind: 'confirm',
             path: ['switch', 'changed login'],
-            title: `${row.providerName} is signed in as ${row.liveIdentity ?? 'a different login'}.`,
+            title: `${row.providerName} is signed in as ${identityDisplayText(
+              row.liveIdentity,
+              'a different login',
+            )}.`,
             body: [
-              `The saved login ${row.name} contains ${row.identity ?? 'another identity'}.`,
+              `The saved login ${row.name} contains ${identityDisplayText(
+                row.identity,
+                'another identity',
+              )}.`,
               '',
               'Press enter to switch back to the saved login,',
               'or esc to leave it as-is.',
+              ...ownerInstructions,
             ],
-            confirmLabel: 'switch back',
-            back: { kind: 'hotplug', focusRef: row.ref },
+            confirmLabel: p.restoreOwner?.running ? 'check & switch back' : 'switch back',
+            back: { kind: 'anypick', focusRef: row.ref },
             action: async () => {
               await doSwitch(row.providerId, row.name);
             },
@@ -160,7 +193,7 @@ export function useAccountActions(app: HotplugApp, shell: TuiShell, nav: TuiNav)
         }
         setPreview(p);
         go({
-          kind: 'hotplug-preview',
+          kind: 'anypick-preview',
           providerId: row.providerId,
           name: row.name,
         });
@@ -170,7 +203,7 @@ export function useAccountActions(app: HotplugApp, shell: TuiShell, nav: TuiNav)
     });
   };
 
-  const doRefresh = async (row: HotplugHomeRow, all = false) => {
+  const doRefresh = async (row: AnyPickHomeRow, all = false) => {
     await withBusy(`Refreshing ${row.ref}`, async () => {
       try {
         const results = all
@@ -223,17 +256,17 @@ export function useAccountActions(app: HotplugApp, shell: TuiShell, nav: TuiNav)
     });
   };
 
-  const confirmSaveCurrent = (row: HotplugHomeRow) => {
+  const confirmSaveCurrent = (row: AnyPickHomeRow) => {
     setReceipt(null);
     go({
       kind: 'confirm',
       path: ['accounts', 'save current'],
       title: `Save the current ${row.providerName} login over ${row.ref}?`,
       body: [
-        `Saved      ${row.identity ?? '—'}`,
-        `Current    ${row.liveIdentity ?? '—'}`,
+        `Saved      ${identityDisplayText(row.identity)}`,
+        `Current    ${identityDisplayText(row.liveIdentity)}`,
         '',
-        "This replaces Hotplug's saved copy. The tool stays signed in.",
+        "This replaces AnyPick's saved copy. The tool stays signed in.",
       ],
       confirmLabel: 'save current',
       cancelLabel: 'keep saved login',
@@ -242,7 +275,7 @@ export function useAccountActions(app: HotplugApp, shell: TuiShell, nav: TuiNav)
         screen.kind === 'accounts'
           ? { kind: 'accounts', focusRef: row.ref }
           : {
-              kind: 'hotplug',
+              kind: 'anypick',
               focusRef: row.ref,
             },
       action: async () => {
@@ -325,10 +358,10 @@ export function useAccountActions(app: HotplugApp, shell: TuiShell, nav: TuiNav)
         path: ['accounts', 'save'],
         title: `Replace the saved login ${providerId}/${name}?`,
         body: [
-          `Existing    ${existing.meta.identity ?? '—'}`,
+          `Existing    ${identityDisplayText(existing.meta.identity)}`,
           `New         (current live login)`,
           '',
-          "This replaces Hotplug's saved copy. The tool stays signed in.",
+          "This replaces AnyPick's saved copy. The tool stays signed in.",
         ],
         confirmLabel: 'replace',
         cancelLabel: 'choose another name',
@@ -423,10 +456,10 @@ export function useAccountActions(app: HotplugApp, shell: TuiShell, nav: TuiNav)
         path: ['accounts', 'save'],
         title: `Replace the saved login ${providerId}/${name}?`,
         body: [
-          `Existing    ${existing.meta.identity ?? '—'}`,
+          `Existing    ${identityDisplayText(existing.meta.identity)}`,
           `New         (the ${draft.kind} you just entered)`,
           '',
-          "This replaces Hotplug's saved copy.",
+          "This replaces AnyPick's saved copy.",
         ],
         confirmLabel: 'replace',
         cancelLabel: 'choose another name',
@@ -469,16 +502,16 @@ export function useAccountActions(app: HotplugApp, shell: TuiShell, nav: TuiNav)
    * `usingApps` is passed in rather than derived here: the binding rows belong to
    * the proxy domain, and this hook must not reach into it just to word a warning.
    */
-  const confirmDelete = (row: HotplugHomeRow, usingApps: readonly string[]) => {
+  const confirmDelete = (row: AnyPickHomeRow, usingApps: readonly string[]) => {
     setReceipt(null);
     go({
       kind: 'confirm',
       path: 'accounts',
-      title: `Remove ${row.ref} from Hotplug?`,
+      title: `Remove ${row.ref} from AnyPick?`,
       body: [
-        row.identity ?? '',
+        identityDisplayText(row.identity, ''),
         '',
-        'This removes the saved login from Hotplug.',
+        'This removes the saved login from AnyPick.',
         `It does not change the login currently used by ${row.providerName}.`,
         ...(usingApps.length
           ? [
@@ -529,7 +562,7 @@ export function useAccountActions(app: HotplugApp, shell: TuiShell, nav: TuiNav)
   };
 
   /**
-   * Look again for a live login the user was told to create outside Hotplug.
+   * Look again for a live login the user was told to create outside AnyPick.
    *
    * Re-entering `add-mode` is what makes it offer "Save this login", so a
    * successful detection lands the user one keystroke from saving; a miss stays

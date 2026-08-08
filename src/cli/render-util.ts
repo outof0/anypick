@@ -5,17 +5,8 @@
 
 import pc from 'picocolors';
 
-export type LayoutWidth = 'wide' | 'medium' | 'narrow';
-
-export function layoutForColumns(cols: number): LayoutWidth {
-  if (cols < 50) {
-    return 'narrow';
-  }
-  if (cols < 80) {
-    return 'medium';
-  }
-  return 'wide';
-}
+export type { LayoutWidth } from '../presentation/layout';
+export { layoutForColumns } from '../presentation/layout';
 
 export function noColor(): boolean {
   return Boolean(process.env.NO_COLOR) || process.env.FORCE_COLOR === '0';

@@ -2,7 +2,7 @@ import { join } from 'node:path';
 import { readFile, writeFile } from 'node:fs/promises';
 import type { ProxyContext, ProxyHandle, ProxyStatus } from '../types';
 import { ensureDir, pathExists } from '../utils/fs';
-import { HotplugError } from '../utils/errors';
+import { AnyPickError } from '../utils/errors';
 import { assertLoopbackHost } from '../utils/network';
 import { readGeminiApiKeyFromEnvFile } from './gemini-env';
 import {
@@ -29,7 +29,7 @@ export async function startGeminiProxy(
   const port = ctx.config.port ?? opts.defaultPort;
   const mainJs = resolveProxyMain();
   if (!(await pathExists(mainJs))) {
-    throw new HotplugError(
+    throw new AnyPickError(
       `Gemini proxy entry not found at ${mainJs}. Run: pnpm build`,
       'PROXY_BINARY_MISSING',
     );
@@ -56,7 +56,7 @@ export async function startGeminiProxy(
 
   const oauthSource = ctx.config.options?.oauthSource ?? 'auto';
   if (oauthSource !== 'auto' && oauthSource !== 'gemini-cli' && oauthSource !== 'antigravity') {
-    throw new HotplugError(
+    throw new AnyPickError(
       `Invalid Gemini OAuth source: ${String(oauthSource)}. Use auto, gemini-cli, or antigravity.`,
       'PROXY_CONFIG_INVALID',
     );
@@ -76,8 +76,8 @@ export async function startGeminiProxy(
     effectiveOAuthSource === 'auto' ||
     (await pathExists(join(authDir, 'oauth_creds.json')));
   if (poolDirs.length === 0 && !(await pathExists(join(authDir, '.env'))) && !hasOAuth) {
-    throw new HotplugError(
-      'Gemini proxy needs GEMINI_API_KEY.\n\nPut the key in ~/.gemini/.env, then:\n  hotplug add account gemini --current --name <name>\n\nOAuth-only logins work for the Gemini CLI, but not for Claude/Codex via this proxy.',
+    throw new AnyPickError(
+      'Gemini proxy needs GEMINI_API_KEY.\n\nPut the key in ~/.gemini/.env, then:\n  anypick add account gemini --current --name <name>\n\nOAuth-only logins work for the Gemini CLI, but not for Claude/Codex via this proxy.',
       'NO_LIVE_AUTH',
     );
   }
@@ -91,7 +91,7 @@ export async function startGeminiProxy(
     (await readGeminiApiKeyFromEnvFile(join(authDir, '.env'))) ||
     (poolDirs[0] ? await readGeminiApiKeyFromEnvFile(join(poolDirs[0], '.env')) : undefined);
   if (!key && poolDirs.length === 0 && !hasOAuth) {
-    throw new HotplugError(
+    throw new AnyPickError(
       'This Gemini login has no usable API key. OAuth subscription accounts use the Code Assist transport automatically; refresh the Gemini login if oauth_creds.json is expired.',
       'NO_LIVE_AUTH',
     );
@@ -131,6 +131,27 @@ export async function startGeminiProxy(
   if (poolDirs.length > 0) {
     args.push('--auth-dirs', poolDirs.join(','));
   }
+  const poolAccountNames = Array.isArray(ctx.config.options?.quotaGuardAccountNames)
+    ? (ctx.config.options.quotaGuardAccountNames as unknown[]).filter(
+        (name): name is string => typeof name === 'string' && name.trim().length > 0,
+      )
+    : [];
+  if (poolAccountNames.length > 0) {
+    args.push('--auth-account-names', poolAccountNames.join(','));
+  }
+  const quotaGuard = ctx.config.options?.quotaGuard;
+  if (quotaGuard && typeof quotaGuard === 'object' && !Array.isArray(quotaGuard)) {
+    const policy = quotaGuard as Record<string, unknown>;
+    if (policy.enabled === true) {
+      args.push('--quota-guard', '--quota-guard-state', join(ctx.runtimeDir, 'quota-guard.json'));
+      if (typeof policy.cooldownMs === 'number' && Number.isFinite(policy.cooldownMs)) {
+        args.push(
+          '--quota-guard-cooldown-ms',
+          String(Math.max(1_000, Math.floor(policy.cooldownMs))),
+        );
+      }
+    }
+  }
 
   const endpoint = `http://${host}:${port}`;
   const { pid, instanceId } = await spawnDetached(process.execPath, args, {
@@ -142,8 +163,8 @@ export async function startGeminiProxy(
     env: {
       ...process.env,
       ...(key ? { GEMINI_API_KEY: key } : {}),
-      ...(ctx.token ? { HOTPLUG_PROXY_TOKEN: ctx.token } : {}),
-      HOTPLUG_PROXY_LOG: logPath,
+      ...(ctx.token ? { ANYPICK_PROXY_TOKEN: ctx.token } : {}),
+      ANYPICK_PROXY_LOG: logPath,
     },
   });
 
@@ -167,7 +188,7 @@ export async function startGeminiProxy(
         // ignore
       }
     }
-    throw new HotplugError(
+    throw new AnyPickError(
       `Gemini proxy failed to bind ${host}:${port}.${tail ? `\n${tail}` : ''}`,
       'PROXY_START_FAILED',
     );

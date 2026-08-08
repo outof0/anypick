@@ -1,5 +1,6 @@
 import type { SourceAdapter } from './bindings';
 import type { ModelPolicy } from './catalog';
+import type { ProxyHubBackendContext, ProxyHubBackendHandle } from './proxy-hub';
 
 /**
  * Metadata stored alongside each saved account snapshot.
@@ -146,7 +147,7 @@ export interface ProxyContext {
   /**
    * Per-instance high-entropy secret required on every credentialed route.
    * Generated once per proxy lifecycle; transmitted to the child only via the
-   * `HOTPLUG_PROXY_TOKEN` env var. Never logged or returned in status.
+   * `ANYPICK_PROXY_TOKEN` env var. Never logged or returned in status.
    */
   token?: string;
 }
@@ -196,6 +197,18 @@ export interface ProxyStatus {
   detail?: string;
 }
 
+/** External application that must release live auth before a restore. */
+export interface RestoreOwnerStatus {
+  name: string;
+  running: boolean;
+}
+
+/** Human-facing native source represented by one provider snapshot. */
+export interface AccountSourceDescriptor {
+  id: string;
+  name: string;
+}
+
 /**
  * Provider contract.
  *
@@ -219,6 +232,13 @@ export interface Provider extends ModelPolicy {
 
   /** Short UI label for lists and status lines. Defaults to `name`. */
   readonly shortName?: string;
+
+  /**
+   * When true, the TUI/CLI account-add flow offers a multi-source picker before
+   * mode selection (e.g. Gemini CLI vs Antigravity). Driven by the provider so
+   * UI surfaces never hardcode provider ids.
+   */
+  readonly requiresAccountSourcePick?: boolean;
 
   /**
    * True when the compatibility proxy needs an API key from the snapshot and
@@ -264,6 +284,13 @@ export interface Provider extends ModelPolicy {
   poolSourceAdapter?(): SourceAdapter;
 
   /**
+   * Optional provider-owned backend for the unified Proxy Hub. Core owns local
+   * auth/routing only; each provider keeps its protocol translation and
+   * credential lifecycle behind this boundary.
+   */
+  createProxyHubBackend?(ctx: ProxyHubBackendContext): Promise<ProxyHubBackendHandle>;
+
+  /**
    * Inspect the currently active (live) auth on this machine.
    * Must not throw for "not logged in" — return present: false.
    */
@@ -271,7 +298,7 @@ export interface Provider extends ModelPolicy {
 
   /**
    * Read usage for the currently live local login only. Implementations must
-   * not restore, inspect, or authenticate with a saved Hotplug snapshot.
+   * not restore, inspect, or authenticate with a saved AnyPick snapshot.
    */
   liveUsage?(): Promise<LiveUsage | null>;
 
@@ -331,6 +358,31 @@ export interface Provider extends ModelPolicy {
   restore(srcDir: string): Promise<void>;
 
   /**
+   * Optional mutation-free restore guard.
+   *
+   * Core calls this before taking a live-auth checkpoint or stopping proxies,
+   * so an unsafe external owner can reject the switch without triggering a
+   * rollback for work that never started.
+   */
+  preflightRestore?(srcDir: string): Promise<void>;
+
+  /**
+   * Optional status for an external application that owns the live credential.
+   * TUI previews use this to explain a required quit before the user commits,
+   * instead of discovering the requirement as an operational error.
+   */
+  restoreOwnerStatus?(srcDir: string): Promise<RestoreOwnerStatus | null>;
+
+  /**
+   * Optional account-source label when one provider manages multiple native
+   * products. This keeps product identity out of core and TUI conditionals.
+   */
+  accountSource?(srcDir: string): Promise<AccountSourceDescriptor>;
+
+  /** Source label for a live login that has not been saved to a snapshot yet. */
+  liveAccountSource?(live: LiveAuthStatus): Promise<AccountSourceDescriptor>;
+
+  /**
    * Optional: read identity/label from an existing snapshot without restoring.
    */
   describeSnapshot?(srcDir: string): Promise<SnapshotMeta>;
@@ -338,7 +390,7 @@ export interface Provider extends ModelPolicy {
   /**
    * Remove live auth files so the tool thinks you are logged out,
    * WITHOUT calling the provider logout/revoke endpoint.
-   * Tokens in hotplug snapshots stay valid for later restore.
+   * Tokens in anypick snapshots stay valid for later restore.
    */
   clearLive?(): Promise<void>;
 
@@ -395,8 +447,8 @@ export interface Provider extends ModelPolicy {
   readProxyLogs?(ctx: ProxyContext, lines?: number): Promise<string>;
 }
 
-export interface HotplugConfig {
-  /** Absolute path to the hotplug data root. Default: ~/.hotplug */
+export interface AnyPickConfig {
+  /** Absolute path to the anypick data root. Default: ~/.anypick */
   rootDir: string;
 }
 

@@ -17,15 +17,18 @@ export interface ProxyModelsFetchResult {
  */
 export async function fetchModelsFromProxyEndpoint(
   endpoint: string,
-  opts: { timeoutMs?: number; apiKey?: string } = {},
+  opts: { timeoutMs?: number; apiKey?: string; refresh?: boolean } = {},
 ): Promise<ProxyModelsFetchResult> {
   const base = endpoint.replace(/\/$/, '');
-  const url = `${base}/v1/models`;
+  // `refresh=1` tells an OpenCode-backed proxy to bypass its catalog TTL so a
+  // model the account gained upstream (a new free tier, etc.) shows immediately.
+  // Non-OpenCode proxies ignore the unknown query param and list as usual.
+  const url = `${base}/v1/models${opts.refresh ? '?refresh=1' : ''}`;
   try {
     const res = await fetch(url, {
       method: 'GET',
       headers: {
-        authorization: `Bearer ${opts.apiKey ?? 'hotplug-proxy'}`,
+        authorization: `Bearer ${opts.apiKey ?? 'anypick-proxy'}`,
         accept: 'application/json',
       },
       signal: AbortSignal.timeout(opts.timeoutMs ?? 5000),

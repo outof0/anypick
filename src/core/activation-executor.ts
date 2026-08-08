@@ -13,7 +13,7 @@ import type {
   ResolvedClientPlan,
   ResourceRef,
 } from '../types';
-import { mutationScopeForRef, parseRef, serializeRef } from './refs';
+import { displayRef, mutationScopeForRef, parseRef, serializeRef } from './refs';
 import type { OperationJournal } from './journal';
 import type { LeaseStore } from './lease-store';
 import type { AccountService } from './service';
@@ -26,11 +26,12 @@ import {
   type ResolveSourceDeps,
 } from './resolve-source';
 import type { ProxyService } from './proxy-service';
-import { hotplugError, ExitCode, isHotplugError } from '../utils/errors';
+import type { ProxyHubRouteSecret } from './proxy-hub-store';
+import { anypickError, ExitCode, isAnyPickError } from '../utils/errors';
 import { pathExists } from '../utils/fs';
 import { waitForHttp } from '../utils/process/health';
 import { withMutationLocks } from './mutation-lock';
-import { makeEmitter, type HotplugEventSink } from './events';
+import { makeEmitter, type AnyPickEventSink } from './events';
 
 export interface ExecuteResult {
   plan: ActivationPlan;
@@ -59,11 +60,11 @@ export interface ExecutorDeps extends ResolveSourceDeps {
   proxy: ProxyService;
   /**
    * Structured sink for degraded-state conditions (OBS-01). Optional.
-   * Named `eventSink` rather than `events` so an entire `HotplugApp` (whose
+   * Named `eventSink` rather than `events` so an entire `AnyPickApp` (whose
    * `events` is a `{ sink, emit, list }` facade) can still be passed where
    * `ExecutorDeps` is expected without a structural type collision.
    */
-  eventSink?: HotplugEventSink;
+  eventSink?: AnyPickEventSink;
 }
 
 export interface ExecuteOptions {
@@ -108,6 +109,12 @@ function bindingEqual(
 }
 
 function mutationScopes(plan: ActivationPlan): string[] {
+  // Hub mutations own their complete Hub + provider lock set inside
+  // ProxyHubService. Keeping the executor's outer lock client-scoped avoids
+  // holding the Hub lock before the service can acquire its sorted scope set.
+  if (plan.resolvedSource.ref.kind === 'proxy-hub') {
+    return [`client/${plan.client}`];
+  }
   return [`client/${plan.client}`, mutationScopeForRef(plan.resolvedSource.ref)];
 }
 
@@ -210,18 +217,18 @@ async function executeActivationLocked(
 
     // Transport gates before any mutation (planner does not emit steps for these).
     if (plan.transport.capability === 'external_manual_proxy') {
-      throw hotplugError(
+      throw anypickError(
         `Required external proxy for ${plan.resolvedSource.display} is not installed.\n\nInstall the provider proxy and retry.`,
         'MISSING_DEPENDENCY',
         {
           exitCode: ExitCode.MISSING_DEPENDENCY,
-          suggestions: [`hotplug doctor ${plan.client}`],
+          suggestions: [`anypick doctor ${plan.client}`],
           mutated: false,
         },
       );
     }
     if (plan.transport.capability === 'unsupported') {
-      throw hotplugError(
+      throw anypickError(
         `Unsupported transport for ${plan.client} × ${plan.resolvedSource.display}`,
         'UNSUPPORTED_TRANSPORT',
         { exitCode: ExitCode.CAPABILITY_CONFLICT },
@@ -257,10 +264,309 @@ async function executeActivationLocked(
     await finalizeJournal(deps, journal.id, rolledBack);
     // Surface whether any live state was left changed.
     const mutated = ctx.mutated && !rolledBack;
-    if (isHotplugError(rethrow)) {
+    if (isAnyPickError(rethrow)) {
       rethrow.mutated = mutated;
     }
     throw rethrow;
+  }
+}
+
+/**
+ * Per-step execution context. Handlers register undo on `ctx` and never re-derive
+ * transport capability from adapters — the plan is the single source of truth.
+ */
+interface StepRunArgs {
+  step: PlanStep;
+  plan: ActivationPlan;
+  deps: ExecutorDeps;
+  opts: ExecuteOptions;
+  ctx: ActivationContext;
+  journalId: string;
+}
+
+type StepHandler = (args: StepRunArgs) => Promise<void>;
+
+/** Planner-time markers: resolved while building the plan, no execution work. */
+const plannerOnlyStep: StepHandler = async () => {};
+
+/**
+ * Exhaustive step-handler registry.
+ *
+ * Adding a PlanStepKind without a handler is a compile error (`satisfies`),
+ * which is how ValidateCredential/WaitForHealth/VerifyEffectiveState came to
+ * be advertised in `--dry-run` while doing nothing under a silent default.
+ */
+const STEP_HANDLERS = {
+  EnsureProxyHub: async ({ step, plan, deps, ctx }) => {
+    const name = hubNameForStep(step, plan);
+    const hub = requireProxyHub(deps);
+    const started = await hub.ensureRunning(name);
+    plan.transport.endpoint = started.endpoint;
+    if (started.startedNow) {
+      ctx.mutated = true;
+      ctx.undo.push(async () => {
+        if (hub.getAttachedRouteCount(name) === 0) {
+          await hub.stop(name);
+        }
+      });
+    }
+  },
+
+  AttachProxyHubRoute: async ({ step, plan, deps, ctx }) => {
+    const name = hubNameForStep(step, plan);
+    const routeId = routeIdForStep(step);
+    const hub = requireProxyHub(deps);
+    const previous: ProxyHubRouteSecret | null = hub.getAttachedRoute(routeId);
+    const attached = await hub.attachRoute(
+      routeId,
+      plan.client,
+      plan.transport.protocol,
+      name,
+      requestedHubModels(plan),
+    );
+    if (plan.transport.managedProxy) {
+      plan.transport.managedProxy.token = attached.token;
+    }
+    ctx.mutated = true;
+    ctx.undo.push(async () => {
+      await hub.restoreRoute(routeId, previous);
+    });
+  },
+
+  WaitForHubHealth: async ({ plan, opts }) => {
+    const endpoint = plan.transport.endpoint;
+    if (!endpoint) {
+      throw new Error('Internal plan error: Proxy Hub has no endpoint');
+    }
+    const ready = await waitForHttp(`${endpoint}/health`, { timeoutMs: opts.healthTimeoutMs });
+    if (!ready) {
+      throw anypickError('Proxy Hub did not become healthy.', 'PROXY_START_FAILED');
+    }
+  },
+
+  ValidateProxyHubRoute: async ({ plan, opts }) => {
+    const endpoint = plan.transport.endpoint;
+    const token = plan.transport.managedProxy?.token;
+    if (!endpoint || !token) {
+      throw new Error('Internal plan error: Proxy Hub route has no token');
+    }
+    const response = await fetch(`${endpoint}/v1/models`, {
+      headers: { authorization: `Bearer ${token}` },
+      signal: AbortSignal.timeout(opts.healthTimeoutMs ?? 5000),
+    });
+    if (!response.ok) {
+      throw anypickError('Proxy Hub route could not be validated.', 'PROXY_START_FAILED');
+    }
+  },
+
+  StartProxy: async ({ plan, deps, ctx }) => {
+    const endpoint = await startManagedProxy(plan, deps, ctx);
+    if (endpoint) {
+      plan.transport.endpoint = endpoint;
+    }
+  },
+
+  WriteNativeAuth: async ({ plan, deps, ctx, journalId }) => {
+    if (plan.mode === 'ephemeral') {
+      throw anypickError(
+        'Internal plan error: ephemeral activation must not write live native auth.',
+        'UNSUPPORTED_TRANSPORT',
+        { exitCode: ExitCode.CAPABILITY_CONFLICT },
+      );
+    }
+    if (plan.resolvedSource.ref.kind === 'account') {
+      const { provider, name } = plan.resolvedSource.ref;
+      // Snapshot before invoking provider.restore. Mark mutation intent and
+      // register undo before the call so a provider that writes one auth file
+      // and then throws is still compensated.
+      const checkpoint = await deps.accounts.checkpointLiveAuth(provider, { durable: true });
+      const journal = deps.journal.get(journalId);
+      deps.journal.update(journalId, {
+        params: {
+          ...journal?.params,
+          nativeAuthCheckpoint: checkpoint,
+        },
+      });
+      ctx.nativeAuthCheckpoint = checkpoint;
+      ctx.mutated = true;
+      ctx.undo.push(async () => {
+        try {
+          await deps.accounts.restoreLiveAuthCheckpoint(checkpoint);
+        } finally {
+          await deps.accounts.discardLiveAuthCheckpoint(checkpoint);
+        }
+      });
+      await deps.accounts.use(provider, name, {
+        noProxy: plan.transport.capability !== 'direct',
+      });
+    }
+  },
+
+  WriteClientConfig: async ({ plan, deps, opts, ctx, journalId }) => {
+    if (
+      (plan.resolvedSource.kind === 'account' || plan.resolvedSource.kind === 'proxy-hub') &&
+      plan.transport.endpoint &&
+      plan.transport.capability !== 'direct'
+    ) {
+      // Persist exact file compensation before an adapter can touch disk.
+      const recovery = await prepareClientRecovery(plan.client, deps, ctx, journalId);
+      ctx.clientConfigWritten = plan.client;
+      ctx.mutated = true;
+      ctx.undo.push(async () => {
+        await deps.runtime.restoreClientConfigRecovery(recovery);
+      });
+      // Leaving the Hub must drop this client's route so Claude's Hub attach
+      // cannot keep a stale global/<client> route that confuses live Codex config.
+      if (plan.mode === 'persistent' && plan.resolvedSource.ref.kind !== 'proxy-hub') {
+        await detachClientHubRoute(deps, plan.client);
+      }
+      // Account + managed proxy: inject endpoint into native client config.
+      await injectProxyEndpoint(plan, deps, opts, recovery);
+    } else if (
+      plan.resolvedSource.kind === 'gateway' &&
+      plan.resolvedSource.ref.kind === 'gateway' &&
+      (plan.mode === 'persistent' || plan.mode === 'project')
+    ) {
+      // Persist exact file compensation before an adapter can touch disk.
+      const recovery = await prepareClientRecovery(plan.client, deps, ctx, journalId);
+      ctx.clientConfigWritten = plan.client;
+      ctx.mutated = true;
+      ctx.undo.push(async () => {
+        await deps.runtime.restoreClientConfigRecovery(recovery);
+      });
+      if (plan.mode === 'persistent') {
+        await detachClientHubRoute(deps, plan.client);
+      }
+      // Gateway profile: apply the saved profile to the client.
+      await deps.runtime.apply(plan.resolvedSource.ref.name, plan.client, {
+        dryRun: false,
+        verbose: opts.verbose,
+        proxyEndpoint: plan.transport.endpoint,
+        recovery,
+      });
+    } else if (
+      plan.client === 'codex' &&
+      plan.mode === 'persistent' &&
+      plan.transport.capability === 'direct'
+    ) {
+      // Native Codex account: restore the user's top-level model/model_provider
+      // and mark live mode native so a still-running proxy cannot re-takeover.
+      await deps.runtime.restoreCodexLiveForNative();
+      await detachClientHubRoute(deps, 'codex');
+    }
+  },
+
+  ValidateCredential: async ({ plan, deps }) => {
+    await validateCredential(plan, deps);
+  },
+
+  WaitForHealth: async ({ plan, opts }) => {
+    await waitForProxyHealth(plan, opts);
+  },
+
+  VerifyEffectiveState: async ({ plan, deps }) => {
+    await verifyEffectiveState(plan, deps);
+  },
+
+  CreateTemporaryClientHome: async (args) => {
+    await createEphemeralHome(args);
+  },
+
+  CreateEnvironmentOverlay: async (args) => {
+    await createEphemeralHome(args);
+  },
+
+  SpawnChild: async () => {
+    // The actual child process is spawned by the CLI launcher (launch-client),
+    // which uses `result.isolated.environment` + `result.isolated.cleanup`.
+    // The executor must NOT spawn here — it only builds the ephemeral session
+    // so a single temp-home step produces exactly one dir.
+  },
+
+  CommitGlobalBinding: async ({ plan, deps, ctx }) => {
+    if (plan.mode !== 'persistent' || !plan.bindingSpec || !plan.provenance) {
+      throw new Error('Internal plan error: invalid global binding commit');
+    }
+    const previous = deps.bindings.getGlobal(plan.client);
+    ctx.binding = deps.bindings.upsertGlobal(plan.client, plan.bindingSpec, plan.provenance);
+    ctx.mutated = true;
+    ctx.undo.push(async () => {
+      if (previous) {
+        deps.bindings.upsertGlobal(plan.client, previous.spec, previous.provenance);
+      } else {
+        deps.bindings.deleteGlobal(plan.client);
+      }
+    });
+    // Codex Desktop catalog aliases read modelRoles from the binding store.
+    // Re-sync after commit so Default/Model 2–5 win over the pre-binding attach.
+    if (plan.client === 'codex' && plan.resolvedSource.ref.kind === 'proxy-hub') {
+      await deps.runtime.refreshCodexLiveConfig({ forceRouted: true });
+    }
+  },
+
+  CommitProjectBinding: async ({ step, plan, deps, opts, ctx }) => {
+    if (plan.mode !== 'project' || !plan.bindingSpec || !plan.provenance) {
+      throw new Error('Internal plan error: invalid project binding commit');
+    }
+    const root =
+      typeof step.params?.projectRoot === 'string' ? step.params.projectRoot : opts.projectRoot;
+    if (!root) {
+      throw anypickError('projectRoot required for project binding commit', 'INVALID_USAGE', {
+        exitCode: ExitCode.INVALID_USAGE,
+      });
+    }
+    const previous = deps.bindings.getProject(root, plan.client);
+    ctx.binding = deps.bindings.upsertProject(root, plan.client, plan.bindingSpec, plan.provenance);
+    ctx.mutated = true;
+    ctx.undo.push(async () => {
+      if (previous) {
+        deps.bindings.upsertProject(root, plan.client, previous.spec, previous.provenance);
+      } else {
+        deps.bindings.deleteProject(root, plan.client);
+      }
+    });
+  },
+
+  ResolveSource: plannerOnlyStep,
+  ExpandPreset: plannerOnlyStep,
+  ValidateCompatibility: plannerOnlyStep,
+  ResolveTransport: plannerOnlyStep,
+  ValidateExternalDependency: plannerOnlyStep,
+  AllocateProxyLease: plannerOnlyStep,
+  InspectClientState: plannerOnlyStep,
+  ReleaseLease: plannerOnlyStep,
+  RestoreTemporaryState: plannerOnlyStep,
+} as const satisfies Record<PlanStep['kind'], StepHandler>;
+
+async function createEphemeralHome({ plan, deps, opts, ctx }: StepRunArgs): Promise<void> {
+  // Exactly one isolated home is created for the whole ephemeral run. The
+  // returned session owns its own temp dir + acquired handles; cleanup is
+  // idempotent so the launcher can call it on every exit path.
+  if (
+    plan.resolvedSource.ref.kind === 'account' ||
+    plan.resolvedSource.ref.kind === 'gateway' ||
+    plan.resolvedSource.ref.kind === 'proxy-hub'
+  ) {
+    const profile = await loadProfileForRef(plan.resolvedSource.ref, deps);
+    const account = await loadAccountForRef(plan.resolvedSource.ref, deps);
+    const resolvedPlan: ResolvedClientPlan = {
+      clientId: plan.client,
+      source: plan.resolvedSource,
+      transport: plan.transport,
+      model: plan.model,
+      mode: 'ephemeral',
+      profile,
+      account,
+      dryRun: false,
+      verbose: Boolean(opts.verbose),
+      anypickRoot: deps.runtime.root,
+    };
+    const isolated = await deps.runtime.createEphemeralRuntime(resolvedPlan);
+    ctx.isolated = isolated;
+    ctx.mutated = true;
+    ctx.undo.push(async () => {
+      await isolated.cleanup();
+    });
   }
 }
 
@@ -277,214 +583,8 @@ async function runStep(
   ctx: ActivationContext,
   journalId: string,
 ): Promise<void> {
-  switch (step.kind) {
-    case 'StartProxy': {
-      const endpoint = await startManagedProxy(plan, deps, ctx);
-      if (endpoint) {
-        plan.transport.endpoint = endpoint;
-      }
-      break;
-    }
-
-    case 'WriteNativeAuth': {
-      if (plan.mode === 'ephemeral') {
-        throw hotplugError(
-          'Internal plan error: ephemeral activation must not write live native auth.',
-          'UNSUPPORTED_TRANSPORT',
-          { exitCode: ExitCode.CAPABILITY_CONFLICT },
-        );
-      }
-      if (plan.resolvedSource.ref.kind === 'account') {
-        const { provider, name } = plan.resolvedSource.ref;
-        // Snapshot before invoking provider.restore. Mark mutation intent and
-        // register undo before the call so a provider that writes one auth file
-        // and then throws is still compensated.
-        const checkpoint = await deps.accounts.checkpointLiveAuth(provider, { durable: true });
-        const journal = deps.journal.get(journalId);
-        deps.journal.update(journalId, {
-          params: {
-            ...journal?.params,
-            nativeAuthCheckpoint: checkpoint,
-          },
-        });
-        ctx.nativeAuthCheckpoint = checkpoint;
-        ctx.mutated = true;
-        ctx.undo.push(async () => {
-          try {
-            await deps.accounts.restoreLiveAuthCheckpoint(checkpoint);
-          } finally {
-            await deps.accounts.discardLiveAuthCheckpoint(checkpoint);
-          }
-        });
-        await deps.accounts.use(provider, name, {
-          noProxy: plan.transport.capability !== 'direct',
-        });
-      }
-      break;
-    }
-
-    case 'WriteClientConfig': {
-      if (
-        plan.resolvedSource.kind === 'account' &&
-        plan.transport.endpoint &&
-        plan.transport.capability !== 'direct'
-      ) {
-        // Persist exact file compensation before an adapter can touch disk.
-        const recovery = await prepareClientRecovery(plan.client, deps, ctx, journalId);
-        ctx.clientConfigWritten = plan.client;
-        ctx.mutated = true;
-        ctx.undo.push(async () => {
-          await deps.runtime.restoreClientConfigRecovery(recovery);
-        });
-        // Account + managed proxy: inject endpoint into native client config.
-        await injectProxyEndpoint(plan, deps, opts, recovery);
-      } else if (
-        plan.resolvedSource.kind === 'gateway' &&
-        plan.resolvedSource.ref.kind === 'gateway' &&
-        (plan.mode === 'persistent' || plan.mode === 'project')
-      ) {
-        // Persist exact file compensation before an adapter can touch disk.
-        const recovery = await prepareClientRecovery(plan.client, deps, ctx, journalId);
-        ctx.clientConfigWritten = plan.client;
-        ctx.mutated = true;
-        ctx.undo.push(async () => {
-          await deps.runtime.restoreClientConfigRecovery(recovery);
-        });
-        // Gateway profile: apply the saved profile to the client.
-        await deps.runtime.apply(plan.resolvedSource.ref.name, plan.client, {
-          dryRun: false,
-          verbose: opts.verbose,
-          proxyEndpoint: plan.transport.endpoint,
-          recovery,
-        });
-      }
-      break;
-    }
-
-    case 'ValidateCredential': {
-      await validateCredential(plan, deps);
-      break;
-    }
-
-    case 'WaitForHealth': {
-      await waitForProxyHealth(plan, opts);
-      break;
-    }
-
-    case 'VerifyEffectiveState': {
-      await verifyEffectiveState(plan, deps);
-      break;
-    }
-
-    case 'CreateTemporaryClientHome':
-    case 'CreateEnvironmentOverlay': {
-      // Exactly one isolated home is created for the whole ephemeral run. The
-      // returned session owns its own temp dir + acquired handles; cleanup is
-      // idempotent so the launcher can call it on every exit path.
-      if (
-        plan.resolvedSource.ref.kind === 'account' ||
-        plan.resolvedSource.ref.kind === 'gateway'
-      ) {
-        const profile = await loadProfileForRef(plan.resolvedSource.ref, deps);
-        const account = await loadAccountForRef(plan.resolvedSource.ref, deps);
-        const resolvedPlan: ResolvedClientPlan = {
-          clientId: plan.client,
-          source: plan.resolvedSource,
-          transport: plan.transport,
-          model: plan.model,
-          mode: 'ephemeral',
-          profile,
-          account,
-          dryRun: false,
-          verbose: Boolean(opts.verbose),
-          hotplugRoot: deps.runtime.root,
-        };
-        const isolated = await deps.runtime.createEphemeralRuntime(resolvedPlan);
-        ctx.isolated = isolated;
-        ctx.mutated = true;
-        ctx.undo.push(async () => {
-          await isolated.cleanup();
-        });
-      }
-      break;
-    }
-
-    case 'SpawnChild': {
-      // The actual child process is spawned by the CLI launcher (launch-client),
-      // which uses `result.isolated.environment` + `result.isolated.cleanup`.
-      // The executor must NOT spawn here — it only builds the ephemeral session
-      // (above) so a single temp-home step produces exactly one dir.
-      break;
-    }
-
-    case 'CommitGlobalBinding': {
-      if (plan.mode !== 'persistent' || !plan.bindingSpec || !plan.provenance) {
-        throw new Error('Internal plan error: invalid global binding commit');
-      }
-      const previous = deps.bindings.getGlobal(plan.client);
-      ctx.binding = deps.bindings.upsertGlobal(plan.client, plan.bindingSpec, plan.provenance);
-      ctx.mutated = true;
-      ctx.undo.push(async () => {
-        if (previous) {
-          deps.bindings.upsertGlobal(plan.client, previous.spec, previous.provenance);
-        } else {
-          deps.bindings.deleteGlobal(plan.client);
-        }
-      });
-      break;
-    }
-
-    case 'CommitProjectBinding': {
-      if (plan.mode !== 'project' || !plan.bindingSpec || !plan.provenance) {
-        throw new Error('Internal plan error: invalid project binding commit');
-      }
-      const root =
-        typeof step.params?.projectRoot === 'string' ? step.params.projectRoot : opts.projectRoot;
-      if (!root) {
-        throw hotplugError('projectRoot required for project binding commit', 'INVALID_USAGE', {
-          exitCode: ExitCode.INVALID_USAGE,
-        });
-      }
-      const previous = deps.bindings.getProject(root, plan.client);
-      ctx.binding = deps.bindings.upsertProject(
-        root,
-        plan.client,
-        plan.bindingSpec,
-        plan.provenance,
-      );
-      ctx.mutated = true;
-      ctx.undo.push(async () => {
-        if (previous) {
-          deps.bindings.upsertProject(root, plan.client, previous.spec, previous.provenance);
-        } else {
-          deps.bindings.deleteProject(root, plan.client);
-        }
-      });
-      break;
-    }
-
-    // Planner-time-only markers. These are resolved/validated while building the
-    // plan, so execution has nothing left to do. Any step that performs work at
-    // execution time needs its own case above — the `never` assignment below
-    // turns a new PlanStepKind into a compile error rather than a silent no-op,
-    // which is how ValidateCredential/WaitForHealth/VerifyEffectiveState came to
-    // be advertised in `--dry-run` output while doing nothing.
-    case 'ResolveSource':
-    case 'ExpandPreset':
-    case 'ValidateCompatibility':
-    case 'ResolveTransport':
-    case 'ValidateExternalDependency':
-    case 'AllocateProxyLease':
-    case 'InspectClientState':
-    case 'ReleaseLease':
-    case 'RestoreTemporaryState':
-      break;
-
-    default: {
-      const exhaustive: never = step.kind;
-      throw new Error(`Unhandled plan step: ${String(exhaustive)}`);
-    }
-  }
+  const handler = STEP_HANDLERS[step.kind];
+  await handler({ step, plan, deps, opts, ctx, journalId });
 }
 
 /**
@@ -504,12 +604,12 @@ async function validateCredential(plan: ActivationPlan, deps: ExecutorDeps): Pro
     // meaningless, since the directory is (re)created by this very call.
     const account = await deps.accounts.get(ref.provider, ref.name);
     if (!account) {
-      throw hotplugError(
+      throw anypickError(
         `Account ${ref.provider}/${ref.name} has no stored credential snapshot.`,
         'AUTH_REQUIRED',
         {
           exitCode: ExitCode.AUTH_REQUIRED,
-          suggestions: [`hotplug add ${ref.provider} --name ${ref.name}`],
+          suggestions: [`anypick add ${ref.provider} --name ${ref.name}`],
         },
       );
     }
@@ -538,9 +638,17 @@ async function validateCredential(plan: ActivationPlan, deps: ExecutorDeps): Pro
   if (ref.kind === 'gateway') {
     const profile = await loadProfileForRef(ref, deps);
     if (!profile) {
-      throw hotplugError(`Gateway not found: ${ref.name}`, 'GATEWAY_NOT_FOUND', {
+      throw anypickError(`Gateway not found: ${ref.name}`, 'GATEWAY_NOT_FOUND', {
         exitCode: ExitCode.NOT_FOUND,
       });
+    }
+    return;
+  }
+
+  if (ref.kind === 'proxy-hub') {
+    const hub = await requireProxyHub(deps).get(ref.name);
+    if (!hub.enabled) {
+      throw anypickError(`Proxy Hub hub:${ref.name} is disabled.`, 'PROXY_DISABLED');
     }
     return;
   }
@@ -549,12 +657,12 @@ async function validateCredential(plan: ActivationPlan, deps: ExecutorDeps): Pro
     const pool = deps.pools ? await deps.pools.get(ref.provider) : undefined;
     const enabled = pool?.members.filter((m) => m.enabled) ?? [];
     if (enabled.length === 0) {
-      throw hotplugError(
+      throw anypickError(
         `Pool ${ref.provider} has no enabled members to activate.`,
         'AUTH_REQUIRED',
         {
           exitCode: ExitCode.AUTH_REQUIRED,
-          suggestions: [`hotplug proxy pool ${ref.provider}`],
+          suggestions: [`anypick proxy pool ${ref.provider}`],
         },
       );
     }
@@ -582,14 +690,14 @@ async function waitForProxyHealth(plan: ActivationPlan, opts: ExecuteOptions): P
     timeoutMs: opts.healthTimeoutMs ?? 5000,
   });
   if (!ok) {
-    throw hotplugError(
+    throw anypickError(
       `Proxy for ${plan.resolvedSource.display} is not responding at ${endpoint}.`,
       'HEALTH_FAILURE',
       {
         exitCode: ExitCode.HEALTH_FAILURE,
         suggestions: [
-          `hotplug proxy logs ${ref.kind === 'account' ? `${ref.provider} ${ref.name}` : ''}`.trim(),
-          `hotplug doctor ${plan.client}`,
+          `anypick proxy logs ${ref.kind === 'account' ? `${ref.provider} ${ref.name}` : ''}`.trim(),
+          `anypick doctor ${plan.client}`,
         ],
       },
     );
@@ -599,7 +707,7 @@ async function waitForProxyHealth(plan: ActivationPlan, opts: ExecuteOptions): P
 /**
  * Read back the client configuration this activation just wrote and confirm the
  * adapter reports it as present. Without this, a client adapter whose write
- * silently no-ops leaves `hotplug use` reporting success while the client keeps
+ * silently no-ops leaves `anypick use` reporting success while the client keeps
  * talking to the previous endpoint — the exact silent inconsistency the journal
  * exists to prevent.
  *
@@ -632,7 +740,7 @@ async function verifyEffectiveState(plan: ActivationPlan, deps: ExecutorDeps): P
     makeEmitter(deps.eventSink)(
       'warn',
       'effective_state_mismatch',
-      `${plan.client} reports no hotplug-managed configuration after activation`,
+      `${plan.client} reports no anypick-managed configuration after activation`,
       {
         step: 'VerifyEffectiveState',
         resourceIds: [`client/${plan.client}`],
@@ -673,7 +781,7 @@ async function startManagedProxy(
       // The proxy token is independent of lease bookkeeping. A lease can be
       // unavailable (for example while a tray owns the process) even though
       // the reused proxy returned its live token; never fall back to the
-      // unauthenticated `hotplug-proxy` placeholder in that case.
+      // unauthenticated `anypick-proxy` placeholder in that case.
       if (started.token) {
         plan.transport.managedProxy.token = started.token;
       }
@@ -684,7 +792,7 @@ async function startManagedProxy(
   if (ref.kind === 'account') {
     const accountBefore = await deps.accounts.get(ref.provider, ref.name);
     if (!accountBefore) {
-      throw hotplugError(`Account not found: ${ref.provider}/${ref.name}`, 'NOT_FOUND');
+      throw anypickError(`Account not found: ${ref.provider}/${ref.name}`, 'NOT_FOUND');
     }
     if (plan.mode === 'ephemeral' && !accountBefore.proxy.enabled) {
       // `startProxy` needs an enabled account config. Restore the exact prior
@@ -756,15 +864,83 @@ async function injectProxyEndpoint(
       : { provider: plan.resolvedSource.adapter.capabilities.provider, name: '*' };
   await deps.runtime.applyProxyEndpoint(plan.client, {
     endpoint,
-    apiKey: plan.transport.managedProxy?.token ?? 'hotplug-proxy',
+    apiKey: plan.transport.managedProxy?.token ?? 'anypick-proxy',
     defaultModel: modelRoles?.default ?? modelId,
     modelRoles,
     accountRef,
     dryRun: false,
     verbose: opts.verbose,
-    label: `proxy:${plan.resolvedSource.display}`,
+    // Canonical source id (hub:default, grok/work, …) so live sticky routes match bindings.
+    label: displayRef(plan.resolvedSource.ref),
     recovery,
   });
+}
+
+function hubNameForStep(step: PlanStep, plan: ActivationPlan): string {
+  const name = typeof step.params?.hub === 'string' ? step.params.hub : undefined;
+  if (name) {
+    return name;
+  }
+  if (plan.resolvedSource.ref.kind === 'proxy-hub') {
+    return plan.resolvedSource.ref.name;
+  }
+  throw new Error('Internal plan error: Proxy Hub step has no hub name');
+}
+
+function requireProxyHub(deps: ExecutorDeps): NonNullable<ExecutorDeps['hub']> {
+  if (!deps.hub) {
+    throw new Error('Proxy Hub service is unavailable in this composition.');
+  }
+  return deps.hub;
+}
+
+/** Drop a client's persistent Hub route when it leaves the Hub for another source. */
+async function detachClientHubRoute(deps: ExecutorDeps, clientId: string): Promise<void> {
+  try {
+    await deps.hub?.detachRoute(`global/${clientId}`);
+  } catch {
+    // Hub may be unavailable in some compositions / tests.
+  }
+}
+
+function routeIdForStep(step: PlanStep): string {
+  const routeId = typeof step.params?.routeId === 'string' ? step.params.routeId : undefined;
+  if (!routeId) {
+    throw new Error('Internal plan error: Proxy Hub route step has no route id');
+  }
+  return routeId;
+}
+
+function requestedHubModels(plan: ActivationPlan): string[] {
+  // Prefer Desktop role order (default → list2…list5) so attachRoute aliases
+  // pin the same slots Configure Models chose. Fall back to explicit model.
+  const models: string[] = [];
+  const seen = new Set<string>();
+  const push = (raw: unknown) => {
+    if (typeof raw !== 'string') {
+      return;
+    }
+    const model = raw.trim();
+    if (!model || seen.has(model)) {
+      return;
+    }
+    seen.add(model);
+    models.push(model);
+  };
+  const rawRoles = plan.bindingSpec?.clientOptions?.modelRoles;
+  if (rawRoles && typeof rawRoles === 'object' && !Array.isArray(rawRoles)) {
+    const roles = rawRoles as Record<string, unknown>;
+    for (const id of ['default', 'list2', 'list3', 'list4', 'list5'] as const) {
+      push(roles[id]);
+    }
+    for (const value of Object.values(roles)) {
+      push(value);
+    }
+  }
+  if (plan.model.mode === 'explicit') {
+    push(plan.model.id);
+  }
+  return models;
 }
 
 /** Persist file compensation before a client adapter is permitted to mutate. */
@@ -822,8 +998,8 @@ function makeEphemeralCleanup(ctx: ActivationContext, deps: ExecutorDeps): () =>
         deps.leases.release(leaseId);
       }
       if (!restored) {
-        throw hotplugError(
-          'Ephemeral run cleanup could not restore all local state. Run hotplug doctor before switching accounts.',
+        throw anypickError(
+          'Ephemeral run cleanup could not restore all local state. Run anypick doctor before switching accounts.',
           'EPHEMERAL_CLEANUP_FAILED',
         );
       }
@@ -848,7 +1024,7 @@ export interface RecoveryDeps extends Pick<ExecutorDeps, 'journal'> {
   /** When present, recovery re-resolves source adapters from journal ResourceRefs. */
   resolve?: ResolveSourceDeps;
   /** Structured event sink for refusing recovery that cannot be made exact (OBS-01). */
-  events?: HotplugEventSink;
+  events?: AnyPickEventSink;
 }
 
 export interface RecoveryResult {
@@ -868,7 +1044,11 @@ function sourceRefFromJournal(entry: {
   const raw =
     (typeof entry.params?.source === 'string' ? entry.params.source : undefined) ??
     entry.affectedResources.find(
-      (r) => r.startsWith('account/') || r.startsWith('gateway/') || r.startsWith('preset/'),
+      (r) =>
+        r.startsWith('account/') ||
+        r.startsWith('gateway/') ||
+        r.startsWith('hub/') ||
+        r.startsWith('preset/'),
     );
   if (!raw) {
     return null;

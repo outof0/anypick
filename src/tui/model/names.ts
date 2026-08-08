@@ -1,18 +1,14 @@
-import type { HotplugApp } from '../../core/app';
+import type { AnyPickApp } from '../../core/app';
 
+/**
+ * Short UI label for an app/client.
+ *
+ * Prefer the adapter's `shortName` / `name` via `fallback`. Never hardcode
+ * built-in client ids — third-party clients would otherwise show raw slugs
+ * only when the switch misses them.
+ */
 export function shortAppName(clientId: string, fallback?: string): string {
-  switch (clientId) {
-    case 'claude':
-      return 'Claude';
-    case 'codex':
-      return 'Codex';
-    case 'gemini':
-      return 'Gemini';
-    case 'kiro':
-      return 'Kiro';
-    default:
-      return fallback ?? clientId;
-  }
+  return fallback ?? clientId;
 }
 
 /**
@@ -32,7 +28,7 @@ export function shortToolName(providerId: string, fallback?: string): string {
  * Screens reached from a stale binding or a removed plugin may name a provider
  * the registry no longer has, and a label is never worth throwing over.
  */
-export function providerDisplayName(app: HotplugApp, providerId?: string): string {
+export function providerDisplayName(app: AnyPickApp, providerId?: string): string {
   if (!providerId) {
     return '';
   }

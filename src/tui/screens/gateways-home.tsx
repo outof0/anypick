@@ -18,6 +18,7 @@ import {
   type StatusKind,
 } from '../components/chrome';
 import type { GatewayRow, OperationReceipt } from '../model';
+import type { ProviderFilterOption } from '../model/provider-filter';
 
 export interface GatewaysHomeScreenProps {
   rows: GatewayRow[];
@@ -34,7 +35,15 @@ export interface GatewaysHomeScreenProps {
   onEditEndpoint: (row: GatewayRow) => void;
   onDelete: (row: GatewayRow) => void;
   onSwitch: () => void;
+  onNextSection?: () => void;
+  providerFilterId?: string;
+  providerFilterLabel?: string;
+  providerFilterOptions?: ProviderFilterOption[];
+  onCycleProvider?: () => void;
+  onClearProvider?: () => void;
   onHelp?: () => void;
+  onTray?: () => void;
+  onDetach?: () => void;
   onQuit: () => void;
 }
 
@@ -74,7 +83,15 @@ export function GatewaysHomeScreen(props: GatewaysHomeScreenProps) {
     onEditEndpoint,
     onDelete,
     onSwitch,
+    onNextSection,
+    providerFilterId,
+    providerFilterLabel = 'All providers',
+    providerFilterOptions = [],
+    onCycleProvider,
+    onClearProvider,
     onHelp,
+    onTray,
+    onDetach,
     onQuit,
   } = props;
 
@@ -94,8 +111,24 @@ export function GatewaysHomeScreen(props: GatewaysHomeScreenProps) {
       onHelp();
       return;
     }
-    if (key.escape || key.tab) {
+    if (input === 't' && onTray) {
+      onTray();
+      return;
+    }
+    if (input === 'D' && onDetach) {
+      onDetach();
+      return;
+    }
+    if (key.escape && providerFilterId) {
+      onClearProvider?.();
+      return;
+    }
+    if (key.escape) {
       onSwitch();
+      return;
+    }
+    if (key.tab) {
+      (onNextSection ?? onSwitch)();
       return;
     }
     if (key.upArrow || input === 'k') {
@@ -108,6 +141,10 @@ export function GatewaysHomeScreen(props: GatewaysHomeScreenProps) {
     }
     if (input === 'a') {
       onAdd();
+      return;
+    }
+    if (input === 'f' && providerFilterOptions.length > 0) {
+      onCycleProvider?.();
       return;
     }
     if (!selected) {
@@ -135,20 +172,22 @@ export function GatewaysHomeScreen(props: GatewaysHomeScreenProps) {
     }
   });
 
-  let outcome = 'No gateways yet';
-  let support = 'a add  ·  gateways are API sources you bind to Claude, Codex, …';
+  let outcome = providerFilterId ? `No gateways for ${providerFilterLabel}` : 'No gateways yet';
+  let support = providerFilterId
+    ? 'Press f for the next provider, or esc to show all providers.'
+    : 'Gateways are API sources available to Claude Code and Codex.';
   if (selected) {
     if (!selected.hasApiKey) {
       outcome = `${selected.name} has no API key`;
-      support = 'Edit via CLI or remove and re-add with a key, then bind apps.';
+      support = `Set it with: anypick gateway edit ${selected.name} --api-key <key>`;
     } else if (selected.usedByApps.length > 0) {
       outcome = `Manage apps using ${selected.name}`;
-      support = `${selected.usedByApps.join(', ')} · m model defaults`;
+      support = `${selected.usedByApps.join(', ')} · enter manage apps · m model defaults`;
     } else {
       outcome = `Use ${selected.name} with apps`;
       support = selected.modelSummary
-        ? `models  ${selected.modelSummary}  ·  m manage apps`
-        : 'm manage apps (like a proxy, but the API key is already here)';
+        ? `models  ${selected.modelSummary}  ·  enter manage apps  ·  m model defaults`
+        : 'enter manage apps · m model defaults';
     }
   }
 
@@ -159,21 +198,30 @@ export function GatewaysHomeScreen(props: GatewaysHomeScreenProps) {
         { key: 'e', label: 'endpoint' },
         { key: 'a', label: 'add' },
         { key: 'd', label: 'delete' },
-        { key: 'tab', label: 'switch' },
+        { key: 'f', label: 'filter provider', when: providerFilterOptions.length > 0 },
+        { key: 'tab', label: 'proxy' },
+        { key: 'esc', label: providerFilterId ? 'all providers' : 'apps' },
         { key: 'h', label: 'help', when: Boolean(onHelp) },
-        { key: 'q', label: 'quit' },
+        { key: 'q', label: 'quit UI; proxies stay running' },
       ]
     : [
         { key: 'a', label: 'add' },
         { key: 'enter', label: 'add' },
-        { key: 'tab', label: 'switch' },
+        { key: 'f', label: 'filter provider', when: providerFilterOptions.length > 0 },
+        { key: 'tab', label: 'proxy' },
+        { key: 'esc', label: providerFilterId ? 'all providers' : 'apps' },
         { key: 'h', label: 'help', when: Boolean(onHelp) },
-        { key: 'q', label: 'quit' },
+        { key: 'q', label: 'quit UI; proxies stay running' },
       ];
+
+  hints.push(
+    { key: 't', label: 'tray runtime', when: Boolean(onTray) },
+    { key: 'D', label: 'detach to Tray', when: Boolean(onDetach) },
+  );
 
   return (
     <ScreenShell
-      path="gateways"
+      path={['manage', 'gateways']}
       ambient={ambient}
       columns={columns}
       receipt={receipt}
@@ -185,10 +233,23 @@ export function GatewaysHomeScreen(props: GatewaysHomeScreenProps) {
       hints={hints}
     >
       <Box flexDirection="column">
+        {providerFilterOptions.length > 0 ? (
+          <>
+            <Text dimColor>
+              {' '}
+              Provider <Text bold>{providerFilterLabel}</Text> · f next
+            </Text>
+            <Text> </Text>
+          </>
+        ) : null}
         {rows.length === 0 ? (
           <EmptyState
-            text="No gateways yet."
-            hint="Add an API endpoint + key, then bind Claude/Codex like a proxy."
+            text={providerFilterId ? `No gateways for ${providerFilterLabel}.` : 'No gateways yet.'}
+            hint={
+              providerFilterId
+                ? 'Press f for another provider, or esc to show all providers.'
+                : 'Press a to add an API endpoint and key for Claude Code or Codex.'
+            }
           />
         ) : (
           <>

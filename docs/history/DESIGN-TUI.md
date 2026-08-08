@@ -1,22 +1,22 @@
-# Hotplug TUI — UI design
+# AnyPick TUI — UI design
 
 | Field | Value |
 |---|---|
 | Product behavior | Locked |
 | UI direction | Implementation target |
-| Date | 2026-07-18 |
+| Date | 08-08-2026 |
 
 This document defines the complete user-facing TUI: visual language, terminology,
 navigation, screens, transient states, and copy.
 
-It does not change Hotplug's product behavior. It replaces the current visual and
+It does not change AnyPick's product behavior. It replaces the current visual and
 wording system.
 
 ---
 
 ## 0. The target
 
-Hotplug should feel like a quiet, modern terminal tool:
+AnyPick should feel like a quiet, modern terminal tool:
 
 - terminal-native, not a dashboard squeezed into a terminal;
 - clear without explaining the engine;
@@ -62,39 +62,39 @@ its branding or exact components.
 The header path is always lowercase brand plus sentence-case location:
 
 ```text
-hotplug / switch
-hotplug / proxy
-hotplug / accounts
-hotplug / accounts / add
+anypick / switch
+anypick / proxy
+anypick / accounts
+anypick / accounts / add
 ```
 
-Do not call the home screen `HOTPLUG`, `Home`, or `Command Center` in user copy.
+Do not call the home screen `ANYPICK`, `Home`, or `Command Center` in user copy.
 
 ### 1.2 Canonical terms
 
 | Concept | UI term | Example |
 |---|---|---|
-| Official CLI whose login Hotplug reads or switches | **tool** | `Choose a tool` |
+| Official CLI whose login AnyPick reads or switches | **tool** | `Choose a tool` |
 | Program configured to use a local proxy | **app** | `Use with Claude` |
 | Login the official tool currently uses | **live login** | `Signed in as erik@…` |
-| Login Hotplug has stored | **saved login** | `3 saved logins` |
+| Login AnyPick has stored | **saved login** | `3 saved logins` |
 | Use another stored login | **switch** | `Switch Codex to work` |
 | Live login differs from the last selected saved login | **changed** | `◐ changed` |
 | Proxy process is accepting traffic | **running** | `● running` |
 | Proxy is configured but not running | **stopped** | `○ stopped` |
 | Proxy is disabled | **off** | `– off` |
 | Point an app at a proxy | **use with** | `Use with Claude` |
-| Remove a Hotplug proxy from an app | **stop using this proxy** | `Claude no longer uses grok/jonben` |
+| Remove a AnyPick proxy from an app | **stop using this proxy** | `Claude no longer uses grok/jonben` |
 | Store the login that is live now | **save this login** | `Save this Codex login` |
 | Make room to sign in as someone else | **add another login** | `Add another Codex login` |
 | Renew stored credentials | **refresh login** | `Refresh work` |
-| Delete Hotplug's stored copy | **remove saved login** | `Remove codex/work` |
+| Delete AnyPick's stored copy | **remove saved login** | `Remove codex/work` |
 
 `changed` is the user-facing label for internal drift. `active pointer`, `record`,
 and the distinction between active and live are never shown as internal nouns.
 
-The same executable can have either role. Codex is a **tool** while Hotplug is
-reading its login, and an **app** while Hotplug is configuring it to use a proxy.
+The same executable can have either role. Codex is a **tool** while AnyPick is
+reading its login, and an **app** while AnyPick is configuring it to use a proxy.
 The UI uses the word that matches the action on the current screen; it never asks
 the user to classify the executable.
 
@@ -103,7 +103,7 @@ the user to classify the executable.
 - auth, token, credential material;
 - stash, snapshot, restore snapshot;
 - active pointer, active record, live match;
-- make-live, hotplug as a verb;
+- make-live, anypick as a verb;
 - provider, source, binding, provenance;
 - apply, transport, lease, commit;
 - pipeline step names;
@@ -155,11 +155,11 @@ Use monochrome Unicode symbols with a text label. No emoji.
 | `● using` | App uses the selected proxy | `●` and `using` may be green |
 | `○ saved` | Stored but not live | Dim/default |
 | `○ stopped` | Configured but stopped | Dim/default |
-| `○ not using` | App has no verified Hotplug proxy | Dim/default |
+| `○ not using` | App has no verified AnyPick proxy | Dim/default |
 | `◐ changed` | Live login and saved login differ | `◐` and `changed` may be yellow |
 | `◐ attention` | Recoverable warning | `◐` may be yellow |
 | `× failed` | Operation or status failed | `×` and `failed` may be red |
-| `× unavailable` | Hotplug cannot read or use the item now | `×` and `unavailable` may be red |
+| `× unavailable` | AnyPick cannot read or use the item now | `×` and `unavailable` may be red |
 | `… checking` | Read in progress | Dim/default |
 | `… switching` | Mutation in progress | Dim/default |
 | `✓` | Completed outcome | `✓` may be green |
@@ -214,10 +214,10 @@ contextual keys
 ### 3.1 Header
 
 ```text
-hotplug / switch                                      ◐ 1 changed
+anypick / switch                                      ◐ 1 changed
 ```
 
-- `hotplug` is dim.
+- `anypick` is dim.
 - The path segment is normal or bold foreground.
 - Ambient status is right-aligned when width allows.
 - On a narrow terminal, ambient status moves to the next line.
@@ -235,7 +235,7 @@ leaves its second line blank.
 × Couldn't read Grok logins. Press enter to retry.
 ```
 
-No notice title such as `Hotplug complete` or `Error`.
+No notice title such as `AnyPick complete` or `Error`.
 
 - Success clears after the next navigation action or after three seconds.
 - Warning and error remain until their state resolves or the user dismisses them.
@@ -375,7 +375,7 @@ Switch is the default screen. It answers:
 ### 5.1 Normal and changed state
 
 ```text
-hotplug / switch                                      ◐ 1 changed
+anypick / switch                                      ◐ 1 changed
 
 Codex
     work        dames@acme.com                       ◐ changed
@@ -396,7 +396,7 @@ The group header is the tool name only (no email, no "now"). Row status comes fr
 re-probing official-tool auth files on load and while the screen is open. `● live`
 means the saved snapshot's auth material matches the live file (Codex: account_id;
 OpenCode: API/oauth fingerprint) — not a display-identity string and not the DB
-active pointer alone. `◐ changed` means Hotplug's active pointer is not the live
+active pointer alone. `◐ changed` means AnyPick's active pointer is not the live
 snapshot.
 
 Do not show a fake selectable `live` row unless `live` is actually the user's saved
@@ -433,7 +433,7 @@ No action line may say `write snapshot`, `restore`, `fix drift`, or `put back on
 ### 5.3 Switch confirmation
 
 ```text
-hotplug / switch
+anypick / switch
 
 Switch Codex login?
 
@@ -469,7 +469,7 @@ If the login switched but its proxy did not start, report the partial outcome:
 Never overwrite either login from a one-key action. Ask what the user wants:
 
 ```text
-hotplug / switch / changed login
+anypick / switch / changed login
 
 Codex is signed in as xolvlab@acme.com.
 The saved login work contains dames@acme.com.
@@ -528,7 +528,7 @@ a accounts   ? help   q quit
 Fresh install:
 
 ```text
-hotplug / switch
+anypick / switch
 
 No saved logins yet.
 
@@ -544,7 +544,7 @@ a accounts   ? help   q quit
 user types; Enter moves focus to the first visible result.
 
 ```text
-hotplug / switch                                      ◐ 1 changed
+anypick / switch                                      ◐ 1 changed
 
 Filter  work█
 
@@ -589,7 +589,7 @@ Proxy answers:
 ### 6.1 Main screen
 
 ```text
-hotplug / proxy                                     ● 1 running
+anypick / proxy                                     ● 1 running
 
   › grok/jonben       ● running       Claude
     grok/lentau       ○ stopped       –
@@ -627,7 +627,7 @@ Off:
 
 ```text
 Turn on and start opencode/zen
-Hotplug chooses the address automatically.
+AnyPick chooses the address automatically.
 enter turn on and start
 ```
 
@@ -647,13 +647,13 @@ selected proxy or stop an app from using that proxy.
 Discovering apps:
 
 ```text
-hotplug / proxy / apps
+anypick / proxy / apps
 
 … Looking for supported apps
 ```
 
 Checkboxes initialize checked only for apps already using the selected proxy.
-Apps using another proxy and apps with no Hotplug proxy initialize unchecked; the
+Apps using another proxy and apps with no AnyPick proxy initialize unchecked; the
 TUI never preselects a new configuration on the user's behalf.
 
 With one available app, the branch is explicit:
@@ -665,7 +665,7 @@ With several apps, checked means “will use this proxy after confirmation.” T
 example below is the state after the user selects Codex and Kiro:
 
 ```text
-hotplug / proxy / apps
+anypick / proxy / apps
 
 Apps using grok/jonben
 
@@ -685,7 +685,7 @@ nothing to that other proxy.
 Confirmation lists only changes:
 
 ```text
-hotplug / proxy / apps
+anypick / proxy / apps
 
 Update app setup?
 
@@ -728,18 +728,18 @@ configuration failed, so the TUI never claims a previous or default setup was
 restored without verification.
 
 Reset never removes project-specific setup. If one is still stored for the current
-project, confirmation says `This project's Hotplug setup stays saved`, and the result
+project, confirmation says `This project's AnyPick setup stays saved`, and the result
 mentions it explicitly.
 
 ```text
-hotplug / proxy / apps
+anypick / proxy / apps
 
 Stop using grok/jonben with Claude?
 
 now      grok/jonben
-after    no Hotplug proxy
+after    no AnyPick proxy
 
-Hotplug will remove this proxy from Claude.
+AnyPick will remove this proxy from Claude.
 Other apps won't change.
 
 ────────────────────────────────────────────────────────────
@@ -763,7 +763,7 @@ After reset, inspect the app and report only what can be verified:
 With a remaining project setup, use:
 
 ```text
-! Claude stopped using grok/jonben; this project's Hotplug setup remains saved.
+! Claude stopped using grok/jonben; this project's AnyPick setup remains saved.
 ```
 
 For a partial or failed result, the error substate owns the rail:
@@ -780,14 +780,14 @@ When the focused app already uses this proxy and there are no checkbox changes,
 
 ### 6.3.1 Model map (per app)
 
-After confirming an attach (or via `m` on an app already using the proxy), Hotplug
+After confirming an attach (or via `m` on an app already using the proxy), AnyPick
 shows the **client-shaped** model slots for that app. Defaults come from the
 proxy provider; the user can edit any role with autocomplete (free text allowed).
 
 Claude Code example:
 
 ```text
-hotplug / proxy / apps / models
+anypick / proxy / apps / models
 
 Models for Claude
 grok/jonben
@@ -830,7 +830,7 @@ actions leave that app pointing at the proxy.
 Stop:
 
 ```text
-hotplug / proxy
+anypick / proxy
 
 Stop grok/jonben?
 
@@ -844,7 +844,7 @@ enter stop   esc cancel
 Turn off:
 
 ```text
-hotplug / proxy
+anypick / proxy
 
 Turn off grok/jonben?
 
@@ -883,7 +883,7 @@ The normal operation receipts are:
 ### 6.6 Logs
 
 ```text
-hotplug / proxy / logs                         grok/jonben  ● running
+anypick / proxy / logs                         grok/jonben  ● running
 
 12:41:03  started
 12:41:04  listening locally
@@ -904,7 +904,7 @@ r refresh   esc back
 ### 6.7 Empty Proxy
 
 ```text
-hotplug / proxy
+anypick / proxy
 
 No saved logins can run a proxy yet.
 
@@ -914,7 +914,7 @@ Add a Grok, OpenCode, Gemini, or Kiro login in Accounts.
 a accounts   tab switch   ? help
 ```
 
-Manual host and port configuration is not part of the primary TUI. Hotplug chooses
+Manual host and port configuration is not part of the primary TUI. AnyPick chooses
 and keeps the local address in sync. Advanced debugging remains available in the CLI.
 
 ---
@@ -923,12 +923,12 @@ and keeps the local address in sync. Advanced debugging remains available in the
 
 Accounts answers:
 
-> What logins has Hotplug saved, and what maintenance action do I need?
+> What logins has AnyPick saved, and what maintenance action do I need?
 
 ### 7.1 Inventory
 
 ```text
-hotplug / accounts                                      4 saved
+anypick / accounts                                      4 saved
 
 Codex
   › work        dames@acme.com             2h ago      ◐ changed
@@ -949,7 +949,7 @@ may move to the second key-bar line or Help at narrow widths.
 ### 7.2 Empty Accounts
 
 ```text
-hotplug / accounts
+anypick / accounts
 
 No saved logins yet.
 
@@ -960,7 +960,7 @@ a add a login   i import   esc switch   ? help
 ### 7.3 Choose a tool
 
 ```text
-hotplug / accounts / add
+anypick / accounts / add
 
 Choose a tool
 
@@ -987,7 +987,7 @@ One tool failing does not block the rest. Its row shows `× unavailable` and off
 Live login found:
 
 ```text
-hotplug / accounts / add / codex
+anypick / accounts / add / codex
 
 Signed in as xolvlab@acme.com
 
@@ -1003,7 +1003,7 @@ The outcome line follows focus: `enter add another login` on the second row.
 A signed-out tool skips the one-choice menu:
 
 ```text
-hotplug / accounts / add / opencode
+anypick / accounts / add / opencode
 
 Sign in to OpenCode
 
@@ -1026,7 +1026,7 @@ show a disabled option with internal capability wording.
 ### 8.1 Name
 
 ```text
-hotplug / accounts / save
+anypick / accounts / save
 
 Save this Codex login
 
@@ -1053,14 +1053,14 @@ enter save   esc cancel
 ### 8.2 Existing name
 
 ```text
-hotplug / accounts / save
+anypick / accounts / save
 
 Replace the saved login codex/work?
 
 Existing    dames@acme.com
 New         xolvlab@acme.com
 
-This replaces Hotplug's saved copy. Codex stays signed in.
+This replaces AnyPick's saved copy. Codex stays signed in.
 
 ────────────────────────────────────────────────────────────
 enter replace   esc choose another name
@@ -1079,7 +1079,7 @@ Success returns to Accounts focused on the saved login.
 ### 8.4 No login found
 
 ```text
-hotplug / accounts / save
+anypick / accounts / save
 
 No Codex login was found.
 
@@ -1100,7 +1100,7 @@ Detection failure is distinct from signed out:
 ## 9. Add another login
 
 This is a guided flow over the existing save, prepare, detect, and switch actions.
-Hotplug never performs the official sign-in and does not invent a durable wizard
+AnyPick never performs the official sign-in and does not invent a durable wizard
 state.
 
 ### 9.1 Protect the current login
@@ -1108,7 +1108,7 @@ state.
 If the live login already matches a saved login:
 
 ```text
-hotplug / accounts / add another
+anypick / accounts / add another
 
 Add another Codex login
 
@@ -1174,7 +1174,7 @@ enter retry   esc switch back
 ### 9.3 Official sign-in
 
 ```text
-hotplug / accounts / add another
+anypick / accounts / add another
 
 Sign in to Codex
 
@@ -1189,7 +1189,7 @@ enter check again   esc cancel
 ```
 
 Provider-specific commands may be shown when known, but they are presented as a
-copyable instruction, not executed by Hotplug.
+copyable instruction, not executed by AnyPick.
 
 Checking:
 
@@ -1225,7 +1225,7 @@ enter retry   esc cancel
 ### 9.4 New login detected
 
 ```text
-hotplug / accounts / add another
+anypick / accounts / add another
 
 ● Signed in as me@gmail.com
 
@@ -1241,7 +1241,7 @@ enter save   esc cancel
 ### 9.5 Finish
 
 ```text
-hotplug / accounts / add another
+anypick / accounts / add another
 
 ✓ Saved codex/personal
 
@@ -1306,13 +1306,13 @@ journal recovery remains a product concern outside this screen design.
 ### 10.1 Remove saved login
 
 ```text
-hotplug / accounts
+anypick / accounts
 
-Remove codex/work from Hotplug?
+Remove codex/work from AnyPick?
 
 dames@acme.com
 
-This removes the saved login from Hotplug.
+This removes the saved login from AnyPick.
 It does not change the login currently used by Codex.
 
 ────────────────────────────────────────────────────────────
@@ -1332,7 +1332,7 @@ that app setup is reset; the existing remove operation does not make that promis
 ### 10.2 Export
 
 ```text
-hotplug / accounts / export
+anypick / accounts / export
 
 Export codex/work
 
@@ -1364,7 +1364,7 @@ Result:
 Import is a short sequence using the same input layout:
 
 ```text
-hotplug / accounts / import
+anypick / accounts / import
 
 Choose a tool
 › Codex
@@ -1407,7 +1407,7 @@ Replace the saved login codex/work?
 Existing    old@acme.com
 File        ./codex-work.json
 
-This replaces Hotplug's saved copy.
+This replaces AnyPick's saved copy.
 
 ────────────────────────────────────────────────────────────
 enter replace   esc choose another name
@@ -1417,7 +1417,7 @@ Errors are specific:
 
 ```text
 × File not found. Check the path and press enter.
-× This is not a Hotplug login export. Choose another file.
+× This is not a AnyPick login export. Choose another file.
 × Couldn't import this login. Check the tool and file, then retry.
 ```
 
@@ -1445,7 +1445,7 @@ only if a concrete recovery action exists.
 ### 11.1 Startup
 
 ```text
-hotplug
+anypick
 
 … Loading saved logins
 ```
@@ -1453,9 +1453,9 @@ hotplug
 Startup failure:
 
 ```text
-hotplug
+anypick
 
-× Hotplug couldn't load its data.
+× AnyPick couldn't load its data.
   <one human-readable reason>
 
 ────────────────────────────────────────────────────────────
@@ -1465,7 +1465,7 @@ enter retry   q quit
 ### 11.2 Help
 
 ```text
-hotplug / help
+anypick / help
 
 Switch
   ↑ ↓ / j k    move
@@ -1488,7 +1488,7 @@ Accounts
 
 Status
   ● live       tool uses this saved login
-  ○ saved      stored in Hotplug
+  ○ saved      stored in AnyPick
   ◐ changed    live and saved login differ
   × failed     status or action failed
 
@@ -1564,7 +1564,7 @@ This UI redesign does not add:
 - manual port homework;
 - pipeline education.
 
-Hotplug detects and stores official-tool logins. The user performs official sign-in.
+AnyPick detects and stores official-tool logins. The user performs official sign-in.
 
 ---
 
@@ -1606,7 +1606,7 @@ Do not build generic cards or an Inspect component.
 
 ## 15. Final rule
 
-If a line explains Hotplug's internal pipeline instead of what becomes true for the
+If a line explains AnyPick's internal pipeline instead of what becomes true for the
 user, remove it.
 
 If a visual element does not improve focus, state recognition, or the next action,

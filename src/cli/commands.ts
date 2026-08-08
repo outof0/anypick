@@ -1,6 +1,6 @@
 import { Command } from 'commander';
 import { createRequire } from 'node:module';
-import type { HotplugApp } from '../core/app';
+import type { AnyPickApp } from '../core/app';
 import type { ProxyHandle } from '../types';
 import { printAccounts, printProviders, printProxyStatus } from './format';
 import { MARK, setUxMode, withSpin, printError, next, success, info, warn } from './ux';
@@ -11,8 +11,9 @@ import { registerPrimaryCommands, type GlobalOpts as PrimaryGlobalOpts } from '.
 import { registerPluginGroup } from './plugin-commands';
 import { BRAND_TAGLINE } from '../core/brand';
 import { providerCanProxy } from '../core/capabilities';
-import { ExitCode, isHotplugError, hotplugError } from '../utils/errors';
+import { ExitCode, isAnyPickError, anypickError } from '../utils/errors';
 import pc from 'picocolors';
+import { desktopTraySurfaceAvailable, launchSurface, type LaunchSurface } from '../tray/settings';
 
 export interface GlobalOpts extends PrimaryGlobalOpts {
   json?: boolean;
@@ -24,6 +25,8 @@ export interface GlobalOpts extends PrimaryGlobalOpts {
   input?: boolean;
   yes?: boolean;
   trace?: boolean;
+  tui?: boolean;
+  tray?: boolean;
 }
 
 function globals(program: Command): GlobalOpts {
@@ -79,17 +82,100 @@ function printDryRunCommand(
   }
 }
 
+export function requestedLaunchSurface(
+  options: { tui?: boolean; tray?: boolean },
+  envValue: string | undefined,
+  configured: LaunchSurface | undefined,
+): LaunchSurface | undefined {
+  if (options.tui && options.tray) {
+    throw anypickError('Choose only one of --tui or --tray.', 'INVALID_USAGE', {
+      exitCode: ExitCode.INVALID_USAGE,
+      suggestions: ['anypick --tui', 'anypick --tray'],
+    });
+  }
+  if (options.tui) {
+    return 'tui';
+  }
+  if (options.tray) {
+    return 'tray';
+  }
+  if (envValue != null && envValue !== '') {
+    if (envValue === 'tui' || envValue === 'tray') {
+      return envValue;
+    }
+    throw anypickError('ANYPICK_UI must be "tui" or "tray".', 'INVALID_USAGE', {
+      exitCode: ExitCode.INVALID_USAGE,
+    });
+  }
+  return configured;
+}
+
+async function saveLaunchSurface(app: AnyPickApp, surface: LaunchSurface): Promise<void> {
+  await app.config.setLaunchSurface(surface);
+}
+
+async function chooseLaunchSurface(): Promise<LaunchSurface | undefined> {
+  if (!desktopTraySurfaceAvailable()) {
+    return 'tui';
+  }
+  const { isCancel, select } = await import('@clack/prompts');
+  const selected = await select<LaunchSurface>({
+    message: 'How do you want to use AnyPick by default?',
+    options: [
+      {
+        value: 'tray',
+        label: 'Menu bar Tray',
+        hint: 'recommended for daily switching',
+      },
+      { value: 'tui', label: 'Terminal UI', hint: 'stay in this terminal' },
+    ],
+  });
+  if (isCancel(selected)) {
+    process.exitCode = ExitCode.CANCELLED;
+    return undefined;
+  }
+  return selected;
+}
+
+async function openTui(app: AnyPickApp): Promise<void> {
+  const { runTuiApp } = await import('../tui/app-ui');
+  runTuiApp(app);
+}
+
+async function openTray(app: AnyPickApp, json = false): Promise<void> {
+  if (!desktopTraySurfaceAvailable()) {
+    throw anypickError(
+      'The desktop Tray is not available on this installation.',
+      'UNSUPPORTED_PLATFORM',
+      {
+        suggestions: ['anypick tui'],
+      },
+    );
+  }
+  const { startTray } = await import('../tray/supervisor');
+  const result = await startTray(app.root, process.argv[1] ?? '');
+  if (json) {
+    console.log(JSON.stringify({ surface: 'tray', running: true, ...result }));
+    return;
+  }
+  success(
+    result.started
+      ? `AnyPick Tray started (pid ${result.pid}). Look for it in the menu bar.`
+      : `AnyPick Tray is already running (pid ${result.pid}).`,
+  );
+}
+
 /**
  * CLI surface (DX redesign §5):
  *   use / run / current / list / add / link / unlink / reset / preset
  *   doctor / proxy / providers / clients / completion
  */
-export function buildProgram(app: HotplugApp): Command {
+export function buildProgram(app: AnyPickApp): Command {
   const program = new Command();
   const { accounts, profiles, catalog, clients, doctor } = app;
 
   program
-    .name('hotplug')
+    .name('anypick')
     .description(BRAND_TAGLINE)
     .version(pkgVersion())
     .option('--json', 'JSON output', false)
@@ -100,6 +186,8 @@ export function buildProgram(app: HotplugApp): Command {
     .option('--no-input', 'Never prompt')
     .option('-y, --yes', 'Skip destructive confirmation', false)
     .option('--trace', 'Internal step names (no secrets)', false)
+    .option('--tui', 'Open the Terminal UI for this run', false)
+    .option('--tray', 'Open the desktop Tray for this run', false)
     .showSuggestionAfterError(true)
     .action(async () => {
       applyUxFromProgram(program);
@@ -108,12 +196,31 @@ export function buildProgram(app: HotplugApp): Command {
         process.exitCode = 2;
         return;
       }
-      if (process.env.HOTPLUG_TUI === '0') {
+      if (process.env.ANYPICK_TUI === '0') {
         await runInteractive(app);
         return;
       }
-      const { runTuiApp } = await import('../tui/app-ui');
-      runTuiApp(app);
+      const configured = launchSurface(await app.config.read());
+      const requested = requestedLaunchSurface(
+        globals(program),
+        process.env.ANYPICK_UI,
+        configured,
+      );
+      const surface = requested ?? (await chooseLaunchSurface());
+      if (!surface) {
+        return;
+      }
+      if (surface === 'tray') {
+        await openTray(app, Boolean(globals(program).json));
+      } else {
+        if (!requested) {
+          await saveLaunchSurface(app, surface);
+        }
+        await openTui(app);
+      }
+      if (!requested && surface === 'tray') {
+        await saveLaunchSurface(app, surface);
+      }
     })
     .addHelpText('after', afterHelpText());
 
@@ -128,23 +235,42 @@ export function buildProgram(app: HotplugApp): Command {
 
   registerPrimaryCommands(program, app, () => globals(program));
 
+  program
+    .command('tui')
+    .description('Open the AnyPick Terminal UI')
+    .action(async () => {
+      if (!process.stdin.isTTY || !process.stdout.isTTY) {
+        throw anypickError('The Terminal UI requires an interactive terminal.', 'TTY_REQUIRED', {
+          exitCode: ExitCode.INVALID_USAGE,
+        });
+      }
+      await openTui(app);
+    });
+
   const tray = program
     .command('tray')
-    .description('Background proxy supervisor (menu-bar icon on macOS)');
+    .description('Open the AnyPick Tray or manage its background supervisor')
+    .action(async () => {
+      await openTray(app, Boolean(globals(program).json));
+    });
 
   tray
     .command('start')
-    .description('Start the Hotplug proxy supervisor (menu-bar icon on macOS)')
+    .description('Start the AnyPick proxy supervisor (menu-bar icon on macOS)')
     .action(async () => {
       const g = globals(program);
       if (g.dryRun) {
-        printDryRunCommand(program, 'tray.start', 'Would start the Hotplug tray supervisor');
+        printDryRunCommand(program, 'tray.start', 'Would start the AnyPick tray supervisor');
         return;
       }
       try {
         const { startTray } = await import('../tray/supervisor');
         const result = await startTray(app.root, process.argv[1] ?? '');
-        const subject = process.platform === 'darwin' ? 'Hotplug tray' : 'Hotplug supervisor';
+        if (g.json) {
+          console.log(JSON.stringify({ running: true, ...result }));
+          return;
+        }
+        const subject = process.platform === 'darwin' ? 'AnyPick tray' : 'AnyPick supervisor';
         success(
           result.started
             ? `${subject} started (pid ${result.pid})`
@@ -168,38 +294,47 @@ export function buildProgram(app: HotplugApp): Command {
       }
       if (!status.running) {
         info(
-          `${process.platform === 'darwin' ? 'Hotplug tray' : 'Hotplug supervisor'} is stopped.`,
+          `${process.platform === 'darwin' ? 'AnyPick tray' : 'AnyPick supervisor'} is stopped.`,
         );
         return;
       }
-      const mode = status.mode === 'headless' ? 'headless' : 'menu-bar';
+      const mode =
+        status.mode === 'headless'
+          ? 'headless'
+          : status.mode === 'tauri'
+            ? 'Tauri tray'
+            : 'menu-bar';
       success(
-        `Hotplug supervisor running (pid ${status.pid}, ${status.proxyCount ?? '?'} proxies, ${mode})`,
+        `AnyPick supervisor running (pid ${status.pid}, ${status.proxyCount ?? '?'} proxies, ${mode})`,
       );
     });
 
   tray
     .command('stop')
-    .description('Stop the supervisor and gracefully stop all Hotplug proxies')
+    .description('Stop the supervisor and gracefully stop all AnyPick proxies')
     .action(async () => {
       const g = globals(program);
       if (g.dryRun) {
         printDryRunCommand(
           program,
           'tray.stop',
-          'Would stop the Hotplug tray supervisor and proxies',
+          'Would stop the AnyPick tray supervisor and proxies',
         );
         return;
       }
       const { stopTray } = await import('../tray/supervisor');
       const stopped = await stopTray(app.root);
+      if (g.json) {
+        console.log(JSON.stringify({ stopped }));
+        return;
+      }
       if (stopped) {
         success(
-          `${process.platform === 'darwin' ? 'Hotplug tray' : 'Hotplug supervisor'} and proxies stopped.`,
+          `${process.platform === 'darwin' ? 'AnyPick tray' : 'AnyPick supervisor'} and proxies stopped.`,
         );
       } else {
         info(
-          `${process.platform === 'darwin' ? 'Hotplug tray' : 'Hotplug supervisor'} is not running.`,
+          `${process.platform === 'darwin' ? 'AnyPick tray' : 'AnyPick supervisor'} is not running.`,
         );
       }
     });
@@ -249,7 +384,7 @@ export function buildProgram(app: HotplugApp): Command {
 
   program
     .command('update')
-    .description('Update Hotplug to the latest npm release')
+    .description('Update AnyPick to the latest npm release')
     .option('--check', 'Only report whether a newer release exists', false)
     .action(async (opts: { check?: boolean }) => {
       const g = globals(program);
@@ -274,7 +409,7 @@ export function buildProgram(app: HotplugApp): Command {
           return;
         }
         info(`Update available: ${status.current} → ${pc.bold(status.latest)}`);
-        next('hotplug update');
+        next('anypick update');
         return;
       }
 
@@ -293,7 +428,7 @@ export function buildProgram(app: HotplugApp): Command {
         return;
       }
       success(`Updated to ${status.latest}`);
-      next('hotplug --version');
+      next('anypick --version');
     });
 
   program
@@ -304,7 +439,7 @@ export function buildProgram(app: HotplugApp): Command {
       const s = shell.toLowerCase() as Shell;
       if (!['zsh', 'bash', 'fish'].includes(s)) {
         console.error(pc.red(MARK.fail), `Unknown shell "${shell}"`);
-        console.error(pc.dim('  → Use one of: hotplug completion zsh|bash|fish'));
+        console.error(pc.dim('  → Use one of: anypick completion zsh|bash|fish'));
         process.exitCode = 1;
         return;
       }
@@ -313,7 +448,7 @@ export function buildProgram(app: HotplugApp): Command {
 
   program
     .command('doctor')
-    .description('Diagnose setup; auto-fix only safe Hotplug-owned state')
+    .description('Diagnose setup; auto-fix only safe AnyPick-owned state')
     .argument('[target]', 'Optional filter (client, provider, …)')
     .option('--fix', 'Apply hard-allowlisted fixes only', false)
     .action(async (target: string | undefined, opts: { fix?: boolean }) => {
@@ -329,7 +464,7 @@ export function buildProgram(app: HotplugApp): Command {
       }
 
       if (!opts.fix) {
-        console.log(pc.bold('hotplug doctor'));
+        console.log(pc.bold('anypick doctor'));
         console.log(pc.dim(report.root));
         console.log();
         for (const c of report.checks) {
@@ -387,7 +522,7 @@ export function buildProgram(app: HotplugApp): Command {
         return;
       }
 
-      console.log(pc.bold('hotplug doctor --fix'));
+      console.log(pc.bold('anypick doctor --fix'));
       console.log(pc.dim(report.root));
       console.log();
 
@@ -528,7 +663,7 @@ export function buildProgram(app: HotplugApp): Command {
 
 // ── account (CRUD helpers beyond `add account`) ──────────────────
 
-function registerAccountGroup(program: Command, app: HotplugApp): void {
+function registerAccountGroup(program: Command, app: AnyPickApp): void {
   const { accounts } = app;
   const account = program.command('account').description('Manage saved accounts');
 
@@ -662,7 +797,7 @@ function registerAccountGroup(program: Command, app: HotplugApp): void {
 
 // ── gateway (CRUD helpers beyond `add gateway`) ──────────────────
 
-function registerGatewayGroup(program: Command, app: HotplugApp): void {
+function registerGatewayGroup(program: Command, app: AnyPickApp): void {
   const { profiles } = app;
   const gateway = program.command('gateway').description('Manage API gateways');
 
@@ -689,7 +824,7 @@ function registerGatewayGroup(program: Command, app: HotplugApp): void {
       }
       if (list.length === 0) {
         console.log(pc.dim('No gateways.'));
-        console.log(pc.dim('  → hotplug add gateway <name> --provider openrouter --endpoint …'));
+        console.log(pc.dim('  → anypick add gateway <name> --provider openrouter --endpoint …'));
         return;
       }
       for (const p of list) {
@@ -775,7 +910,7 @@ function registerGatewayGroup(program: Command, app: HotplugApp): void {
 
   gateway
     .command('reset')
-    .description('Clear Hotplug-managed client config that pointed at a gateway')
+    .description('Clear AnyPick-managed client config that pointed at a gateway')
     .option('-c, --client <id>', 'Client id', 'claude')
     .action(async (opts: { client: string }) => {
       // Route through bindingService.reset so binding + runtime client config are
@@ -802,7 +937,7 @@ function modelMap(modelIds: readonly string[] | undefined): Record<string, strin
 
 // ── proxy ────────────────────────────────────────────────────────
 
-function registerProxyGroup(program: Command, app: HotplugApp): void {
+function registerProxyGroup(program: Command, app: AnyPickApp): void {
   const proxy = program
     .command('proxy')
     .description('Local compatibility proxies')
@@ -840,6 +975,206 @@ function registerProxyGroup(program: Command, app: HotplugApp): void {
       await printProxyOverview(app, g.json, provider);
     });
 
+  const hub = proxy.command('hub').description('Unified local Proxy Hub (opt-in)');
+
+  hub
+    .command('status')
+    .description('Show unified Proxy Hub status')
+    .action(async () => {
+      const status = await app.hub.status();
+      if (globals(program).json) {
+        console.log(JSON.stringify(status, null, 2));
+        return;
+      }
+      console.log(
+        `Proxy Hub  ${status.running ? pc.green('running') : status.enabled ? pc.yellow('enabled') : pc.dim('off')}`,
+      );
+      if (status.endpoint) {
+        console.log(`  ${pc.cyan(status.endpoint)}`);
+      }
+      console.log(
+        `  ${status.sourceCount} sources · ${status.modelCount} routed models · ${status.conflictCount} conflicts`,
+      );
+    });
+
+  hub
+    .command('enable')
+    .description('Enable the unified Hub without changing existing bindings')
+    .option('-p, --port <port>', 'Public Hub port', (value: string) => Number(value))
+    .option('--host <host>', 'Loopback bind host')
+    .option('--start', 'Start the Hub now')
+    .action(async (opts: { port?: number; host?: string; start?: boolean }) => {
+      try {
+        const current = await app.hub.get();
+        if (globals(program).dryRun) {
+          printDryRunCommand(program, 'proxy.hub.enable', 'Would enable the unified Proxy Hub', {
+            host: opts.host ?? current.host,
+            port: opts.port ?? current.port,
+            start: opts.start === true,
+          });
+          return;
+        }
+        const nextHub = await app.hub.save({
+          ...current,
+          enabled: true,
+          host: opts.host ?? current.host,
+          port: opts.port ?? current.port,
+        });
+        const started = opts.start ? await app.hub.ensureRunning(nextHub.name) : undefined;
+        if (globals(program).json) {
+          console.log(
+            JSON.stringify(
+              {
+                hub: { ...nextHub, endpoint: started?.endpoint },
+                started: Boolean(started?.startedNow),
+              },
+              null,
+              2,
+            ),
+          );
+          return;
+        }
+        success(`Proxy Hub enabled at ${nextHub.host}:${nextHub.port}`);
+        info('Add sources, then bind an app with: anypick use claude --with hub:default');
+      } catch (error) {
+        printError(error);
+        process.exitCode = 1;
+      }
+    });
+
+  hub
+    .command('source')
+    .description('Enable or disable a saved account behind Proxy Hub')
+    .argument('<provider>')
+    .argument('<account>')
+    .argument('<on|off>')
+    .action(async (provider: string, account: string, state: string) => {
+      const enabled = state === 'on' || state === 'enable' || state === '1';
+      if (!enabled && state !== 'off' && state !== 'disable' && state !== '0') {
+        throw anypickError('Expected on or off.', 'INVALID_USAGE', {
+          exitCode: ExitCode.INVALID_USAGE,
+        });
+      }
+      const current = await app.hub.get();
+      const ref = { kind: 'account' as const, provider, name: account };
+      const sourceId = `account/${provider}/${account}`;
+      const sources = current.sources.filter(
+        (source) =>
+          !(
+            source.ref.kind === 'account' &&
+            `account/${source.ref.provider}/${source.ref.name}` === sourceId
+          ),
+      );
+      sources.push({ ref, enabled });
+      if (globals(program).dryRun) {
+        printDryRunCommand(
+          program,
+          'proxy.hub.source',
+          `Would ${enabled ? 'enable' : 'disable'} ${provider}/${account} behind Proxy Hub`,
+          { provider, account, enabled },
+        );
+        return;
+      }
+      const nextHub = await app.hub.setSources(current.name, sources);
+      if (globals(program).json) {
+        console.log(JSON.stringify({ hub: nextHub, source: ref, enabled }, null, 2));
+        return;
+      }
+      success(`${provider}/${account} ${enabled ? 'enabled' : 'disabled'} in Proxy Hub`);
+    });
+
+  hub
+    .command('owner')
+    .description('Choose the source for a duplicate raw model id')
+    .argument('<model>')
+    .argument('<provider>')
+    .argument('<account>')
+    .action(async (model: string, provider: string, account: string) => {
+      const current = await app.hub.get();
+      if (globals(program).dryRun) {
+        printDryRunCommand(
+          program,
+          'proxy.hub.owner',
+          `Would route ${model} through ${provider}/${account}`,
+          {
+            model,
+            provider,
+            account,
+          },
+        );
+        return;
+      }
+      const source = {
+        kind: 'account',
+        provider,
+        name: account,
+      } as const;
+      const nextHub = await app.hub.setModelOwner(current.name, model, source);
+      if (globals(program).json) {
+        console.log(JSON.stringify({ hub: nextHub, model, source }, null, 2));
+        return;
+      }
+      success(`${model} → ${provider}/${account}`);
+    });
+
+  hub
+    .command('preview')
+    .description('Refresh source catalogs and show routed models/conflicts')
+    .action(async () => {
+      const preview = await withSpin('Refreshing Proxy Hub catalogs…', () => app.hub.preview());
+      if (globals(program).json) {
+        console.log(JSON.stringify(preview, null, 2));
+        return;
+      }
+      console.log(`${preview.routes.length} routed models`);
+      for (const conflict of preview.conflicts) {
+        console.log(
+          pc.yellow(
+            `  conflict  ${conflict.model}  ${conflict.candidates
+              .map((source) =>
+                source.kind === 'account'
+                  ? `${source.provider}/${source.name}`
+                  : `pool:${source.provider}`,
+              )
+              .join(' · ')}`,
+          ),
+        );
+      }
+      for (const unavailable of preview.unavailable) {
+        console.log(pc.red(`  unavailable  ${unavailable.reason}`));
+      }
+    });
+
+  hub
+    .command('start')
+    .description('Start the unified Proxy Hub')
+    .action(async () => {
+      const started = await app.hub.ensureRunning();
+      if (globals(program).json) {
+        console.log(
+          JSON.stringify({ endpoint: started.endpoint, started: started.startedNow }, null, 2),
+        );
+        return;
+      }
+      success(`${started.startedNow ? 'Started' : 'Using'} Proxy Hub at ${started.endpoint}`);
+    });
+
+  hub
+    .command('stop')
+    .description('Stop the unified Proxy Hub')
+    .action(async () => {
+      if (globals(program).dryRun) {
+        printDryRunCommand(program, 'proxy.hub.stop', 'Would stop the unified Proxy Hub');
+        return;
+      }
+      await app.hub.stop();
+      if (globals(program).json) {
+        console.log(JSON.stringify({ stopped: true }));
+        return;
+      }
+      success('Proxy Hub stopped');
+    });
+
   // Multi-account pool (opt-in; default remains single account proxy)
   const pool = proxy.command('pool').description('Multi-account proxy pool (opt-in)');
 
@@ -867,7 +1202,7 @@ function registerProxyGroup(program: Command, app: HotplugApp): void {
       if (p.mode === 'single') {
         console.log(
           pc.dim(
-            '\nDefault is single account. Enable multi: hotplug proxy pool enable ' + provider,
+            '\nDefault is single account. Enable multi: anypick proxy pool enable ' + provider,
           ),
         );
       }
@@ -914,7 +1249,7 @@ function registerProxyGroup(program: Command, app: HotplugApp): void {
           `${provider} pool multi  ${p.members.filter((m) => m.enabled).length}/${p.members.length} accounts` +
             (started?.endpoint ? `  ${pc.cyan(started.endpoint)}` : ''),
         );
-        info(`Bind apps with: hotplug use claude --with pool:${provider}`);
+        info(`Bind apps with: anypick use claude --with pool:${provider}`);
       } catch (err) {
         printError(err);
         process.exitCode = 1;
@@ -951,7 +1286,7 @@ function registerProxyGroup(program: Command, app: HotplugApp): void {
       const enabled = state === 'on' || state === 'enable' || state === '1';
       if (!enabled && state !== 'off' && state !== 'disable' && state !== '0') {
         console.error(pc.red(MARK.fail), `Unknown state "${state}"`);
-        console.error(pc.dim(`  → hotplug proxy pool member ${provider} ${account} on|off`));
+        console.error(pc.dim(`  → anypick proxy pool member ${provider} ${account} on|off`));
         process.exitCode = 1;
         return;
       }
@@ -1044,7 +1379,7 @@ function registerProxyGroup(program: Command, app: HotplugApp): void {
           return;
         }
         if (results.length === 0) {
-          info('Nothing to start. Enable first: hotplug proxy enable <provider> <name> -p <port>');
+          info('Nothing to start. Enable first: anypick proxy enable <provider> <name> -p <port>');
           return;
         }
         for (const r of results) {
@@ -1151,7 +1486,7 @@ function registerProxyGroup(program: Command, app: HotplugApp): void {
         if (started) {
           console.log(`  ${pc.green('running')}  ${pc.cyan(started.endpoint)}`);
         } else if (config.enabled) {
-          next(`hotplug proxy start ${provider} ${name}`, 'start when ready');
+          next(`anypick proxy start ${provider} ${name}`, 'start when ready');
         }
       },
     );
@@ -1204,7 +1539,7 @@ function registerProxyGroup(program: Command, app: HotplugApp): void {
         if (restarted) {
           console.log(`  ${pc.green('restarted')}  ${pc.cyan(restarted.endpoint)}`);
         } else if (wasRunning && opts.restart === false) {
-          info(`Port saved; restart later: hotplug proxy start ${provider} ${name}`);
+          info(`Port saved; restart later: anypick proxy start ${provider} ${name}`);
         }
       },
     );
@@ -1258,7 +1593,7 @@ function registerProxyGroup(program: Command, app: HotplugApp): void {
 }
 
 async function printProxyOverview(
-  app: HotplugApp,
+  app: AnyPickApp,
   json?: boolean,
   providerId?: string,
 ): Promise<void> {
@@ -1270,7 +1605,7 @@ async function printProxyOverview(
   if (rows.length === 0) {
     console.log(pc.dim('No proxies configured.'));
     console.log(
-      pc.dim('  → hotplug proxy enable grok <account> -p 8080   then  hotplug proxy start'),
+      pc.dim('  → anypick proxy enable grok <account> -p 8080   then  anypick proxy start'),
     );
     return;
   }
@@ -1293,7 +1628,7 @@ async function confirmDelete(label: string, yes?: boolean): Promise<boolean> {
     return true;
   }
   if (!process.stdin.isTTY || !process.stdout.isTTY) {
-    throw hotplugError(
+    throw anypickError(
       `Deleting ${label} requires --yes in non-interactive mode.`,
       'CONFIRMATION_REQUIRED',
       { exitCode: ExitCode.INVALID_USAGE, mutated: false },
@@ -1313,7 +1648,7 @@ async function confirmDelete(label: string, yes?: boolean): Promise<boolean> {
   return true;
 }
 
-export async function runCli(app: HotplugApp, argv = process.argv): Promise<void> {
+export async function runCli(app: AnyPickApp, argv = process.argv): Promise<void> {
   const program = buildProgram(app);
   program.exitOverride();
 
@@ -1335,7 +1670,7 @@ export async function runCli(app: HotplugApp, argv = process.argv): Promise<void
         return;
       }
     }
-    if (isHotplugError(err)) {
+    if (isAnyPickError(err)) {
       const mode = (await import('./ux')).getUxMode();
       if (mode.json) {
         console.log(JSON.stringify(err.toJson()));

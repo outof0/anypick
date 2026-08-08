@@ -80,7 +80,7 @@ export interface ProviderPoolModel {
   error?: string;
 }
 
-export interface HotplugPreviewModel {
+export interface AnyPickPreviewModel {
   providerId: string;
   displayName: string;
   fromName: string | null;
@@ -99,6 +99,10 @@ export interface HotplugPreviewModel {
     endpoint?: string;
     willStart: boolean;
   };
+  restoreOwner?: {
+    name: string;
+    running: boolean;
+  };
   steps: {
     before: string[];
     switch: string[];
@@ -115,7 +119,9 @@ export type ProxyRowKind =
   /** Member under a pool header. */
   | 'member'
   /** Live login present but not saved yet — prompt to save. */
-  | 'unsaved';
+  | 'unsaved'
+  /** One public endpoint with model-driven provider routing. */
+  | 'hub';
 
 export interface ProxyRow {
   providerId: string;
@@ -136,6 +142,8 @@ export interface ProxyRow {
   indent?: boolean;
   /** Member enabled in multi pool. */
   memberEnabled?: boolean;
+  /** Global, opt-in policy shown only on a multi-account pool row. */
+  quotaGuardEnabled?: boolean;
   /** Live identity for unsaved rows. */
   identity?: string;
   /** Display ref override (e.g. pool:gemini). */

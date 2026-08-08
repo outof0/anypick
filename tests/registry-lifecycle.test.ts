@@ -6,7 +6,7 @@ import { createAppReady } from '../src/core/app';
 
 describe('registry lifecycle', () => {
   it('freezes adapter registration once application services are constructed', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'hotplug-registry-'));
+    const root = await mkdtemp(join(tmpdir(), 'anypick-registry-'));
     try {
       const app = await createAppReady({ root, skipMigrate: true });
       expect(app.clients.isSealed).toBe(true);

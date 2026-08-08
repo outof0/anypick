@@ -14,8 +14,8 @@ describe('proxy start realigns bound client BASE_URL', () => {
   let home: string;
 
   beforeEach(async () => {
-    root = await mkdtemp(join(tmpdir(), 'hotplug-realign-'));
-    home = await mkdtemp(join(tmpdir(), 'hotplug-realign-home-'));
+    root = await mkdtemp(join(tmpdir(), 'anypick-realign-'));
+    home = await mkdtemp(join(tmpdir(), 'anypick-realign-home-'));
   });
 
   afterEach(async () => {
@@ -49,7 +49,7 @@ describe('proxy start realigns bound client BASE_URL', () => {
     // Simulate port bump realign (what startProxy does after allocate)
     await app.runtime.applyProxyEndpoint('claude', {
       endpoint: 'http://127.0.0.1:4125',
-      apiKey: 'hotplug-proxy',
+      apiKey: 'anypick-proxy',
       defaultModel: 'claude-sonnet-5',
       accountRef: { provider: 'opencode', name: 'default' },
       label: 'proxy:opencode/default',

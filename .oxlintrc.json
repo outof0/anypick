@@ -1,6 +1,6 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["typescript", "unicorn", "oxc"],
+  "plugins": ["typescript", "unicorn", "oxc", "import"],
   "categories": {
     "correctness": "error",
     "suspicious": "warn",
@@ -11,6 +11,7 @@
   },
   "rules": {
     "curly": ["error", "all"],
+    "import/first": "error",
     "no-await-in-loop": "off",
     "no-unused-vars": "error",
     "no-underscore-dangle": "off",
@@ -44,6 +45,7 @@
     "node_modules/**",
     "*.md",
     "scripts/**",
+    "src/tray/tauri/**",
     "tests/consumer/**",
     "docs/**"
   ],

@@ -6,7 +6,7 @@ import { isProcessRunning, readPidFile } from '../utils/process';
 import { isLockStale, readLockInfo } from '../utils/lock';
 import { recoverIncompleteOperations } from './activation-executor';
 import type { DoctorFixAction, DoctorServiceDeps } from './doctor-types';
-import { isUnderRoot, walkHotplugOwned } from './doctor-utils';
+import { isUnderRoot, walkAnyPickOwned } from './doctor-utils';
 
 export async function executeDoctorFix(
   action: DoctorFixAction,
@@ -37,7 +37,7 @@ export async function executeDoctorFix(
 
 async function fixDeleteStaleLock(target: string, root: string): Promise<string> {
   if (!isUnderRoot(target, root)) {
-    throw new Error(`Refusing to delete lock outside hotplug root: ${target}`);
+    throw new Error(`Refusing to delete lock outside anypick root: ${target}`);
   }
   if (!(await pathExists(target))) {
     return `Lock already gone: ${target}`;
@@ -57,7 +57,7 @@ async function fixDeleteStaleLock(target: string, root: string): Promise<string>
 
 async function fixDeleteStalePid(target: string, root: string): Promise<string> {
   if (!isUnderRoot(target, root)) {
-    throw new Error(`Refusing to delete PID outside hotplug root: ${target}`);
+    throw new Error(`Refusing to delete PID outside anypick root: ${target}`);
   }
   if (!target.endsWith('.pid') && !target.endsWith('proxy.pid')) {
     throw new Error(`Not a PID record: ${target}`);
@@ -109,8 +109,8 @@ async function fixDeleteTempOverlay(target: string): Promise<string> {
     throw new Error(`Refusing to delete overlay outside system temp: ${target}`);
   }
   const base = target.split(/[/\\]/).pop() ?? '';
-  if (!/^hotplug-(claude|codex|kiro|client)-/.test(base)) {
-    throw new Error(`Not a Hotplug-owned temp overlay: ${target}`);
+  if (!/^anypick-(claude|codex|kiro|client)-/.test(base)) {
+    throw new Error(`Not a AnyPick-owned temp overlay: ${target}`);
   }
   const st = await stat(target);
   const ageMs = Date.now() - st.mtimeMs;
@@ -123,7 +123,7 @@ async function fixDeleteTempOverlay(target: string): Promise<string> {
 
 async function fixRepairPermissions(root: string): Promise<string> {
   let fixed = 0;
-  await walkHotplugOwned(root, async (path, isDir) => {
+  await walkAnyPickOwned(root, async (path, isDir) => {
     try {
       await chmod(path, isDir ? 0o700 : 0o600);
       fixed++;
@@ -131,7 +131,7 @@ async function fixRepairPermissions(root: string): Promise<string> {
       // ignore unchmodable
     }
   });
-  return `Repaired permissions on ${fixed} Hotplug-owned path(s) under ${root}`;
+  return `Repaired permissions on ${fixed} AnyPick-owned path(s) under ${root}`;
 }
 
 async function fixRebuildCaches(root: string): Promise<string> {

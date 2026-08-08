@@ -10,10 +10,10 @@ import type {
   IsolatedClientRuntime,
   ResolvedClientPlan,
 } from '../types';
-import { HotplugError } from '../utils/errors';
+import { AnyPickError } from '../utils/errors';
 import { ensureDir, pathExists, readJsonFile, writeJsonFile } from '../utils/fs';
 import { resolveFromContext } from './resolve';
-import { removeClientEnvFiles, HOTPLUG_MANAGED_KEY } from './env-files';
+import { removeClientEnvFiles, ANYPICK_MANAGED_KEY } from './env-files';
 import {
   createTempRuntimeRoot,
   makeIsolatedRuntime,
@@ -34,8 +34,19 @@ export function createClaudeCodeClient(home = process.env.HOME ?? homedir()): Cl
   const adapter: ClientAdapter = {
     id: 'claude',
     name: 'Claude Code',
+    shortName: 'Claude',
+    binaryName: 'claude',
+    binaryEnvVar: 'CLAUDE_BINARY',
     description: 'Anthropic Claude Code CLI / IDE',
     supportedApiStyles: ['openai', 'anthropic', 'custom'],
+    nativeInstallations: [
+      {
+        sourceId: 'claude-code',
+        executables: ['claude'],
+        macApplications: ['Claude.app'],
+      },
+    ],
+    routingSurfacePolicy: 'all-compatible',
     capabilities: {
       id: 'claude',
       acceptedProtocols: ['anthropic'],
@@ -49,7 +60,7 @@ export function createClaudeCodeClient(home = process.env.HOME ?? homedir()): Cl
     async validate(ctx: ApplyContext): Promise<void> {
       const r = resolveFromContext(ctx);
       if (!r.endpoint) {
-        throw new HotplugError(
+        throw new AnyPickError(
           'Profile has no endpoint. Set with: profile edit <name> --endpoint …',
           'CLIENT_CONFIG_INVALID',
         );
@@ -76,7 +87,7 @@ export function createClaudeCodeClient(home = process.env.HOME ?? homedir()): Cl
       plan: ResolvedClientPlan,
       paths: readonly IsolatablePath[],
     ): Promise<IsolatedClientRuntime> {
-      const runtimeRoot = await createTempRuntimeRoot('hotplug-claude-');
+      const runtimeRoot = await createTempRuntimeRoot('anypick-claude-');
       const isoHome = join(runtimeRoot, 'home');
       await ensureDir(isoHome);
 
@@ -91,7 +102,7 @@ export function createClaudeCodeClient(home = process.env.HOME ?? homedir()): Cl
         syntheticProxyProfile({
           name: `ephemeral-${plan.source.display}`,
           endpoint,
-          apiKey: 'hotplug-proxy',
+          apiKey: 'anypick-proxy',
           defaultModel: plan.model.mode === 'explicit' ? plan.model.id : undefined,
         });
 
@@ -101,14 +112,14 @@ export function createClaudeCodeClient(home = process.env.HOME ?? homedir()): Cl
           meta: { ...profile.meta, endpoint },
           secrets: {
             ...profile.secrets,
-            apiKey: profile.secrets.apiKey ?? 'hotplug-proxy',
+            apiKey: profile.secrets.apiKey ?? 'anypick-proxy',
           },
         },
         clientId: 'claude',
         dryRun: plan.dryRun,
         verbose: plan.verbose,
         proxyEndpoint: endpoint || undefined,
-        hotplugRoot: plan.hotplugRoot,
+        anypickRoot: plan.anypickRoot,
         isolatedHome: isoHome,
       };
 
@@ -128,7 +139,7 @@ export function createClaudeCodeClient(home = process.env.HOME ?? homedir()): Cl
         syntheticProxyProfile({
           name: `proxy-${plan.source.display}`,
           endpoint: plan.transport.endpoint ?? '',
-          apiKey: 'hotplug-proxy',
+          apiKey: 'anypick-proxy',
           defaultModel: plan.model.mode === 'explicit' ? plan.model.id : undefined,
         });
       const endpoint =
@@ -145,7 +156,7 @@ export function createClaudeCodeClient(home = process.env.HOME ?? homedir()): Cl
         dryRun: plan.dryRun,
         verbose: plan.verbose,
         proxyEndpoint: endpoint || undefined,
-        hotplugRoot: plan.hotplugRoot,
+        anypickRoot: plan.anypickRoot,
       };
       await adapter.validate(ctx);
       return applyClaudeToHome(ctx, home);
@@ -154,15 +165,15 @@ export function createClaudeCodeClient(home = process.env.HOME ?? homedir()): Cl
     async reset(state: ClientState): Promise<void> {
       await removeClientEnvFiles(stateHomeRoot(state), 'claude');
 
-      const hotplugRoot = inferHotplugRoot(state) ?? process.env.HOTPLUG_HOME;
-      if (hotplugRoot) {
-        await removeClientEnvFiles(hotplugRoot, 'claude');
+      const anypickRoot = inferAnyPickRoot(state) ?? process.env.ANYPICK_HOME;
+      if (anypickRoot) {
+        await removeClientEnvFiles(anypickRoot, 'claude');
       }
 
       if (await pathExists(liveSettings)) {
         try {
           const doc = await readJsonFile<Record<string, unknown>>(liveSettings);
-          const managed = doc[HOTPLUG_MANAGED_KEY] as { keys?: string[] } | undefined;
+          const managed = doc[ANYPICK_MANAGED_KEY] as { keys?: string[] } | undefined;
           const keys = [
             ...(managed?.keys ?? state.managedEnvKeys ?? []),
             'OPENAI_API_KEY',
@@ -180,10 +191,15 @@ export function createClaudeCodeClient(home = process.env.HOME ?? homedir()): Cl
               doc.env = env;
             }
           }
-          delete doc[HOTPLUG_MANAGED_KEY];
+          delete doc[ANYPICK_MANAGED_KEY];
           await writeJsonFile(liveSettings, doc, 0o600);
-        } catch {
-          // leave file if unreadable
+        } catch (err) {
+          // Never report a successful reset when the file that may contain a
+          // managed endpoint/token could not be inspected safely.
+          throw new Error(
+            `Could not safely reset Claude Code settings: ${err instanceof Error ? err.message : String(err)}`,
+            { cause: err },
+          );
         }
       }
     },
@@ -195,7 +211,7 @@ export function createClaudeCodeClient(home = process.env.HOME ?? homedir()): Cl
       if (present) {
         try {
           const doc = await readJsonFile<Record<string, unknown>>(liveSettings);
-          const managed = doc[HOTPLUG_MANAGED_KEY] as { keys?: string[] } | undefined;
+          const managed = doc[ANYPICK_MANAGED_KEY] as { keys?: string[] } | undefined;
           const env =
             doc.env && typeof doc.env === 'object' ? (doc.env as Record<string, string>) : {};
           if (env.OPENAI_API_KEY || env.OPENAI_BASE_URL) {
@@ -215,8 +231,8 @@ export function createClaudeCodeClient(home = process.env.HOME ?? homedir()): Cl
             }
           }
           summary = managed?.keys?.length
-            ? `hotplug-managed env keys: ${managed.keys.length}`
-            : 'settings present (no hotplug marker)';
+            ? `anypick-managed env keys: ${managed.keys.length}`
+            : 'settings present (no anypick marker)';
         } catch {
           issues.push('settings.json unreadable');
         }
@@ -233,7 +249,7 @@ export function createClaudeCodeClient(home = process.env.HOME ?? homedir()): Cl
   return adapter;
 }
 
-function inferHotplugRoot(state: ClientState): string | undefined {
+function inferAnyPickRoot(state: ClientState): string | undefined {
   for (const p of state.managedPaths) {
     const idx = p.replace(/\\/g, '/').indexOf('/clients/claude/');
     if (idx > 0) {
@@ -244,7 +260,7 @@ function inferHotplugRoot(state: ClientState): string | undefined {
 }
 
 function stateHomeRoot(state: ClientState): string {
-  return inferHotplugRoot(state) ?? process.env.HOTPLUG_HOME ?? join(homedir(), '.hotplug');
+  return inferAnyPickRoot(state) ?? process.env.ANYPICK_HOME ?? join(homedir(), '.anypick');
 }
 
 export const claudeCodeClient = createClaudeCodeClient();

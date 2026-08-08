@@ -1,4 +1,4 @@
-import type { HotplugApp } from '../../core/app';
+import type { AnyPickApp } from '../../core/app';
 import type { AppBindingRow } from './bindings';
 import { loadAppBindings } from './bindings';
 import { formatRelativeTime } from './identity';
@@ -25,7 +25,7 @@ export interface GatewayRow {
   updatedRelative: string;
 }
 
-export async function loadGateways(app: HotplugApp, nowMs = Date.now()): Promise<GatewayRow[]> {
+export async function loadGateways(app: AnyPickApp, nowMs = Date.now()): Promise<GatewayRow[]> {
   const profiles = await app.profiles.list();
   const apps = loadAppBindings(app);
   const out: GatewayRow[] = [];
@@ -190,7 +190,7 @@ export function suggestModelsForGateway(providerId: string, catalog?: CatalogLik
 
 /** Apps that can use this gateway, plus existing bindings so they can be detached safely. */
 export function compatibleAppsForGateway(
-  app: HotplugApp,
+  app: AnyPickApp,
   profile: RuntimeProfile,
 ): AppBindingRow[] {
   const all = loadAppBindings(app);

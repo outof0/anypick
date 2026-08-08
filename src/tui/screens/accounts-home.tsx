@@ -14,14 +14,16 @@ import {
 } from '../components/chrome';
 import {
   accountStatusKind,
-  groupHotplugHomeRows,
+  groupAnyPickHomeRows,
+  identityDisplayText,
   type OperationReceipt,
-  type HotplugHomeModel,
-  type HotplugHomeRow,
+  type AnyPickHomeModel,
+  type AnyPickHomeRow,
 } from '../model';
+import type { ProviderFilterOption } from '../model/provider-filter';
 
 export interface AccountsHomeScreenProps {
-  model: HotplugHomeModel;
+  model: AnyPickHomeModel;
   selectedIndex: number;
   columns?: number;
   receipt?: OperationReceipt | null;
@@ -30,24 +32,31 @@ export interface AccountsHomeScreenProps {
   busyLabel?: string;
   onMove: (delta: number) => void;
   onAdd: (providerId?: string) => void;
-  onRefresh: (row: HotplugHomeRow) => void;
-  onDelete: (row: HotplugHomeRow) => void;
-  onExport: (row: HotplugHomeRow) => void;
+  onRefresh: (row: AnyPickHomeRow) => void;
+  onDelete: (row: AnyPickHomeRow) => void;
+  onExport: (row: AnyPickHomeRow) => void;
   onImport: () => void;
-  onOpenSwitch: (row: HotplugHomeRow) => void;
+  onOpenSwitch: (row: AnyPickHomeRow) => void;
   /** Open the read-only detail + usage view for this account. */
-  onViewDetail?: (row: HotplugHomeRow) => void;
+  onViewDetail?: (row: AnyPickHomeRow) => void;
   /** Save live login that is not stored yet (same as Switch save-live). */
-  onSaveLive?: (row: HotplugHomeRow) => void;
+  onSaveLive?: (row: AnyPickHomeRow) => void;
   /** Replace a changed active snapshot with the login currently on this computer. */
-  onSaveCurrent?: (row: HotplugHomeRow) => void;
+  onSaveCurrent?: (row: AnyPickHomeRow) => void;
   onBack: () => void;
   onNextSection?: () => void;
+  providerFilterId?: string;
+  providerFilterLabel?: string;
+  providerFilterOptions?: ProviderFilterOption[];
+  onCycleProvider?: () => void;
+  onClearProvider?: () => void;
   onHelp?: () => void;
+  onTray?: () => void;
+  onDetach?: () => void;
   onQuit: () => void;
 }
 
-function statusKindFor(row: HotplugHomeRow): StatusKind {
+function statusKindFor(row: AnyPickHomeRow): StatusKind {
   return accountStatusKind(row);
 }
 
@@ -72,13 +81,20 @@ export function AccountsHomeScreen(props: AccountsHomeScreenProps) {
     onSaveCurrent,
     onBack,
     onNextSection,
+    providerFilterId,
+    providerFilterLabel = 'All providers',
+    providerFilterOptions = [],
+    onCycleProvider,
+    onClearProvider,
     onHelp,
+    onTray,
+    onDetach,
     onQuit,
   } = props;
 
   const rows = model.rows;
   const selected = rows[selectedIndex];
-  const grouped = groupHotplugHomeRows(rows, model.providers);
+  const grouped = groupAnyPickHomeRows(rows, model.providers);
   const isSaveLive = selected?.rowKind === 'save-live';
   const canSaveCurrent = Boolean(
     selected?.active &&
@@ -98,6 +114,18 @@ export function AccountsHomeScreen(props: AccountsHomeScreenProps) {
       onHelp();
       return;
     }
+    if (input === 't' && onTray) {
+      onTray();
+      return;
+    }
+    if (input === 'D' && onDetach) {
+      onDetach();
+      return;
+    }
+    if (key.escape && providerFilterId) {
+      onClearProvider?.();
+      return;
+    }
     if (key.escape) {
       onBack();
       return;
@@ -115,7 +143,11 @@ export function AccountsHomeScreen(props: AccountsHomeScreenProps) {
       return;
     }
     if (input === 'a') {
-      onAdd(selected?.providerId);
+      onAdd(selected?.providerId ?? providerFilterId);
+      return;
+    }
+    if (input === 'f' && providerFilterOptions.length > 0) {
+      onCycleProvider?.();
       return;
     }
     if (input === 'i') {
@@ -128,6 +160,8 @@ export function AccountsHomeScreen(props: AccountsHomeScreenProps) {
     if (key.return) {
       if (selected.rowKind === 'save-live') {
         (onSaveLive ?? onOpenSwitch)(selected);
+      } else if (selected.active && selected.isLiveMatch && onViewDetail) {
+        onViewDetail(selected);
       } else {
         onOpenSwitch(selected);
       }
@@ -162,15 +196,22 @@ export function AccountsHomeScreen(props: AccountsHomeScreenProps) {
 
   const savedCount = rows.filter((r) => r.rowKind !== 'save-live').length;
   const ambient = savedCount > 0 ? `${savedCount} saved` : undefined;
-  let outcome = 'No saved logins yet';
-  let support = 'a add a login   or save a live login when shown';
+  let outcome = providerFilterId
+    ? `No saved accounts for ${providerFilterLabel}`
+    : 'No saved accounts yet';
+  let support = providerFilterId
+    ? 'Press f for the next provider, or esc to show all providers.'
+    : 'Press a to add an account, or i to import one.';
   if (selected) {
     if (selected.rowKind === 'save-live') {
-      outcome = `Save ${selected.identity ?? selected.liveIdentity ?? 'current login'} as a ${selected.providerName} login`;
+      outcome = `Save ${identityDisplayText(
+        selected.identity ?? selected.liveIdentity,
+        'current login',
+      )} as a ${selected.providerName} login`;
       support = 'Stores a snapshot so you can switch back later.';
     } else {
       outcome = `${selected.ref} was updated ${selected.updatedRelative}`;
-      support = selected.identity ?? '';
+      support = identityDisplayText(selected.identity, '');
     }
   }
 
@@ -179,8 +220,9 @@ export function AccountsHomeScreen(props: AccountsHomeScreenProps) {
       ? [
           { key: 'a', label: 'add a login' },
           { key: 'i', label: 'import' },
+          { key: 'f', label: 'filter provider', when: providerFilterOptions.length > 0 },
           { key: 'tab', label: 'gateways', when: Boolean(onNextSection) },
-          { key: 'esc', label: 'switch' },
+          { key: 'esc', label: providerFilterId ? 'all providers' : 'apps' },
           { key: 'h', label: 'help', when: Boolean(onHelp) },
           { key: 'q', label: 'quit' },
         ]
@@ -190,13 +232,20 @@ export function AccountsHomeScreen(props: AccountsHomeScreenProps) {
             { key: 's', label: 'save' },
             { key: 'a', label: 'add' },
             { key: 'i', label: 'import' },
+            { key: 'f', label: 'filter provider', when: providerFilterOptions.length > 0 },
             { key: 'tab', label: 'gateways', when: Boolean(onNextSection) },
-            { key: 'esc', label: 'switch' },
+            { key: 'esc', label: providerFilterId ? 'all providers' : 'apps' },
             { key: 'h', label: 'help', when: Boolean(onHelp) },
             { key: 'q', label: 'quit' },
           ]
         : [
-            { key: 'enter', label: 'open in Switch' },
+            {
+              key: 'enter',
+              label:
+                selected?.active && selected.isLiveMatch && onViewDetail
+                  ? 'view details'
+                  : 'switch account',
+            },
             { key: 'v', label: 'view', when: Boolean(onViewDetail && !isSaveLive) },
             { key: 'r', label: 'refresh', when: Boolean(selected?.canRefresh) },
             { key: 's', label: 'save current', when: canSaveCurrent },
@@ -204,19 +253,33 @@ export function AccountsHomeScreen(props: AccountsHomeScreenProps) {
             { key: 'a', label: 'add' },
             { key: 'i', label: 'import' },
             { key: 'e', label: 'export' },
+            { key: 'f', label: 'filter provider', when: providerFilterOptions.length > 0 },
             { key: 'tab', label: 'gateways', when: Boolean(onNextSection) },
-            { key: 'esc', label: 'switch' },
+            { key: 'esc', label: providerFilterId ? 'all providers' : 'apps' },
             { key: 'h', label: 'help', when: Boolean(onHelp) },
             { key: 'q', label: 'quit' },
           ];
+
+  hints.push(
+    { key: 't', label: 'tray runtime', when: Boolean(onTray) },
+    { key: 'D', label: 'detach to Tray', when: Boolean(onDetach) },
+  );
 
   const nodes: React.ReactNode[] = [];
   if (rows.length === 0) {
     nodes.push(
       <EmptyState
         key="empty"
-        text="No saved logins yet."
-        hint="Add a login, or save one already signed in on this computer."
+        text={
+          providerFilterId
+            ? `No saved accounts for ${providerFilterLabel}.`
+            : 'No saved accounts yet.'
+        }
+        hint={
+          providerFilterId
+            ? 'Press f for another provider, or esc to show all providers.'
+            : 'Press a to add an account, or save the login already active on this computer.'
+        }
       />,
     );
   } else {
@@ -250,7 +313,10 @@ export function AccountsHomeScreen(props: AccountsHomeScreenProps) {
           key={row.ref}
           selected={accountIndex === selectedIndex}
           name={row.rowKind === 'save-live' ? 'Save current login' : row.label || row.name}
-          identity={row.rowKind === 'save-live' ? (row.liveIdentity ?? row.identity) : row.identity}
+          identity={identityDisplayText(
+            row.rowKind === 'save-live' ? (row.liveIdentity ?? row.identity) : row.identity,
+            '',
+          )}
           extra={row.rowKind === 'save-live' ? 'not saved' : row.updatedRelative}
           status={statusKindFor(row)}
           columns={columns}
@@ -262,7 +328,7 @@ export function AccountsHomeScreen(props: AccountsHomeScreenProps) {
 
   return (
     <ScreenShell
-      path="accounts"
+      path={['manage', 'accounts']}
       ambient={ambient}
       columns={columns}
       receipt={receipt}
@@ -273,7 +339,18 @@ export function AccountsHomeScreen(props: AccountsHomeScreenProps) {
       support={support}
       hints={hints}
     >
-      <Box flexDirection="column">{nodes}</Box>
+      <Box flexDirection="column">
+        {providerFilterOptions.length > 0 ? (
+          <>
+            <Text dimColor>
+              {' '}
+              Provider <Text bold>{providerFilterLabel}</Text> · f next
+            </Text>
+            <Text> </Text>
+          </>
+        ) : null}
+        {nodes}
+      </Box>
     </ScreenShell>
   );
 }

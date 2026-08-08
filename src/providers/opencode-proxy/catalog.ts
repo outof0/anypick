@@ -66,6 +66,17 @@ export class CatalogStore implements OpenCodeCatalogStore {
     return { catalog, base: this.baseFor(catalog) };
   }
 
+  /**
+   * Drop any cached list so the next `live()` (or an explicit reload) refetches
+   * the upstream catalog. Used when a caller asks for a fresh model list instead
+   * of one cached up to CATALOG_TTL_MS ago — new models users are entitled to
+   * (e.g. a free tier added upstream) otherwise stay hidden until the TTL lapses.
+   */
+  invalidate(): void {
+    this.cache = undefined;
+    this.inflight = undefined;
+  }
+
   async live(): Promise<CatalogCache> {
     const now = Date.now();
     if (this.cache) {

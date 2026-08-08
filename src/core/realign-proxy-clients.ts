@@ -1,7 +1,7 @@
 /**
  * When a proxy rebinds to a new port/endpoint, rewrite every bound client
  * (settings.json / env) so ANTHROPIC_BASE_URL / OPENAI_BASE_URL stay in sync.
- * User should never need `hotplug use --current` just because the port bumped.
+ * User should never need `anypick use --current` just because the port bumped.
  */
 
 import type { BindingStore } from './binding-store';
@@ -58,7 +58,7 @@ export async function realignClientsToAccountProxy(
 
       await deps.runtime.applyProxyEndpoint(clientId, {
         endpoint,
-        apiKey: token ?? 'hotplug-proxy',
+        apiKey: token ?? 'anypick-proxy',
         defaultModel: modelId,
         modelRoles: roles,
         accountRef: { provider: providerId, name: accountName },

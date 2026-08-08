@@ -12,7 +12,7 @@ import type { CatalogProvider } from './catalog';
  */
 export const PLUGIN_API_VERSION = 1;
 
-/** Manifest read from `hotplug.plugin.json` at the plugin root. */
+/** Manifest read from `anypick.plugin.json` at the plugin root. */
 export interface PluginManifest {
   /** Unique id. Also the directory-independent key used by config and the CLI. */
   name: string;
@@ -48,7 +48,7 @@ export interface PluginContext {
  * builtin registration and sealing the registries. Any async setup a plugin
  * needs belongs in the adapter methods, which are already async.
  */
-export interface HotplugPlugin {
+export interface AnyPickPlugin {
   activate: (ctx: PluginContext) => void;
   /** Called once, in reverse activation order, when the owning app closes. */
   dispose?: () => void;
@@ -62,10 +62,12 @@ export interface PluginRecord {
   version: string;
   enabled: boolean;
   /**
-   * SHA-256 of the entry module as it looked when the user trusted it.
+   * SHA-256 of the whole plugin package (manifest + shipped files) as it looked
+   * when the user trusted it.
    *
    * Re-verified on every load: an enabled plugin whose code changed underneath
-   * the user is refused until they run `hotplug plugin trust` again (ADR 0012).
+   * the user is refused until they run `anypick plugin trust` again (ADR 0012).
+   * Hashing only the entry module would let helper files change silently.
    */
   digest: string;
   addedAt: string;
@@ -76,7 +78,7 @@ export interface PluginRecord {
 export interface LoadedPlugin {
   record: PluginRecord;
   manifest: PluginManifest;
-  plugin: HotplugPlugin;
+  plugin: AnyPickPlugin;
 }
 
 /** A plugin that was enabled but could not be loaded. */
@@ -84,7 +86,7 @@ export interface PluginLoadFailure {
   name: string;
   path: string;
   reason: string;
-  /** True when the entry module no longer matches the trusted digest. */
+  /** True when the package digest no longer matches what was trusted. */
   untrusted: boolean;
 }
 

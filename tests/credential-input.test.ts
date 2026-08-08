@@ -18,7 +18,7 @@ import {
   CatalogRegistry,
   ClientRegistry,
   registerBuiltinClients,
-  type HotplugApp,
+  type AnyPickApp,
 } from '../src/testing';
 import type {
   Account,
@@ -130,7 +130,7 @@ class PlainProvider implements Provider {
 describe('user-supplied credentials', () => {
   let root: string;
   let liveDir: string;
-  let app: HotplugApp;
+  let app: AnyPickApp;
 
   const liveLogin = () =>
     writeFile(
@@ -142,7 +142,7 @@ describe('user-supplied credentials', () => {
     );
 
   beforeEach(async () => {
-    root = await mkdtemp(join(tmpdir(), 'hotplug-input-'));
+    root = await mkdtemp(join(tmpdir(), 'anypick-input-'));
     liveDir = join(root, 'acme-live');
     await mkdir(liveDir, { recursive: true });
     await liveLogin();

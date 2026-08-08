@@ -1,4 +1,4 @@
-import { HotplugError } from './errors';
+import { AnyPickError } from './errors';
 
 export function isLoopbackHost(host: string): boolean {
   const value = host
@@ -10,7 +10,7 @@ export function isLoopbackHost(host: string): boolean {
 
 export function assertLoopbackHost(host: string): void {
   if (!isLoopbackHost(host)) {
-    throw new HotplugError(
+    throw new AnyPickError(
       `Proxy host must be loopback-only (127.0.0.1, ::1, or localhost), got "${host}".`,
       'PROXY_UNSAFE_HOST',
     );

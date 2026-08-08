@@ -1,8 +1,8 @@
 /** Public API consumer fixture under Bundler module resolution. */
-import { createHotplugApp, type Account, type Hotplug, type Provider } from 'hotplug';
+import { createAnyPickApp, type Account, type AnyPick, type Provider } from 'anypick';
 
 async function main(): Promise<void> {
-  const app: Hotplug = await createHotplugApp({ root: '/tmp/hotplug-consumer-bundler' });
+  const app: AnyPick = await createAnyPickApp({ root: '/tmp/anypick-consumer-bundler' });
   const listed = await app.accounts.list('codex');
   const first = listed[0];
   if (first) {

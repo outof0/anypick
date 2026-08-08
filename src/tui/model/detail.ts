@@ -1,4 +1,4 @@
-import type { HotplugApp } from '../../core/app';
+import type { AnyPickApp } from '../../core/app';
 import type { DoctorFixPlan } from '../../core/doctor';
 import type { ProxyStatus } from '../../types';
 import { providerCapabilities } from '../../core/capabilities';
@@ -7,7 +7,7 @@ import { deriveLiveRelation, formatRelativeTime, proxyStateLabel } from './ident
 import { liveSummary, safeCurrent } from './root';
 
 export async function loadAccountDetail(
-  app: HotplugApp,
+  app: AnyPickApp,
   providerId: string,
   name: string,
   nowMs = Date.now(),
@@ -77,7 +77,7 @@ export async function loadAccountDetail(
   };
 }
 
-export async function loadHealthModel(app: HotplugApp): Promise<HealthModel> {
+export async function loadHealthModel(app: AnyPickApp): Promise<HealthModel> {
   const report = await app.doctor.run();
   let plan: DoctorFixPlan | null = null;
   try {
@@ -97,6 +97,6 @@ export async function loadHealthModel(app: HotplugApp): Promise<HealthModel> {
   return { report, plan, prioritized };
 }
 
-// ── Final TUI: Hotplug home + Claude bind status ─────────────────
+// ── Final TUI: AnyPick home + Claude bind status ─────────────────
 
 /** Account row for Switch (under a tool group). */

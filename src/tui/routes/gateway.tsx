@@ -5,14 +5,25 @@ import { GatewayConnectionFormScreen } from '../screens/gateway-connection-form'
 import { ManageAppsScreen } from '../screens/manage-apps';
 import { ProxyModelsScreen } from '../screens/proxy-models';
 import { clampIndex, modelSummariesForApps, toggleChecked } from '../app-ui-helpers';
+import { filterGatewaysByProvider, gatewayProviderFilterOptions } from '../model';
 import type { Route } from './context';
 
 export const gatewayRoute: Route = (ctx) => {
-  const { app, columns, shell, nav, bindings, gateways, roleEditor } = ctx;
+  const {
+    app,
+    columns,
+    shell,
+    nav,
+    bindings,
+    gateways,
+    roleEditor,
+    gatewayProviderFilter,
+    trayRuntime,
+  } = ctx;
   const { screen, go, quit, selectedIndex, setSelectedIndex, busy, busyLabel, error, receipt } =
     shell;
   const { setReceipt } = shell;
-  const { gatewayRows, catalogPicks, openSwitch, openGateways } = nav;
+  const { gatewayRows, catalogPicks, openApps, openGateways, openProxy } = nav;
   const { openModelReedit } = bindings;
   const { editingRoleId, editDraft, editCursor, suggestionIndex } = roleEditor;
 
@@ -105,6 +116,7 @@ export const gatewayRoute: Route = (ctx) => {
     return (
       <ManageAppsScreen
         proxyRef={screen.name}
+        path={['gateways', screen.name, 'apps']}
         apps={list}
         checked={checked}
         selectedIndex={idx}
@@ -132,16 +144,23 @@ export const gatewayRoute: Route = (ctx) => {
   }
 
   if (screen.kind === 'gateways') {
-    const idx = clampIndex(selectedIndex, gatewayRows.length);
+    const providerOptions = gatewayProviderFilterOptions(gatewayRows);
+    const filteredRows = filterGatewaysByProvider(gatewayRows, gatewayProviderFilter.selectedId);
+    const idx = clampIndex(selectedIndex, filteredRows.length);
     return (
       <GatewaysHomeScreen
-        rows={gatewayRows}
+        rows={filteredRows}
         selectedIndex={idx}
         columns={columns}
         receipt={receipt}
         busy={busy}
         busyLabel={busyLabel}
-        onMove={(d) => setSelectedIndex(clampIndex(idx + d, gatewayRows.length))}
+        onMove={(d) => setSelectedIndex(clampIndex(idx + d, filteredRows.length))}
+        providerFilterId={gatewayProviderFilter.selectedId}
+        providerFilterLabel={gatewayProviderFilter.label(providerOptions)}
+        providerFilterOptions={providerOptions}
+        onCycleProvider={() => gatewayProviderFilter.cycle(providerOptions)}
+        onClearProvider={gatewayProviderFilter.clear}
         onAdd={() => {
           setReceipt(null);
           gateways.startGatewayCreate();
@@ -158,10 +177,24 @@ export const gatewayRoute: Route = (ctx) => {
         onDelete={gateways.confirmDeleteGateway}
         onSwitch={() => {
           setReceipt(null);
-          void openSwitch();
+          void openApps();
+        }}
+        onNextSection={() => {
+          setReceipt(null);
+          void openProxy();
         }}
         onHelp={() => {
           go({ kind: 'help', context: 'gateways', back: { kind: 'gateways' } });
+        }}
+        onTray={() => {
+          void trayRuntime.open(screen).catch((err: unknown) => {
+            shell.reportFail(err, 'Could not open Tray runtime controls.');
+          });
+        }}
+        onDetach={() => {
+          void trayRuntime.detach().catch((err: unknown) => {
+            shell.reportFail(err, 'Could not detach AnyPick to the Tray.');
+          });
         }}
         onQuit={() => quit(0)}
       />

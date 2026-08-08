@@ -11,7 +11,7 @@ describe('PoolStore', () => {
   let pools: PoolStore;
 
   beforeEach(async () => {
-    root = await mkdtemp(join(tmpdir(), 'hotplug-pool-'));
+    root = await mkdtemp(join(tmpdir(), 'anypick-pool-'));
     const app = await createAppReady({ root, skipMigrate: true });
     pools = new PoolStore(root, app.db);
   });
@@ -68,7 +68,7 @@ describe('pool refs', () => {
 
 describe('AccountService pool API', () => {
   it('enablePoolMulti requires accounts', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'hotplug-pool-svc-'));
+    const root = await mkdtemp(join(tmpdir(), 'anypick-pool-svc-'));
     try {
       const app = await createAppReady({ root, skipMigrate: true });
       await expect(app.proxy.enablePoolMulti('gemini')).rejects.toMatchObject({
@@ -84,7 +84,7 @@ describe('AccountService pool API', () => {
   it.each([-1, 1.5, 65536, Number.NaN])(
     'rejects invalid shared port %s before persisting',
     async (port) => {
-      const root = await mkdtemp(join(tmpdir(), 'hotplug-pool-port-'));
+      const root = await mkdtemp(join(tmpdir(), 'anypick-pool-port-'));
       try {
         const app = await createAppReady({ root, skipMigrate: true });
         const { snapshotDir } = await app.accountStore.prepareSnapshot('gemini', 'one');

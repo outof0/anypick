@@ -152,5 +152,52 @@ export function sleep(ms: number): Promise<void> {
 }
 
 /**
+ * Best-effort PIDs listening on host:port (loopback proxies).
+ * Used to re-attach a pid record after a stale file left a live hub orphaned.
+ * Returns [] when lsof/ss is unavailable or nothing is listening.
+ */
+export async function listenPidsOnPort(port: number, host = '127.0.0.1'): Promise<number[]> {
+  if (!Number.isInteger(port) || port <= 0) {
+    return [];
+  }
+  const { execFile } = await import('node:child_process');
+  const { promisify } = await import('node:util');
+  const execFileAsync = promisify(execFile);
+  try {
+    const { stdout } = await execFileAsync(
+      'lsof',
+      ['-nP', `-iTCP@${host}:${port}`, '-sTCP:LISTEN', '-t'],
+      { timeout: 2000, encoding: 'utf8' },
+    );
+    return [
+      ...new Set(
+        stdout
+          .split(/\r?\n/u)
+          .map((line) => Number.parseInt(line.trim(), 10))
+          .filter((pid) => Number.isInteger(pid) && pid > 0 && isProcessRunning(pid)),
+      ),
+    ];
+  } catch {
+    // Fall through — try ss on Linux if lsof is missing.
+  }
+  try {
+    const { stdout } = await execFileAsync('ss', ['-lptn', `sport = :${port}`], {
+      timeout: 2000,
+      encoding: 'utf8',
+    });
+    const pids: number[] = [];
+    for (const match of stdout.matchAll(/pid=(\d+)/gu)) {
+      const pid = Number.parseInt(match[1] ?? '', 10);
+      if (Number.isInteger(pid) && pid > 0 && isProcessRunning(pid)) {
+        pids.push(pid);
+      }
+    }
+    return [...new Set(pids)];
+  } catch {
+    return [];
+  }
+}
+
+/**
  * Resolve a binary from PATH (and optional extra candidates).
  */

@@ -1,5 +1,5 @@
 import type { Provider } from '../types';
-import { HotplugError } from '../utils/errors';
+import { AnyPickError } from '../utils/errors';
 
 /**
  * Shared registry base. The account/client/catalog registries are near-identical
@@ -25,13 +25,13 @@ export class Registry<T extends RegistryItem> {
 
   register(item: T): void {
     if (this.sealed) {
-      throw new HotplugError(
+      throw new AnyPickError(
         `Cannot register ${this.config.kind} after the application has started. Register extensions before createAppReady().`,
         'REGISTRY_SEALED',
       );
     }
     if (this.items.has(item.id)) {
-      throw new HotplugError(
+      throw new AnyPickError(
         `${this.config.kind} already registered: ${item.id}`,
         this.config.duplicateCode,
       );
@@ -43,7 +43,7 @@ export class Registry<T extends RegistryItem> {
     const item = this.items.get(id);
     if (!item) {
       const known = this.ids().join(', ') || '(none)';
-      throw new HotplugError(
+      throw new AnyPickError(
         `Unknown ${this.config.kind} "${id}". Available: ${known}`,
         this.config.unknownCode,
       );
@@ -83,7 +83,7 @@ export class Registry<T extends RegistryItem> {
   /** Restore a checkpoint while startup registration is still open. */
   restore(checkpoint: readonly string[]): void {
     if (this.sealed) {
-      throw new HotplugError(
+      throw new AnyPickError(
         `Cannot restore ${this.config.kind} after the application has started.`,
         'REGISTRY_SEALED',
       );

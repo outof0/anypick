@@ -4,8 +4,11 @@ import type {
   Account,
   AccountMeta,
   LiveAuthStatus,
+  ModelDiscoveryContext,
   Provider,
   ProxyContext,
+  ProxyHubBackendContext,
+  ProxyHubBackendHandle,
   ProxyHandle,
   ProxyStatus,
   SourceAdapter,
@@ -34,6 +37,10 @@ import {
   openCodeProxyStatus,
   readOpenCodeProxyLogs,
 } from './opencode-proxy-lifecycle';
+import { listenOpenCodeProxy } from './opencode-proxy/server';
+import { closeProxyHubBackend } from './proxy-hub-backend';
+import { fetchOpenAiStyleModels } from '../catalog/model-fetch';
+import { loadOpenCodeCredential } from './opencode-proxy/auth';
 
 /**
  * OpenCode CLI — multi-provider auth (like Codex) + optional Zen/Go proxy.
@@ -68,6 +75,30 @@ export class OpenCodeProvider implements Provider {
     return rolesFromLiveDiscovery();
   }
 
+  async fetchLiveModels(ctx: ModelDiscoveryContext): Promise<readonly string[]> {
+    let apiKey = ctx.apiKey;
+    if (!apiKey && (await pathExists(this.authPath))) {
+      try {
+        const cred = await loadOpenCodeCredential(this.authPath);
+        apiKey = cred.apiKey;
+      } catch {
+        // ignore
+      }
+    }
+    const discoveryCtx = { ...ctx, ...(apiKey ? { apiKey } : {}) };
+    const zenModels = await fetchOpenAiStyleModels({
+      ...discoveryCtx,
+      endpoint: ctx.endpoint ?? 'https://opencode.ai/zen',
+    });
+    const goModels = await fetchOpenAiStyleModels({
+      ...discoveryCtx,
+      endpoint: ctx.endpoint
+        ? `${ctx.endpoint.replace(/\/$/, '')}/go`
+        : 'https://opencode.ai/zen/go',
+    });
+    return [...new Set([...zenModels, ...goModels])];
+  }
+
   constructor(private readonly home = homedir()) {}
 
   sourceAdapter(account: Account): SourceAdapter {
@@ -76,6 +107,34 @@ export class OpenCodeProvider implements Provider {
 
   poolSourceAdapter(): SourceAdapter {
     return poolAdapterFor(this.id, this);
+  }
+
+  async createProxyHubBackend(ctx: ProxyHubBackendContext): Promise<ProxyHubBackendHandle> {
+    const [primary, ...rest] = ctx.accounts;
+    if (!primary) {
+      throw new Error('OpenCode Hub backend requires at least one account');
+    }
+    const options = primary.proxy.options ?? {};
+    const authMode =
+      options.authMode === 'public' || options.authMode === 'api' || options.authMode === 'auto'
+        ? options.authMode
+        : 'auto';
+    const { server, endpoint } = await listenOpenCodeProxy({
+      host: '127.0.0.1',
+      port: 0,
+      authPath: join(primary.snapshotDir, 'auth.json'),
+      authPaths: rest.map((account) => join(account.snapshotDir, 'auth.json')),
+      authAccountNames: ctx.accounts.map((account) => account.name),
+      authMode,
+      upstream: typeof options.upstream === 'string' ? options.upstream : undefined,
+      modelMetadataUrl:
+        options.modelMetadataUrl === false || typeof options.modelMetadataUrl === 'string'
+          ? options.modelMetadataUrl
+          : undefined,
+      token: ctx.token,
+      log: ctx.log,
+    });
+    return { endpoint, close: () => closeProxyHubBackend(server) };
   }
 
   private get dataDir(): string {
@@ -159,7 +218,7 @@ export class OpenCodeProvider implements Provider {
 
   /**
    * Clear local OpenCode auth only — does NOT revoke OAuth / API keys server-side.
-   * Saved hotplug snapshots stay valid for later restore (same as codex stash).
+   * Saved anypick snapshots stay valid for later restore (same as codex stash).
    */
   async clearLive(): Promise<void> {
     const { rm } = await import('node:fs/promises');

@@ -10,7 +10,7 @@ function BrandPath(props: { pathText: string }) {
   return (
     <Box>
       <Text color={brand} dimColor={brand === undefined}>
-        {' hotplug'}
+        {' AnyPick'}
       </Text>
       <Text> / </Text>
       <Text bold>{props.pathText}</Text>
@@ -19,7 +19,7 @@ function BrandPath(props: { pathText: string }) {
 }
 
 /**
- * `hotplug / switch` — brand violet, path segment normal/bold.
+ * `AnyPick / switch` — brand violet, path segment normal/bold.
  * Ambient status right-aligned when width allows.
  */
 export function ScreenHeader(props: {
@@ -118,7 +118,7 @@ export function noticeFromReceipt(receipt: OperationReceipt | null | undefined):
       : receipt.lines.some((l) => l.kind === 'ok')
         ? 'ok'
         : 'info';
-  // Prefer first line as the notice body (design: no title like "Hotplug complete")
+  // Prefer first line as the notice body (design: no title like "AnyPick complete")
   const detail =
     receipt.lines.length > 1
       ? receipt.lines

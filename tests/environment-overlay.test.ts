@@ -40,8 +40,8 @@ describe('environment-overlay ephemeral runtime', () => {
       },
       async createEnvironmentOverlay() {
         return {
-          directory: '/tmp/hotplug-overlay-test',
-          environment: { HOTPLUG_OVERLAY: '1' },
+          directory: '/tmp/anypick-overlay-test',
+          environment: { ANYPICK_OVERLAY: '1' },
           async cleanup() {
             cleaned = true;
           },
@@ -50,7 +50,7 @@ describe('environment-overlay ephemeral runtime', () => {
     };
     const clients = new ClientRegistry();
     clients.register(client);
-    root = await mkdtemp(join(tmpdir(), 'hotplug-overlay-'));
+    root = await mkdtemp(join(tmpdir(), 'anypick-overlay-'));
     const app = await createAppReady({ root, skipMigrate: true, clients });
     await app.profiles.create('overlay-gateway', {
       provider: 'custom',
@@ -63,7 +63,7 @@ describe('environment-overlay ephemeral runtime', () => {
     });
 
     expect(result.plan.steps.map((step) => step.kind)).toContain('CreateEnvironmentOverlay');
-    expect(result.isolated?.environment).toEqual({ HOTPLUG_OVERLAY: '1' });
+    expect(result.isolated?.environment).toEqual({ ANYPICK_OVERLAY: '1' });
     await result.cleanup?.();
     expect(cleaned).toBe(true);
   });

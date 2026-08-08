@@ -17,9 +17,21 @@ export const PID_RECORD_VERSION = 1 as const;
 const START_TIME_TOLERANCE_MS = 60_000;
 
 /**
+ * Budget for one ownership proof: a loopback health probe plus, for a
+ * third-party child, a `ps` fork.
+ *
+ * Deliberately not derived from `graceMs`. That is how long a caller will wait
+ * for a cooperative exit; this is how long the *proof* may take, and on a loaded
+ * machine the probe alone can exceed a second. Folding the two together let a
+ * caller asking for a fast kill make ownership unprovable, and an unprovable
+ * stop fails closed — leaking a live proxy that still holds its port.
+ */
+const VERIFY_OWNERSHIP_TIMEOUT_MS = 5000;
+
+/**
  * Structured ownership record replacing the old numeric PID file (PROC-01).
  *
- * A numeric PID is not verifiable: PID reuse (ABA) could make Hotplug signal an
+ * A numeric PID is not verifiable: PID reuse (ABA) could make AnyPick signal an
  * unrelated live process. The structured record carries a random instance id,
  * so a process is only ever treated as owned after its health endpoint echoes
  * the matching instance id — not merely after the PID is alive.
@@ -71,7 +83,7 @@ export async function spawnDetached(
   // treat a process as genuinely ours (PROC-01, ABA-safe).
   const childEnv: NodeJS.ProcessEnv = {
     ...(opts.env ?? process.env),
-    HOTPLUG_INSTANCE_ID: instanceId,
+    ANYPICK_INSTANCE_ID: instanceId,
   };
 
   const child = spawn(command, args, {
@@ -218,7 +230,7 @@ export interface StopPidFileOptions {
    */
   verifyHealth?: boolean;
   /**
-   * Whether the child echoes HOTPLUG_INSTANCE_ID from /health. Defaults to true.
+   * Whether the child echoes ANYPICK_INSTANCE_ID from /health. Defaults to true.
    *
    * A third-party binary cannot, so demanding it would leave every external
    * proxy unstoppable. Ownership is then proved from the process start time
@@ -266,6 +278,29 @@ function signalProcess(pid: number, signal: NodeJS.Signals, processGroup: boolea
 }
 
 /**
+ * Whether `pid` is still the process that was proven owned before SIGTERM.
+ *
+ * Prefers the start time captured while the child was demonstrably ours: it
+ * stays valid through a shutdown that has already closed the health listener.
+ * Falls back to the health proof only when the platform cannot report a start
+ * time (Windows), and fails closed when neither is available (PROC-01).
+ */
+async function stillSameProcess(
+  pid: number,
+  ownedStartedAt: number | null,
+  verifyViaHealth: () => Promise<boolean>,
+): Promise<boolean> {
+  if (ownedStartedAt == null) {
+    return verifyViaHealth();
+  }
+  const current = await processStartedAt(pid);
+  if (current == null) {
+    return false;
+  }
+  return Math.abs(current - ownedStartedAt) <= START_TIME_TOLERANCE_MS;
+}
+
+/**
  * Stop a process recorded in pidPath. Returns true if a signal was sent.
  * Waits until the process is gone (or force-kills) so the listen port can free.
  *
@@ -285,7 +320,7 @@ export async function stopPidFile(
 
   // A syntactically valid PID record is not proof of ownership: the PID may
   // have been recycled since the record was written. Built-in proxies echo
-  // HOTPLUG_INSTANCE_ID from /health, so require that identity match before any
+  // ANYPICK_INSTANCE_ID from /health, so require that identity match before any
   // signal. If the endpoint/health check is unavailable, fail closed and leave
   // the record for doctor/recovery rather than risking an unrelated process.
   const byInstanceId = opts.expectInstanceId !== false;
@@ -328,7 +363,7 @@ export async function stopPidFile(
     } catch {
       return false;
     }
-    const owned = await verifyOwned(Math.min(opts.graceMs ?? 3000, 1500));
+    const owned = await verifyOwned(VERIFY_OWNERSHIP_TIMEOUT_MS);
     if (!owned) {
       return false;
     }
@@ -338,9 +373,16 @@ export async function stopPidFile(
   if (isProcessRunning(pid)) {
     // Re-check immediately before signalling. A process can exit and its PID
     // be recycled during the initial health probe.
-    if (!(await verifyOwned(500))) {
+    if (!(await verifyOwned(VERIFY_OWNERSHIP_TIMEOUT_MS))) {
       return false;
     }
+    // Ownership is proven here, while the child is still serving. Capture its
+    // start time now: escalation below cannot re-prove ownership through
+    // /health, because a child that honors SIGTERM closes its listener first
+    // and would then look unowned while it is still shutting down. Start time
+    // is the same PROC-01 proof that survives that window — a recycled PID
+    // necessarily starts later than the process it replaced.
+    const ownedStartedAt = await processStartedAt(pid);
     signaled = signalProcess(pid, 'SIGTERM', opts.processGroup ?? true);
     // Wait for graceful exit
     const deadline = Date.now() + (opts.graceMs ?? 3000);
@@ -350,7 +392,11 @@ export async function stopPidFile(
     if (isProcessRunning(pid)) {
       // Never escalate to SIGKILL after a PID-reuse window without proving the
       // same instance still owns the endpoint.
-      if (!(await verifyOwned(500))) {
+      if (
+        !(await stillSameProcess(pid, ownedStartedAt, () =>
+          verifyOwned(VERIFY_OWNERSHIP_TIMEOUT_MS),
+        ))
+      ) {
         return signaled;
       }
       signalProcess(pid, 'SIGKILL', opts.processGroup ?? true);

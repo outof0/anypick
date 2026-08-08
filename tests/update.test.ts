@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { checkForUpdate, compareVersions, installCommand } from '../src/core/update';
-import { isHotplugError } from '../src/utils/errors';
+import { isAnyPickError } from '../src/utils/errors';
 
 function registry(body: unknown, init?: { ok?: boolean; status?: number }): typeof fetch {
   return (async () =>
@@ -52,19 +52,19 @@ describe('checkForUpdate', () => {
       checkForUpdate('0.8.0', {
         fetchImpl: registry({}, { ok: false, status: 503 }),
       }),
-    ).rejects.toSatisfy((err) => isHotplugError(err) && err.code === 'UPDATE_REGISTRY_UNREACHABLE');
+    ).rejects.toSatisfy((err) => isAnyPickError(err) && err.code === 'UPDATE_REGISTRY_UNREACHABLE');
   });
 
   it('distinguishes an unpublished package from a registry outage', async () => {
     await expect(
       checkForUpdate('0.8.0', { fetchImpl: registry({}, { ok: false, status: 404 }) }),
-    ).rejects.toSatisfy((err) => isHotplugError(err) && err.code === 'UPDATE_NOT_PUBLISHED');
+    ).rejects.toSatisfy((err) => isAnyPickError(err) && err.code === 'UPDATE_NOT_PUBLISHED');
   });
 
   it('fails when the registry payload has no version', async () => {
     await expect(
-      checkForUpdate('0.8.0', { fetchImpl: registry({ name: 'hotplug' }) }),
-    ).rejects.toSatisfy((err) => isHotplugError(err) && err.code === 'UPDATE_REGISTRY_UNREACHABLE');
+      checkForUpdate('0.8.0', { fetchImpl: registry({ name: 'anypick' }) }),
+    ).rejects.toSatisfy((err) => isAnyPickError(err) && err.code === 'UPDATE_REGISTRY_UNREACHABLE');
   });
 
   it('wraps a network failure instead of leaking the fetch error', async () => {
@@ -72,14 +72,14 @@ describe('checkForUpdate', () => {
       throw new TypeError('fetch failed');
     }) as unknown as typeof fetch;
     await expect(checkForUpdate('0.8.0', { fetchImpl: failing })).rejects.toSatisfy(
-      (err) => isHotplugError(err) && err.code === 'UPDATE_REGISTRY_UNREACHABLE',
+      (err) => isAnyPickError(err) && err.code === 'UPDATE_REGISTRY_UNREACHABLE',
     );
   });
 });
 
 describe('installCommand', () => {
   it('pins the version it reported rather than re-resolving latest', () => {
-    expect(installCommand('0.9.0')).toBe('npm install -g hotplug@0.9.0');
-    expect(installCommand()).toBe('npm install -g hotplug@latest');
+    expect(installCommand('0.9.0')).toBe('npm install -g anypick@0.9.0');
+    expect(installCommand()).toBe('npm install -g anypick@latest');
   });
 });

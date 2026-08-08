@@ -1,13 +1,13 @@
 name: Bug report
-description: Something in Hotplug behaves incorrectly
+description: Something in AnyPick behaves incorrectly
 labels: [bug]
 body:
   - type: markdown
     attributes:
       value: |
-        Hotplug rewrites other tools' credential and config files. **Never paste
+        AnyPick rewrites other tools' credential and config files. **Never paste
         the contents of an `auth.json`, a token, or an exported account file**
-        into this issue — redact them first. Proxy endpoints printed by Hotplug
+        into this issue — redact them first. Proxy endpoints printed by AnyPick
         already have their bearer token stripped, so those are safe to include.
 
   - type: textarea
@@ -24,8 +24,8 @@ body:
       label: Steps to reproduce
       description: The exact commands you ran, in order.
       placeholder: |
-        1. hotplug add account grok --current --name work
-        2. hotplug use claude --with grok/work
+        1. anypick add account grok --current --name work
+        2. anypick use claude --with grok/work
         3. ...
       render: shell
     validations:
@@ -34,7 +34,7 @@ body:
   - type: textarea
     id: doctor
     attributes:
-      label: Output of `hotplug doctor --json`
+      label: Output of `anypick doctor --json`
       description: This reports versions, detected clients, and state health.
       render: json
     validations:
@@ -43,8 +43,8 @@ body:
   - type: input
     id: version
     attributes:
-      label: Hotplug version
-      description: Output of `hotplug --version`
+      label: AnyPick version
+      description: Output of `anypick --version`
     validations:
       required: true
 
@@ -52,7 +52,7 @@ body:
     id: node
     attributes:
       label: Node version
-      description: Output of `node --version` (Hotplug requires >=22.5)
+      description: Output of `node --version` (AnyPick requires >=22.5)
     validations:
       required: true
 

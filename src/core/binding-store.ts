@@ -8,7 +8,7 @@ import type {
 } from '../types';
 import { decode } from './codec';
 import { decoders } from './codec';
-import type { HotplugDatabase } from './db';
+import type { AnyPickDatabase } from './db';
 import { serializeRef } from './refs';
 
 interface BindingRow {
@@ -87,7 +87,7 @@ function parseSourceResume(row: SourceResumeRow): SourceResume | null {
 }
 
 export class BindingStore {
-  constructor(private readonly db: HotplugDatabase) {}
+  constructor(private readonly db: AnyPickDatabase) {}
 
   getGlobal(clientId: ClientId): GlobalBinding | null {
     const row = this.db

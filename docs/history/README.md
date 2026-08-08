@@ -1,7 +1,7 @@
 # Historical design documents
 
 These are **not** current documentation. They are the design and planning
-documents written while `hotplug` was being built, kept for provenance: they
+documents written while `anypick` was being built, kept for provenance: they
 explain *why* several decisions were made, and a number of source comments still
 cite their section numbers.
 
@@ -19,12 +19,12 @@ authoritative sources are, in order:
 
 | Document | What it is | Status |
 | --- | --- | --- |
-| `hotplug-cli-dx-redesign-spec-final.md` | The original CLI/DX specification. Source of the `§`-numbered references in code comments (e.g. exit codes in `src/utils/errors.ts`). | Largely implemented; superseded in places by ADRs. Despite the `-final` suffix, later plans revised it. |
+| `anypick-cli-dx-redesign-spec-final.md` | The original CLI/DX specification. Source of the `§`-numbered references in code comments (e.g. exit codes in `src/utils/errors.ts`). | Largely implemented; superseded in places by ADRs. Despite the `-final` suffix, later plans revised it. |
 | `DESIGN.md` | Long-form architecture narrative: layering, stores, registries, adapter contracts. | Mostly accurate in spirit; specifics have drifted. |
 | `DESIGN-TUI.md` | TUI screen-by-screen design. Source of the `DESIGN-TUI §n` references in `src/tui/**`. | Mostly implemented. |
 | `FRAMEWORK-IMPROVEMENT-PLAN.md` | Proposed framework hardening work. | Partly done, partly obsolete. A proposal, never a description. |
 | `OPENCODE-GATEWAY-IMPLEMENTATION-PLAN.md` | Plan for the OpenCode gateway/proxy. | Implemented. |
-| `hotplug-feature-map.md` | Early feature inventory. | Historical. |
+| `anypick-feature-map.md` | Early feature inventory. | Historical. |
 
 ## If you are adding a code comment
 

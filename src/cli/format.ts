@@ -12,7 +12,7 @@ export function printAccounts(accounts: ListedAccount[], json = false): void {
 
   if (accounts.length === 0) {
     console.log(pc.dim('No saved accounts.'));
-    console.log(pc.dim('  → hotplug add account <provider> --current --name <name>'));
+    console.log(pc.dim('  → anypick add account <provider> --current --name <name>'));
     return;
   }
 

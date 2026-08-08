@@ -6,30 +6,25 @@ import type {
   LiveUsage,
   Provider,
 } from '../types';
-import { DEFAULT_PROXY_CONFIG } from '../types';
-import { HotplugError, isHotplugError } from '../utils/errors';
+import { AnyPickError, isAnyPickError } from '../utils/errors';
 import { displayLabelFromName, normalizeAccountName } from '../utils/slug';
-import { pathExists } from '../utils/fs';
 import type { ProviderRegistry } from './registry';
 import type { AccountStore } from './store';
 import { ProxyService } from './proxy-service';
 import { providerCanProxy } from './capabilities';
 import { withMutationLocks } from './mutation-lock';
 import { providerScope } from './refs';
-import {
-  mkdir,
-  readdir,
-  readFile,
-  writeFile,
-  rename,
-  chmod,
-  mkdtemp,
-  rm,
-  stat,
-} from 'node:fs/promises';
-import { join, relative, dirname } from 'node:path';
+import { mkdir, mkdtemp, rm } from 'node:fs/promises';
+import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { decodeAccountEnvelope, MAX_IMPORT_ENVELOPE_BYTES, stagedFilePath } from './account-codec';
+import { exportAccountEnvelope, importAccountEnvelope } from './account-transfer';
+
+/**
+ * Account name used when a login must be saved but cannot be named from its own
+ * identity — either the provider reports no identity, or the identity contains
+ * no slug-safe characters.
+ */
+const FALLBACK_ACCOUNT_NAME = 'stash';
 
 export interface ListedAccount {
   name: string;
@@ -87,6 +82,13 @@ export class AccountService {
   readonly proxy: ProxyService;
 
   /**
+   * Optional post-delete side effects (Proxy Hub source prune, pool member
+   * sync). Wired from app.ts after Hub exists — AccountService is constructed
+   * before Hub to avoid a cycle.
+   */
+  private afterDelete?: (providerId: string, accountName: string) => Promise<void>;
+
+  /**
    * `proxy` stays optional for callers that only need account CRUD (several
    * tests, and any embedder that never starts a proxy). When omitted a private
    * one is built here — deliberately without a lease store, because a service
@@ -99,6 +101,10 @@ export class AccountService {
     proxy?: ProxyService,
   ) {
     this.proxy = proxy ?? new ProxyService(store, registry);
+  }
+
+  setAfterDelete(fn: (providerId: string, accountName: string) => Promise<void>): void {
+    this.afterDelete = fn;
   }
 
   provider(id: string): Provider {
@@ -135,7 +141,7 @@ export class AccountService {
     const provider = this.registry.get(providerId);
     const checkpointRoot = opts.durable ? join(this.store.root, 'recovery', 'live-auth') : tmpdir();
     await mkdir(checkpointRoot, { recursive: true, mode: 0o700 });
-    const directory = await mkdtemp(join(checkpointRoot, 'hotplug-live-checkpoint-'));
+    const directory = await mkdtemp(join(checkpointRoot, 'anypick-live-checkpoint-'));
     try {
       const activeAccount = await this.store.getActive(providerId);
       const live = await provider.detectLive();
@@ -157,7 +163,7 @@ export class AccountService {
     } else if (provider.clearLive) {
       await provider.clearLive();
     } else {
-      throw new HotplugError(
+      throw new AnyPickError(
         `Cannot restore an empty ${provider.name} login state safely.`,
         'SWITCH_ROLLBACK_UNAVAILABLE',
       );
@@ -207,7 +213,7 @@ export class AccountService {
           (active && identityMatches.includes(active) ? active : identityMatches[0]) ?? null;
       }
       // Some credential stores cannot be read during a background refresh without
-      // prompting. The active pointer is authoritative immediately after Hotplug
+      // prompting. The active pointer is authoritative immediately after AnyPick
       // restored that login, so present it as live until a provider can prove drift.
       if (!liveAccountName && active && live.present) {
         const activeIndex = accounts.findIndex((account) => account.meta.name === active);
@@ -287,7 +293,7 @@ export class AccountService {
       label?: string;
       notes?: string;
       force?: boolean;
-      source?: 'gemini-cli' | 'antigravity';
+      source?: string;
       /** Credential typed by the user; replaces reading a live login. */
       input?: CredentialInput;
     } = {},
@@ -307,7 +313,7 @@ export class AccountService {
       label?: string;
       notes?: string;
       force?: boolean;
-      source?: 'gemini-cli' | 'antigravity';
+      source?: string;
       /** Credential typed by the user; replaces reading a live login. */
       input?: CredentialInput;
     },
@@ -317,7 +323,7 @@ export class AccountService {
     let accountName = requestedAccountName;
 
     if (opts.input && !provider.backupInput) {
-      throw new HotplugError(
+      throw new AnyPickError(
         `${provider.name} does not accept a ${opts.input.kind} credential.`,
         'UNSUPPORTED_CREDENTIAL_INPUT',
       );
@@ -331,17 +337,17 @@ export class AccountService {
         ? await provider.detectLiveSource(opts.source)
         : await provider.detectLive();
     if (!live.present) {
-      throw new HotplugError(`No live ${provider.name} login to save.`, {
+      throw new AnyPickError(`No live ${provider.name} login to save.`, {
         code: 'NO_LIVE_AUTH',
         suggestions: [
           `Sign in with the official tool first, then re-run this command.`,
-          `Or clear the live auth without saving it: hotplug add account ${providerId} --new --no-backup`,
+          `Or clear the live auth without saving it: anypick add account ${providerId} --new --no-backup`,
         ],
       });
     }
 
     // An identity (normally an email address) identifies the upstream login,
-    // regardless of its local Hotplug name. A confirmed/automated overwrite
+    // regardless of its local AnyPick name. A confirmed/automated overwrite
     // updates the existing snapshot instead of creating a duplicate.
     accountName = await this.resolveIdentityTarget(
       providerId,
@@ -352,7 +358,7 @@ export class AccountService {
 
     const existing = await this.store.getAccount(providerId, accountName);
     if (!opts.input && existing?.meta.credentialKind === 'proxy-only') {
-      throw new HotplugError(
+      throw new AnyPickError(
         `${providerId}/${accountName} holds a credential you supplied, not a login on this machine.`,
         {
           code: 'CREDENTIAL_KIND_MISMATCH',
@@ -422,7 +428,7 @@ export class AccountService {
     const provider = this.registry.get(providerId);
     const live = await provider.detectLive();
     if (!live.present) {
-      throw new HotplugError(`No live ${provider.name} login to save.`, {
+      throw new AnyPickError(`No live ${provider.name} login to save.`, {
         code: 'NO_LIVE_AUTH',
         suggestions: ['Sign in with the official tool first, then try again.'],
       });
@@ -456,9 +462,9 @@ export class AccountService {
       return accountNameFromIdentity(live.identity);
     }
 
-    throw new HotplugError(`Name the ${provider.name} login before saving it.`, {
+    throw new AnyPickError(`Name the ${provider.name} login before saving it.`, {
       code: 'MISSING_ACCOUNT_NAME',
-      suggestions: [`hotplug add account ${providerId} --current --name <name>`],
+      suggestions: [`anypick add account ${providerId} --current --name <name>`],
     });
   }
 
@@ -494,6 +500,9 @@ export class AccountService {
     const previous = await this.store.getActive(providerId);
     let refreshedPrevious = false;
     let refreshedAccount: string | undefined;
+    if (target.meta.credentialKind !== 'proxy-only') {
+      await provider.preflightRestore?.(target.snapshotDir);
+    }
     const checkpoint = await this.checkpointLiveAuth(providerId);
     let previousProxyWasRunning = false;
 
@@ -532,7 +541,7 @@ export class AccountService {
       if (!opts.noProxy && providerCanProxy(provider)) {
         const result = await this.proxy.startProxyForAccount(provider, accountName, target.proxy);
         if (result.error) {
-          throw new HotplugError(`Could not start the ${provider.name} proxy: ${result.error}`, {
+          throw new AnyPickError(`Could not start the ${provider.name} proxy: ${result.error}`, {
             code: 'PROXY_START_FAILED',
           });
         }
@@ -563,7 +572,7 @@ export class AccountService {
           await this.proxy.startProxyForAccount(provider, previous, prior.proxy);
         }
       } catch (rollbackErr) {
-        throw new HotplugError(
+        throw new AnyPickError(
           `Account switch failed and rollback could not complete: ${rollbackErr instanceof Error ? rollbackErr.message : String(rollbackErr)}`,
           'SWITCH_ROLLBACK_FAILED',
         );
@@ -626,7 +635,7 @@ export class AccountService {
           ? () => provider.clearLive!()
           : null;
     if (!clear) {
-      throw new HotplugError(
+      throw new AnyPickError(
         `Provider "${providerId}" does not support stash (clear live auth).`,
         'STASH_UNSUPPORTED',
       );
@@ -654,19 +663,19 @@ export class AccountService {
         // detectLive() may report a login from a Desktop/electron session while
         // the actual auth.json file (the thing we back up) is absent. Treat that
         // as "nothing to back up" rather than a hard failure.
-        if (isHotplugError(err) && err.code === 'NO_LIVE_AUTH') {
+        if (isAnyPickError(err) && err.code === 'NO_LIVE_AUTH') {
           skippedBackup = true;
-        } else if (isHotplugError(err) && err.code === 'ACCOUNT_IDENTITY_EXISTS') {
+        } else if (isAnyPickError(err) && err.code === 'ACCOUNT_IDENTITY_EXISTS') {
           // This is a user-resolvable naming conflict, not a failed backup.
           throw err;
         } else {
-          throw new HotplugError(
+          throw new AnyPickError(
             `Could not back up the live ${provider.name} login before clearing it.`,
             {
               code: 'STASH_BACKUP_FAILED',
               suggestions: [
                 `Fix whatever is blocking the live login, then try again.`,
-                `Or clear it without a backup (unsaved tokens will be lost): hotplug add account ${providerId} --new --no-backup`,
+                `Or clear it without a backup (unsaved tokens will be lost): anypick add account ${providerId} --new --no-backup`,
               ],
             },
           );
@@ -741,7 +750,7 @@ export class AccountService {
       };
     }
 
-    return { name: 'stash', matchedByIdentity: false };
+    return { name: FALLBACK_ACCOUNT_NAME, matchedByIdentity: false };
   }
 
   private async findAccountNameByIdentity(
@@ -771,32 +780,41 @@ export class AccountService {
     const provider = this.registry.get(providerId);
     const live = await provider.detectLive();
     if (!live.present) {
-      throw new HotplugError(`No live ${provider.name} login to preserve.`, 'NO_LIVE_AUTH');
+      throw new AnyPickError(`No live ${provider.name} login to preserve.`, 'NO_LIVE_AUTH');
     }
 
     let targetName = live.identity
       ? await this.findAccountNameByIdentity(providerId, live.identity)
       : null;
 
-    if (!targetName) {
-      const active = await this.store.getAccount(providerId, fallbackActiveName);
-      if (
-        active &&
-        active.meta.credentialKind !== 'proxy-only' &&
-        (!live.identity ||
-          (active.meta.identity && identitiesMatch(active.meta.identity, live.identity)))
-      ) {
-        targetName = fallbackActiveName;
+    if (!targetName && !live.identity) {
+      const accounts = await this.store.listAccounts(providerId);
+      // Prefer the active snapshot only after credential material proves it
+      // owns the live login. The active DB pointer is state, not identity.
+      const ordered = accounts.toSorted((a, b) => {
+        if (a.meta.name === fallbackActiveName) {
+          return -1;
+        }
+        if (b.meta.name === fallbackActiveName) {
+          return 1;
+        }
+        return a.meta.name.localeCompare(b.meta.name);
+      });
+      for (const account of ordered) {
+        if ((await computeLiveMatch(provider, account, live)) === true) {
+          targetName = account.meta.name;
+          break;
+        }
       }
     }
 
     if (!targetName) {
-      throw new HotplugError(
+      throw new AnyPickError(
         `The live ${provider.name} login${live.identity ? ` (${live.identity})` : ''} is not saved yet.`,
         {
           code: 'UNSAVED_LIVE_AUTH',
           suggestions: [
-            `Save it first: hotplug add account ${providerId} --current${
+            `Save it first: anypick add account ${providerId} --current${
               live.identity ? '' : ' --name <name>'
             }`,
           ],
@@ -823,7 +841,7 @@ export class AccountService {
       if (allowOverwrite) {
         return existingName;
       }
-      throw new HotplugError(
+      throw new AnyPickError(
         `Login ${identity} is already saved as ${providerId}/${existingName}.`,
         {
           code: 'ACCOUNT_IDENTITY_EXISTS',
@@ -873,7 +891,7 @@ export class AccountService {
   > {
     const provider = this.registry.get(providerId);
     if (!provider.refreshAuth) {
-      throw new HotplugError(
+      throw new AnyPickError(
         `Provider "${providerId}" does not support token refresh.`,
         'REFRESH_UNSUPPORTED',
       );
@@ -892,7 +910,7 @@ export class AccountService {
         results.push(await this.refreshSavedAccount(provider, a.meta.name));
       }
       if (results.length === 0) {
-        throw new HotplugError(`No saved accounts for ${providerId}.`, 'REFRESH_EMPTY');
+        throw new AnyPickError(`No saved accounts for ${providerId}.`, 'REFRESH_EMPTY');
       }
       return results;
     }
@@ -964,7 +982,7 @@ export class AccountService {
         };
       }
 
-      const dir = await mkdtemp(join(tmpdir(), 'hotplug-refresh-'));
+      const dir = await mkdtemp(join(tmpdir(), 'anypick-refresh-'));
       try {
         await provider.backup(dir);
         const from = await provider.refreshAuth!(dir);
@@ -1005,6 +1023,28 @@ export class AccountService {
     }
   }
 
+  /** Update display metadata without touching the credential snapshot bytes. */
+  async edit(
+    providerId: string,
+    name: string,
+    opts: { label?: string | null },
+  ): Promise<AccountMeta> {
+    const accountName = normalizeAccountName(name);
+    return withMutationLocks(this.store.root, [providerScope(providerId)], async () => {
+      const account = await this.store.requireAccount(providerId, accountName);
+      const label = opts.label === null ? undefined : opts.label?.trim() || account.meta.label;
+      const meta: AccountMeta = {
+        ...account.meta,
+        label,
+        updatedAt: new Date().toISOString(),
+      };
+      // writeMeta remains the atomic commit point (ADR 0004). requireAccount
+      // materialized the complete snapshot before this metadata-only rewrite.
+      await this.store.writeMeta(meta);
+      return meta;
+    });
+  }
+
   async delete(providerId: string, name: string): Promise<void> {
     const provider = this.registry.get(providerId);
     const accountName = normalizeAccountName(name);
@@ -1014,37 +1054,21 @@ export class AccountService {
       }
       await this.store.deleteAccount(providerId, accountName);
     });
+    // Outside the provider lock: Hub/pool scopes are different and re-entry
+    // across services is fine. Best-effort so a hub write failure cannot
+    // resurrect the account row.
+    try {
+      await this.afterDelete?.(providerId, accountName);
+    } catch {
+      // Caller already got a successful delete; residual hub rows are
+      // recoverable via doctor / next hub edit.
+    }
   }
 
   // ── Export / import ─────────────────────────────────────────────
 
   async exportAccount(providerId: string, name: string, outPath: string): Promise<void> {
-    const account = await this.store.requireAccount(providerId, normalizeAccountName(name));
-    const files = await collectFiles(account.snapshotDir);
-    const payload = {
-      version: 1 as const,
-      kind: 'hotplug-account' as const,
-      meta: account.meta,
-      proxy: account.proxy,
-      files,
-    };
-
-    // SEC-01: write to an owner-only temp file, then atomically rename.
-    // Tighten the final mode even when overwriting an existing (permissive) file.
-    const { tmpdir: tmpDir } = await import('node:os');
-    const stage = await mkdtemp(join(tmpDir(), 'hotplug-export-'));
-    const tmpPath = join(stage, 'account.json');
-    await writeFile(tmpPath, `${JSON.stringify(payload, null, 2)}\n`, { mode: 0o600 });
-    try {
-      await rename(tmpPath, outPath);
-      await chmod(outPath, 0o600).catch(() => {});
-    } finally {
-      await rm(stage, { recursive: true, force: true }).catch(() => {});
-    }
-    // Warn: the artifact carries live credentials.
-    process.stderr.write(
-      `Warning: exported account "${account.meta.name}" contains credentials. Store ${outPath} safely.\n`,
-    );
+    await exportAccountEnvelope(this.store, providerId, name, outPath);
   }
 
   async importAccount(
@@ -1053,118 +1077,21 @@ export class AccountService {
     inPath: string,
     opts: { force?: boolean } = {},
   ): Promise<AccountMeta> {
-    return withMutationLocks(this.store.root, [providerScope(providerId)], () =>
-      this.importAccountLocked(providerId, name, inPath, opts),
-    );
-  }
-
-  private async importAccountLocked(
-    providerId: string,
-    name: string,
-    inPath: string,
-    opts: { force?: boolean },
-  ): Promise<AccountMeta> {
-    this.registry.get(providerId);
-    let accountName = normalizeAccountName(name);
-    if (!(await pathExists(inPath))) {
-      throw new HotplugError(`Import file not found: ${inPath}`, 'IMPORT_MISSING');
-    }
-
-    let existing = await this.store.getAccount(providerId, accountName);
-    if (existing && !opts.force) {
-      throw new HotplugError(
-        `Account "${accountName}" already exists. Use --force to overwrite.`,
-        'ACCOUNT_EXISTS',
+    return withMutationLocks(this.store.root, [providerScope(providerId)], async () => {
+      const provider = this.registry.get(providerId);
+      return importAccountEnvelope(
+        {
+          store: this.store,
+          provider,
+          resolveIdentityTarget: (pid, identity, accountName, force) =>
+            this.resolveIdentityTarget(pid, identity, accountName, force),
+        },
+        providerId,
+        name,
+        inPath,
+        opts,
       );
-    }
-
-    // SEC-01: reject an oversized file before read/JSON.parse, then decode +
-    // validate the *entire* envelope (provider ownership,
-    // every file path, base64, size/count limits) BEFORE any mutation. A
-    // rejection below leaves the DB, current snapshot, active account, and
-    // live auth completely unchanged.
-    try {
-      const size = (await stat(inPath)).size;
-      if (size > MAX_IMPORT_ENVELOPE_BYTES) {
-        throw new HotplugError(`Import file exceeds ${MAX_IMPORT_ENVELOPE_BYTES} bytes.`, {
-          code: 'IMPORT_LIMIT',
-          mutated: false,
-          exitCode: 9,
-        });
-      }
-    } catch (err) {
-      if (err instanceof HotplugError) {
-        throw err;
-      }
-      throw new HotplugError(`Unable to inspect import file: ${inPath}`, {
-        code: 'IMPORT_MISSING',
-        mutated: false,
-      });
-    }
-    const raw = await readFile(inPath, 'utf8');
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(raw);
-    } catch {
-      throw new HotplugError('Import file is not valid JSON.', 'IMPORT_FORMAT');
-    }
-    const envelope = decodeAccountEnvelope(parsed, providerId);
-
-    const provider = this.registry.get(providerId);
-    let identity = envelope.meta.identity;
-    let label = envelope.meta.label;
-    if (provider.describeSnapshot) {
-      // Inspect a disposable copy first. prepareSnapshot() can replace an
-      // existing snapshot, so identity conflicts must be found before it.
-      const inspectDir = await mkdtemp(join(tmpdir(), 'hotplug-import-inspect-'));
-      try {
-        await writeFiles(inspectDir, envelope.files);
-        const described = await provider.describeSnapshot(inspectDir);
-        identity = described.identity ?? identity;
-        label = described.label ?? label;
-      } finally {
-        await rm(inspectDir, { recursive: true, force: true }).catch(() => {});
-      }
-    }
-    accountName = await this.resolveIdentityTarget(
-      providerId,
-      identity,
-      accountName,
-      opts.force === true,
-    );
-    existing = await this.store.getAccount(providerId, accountName);
-
-    // Stage into the live snapshot dir only after full validation and identity
-    // conflict checks.
-    const { snapshotDir } = await this.store.prepareSnapshot(providerId, accountName);
-    await writeFiles(snapshotDir, envelope.files);
-
-    const now = new Date().toISOString();
-    const meta: AccountMeta = {
-      name: accountName,
-      provider: providerId,
-      createdAt: existing?.meta.createdAt ?? envelope.meta.createdAt ?? now,
-      updatedAt: now,
-      label,
-      identity,
-      notes: envelope.meta.notes,
-      credentialKind: envelope.meta.credentialKind,
-    };
-    await this.store.writeMeta(meta);
-
-    // Imported proxies are always disabled and provider-specific options are
-    // intentionally dropped by the codec. Starting a proxy is an explicit
-    // local action, never something an imported file can trigger.
-    if (envelope.proxy) {
-      await this.store.setProxyConfig(providerId, accountName, {
-        ...DEFAULT_PROXY_CONFIG,
-        ...envelope.proxy,
-        enabled: false,
-        options: undefined,
-      });
-    }
-
-    return meta;
+    });
   }
 }
 
@@ -1192,7 +1119,7 @@ async function computeLiveMatch(
     try {
       return await provider.snapshotMatchesLive(snapshotDir);
     } catch (err) {
-      if (isHotplugError(err) && err.code === 'NOT_DETERMINABLE') {
+      if (isAnyPickError(err) && err.code === 'NOT_DETERMINABLE') {
         return null;
       }
       // fall through to identity-based fallback
@@ -1206,44 +1133,20 @@ async function computeLiveMatch(
   return described.identity != null && identitiesMatch(described.identity, live.identity);
 }
 
-/** Derive a stable account slug from an email / identity string. */
+/**
+ * Derive a stable account slug from an email / identity string.
+ *
+ * Falls back to the same generic name the caller uses when there is no identity
+ * at all: an identity that slugifies to nothing (all punctuation, non-Latin
+ * script) is not a failure the user can act on, and refusing here would block
+ * saving a real login over a cosmetic naming problem. `--name` overrides it.
+ */
 function accountNameFromIdentity(identity: string): string {
   const trimmed = identity.trim();
   const local = trimmed.includes('@') ? trimmed.split('@')[0] : trimmed;
   try {
     return normalizeAccountName(local);
   } catch {
-    return 'stash';
-  }
-}
-
-async function collectFiles(root: string): Promise<Record<string, string>> {
-  const out: Record<string, string> = {};
-  async function walk(dir: string): Promise<void> {
-    const entries = await readdir(dir, { withFileTypes: true });
-    for (const entry of entries) {
-      const full = join(dir, entry.name);
-      const rel = relative(root, full).split('\\').join('/');
-      if (entry.isDirectory()) {
-        await walk(full);
-      } else if (entry.isFile()) {
-        const buf = await readFile(full);
-        out[rel] = buf.toString('base64');
-      }
-    }
-  }
-  if (await pathExists(root)) {
-    await walk(root);
-  }
-  return out;
-}
-
-async function writeFiles(root: string, files: Record<string, string>): Promise<void> {
-  for (const [rel, b64] of Object.entries(files)) {
-    // Defense-in-depth: re-resolve each key against the staging root so a
-    // malformed key can never write outside `root` (SEC-01).
-    const dest = stagedFilePath(root, rel);
-    await mkdir(dirname(dest), { recursive: true });
-    await writeFile(dest, Buffer.from(b64, 'base64'), { mode: 0o600 });
+    return FALLBACK_ACCOUNT_NAME;
   }
 }

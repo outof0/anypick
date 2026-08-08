@@ -84,7 +84,11 @@ export async function fetchOpenAiStyleModels(
   // A gateway endpoint is often already version-qualified (`.../api/v1`), and
   // appending `/v1` again 404s.
   const url = /\/v\d+(beta)?$/.test(base) ? `${base}/models` : `${base}/v1/models`;
-  const headers: Record<string, string> = { accept: 'application/json' };
+  const headers: Record<string, string> = {
+    accept: 'application/json',
+    'x-opencode-client': 'desktop',
+    'user-agent': 'opencode/desktop',
+  };
   if (ctx.apiKey) {
     headers.authorization = `Bearer ${ctx.apiKey}`;
   }

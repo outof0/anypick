@@ -1,7 +1,7 @@
 /**
  * The plugin contract, exercised the way a third-party author would.
  *
- * These tests write a real plugin directory to a temp dir and let Hotplug
+ * These tests write a real plugin directory to a temp dir and let AnyPick
  * `import()` it, because the parts most likely to regress — digest pinning,
  * disabled-by-default, entry path containment — only exist on the boundary
  * between the registry row and the module loader. A mocked loader would pass
@@ -13,7 +13,7 @@ import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { PLUGIN_API_VERSION } from '../src/index';
-import { createApp, createAppReady, type HotplugApp } from '../src/testing';
+import { createApp, createAppReady, type AnyPickApp } from '../src/testing';
 import type { LoadedPlugin } from '../src/types';
 import { loadPlugins, parseManifest, resolveEntry } from '../src/core/plugin-loader';
 import { PluginService } from '../src/core/plugin-service';
@@ -42,7 +42,7 @@ async function writePlugin(
   await mkdir(dir, { recursive: true });
   const main = overrides.main ?? 'index.mjs';
   await writeFile(
-    join(dir, 'hotplug.plugin.json'),
+    join(dir, 'anypick.plugin.json'),
     JSON.stringify({
       name: overrides.name ?? 'acme-plugin',
       version: overrides.version ?? '1.0.0',
@@ -97,7 +97,7 @@ describe('plugin registry', () => {
   let db: ReturnType<typeof openDatabase>;
 
   beforeEach(async () => {
-    root = await mkdtemp(join(tmpdir(), 'hotplug-plugins-'));
+    root = await mkdtemp(join(tmpdir(), 'anypick-plugins-'));
     pluginDir = await writePlugin(join(root, 'acme'));
     db = openDatabase(root);
     migrateSchema(db);
@@ -132,6 +132,25 @@ describe('plugin registry', () => {
     await service.setEnabled('acme-plugin', true);
     await writeFile(join(pluginDir, 'index.mjs'), `${ENTRY_SOURCE}\n// tampered\n`);
 
+    const result = await loadPlugins(store.list());
+    expect(result.loaded).toHaveLength(0);
+    expect(result.failures[0].untrusted).toBe(true);
+    expect(result.failures[0].reason).toMatch(/has changed since you trusted it/);
+  });
+
+  it('refuses a plugin when a helper file changes under a trusted entry', async () => {
+    // Package digest covers every shipped file, not just main — a helper that
+    // the entry imports must not be free to change after trust (ADR 0012).
+    await writeFile(join(pluginDir, 'helper.mjs'), 'export const marker = "v1";\n');
+    await writeFile(
+      join(pluginDir, 'index.mjs'),
+      `import { marker } from './helper.mjs';\nexport default {\n  activate(ctx) {\n    void marker;\n    ctx.registerCatalogProvider({\n      id: 'acme-cloud',\n      name: 'ACME Cloud',\n      defaultEndpoint: 'https://acme.test/v1',\n      models: ['acme-large'],\n    });\n  },\n};\n`,
+    );
+    await service.add(pluginDir);
+    await service.setEnabled('acme-plugin', true);
+    expect((await loadPlugins(store.list())).loaded).toHaveLength(1);
+
+    await writeFile(join(pluginDir, 'helper.mjs'), 'export const marker = "tampered";\n');
     const result = await loadPlugins(store.list());
     expect(result.loaded).toHaveLength(0);
     expect(result.failures[0].untrusted).toBe(true);
@@ -188,10 +207,10 @@ describe('plugin registry', () => {
 
 describe('plugin activation through createAppReady', () => {
   let root: string;
-  let app: HotplugApp | undefined;
+  let app: AnyPickApp | undefined;
 
   beforeEach(async () => {
-    root = await mkdtemp(join(tmpdir(), 'hotplug-plugin-app-'));
+    root = await mkdtemp(join(tmpdir(), 'anypick-plugin-app-'));
   });
 
   afterEach(async () => {
@@ -228,7 +247,7 @@ describe('plugin activation through createAppReady', () => {
     const report = await app.doctor.run();
     const finding = report.checks.find((c) => c.id === 'plugin:acme-plugin');
     expect(finding?.ok).toBe(false);
-    expect(finding?.suggestions).toContain('hotplug plugin trust acme-plugin');
+    expect(finding?.suggestions).toContain('anypick plugin trust acme-plugin');
   });
 
   it('rolls back a plugin that throws after partial registration', async () => {

@@ -2,7 +2,7 @@ import { spawn } from 'node:child_process';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { pathExists } from '../utils/fs';
-import { HotplugError } from '../utils/errors';
+import { AnyPickError } from '../utils/errors';
 
 const execFileAsync = promisify(execFile);
 
@@ -126,7 +126,10 @@ async function spawnTerminal(command: string, args: string[]): Promise<void> {
   });
 }
 
-export async function openHotplugTerminal(cliEntry: string): Promise<void> {
+export async function openAnyPickTerminal(
+  cliEntry: string,
+  initialScreen?: 'accounts' | 'gateways' | 'proxy' | 'proxy-hub' | 'add-account' | 'add-gateway',
+): Promise<void> {
   const candidates = terminalLaunchCandidates(
     process.platform,
     process.env,
@@ -140,7 +143,8 @@ export async function openHotplugTerminal(cliEntry: string): Promise<void> {
         if (!(await macAppAvailable(candidate.application))) {
           continue;
         }
-        const command = shellQuote(process.execPath) + ' ' + shellQuote(cliEntry);
+        const screenEnv = initialScreen ? `ANYPICK_TUI_SCREEN=${shellQuote(initialScreen)} ` : '';
+        const command = screenEnv + shellQuote(process.execPath) + ' ' + shellQuote(cliEntry);
         await execFileAsync('/usr/bin/osascript', [
           '-e',
           macAppleScript(candidate.application, command),
@@ -160,8 +164,8 @@ export async function openHotplugTerminal(cliEntry: string): Promise<void> {
       );
     }
   }
-  throw new HotplugError(
-    'Could not find a supported terminal to open Hotplug on ' +
+  throw new AnyPickError(
+    'Could not find a supported terminal to open AnyPick on ' +
       process.platform +
       '.' +
       (errors.length ? ' ' + errors.join(' · ') : ''),

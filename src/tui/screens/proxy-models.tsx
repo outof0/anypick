@@ -42,6 +42,7 @@ export interface ProxyModelsScreenProps {
   suggestionIndex?: number;
   columns?: number;
   busy?: boolean;
+  error?: string;
   /** Breadcrumb path (default proxy/apps/models). */
   path?: string | string[];
   /** Confirm hint when not editing. */
@@ -72,7 +73,7 @@ export interface ProxyModelsScreenProps {
  *
  * Worth showing because the two ends of the range mean opposite things to the
  * user: a live list is authoritative and complete, while `catalog` is whatever
- * shipped with this Hotplug build and may predate the model they are looking for.
+ * shipped with this AnyPick build and may predate the model they are looking for.
  */
 const SOURCE_NOTES: Record<ModelSuggestionsSource, string> = {
   live: 'live list from this provider',
@@ -98,6 +99,7 @@ export function ProxyModelsScreen(props: ProxyModelsScreenProps) {
     suggestionIndex = 0,
     columns = 80,
     busy,
+    error,
     onMove,
     onStartEdit,
     onEditChange,
@@ -236,6 +238,7 @@ export function ProxyModelsScreen(props: ProxyModelsScreenProps) {
       path={path}
       columns={columns}
       busy={busy}
+      error={error}
       outcome={outcome}
       support={support}
       hints={hints}

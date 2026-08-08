@@ -12,7 +12,7 @@
 import type { OGImageOptions } from "astro-og-canvas";
 
 export const ogCardConfig = {
-  // Hotplug navy, warming toward the violet end of the logomark gradient.
+  // AnyPick navy, warming toward the violet end of the logomark gradient.
   bgGradient: [
     [11, 16, 32],
     [26, 24, 64],

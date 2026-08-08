@@ -44,7 +44,7 @@ export function syntheticProxyProfile(opts: SyntheticProxyProfileOpts): RuntimeP
       haikuModel,
     },
     secrets: {
-      apiKey: opts.apiKey ?? 'hotplug-proxy',
+      apiKey: opts.apiKey ?? 'anypick-proxy',
     },
     profileDir: '',
   };

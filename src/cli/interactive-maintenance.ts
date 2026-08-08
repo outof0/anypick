@@ -1,8 +1,8 @@
 import * as p from '@clack/prompts';
 import pc from 'picocolors';
-import type { HotplugApp } from '../core/app';
+import type { AnyPickApp } from '../core/app';
 
-export async function wizardViewDetails(app: HotplugApp): Promise<void> {
+export async function wizardViewDetails(app: AnyPickApp): Promise<void> {
   const rows = app.bindingService.current();
   const lines: string[] = [];
   for (const r of rows) {
@@ -25,7 +25,7 @@ export async function wizardViewDetails(app: HotplugApp): Promise<void> {
   p.note(lines.join('\n') || 'No clients', 'details');
 }
 
-export async function wizardDoctor(app: HotplugApp): Promise<void> {
+export async function wizardDoctor(app: AnyPickApp): Promise<void> {
   const spinner = p.spinner();
   spinner.start('Checking…');
   const report = await app.doctor.run();
@@ -38,6 +38,6 @@ export async function wizardDoctor(app: HotplugApp): Promise<void> {
     }
   }
   if (!report.ok) {
-    p.log.message(pc.dim('Fix safe issues: hotplug doctor --fix -y'));
+    p.log.message(pc.dim('Fix safe issues: anypick doctor --fix -y'));
   }
 }

@@ -34,7 +34,7 @@ function proxyAdapter(): SourceAdapter {
 
 describe('§28.2 #40 isolated runtime deleted after SIGINT/SIGTERM-style cleanup', () => {
   it('cleanup removes temp runtime (same path as post-signal teardown)', async () => {
-    const runtime = await createTempRuntimeRoot('hotplug-sig-');
+    const runtime = await createTempRuntimeRoot('anypick-sig-');
     const marker = join(runtime, 'marker.txt');
     await writeFile(marker, 'alive', { mode: 0o600 });
     expect(await pathExists(runtime)).toBe(true);
@@ -61,7 +61,7 @@ describe('§28.2 #40 isolated runtime deleted after SIGINT/SIGTERM-style cleanup
       await writeFile(liveSettings, JSON.stringify({ keep: true }), { mode: 0o600 });
       const before = await readFile(liveSettings, 'utf8');
 
-      const runtime = await createTempRuntimeRoot('hotplug-fail-');
+      const runtime = await createTempRuntimeRoot('anypick-fail-');
       const isolated = makeIsolatedRuntime(runtime, { HOME: runtime });
       try {
         await materializeIsolatablePaths(runtime, [
@@ -105,7 +105,7 @@ describe('§28.2 #41 parallel ephemeral runs do not modify live client config', 
   it('two concurrent createIsolatedRuntime leave live settings unchanged', async () => {
     const client = createClaudeCodeClient(liveHome);
     const liveBefore = await readFile(join(liveHome, '.claude', 'settings.json'), 'utf8');
-    const hotplugRoot = await mkdtemp(join(tmpdir(), 'parallel-hotplug-'));
+    const anypickRoot = await mkdtemp(join(tmpdir(), 'parallel-anypick-'));
 
     try {
       const planBase = {
@@ -125,7 +125,7 @@ describe('§28.2 #41 parallel ephemeral runs do not modify live client config', 
         mode: 'ephemeral' as const,
         dryRun: false,
         verbose: false,
-        hotplugRoot,
+        anypickRoot,
       };
 
       const paths = await client.listIsolatablePaths!({ home: liveHome });
@@ -162,7 +162,7 @@ describe('§28.2 #41 parallel ephemeral runs do not modify live client config', 
       expect(await pathExists(b.directory)).toBe(false);
       expect(await readFile(join(liveHome, '.claude', 'settings.json'), 'utf8')).toBe(liveBefore);
     } finally {
-      await rm(hotplugRoot, { recursive: true, force: true });
+      await rm(anypickRoot, { recursive: true, force: true });
     }
   });
 });

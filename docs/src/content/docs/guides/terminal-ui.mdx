@@ -1,145 +1,252 @@
 ---
-title: Terminal UI
-description: The interactive command center — its four sections, its keys, and what the status glyphs mean.
+title: Apps & Terminal UI
+description: How Apps routes Claude Code and Codex — pick a source, set models, preview, then activate.
+sidebar:
+  label: Apps & Terminal UI
 ---
 
-Running bare `hotplug` on a TTY opens the command center. It is a view over the
-same operations the subcommands perform, so nothing is only reachable
-interactively.
+Run `anypick` (or `anypick tui`). You land on **Apps**. That screen is the product:
+it answers one question for each coding tool —
+
+> **What should Claude Code / Codex use right now?**
+
+Everything else (accounts, gateways, proxies) exists to feed that answer.
 
 ```bash
-hotplug
+anypick
 ```
 
-## Anatomy of a screen
-
-Every screen has the same four parts, so once you can read one you can read all
-of them:
+## Apps at a glance
 
 ```
- hotplug / switch                          ← where you are
+ anypick / apps
 
- codex                                     ← group: the provider
-     work          erik@acme.com    ● live ← row: name, detail, status
-   › personal      erik@personal.dev ○ saved  ← ›  marks the selection
+  Routes for Claude Code and Codex
+ › Claude        grok/work · grok-code-fast-1       ● ready
+   Codex         not connected                     ○ not set
  ──────────────────────────────────────────
- Switch codex to personal                  ← what enter will do
- erik@acme.com  →  erik@personal.dev       ← and its consequence
- enter switch r refresh / filter tab proxy q quit   ← the entire keymap
+ Claude uses grok/work
+ model grok-code-fast-1 · enter to preview a different route
+ enter change route a accounts g gateways p proxies d diagnose
 ```
 
-The two lines under the dashed rule are the contract: the UI tells you the
-outcome of <kbd>enter</kbd> before you press it, and destructive actions add a
-confirmation on top of that. The footer lists every key that does anything on
-the current row — if it is not in the footer, it is not bound.
+Read it top to bottom:
 
-## Four sections
+1. **Each row is an app** — Claude Code or Codex. Gemini and Kiro are *not*
+   here; they only switch their own login under Accounts.
+2. **The middle column** is who powers it (account, gateway, …) and which model
+   AnyPick set.
+3. **The status** on the right is plain English: ready, native, not set, or
+   attention.
+4. **The two lines under the dashed rule** always say what <kbd>enter</kbd> will
+   do *before* you press it.
+5. **The footer** is the full keymap for this screen. If a key is not listed, it
+   does nothing here.
 
-<kbd>tab</kbd> cycles them in order:
+### What each status means
 
-| Section | What it is for |
+| You see | Meaning | What to do |
+| --- | --- | --- |
+| **ready** | AnyPick already routes this app | <kbd>enter</kbd> if you want a different source or model |
+| **native** | The app's own login works, but AnyPick is not managing the route yet | Optional — only press <kbd>enter</kbd> if you want AnyPick to take over |
+| **not set** | No route yet | <kbd>enter</kbd> → **connect app** |
+| **attention** | Something needs a fix (missing key, failed check, …) | <kbd>enter</kbd> or <kbd>d</kbd> diagnose |
+
+## Build a route (the main flow)
+
+You never edit config files by hand. Press <kbd>enter</kbd> on an app and walk
+four short screens. **Nothing is written until the last confirmation.**
+
+### 1. Home — choose the app
+
+Move with <kbd>↑</kbd> <kbd>↓</kbd> (or <kbd>j</kbd> <kbd>k</kbd>). Highlight
+Claude or Codex. Press <kbd>enter</kbd>.
+
+- Footer says **connect app** when the row is empty or only native.
+- Footer says **change route** when it is already ready.
+
+### 2. Source — who should power it?
+
+```
+ anypick / apps / Claude / source
+
+  Native accounts
+ › Anthropic · work@example.com        current live login
+   Anthropic · personal
+
+  Gateways & proxies
+   openrouter-work                     gateway · default model set
+   grok/work                           account proxy
+
+  Saved setups
+   @work-stack                         preset
+ ──────────────────────────────────────────
+ Route Claude through grok/work
+ account proxy · model routing is configured next
+ enter choose route a accounts g gateways esc back
+```
+
+Three groups, in plain language:
+
+| Group | Pick this when… |
 | --- | --- |
-| **Switch** | Pick a client and the source it should use. The default landing view. |
-| **Proxy** | Every proxy-capable account: state, endpoint, model bindings. |
-| **Accounts** | Saved logins — add, import, export, refresh, remove. |
-| **Gateways** | API profiles — endpoint, key, model defaults. |
+| **Native accounts** | You want Claude or Codex on *its own* provider login. AnyPick switches the live credential; the app keeps its own model picker. |
+| **Gateways & proxies** | You want another provider, an API key endpoint, a multi-account pool, or the Proxy Hub. AnyPick will set models next. |
+| **Saved setups** | You already saved a full recipe with `--save` / a preset (`@name`). |
 
-<kbd>h</kbd> opens contextual help for whichever section you are in, and
-<kbd>q</kbd> quits.
+Only **safe pairings** appear. You will not see "Claude → random incompatible
+thing" — empty list means save an account (<kbd>a</kbd>) or add a gateway
+(<kbd>g</kbd>) first.
 
-## Keys
+Native row → outcome is **Switch …**; other rows → **Route … through …**.
 
-Movement is the same everywhere: <kbd>↑</kbd> <kbd>↓</kbd> or <kbd>j</kbd>
-<kbd>k</kbd> to move, <kbd>enter</kbd> for the primary action shown at the
-bottom of the screen, <kbd>esc</kbd> to go back.
+### 3. Models — only when needed
 
-Every other key is the first letter of the action it performs — <kbd>a</kbd>
-add, <kbd>e</kbd> export, <kbd>l</kbd> logs, <kbd>s</kbd> stop — so the footer
-doubles as the mnemonic. There is one deliberate exception: **remove is
-<kbd>x</kbd>**, because refresh, restart, and remove all compete for
-<kbd>r</kbd> and the destructive one should not sit under the finger reaching
-for refresh.
+Skipped for native same-provider switches.
 
-### Switch
+Otherwise:
+
+```
+ anypick / apps / Claude / models
+
+ › default     grok-code-fast-1
+   sonnet      (same as default)
+   opus        (same as default)
+   haiku       (same as default)
+ ──────────────────────────────────────────
+ …
+ enter edit model · a preview route
+```
+
+- **Codex** — one default model.
+- **Claude** — default plus optional sonnet / opus / haiku roles (for tools that
+  call those names).
+
+Edit a line with <kbd>enter</kbd>, type or pick a suggestion, then <kbd>a</kbd>
+(or the confirm key shown) to open the preview.
+
+### 4. Preview — read, then activate
+
+```
+ anypick / apps / Claude / preview
+
+ Activate this route for Claude?
+
+ · bind Claude → grok/work
+ · set model grok-code-fast-1
+ · start local proxy if needed
+ · write client config
+
+ enter activate route   esc back
+```
+
+This is the same plan the CLI would run. If a step fails later, AnyPick rolls
+back what it already changed. Press <kbd>enter</kbd> to apply, <kbd>esc</kbd> to
+go back and change source or models.
+
+After a successful activate you return to Apps with **● ready** and the new
+source · model on the row.
+
+## A concrete example
+
+Goal: **Claude Code should use your Grok work login.**
+
+1. Log in with Grok's tool once (AnyPick never signs in for you).
+2. In AnyPick: <kbd>a</kbd> → Accounts → save that login as `work` (or
+   `anypick add account grok --current --name work`).
+3. Back on Apps, highlight **Claude**, <kbd>enter</kbd>.
+4. Under **Gateways & proxies**, pick **grok/work**.
+5. Set the default model if asked.
+6. Read the preview → <kbd>enter</kbd>.
+
+Claude is now routed. Open Claude Code as you usually do; AnyPick already wrote
+what it needs. Same path works for Codex, gateways like OpenRouter, pools, or a
+preset.
+
+## Keys on Apps
 
 | Key | Action |
 | --- | --- |
-| <kbd>enter</kbd> | Switch, resolve, or save the current login |
-| <kbd>r</kbd> | Refresh login |
-| <kbd>/</kbd> | Filter |
+| <kbd>enter</kbd> | Connect or change route (source → models → preview) |
+| <kbd>a</kbd> / <kbd>tab</kbd> | Accounts |
+| <kbd>g</kbd> | Gateways |
+| <kbd>p</kbd> | Proxies |
+| <kbd>d</kbd> | Diagnose |
+| <kbd>t</kbd> | Tray runtime (start/stop, flip bare-command default) |
+| <kbd>Shift+D</kbd> | Start or reuse the Tray, then close this UI |
+| <kbd>h</kbd> | Help for this screen |
+| <kbd>q</kbd> | Close the terminal UI (background Tray/proxies stay up) |
 
-### Proxy
+## Other boards (supporting cast)
+
+<kbd>tab</kbd> cycles **Apps → Accounts → Gateways → Proxy → Apps**.
+<kbd>esc</kbd> on a secondary board returns to Apps.
+
+| Board | You use it to… |
+| --- | --- |
+| **Accounts** | Save, switch, refresh, import/export, delete logins |
+| **Gateways** | Store endpoint + API key profiles; bind them to apps like a proxy |
+| **Proxy** | Start/stop local translators, pools, Proxy Hub |
+
+Those boards never replace Apps for "what does Claude use?" — they stock the
+shelves that Apps picks from.
+
+### Accounts keys
+
+| Key | Action |
+| --- | --- |
+| <kbd>enter</kbd> | Switch, view active, or save current login |
+| <kbd>v</kbd> | Details and usage |
+| <kbd>a</kbd> | Add a login |
+| <kbd>i</kbd> / <kbd>e</kbd> | Import / export |
+| <kbd>r</kbd> | Refresh |
+| <kbd>s</kbd> | Save a changed live login over its snapshot |
+| <kbd>d</kbd> | Delete |
+| <kbd>f</kbd> | Filter by provider |
+
+### Gateways keys
+
+| Key | Action |
+| --- | --- |
+| <kbd>enter</kbd> | Manage which apps use this gateway |
+| <kbd>m</kbd> | Edit default models |
+| <kbd>e</kbd> | Edit endpoint |
+| <kbd>a</kbd> / <kbd>d</kbd> | Add / delete |
+| <kbd>f</kbd> | Filter by provider |
+
+### Proxy keys
 
 | Key | Action |
 | --- | --- |
 | <kbd>enter</kbd> | Start, manage apps, or save an unsaved login |
-| <kbd>m</kbd> | Manage apps, then edit that app's models |
-| <kbd>s</kbd> | Stop |
-| <kbd>r</kbd> | Restart |
-| <kbd>d</kbd> | Disable proxy auto-start |
+| <kbd>m</kbd> | Manage apps, then edit models |
+| <kbd>s</kbd> / <kbd>r</kbd> | Stop / restart |
+| <kbd>d</kbd> | Disable auto-start |
 | <kbd>l</kbd> | Logs |
 | <kbd>p</kbd> | Multi-account pool on/off |
 | <kbd>space</kbd> | Pause or enable a pool member |
-
-### Accounts
-
-| Key | Action |
-| --- | --- |
-| <kbd>enter</kbd> | Open in Switch, or save the current login |
-| <kbd>v</kbd> | View details and usage |
-| <kbd>a</kbd> | Add a login |
-| <kbd>i</kbd> | Import |
-| <kbd>e</kbd> | Export |
-| <kbd>r</kbd> | Refresh |
-| <kbd>x</kbd> | Remove |
-
-### Gateways
-
-| Key | Action |
-| --- | --- |
-| <kbd>enter</kbd> | Manage apps — binds like a proxy |
-| <kbd>m</kbd> | Manage apps |
-| <kbd>d</kbd> | Edit gateway model defaults |
-| <kbd>e</kbd> | Edit endpoint |
-| <kbd>a</kbd> | Add gateway |
-| <kbd>x</kbd> | Remove gateway |
+| <kbd>f</kbd> | Failover guard on a pool |
 
 ## Status glyphs
 
-| Glyph | State |
-| --- | --- |
-| `●` live | The tool is using this saved login right now |
-| `○` saved | Stored in Hotplug, not currently live |
-| `◐` changed | The live login and the saved snapshot differ |
-| `◐` attention | Not saved yet, or missing an API key |
-| `×` failed | A status check or an action failed |
+| Glyph | On Apps | Elsewhere |
+| --- | --- | --- |
+| `●` | ready | live / using |
+| `○` | not set / stopped | saved / stopped |
+| `◐` | attention | changed (live login ≠ snapshot) |
+| `×` | failed | failed / unavailable |
 
-Set `NO_COLOR=1` and the glyphs carry the state on their own; on a terminal that
-cannot render them, Hotplug falls back to `*`, `o`, `!`, `x`.
-
-## Save current login
-
-When this machine is signed in to a provider but Hotplug has no snapshot of it,
-Switch and Accounts both offer **save current login** on <kbd>enter</kbd>. That
-is the fastest path from "I just logged in with the provider's CLI" to "Hotplug
-can switch back to this later."
-
-## Model bindings
-
-After **manage apps** you land on the model editor. For Claude that means the
-four roles — default, sonnet, opus, haiku — populated from the source's live
-catalog where one is available. On the Gateways side, <kbd>d</kbd> edits
-gateway-wide role defaults that every new binding inherits.
-
-<Aside type="note" title="Gemini proxies need an API key">
-The Gemini proxy reads `GEMINI_API_KEY` from the saved login's `.env`. An
-OAuth-only Gemini account can sign a client in, but cannot drive the proxy.
-</Aside>
+With `NO_COLOR=1` the shapes still carry meaning; plain terminals fall back to
+`*`, `o`, `!`, `x`.
 
 ## Closing the UI
 
-Closing the terminal UI does not stop your proxies. Ownership passes to the
-supervisor — a macOS menu-bar item, or a headless background process elsewhere —
-so a client you launched keeps working. See
-[Proxies](/docs/guides/proxies#the-supervisor), or set `HOTPLUG_NO_TRAY=1` to exit
-without a supervisor.
+- <kbd>q</kbd> — leave the terminal UI; Tray and proxies keep running.
+- <kbd>Shift+D</kbd> — start or reuse the [Desktop Tray](/docs/guides/tray), then
+  close the TUI.
+- <kbd>t</kbd> — `runtime / tray`: start/stop Tray, flip the bare-`anypick`
+  default with <kbd>f</kbd>.
+
+Same route building exists as commands (`anypick use claude --with grok/work`)
+for scripts; the UI is not a weaker mode. See [Getting started](/docs/getting-started)
+for install and first save, and [Proxies](/docs/guides/proxies) for pools and hub.

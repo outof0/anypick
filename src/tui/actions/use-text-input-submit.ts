@@ -1,4 +1,4 @@
-import type { HotplugApp } from '../../core/app';
+import type { AnyPickApp } from '../../core/app';
 import { normalizeProfileName } from '../../utils/slug';
 import type { TextInputScreen } from '../model/screen';
 import type { TuiShell } from '../use-tui-shell';
@@ -16,7 +16,7 @@ import type { AccountActions } from './use-account-actions';
 export type TextInputSubmit = (screen: TextInputScreen, value: string) => Promise<void>;
 
 export function useTextInputSubmit(
-  app: HotplugApp,
+  app: AnyPickApp,
   shell: TuiShell,
   nav: TuiNav,
   accounts: AccountActions,
@@ -92,7 +92,7 @@ export function useTextInputSubmit(
         providerId: screen.providerId,
         accountName: value,
         label: 'Import file',
-        hint: 'This file should be a Hotplug login export.',
+        hint: 'This file should be a AnyPick login export.',
         back: screen.back,
       });
       return;

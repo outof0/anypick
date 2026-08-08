@@ -1,12 +1,12 @@
-import type { HotplugApp } from '../../core/app';
+import type { AnyPickApp } from '../../core/app';
 import { providerCapabilities } from '../../core/capabilities';
 import type { LiveAccountRelation } from './types';
 import type {
-  HotplugChrome,
-  HotplugHomeModel,
-  HotplugHomeRow,
-  HotplugProviderSummary,
-} from './hotplug';
+  AnyPickChrome,
+  AnyPickHomeModel,
+  AnyPickHomeRow,
+  AnyPickProviderSummary,
+} from './anypick';
 import {
   accountDisplayName,
   deriveLiveRelation,
@@ -18,12 +18,12 @@ import { shortToolName } from './names';
 import { rowMatchesLive } from './home-format';
 import { G } from '../components/chrome/status';
 
-export async function loadHotplugHome(
-  app: HotplugApp,
+export async function loadAnyPickHome(
+  app: AnyPickApp,
   nowMs = Date.now(),
-): Promise<HotplugHomeModel> {
+): Promise<AnyPickHomeModel> {
   const listed = await app.accounts.list();
-  const rows: HotplugHomeRow[] = [];
+  const rows: AnyPickHomeRow[] = [];
   let issueCount = 0;
   let driftCount = 0;
   let proxyRunningCount = 0;
@@ -47,12 +47,14 @@ export async function loadHotplugHome(
       livePresent: boolean;
       activeName: string | null;
       relation: LiveAccountRelation;
+      sourceGroupId?: string;
+      sourceGroupName?: string;
     }
   >();
   /** Provider account_id from the live auth material when known. */
   const liveAccountIds = new Map<string, string | null>();
 
-  const providers: HotplugProviderSummary[] = [];
+  const providers: AnyPickProviderSummary[] = [];
 
   for (const p of app.accounts.listProviders()) {
     const caps = providerCapabilities(p);
@@ -85,6 +87,7 @@ export async function loadHotplugHome(
       continue;
     }
     const { active, live, account, proxy, liveMatchKnown } = cur.data;
+    const liveSource = p.liveAccountSource ? await p.liveAccountSource(live) : undefined;
     let relation = deriveLiveRelation({
       savedCount: forProvider.length,
       livePresent: live.present,
@@ -131,6 +134,8 @@ export async function loadHotplugHome(
       livePresent: live.present || Boolean(live.accountId),
       activeName: active,
       relation,
+      sourceGroupId: liveSource?.id,
+      sourceGroupName: liveSource?.name,
     });
 
     const headerBit = live.present ? liveIdentity || 'signed in' : 'signed out';
@@ -138,7 +143,7 @@ export async function loadHotplugHome(
     const hint = relationStatusHint(relation);
     const hintBit = hint ? ` · ${hint}` : '';
 
-    const displayName = shortToolName(p.id, p.shortName ?? p.name);
+    const displayName = liveSource?.name ?? shortToolName(p.id, p.shortName ?? p.name);
     providers.push({
       providerId: p.id,
       providerName: displayName,
@@ -154,11 +159,20 @@ export async function loadHotplugHome(
 
   for (const a of listed) {
     let providerName = a.provider;
+    let sourceGroupId = a.provider;
+    let sourceGroupName: string | undefined;
     let canRefresh = false;
     let canProxy = false;
     try {
       const p = app.accounts.provider(a.provider);
       providerName = shortToolName(p.id, p.shortName ?? p.name);
+      const account = await app.accounts.get(a.provider, a.name);
+      if (account && p.accountSource) {
+        const source = await p.accountSource(account.snapshotDir);
+        sourceGroupId = source.id;
+        sourceGroupName = source.name;
+        providerName = source.name;
+      }
       const caps = providerCapabilities(p);
       canRefresh = caps.canRefresh;
       canProxy = caps.canProxy;
@@ -205,6 +219,8 @@ export async function loadHotplugHome(
     rows.push({
       providerId: a.provider,
       providerName,
+      sourceGroupId,
+      sourceGroupName,
       name: a.name,
       ref: `${a.provider}/${a.name}`,
       label: accountDisplayName({ name: a.name, label: a.label, identity: a.identity }),
@@ -264,6 +280,8 @@ export async function loadHotplugHome(
     rows.push({
       providerId: p.providerId,
       providerName: p.providerName,
+      sourceGroupId: providerState.get(p.providerId)?.sourceGroupId,
+      sourceGroupName: providerState.get(p.providerId)?.sourceGroupName,
       name: '',
       ref: `${p.providerId}/__save-live__`,
       label: 'Save current login',
@@ -310,7 +328,7 @@ export async function loadHotplugHome(
     // keep cwd
   }
 
-  const chrome: HotplugChrome = {
+  const chrome: AnyPickChrome = {
     version: '0.8.0',
     projectRoot,
     issueCount,

@@ -11,7 +11,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-const fakeHome = mkdtempSync(join(tmpdir(), 'hotplug-test-home-'));
+const fakeHome = mkdtempSync(join(tmpdir(), 'anypick-test-home-'));
 process.env.HOME = fakeHome;
 // Snapshot/render assertions exercise the normal Unicode UI. The desktop test
 // runner itself uses TERM=dumb, which would otherwise make import-time glyph
@@ -20,7 +20,10 @@ process.env.TERM = 'xterm-256color';
 
 // The Kiro provider reads and *writes* the macOS keychain, which no HOME
 // redirect can sandbox. Tests exercise the SQLite tier only.
-process.env.HOTPLUG_KIRO_NO_KEYCHAIN = '1';
+process.env.ANYPICK_KIRO_NO_KEYCHAIN = '1';
+// Claude Code uses macOS Keychain as its native auth authority. Tests exercise
+// a temp HOME/file store unless they inject an explicit fake store.
+process.env.ANYPICK_CLAUDE_NO_KEYCHAIN = '1';
 
 // Best-effort cleanup of the fake home when the test process exits.
 process.once('exit', () => {

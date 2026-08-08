@@ -11,7 +11,7 @@ export { estimateAnthropicInputTokens } from './body';
 
 export function createOpenCodeProxyServer(opts: OpenCodeProxyServerOptions): Server {
   assertLoopbackHost(opts.host);
-  const proxyToken = opts.token ?? process.env.HOTPLUG_PROXY_TOKEN ?? '';
+  const proxyToken = opts.token ?? process.env.ANYPICK_PROXY_TOKEN ?? '';
   const log =
     opts.log ?? (opts.quiet ? () => {} : (line: string) => process.stderr.write(`${line}\n`));
   const runtime = new OpenCodeRuntime(opts, log);

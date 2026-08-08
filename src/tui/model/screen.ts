@@ -7,10 +7,13 @@
  * so that state transitions can be written and tested without mounting Ink.
  */
 
-import type { ClientModelRole } from '../../types';
+import type { ActivationPlan, ClientModelRole } from '../../types';
 import type { HelpContext } from '../screens/help';
 import type { OperationReceipt } from './types';
 import type { AppBindingRow } from './bindings';
+import type { AppRouteSourceRow } from './route-builder';
+import type { ProxyHubViewModel } from './proxy-hub';
+import type { HealthModel } from './types';
 
 /**
  * Where a model picker's list came from, shown under the list so the user can
@@ -67,13 +70,45 @@ export interface GatewayDraft {
 
 export type Screen =
   | { kind: 'loading'; label?: string }
+  | { kind: 'tray-runtime'; back: Screen }
+  | { kind: 'apps'; focusClientId?: string }
   | {
-      kind: 'hotplug';
+      kind: 'app-route-source';
+      clientId: string;
+      clientName: string;
+      sources: AppRouteSourceRow[];
+      back: Screen;
+    }
+  | {
+      kind: 'app-route-model';
+      clientId: string;
+      clientName: string;
+      source: AppRouteSourceRow;
+      roles: ClientModelRole[];
+      values: Record<string, string>;
+      suggestions: string[];
+      suggestionsSource: ModelSuggestionsSource;
+      back: Screen;
+    }
+  | {
+      kind: 'app-route-preview';
+      clientId: string;
+      clientName: string;
+      source: AppRouteSourceRow;
+      modelRoles: Record<string, string>;
+      plan: ActivationPlan;
+      lines: string[];
+      back: Screen;
+    }
+  | { kind: 'health'; model: HealthModel; back: Screen; message?: string }
+  | {
+      kind: 'anypick';
       filter?: string;
       focusRef?: string;
       filterActive?: boolean;
     }
   | { kind: 'proxy'; focusRef?: string }
+  | { kind: 'proxy-hub'; view: ProxyHubViewModel }
   | { kind: 'accounts'; focusRef?: string }
   | { kind: 'gateways'; focusName?: string }
   | { kind: 'gateway-pick-provider' }
@@ -113,7 +148,7 @@ export type Screen =
       checked: string[];
     }
   | { kind: 'help'; context: HelpContext; back: Screen }
-  | { kind: 'hotplug-preview'; providerId: string; name: string }
+  | { kind: 'anypick-preview'; providerId: string; name: string }
   | { kind: 'add-provider' }
   | { kind: 'add-mode'; providerId: string; source?: 'antigravity' }
   | { kind: 'add-source'; providerId: string }
@@ -213,10 +248,10 @@ export type GatewayConnectionScreen = Extract<Screen, { kind: 'gateway-connectio
 export type GatewayModelsScreen = Extract<Screen, { kind: 'gateway-models' }>;
 
 /** Screens that reload from disk on entry rather than rendering carried data. */
-export type ReloadingScreenKind = 'hotplug' | 'proxy' | 'accounts';
+export type ReloadingScreenKind = 'anypick' | 'proxy' | 'accounts';
 
 export function isReloadingScreen(
   screen: Screen,
 ): screen is Screen & { kind: ReloadingScreenKind } {
-  return screen.kind === 'hotplug' || screen.kind === 'proxy' || screen.kind === 'accounts';
+  return screen.kind === 'anypick' || screen.kind === 'proxy' || screen.kind === 'accounts';
 }

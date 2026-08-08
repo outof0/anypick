@@ -16,6 +16,7 @@ import {
   randomId,
   safeJsonParse,
 } from './anthropic-helpers';
+import { sanitizeJsonSchema } from './json-schema';
 
 export function anthropicToOpenAI(
   req: AnthropicMessageRequest,
@@ -71,12 +72,14 @@ export function anthropicToOpenAI(
   }
 
   if (req.tools?.length) {
+    // Drop null JSON-Schema keywords (esp. required:null) — strict OpenAI
+    // gateways reject them even though Anthropic accepts the loose shape.
     out.tools = req.tools.map((t) => ({
       type: 'function' as const,
       function: {
         name: t.name,
         description: t.description,
-        parameters: t.input_schema ?? { type: 'object', properties: {} },
+        parameters: sanitizeJsonSchema(t.input_schema ?? { type: 'object', properties: {} }),
       },
     }));
   }

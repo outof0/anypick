@@ -46,11 +46,11 @@ export async function routeRequest(
     return;
   }
   if (method === 'GET' && path === '/v1/models') {
-    await handleListModels(runtime, res);
+    await handleListModels(runtime, req, res);
     return;
   }
   if ((method === 'GET' || method === 'HEAD') && path.startsWith('/v1/models/')) {
-    await handleGetModel(runtime, path.slice('/v1/models/'.length), res);
+    await handleGetModel(runtime, path.slice('/v1/models/'.length), req, res);
     return;
   }
   if (method === 'POST' && path === '/v1/messages/count_tokens') {
@@ -70,7 +70,7 @@ export async function routeRequest(
       type: 'error',
       error: {
         type: 'not_found_error',
-        message: `Unsupported endpoint ${path} on hotplug-opencode-proxy`,
+        message: `Unsupported endpoint ${path} on anypick-opencode-proxy`,
       },
     });
     return;

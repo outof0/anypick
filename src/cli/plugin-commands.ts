@@ -1,8 +1,8 @@
 import type { Command } from 'commander';
 import pc from 'picocolors';
-import type { HotplugApp } from '../core/app';
+import type { AnyPickApp } from '../core/app';
 import type { PluginRecord } from '../types';
-import { ExitCode, hotplugError } from '../utils/errors';
+import { ExitCode, anypickError } from '../utils/errors';
 import { info, next, success, warn } from './ux';
 
 interface PluginGlobals {
@@ -26,7 +26,7 @@ async function confirmTrust(gerund: string, question: string, yes?: boolean): Pr
     return true;
   }
   if (!process.stdin.isTTY || !process.stdout.isTTY) {
-    throw hotplugError(
+    throw anypickError(
       `${gerund} requires --yes in non-interactive mode.`,
       'CONFIRMATION_REQUIRED',
       {
@@ -53,9 +53,9 @@ function printRecord(record: PluginRecord, state: string): void {
   console.log(`    ${pc.dim(record.path)}`);
 }
 
-export function registerPluginGroup(program: Command, app: HotplugApp): void {
+export function registerPluginGroup(program: Command, app: AnyPickApp): void {
   const { plugins } = app;
-  const group = program.command('plugin').description('Manage plugins that extend Hotplug');
+  const group = program.command('plugin').description('Manage plugins that extend AnyPick');
 
   const opts = (): PluginGlobals => program.optsWithGlobals();
   const jsonOut = (): boolean => Boolean(opts().json);
@@ -97,7 +97,7 @@ export function registerPluginGroup(program: Command, app: HotplugApp): void {
 
       if (records.length === 0) {
         console.log(pc.dim('No plugins installed.'));
-        next('hotplug plugin add <dir>', 'install a plugin directory');
+        next('anypick plugin add <dir>', 'install a plugin directory');
         return;
       }
       for (const r of records) {
@@ -113,7 +113,7 @@ export function registerPluginGroup(program: Command, app: HotplugApp): void {
         if (failure) {
           console.log(`    ${pc.red(failure.reason)}`);
           if (failure.untrusted) {
-            console.log(`    ${pc.dim(`→ hotplug plugin trust ${r.name}`)}`);
+            console.log(`    ${pc.dim(`→ anypick plugin trust ${r.name}`)}`);
           }
         }
       }
@@ -122,7 +122,7 @@ export function registerPluginGroup(program: Command, app: HotplugApp): void {
   group
     .command('add')
     .description('Install a plugin directory (disabled until you enable it)')
-    .argument('<dir>', `directory containing hotplug.plugin.json`)
+    .argument('<dir>', `directory containing anypick.plugin.json`)
     .action(async (dir: string) => {
       const record = await plugins.add(dir);
       if (jsonOut()) {
@@ -131,7 +131,7 @@ export function registerPluginGroup(program: Command, app: HotplugApp): void {
       }
       success(`Added ${record.name} ${record.version} (${shortDigest(record.digest)})`);
       if (!record.enabled) {
-        next(`hotplug plugin enable ${record.name}`, 'plugins do not run until enabled');
+        next(`anypick plugin enable ${record.name}`, 'plugins do not run until enabled');
       }
     });
 
@@ -151,7 +151,7 @@ export function registerPluginGroup(program: Command, app: HotplugApp): void {
 
   group
     .command('enable')
-    .description('Allow a plugin to load into the Hotplug process')
+    .description('Allow a plugin to load into the AnyPick process')
     .argument('<name>')
     .action(async (name: string) => {
       const existing = plugins.get(name);
@@ -164,10 +164,22 @@ export function registerPluginGroup(program: Command, app: HotplugApp): void {
         return;
       }
       if (!jsonOut() && existing) {
-        warn(`${name} runs in the same process as your credential files.`);
+        warn(`${name} runs in-process with full access to every credential AnyPick manages.`);
         console.log(`  ${pc.dim(existing.path)}`);
+        console.log(
+          `  ${pc.dim('Treat enable like installing a shell plugin — not a config toggle.')}`,
+        );
+        console.log(
+          `  ${pc.dim('Package digest is re-checked before every import; changes require trust.')}`,
+        );
       }
-      if (!(await confirmTrust(`Enabling ${name}`, `Enable ${name}?`, yesFlag()))) {
+      if (
+        !(await confirmTrust(
+          `Enabling ${name}`,
+          `Enable ${name} and grant it access to your credentials?`,
+          yesFlag(),
+        ))
+      ) {
         process.exitCode = 130;
         return;
       }
@@ -177,7 +189,7 @@ export function registerPluginGroup(program: Command, app: HotplugApp): void {
         return;
       }
       success(`Enabled ${name}`);
-      next('hotplug plugin list', 'confirm it loads on the next run');
+      next('anypick plugin list', 'confirm it loads on the next run');
     });
 
   group

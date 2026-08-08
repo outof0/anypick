@@ -7,20 +7,23 @@ import { tableScroll } from "nimbus-docs/markdown";
 const nimbusConfig = defineNimbusConfig({
   // Must match the deployed origin, no trailing slash: it drives canonical
   // URLs, absolute OG image URLs, robots.txt, the sitemap, and /llms.txt.
-  site: "https://hotplug.dev",
-  title: "Hotplug",
-  description: "Plug any AI into any tool.",
+  site: "https://anypick.dev",
+  title: "AnyPick",
+  description: "Switch accounts, route providers and keep your AI coding tools moving.",
   locale: "en",
   // PLACEHOLDER — no repo exists yet. Replace before deploying, same as `site`
   // above. Drives the header icon link, the hero button, and the footer link.
-  github: "https://github.com/hotplug-dev/hotplug",
-  socialImageAlt: "Hotplug — plug any AI into any tool",
+  github: "https://github.com/outof0/anypick",
+  socialImageAlt: "AnyPick — Pick any. Code on.",
   sidebar: {
     items: [
       "docs/getting-started",
-      // The terminal UI is the primary way people drive Hotplug, so it sits
-      // beside the intro rather than inside Guides.
-      "docs/guides/terminal-ui",
+      // Apps is the product surface; keep it next to the intro, not in Guides.
+      {
+        label: "Apps & Terminal UI",
+        link: "docs/guides/terminal-ui",
+      },
+      "docs/guides/tray",
       "docs/concepts",
       {
         label: "Guides",

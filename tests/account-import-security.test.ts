@@ -3,7 +3,7 @@ import { mkdtemp, rm, writeFile, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createTestEnv } from './helpers';
-import { HotplugError } from '../src/utils/errors';
+import { AnyPickError } from '../src/utils/errors';
 
 /** Assert that importing the envelope at `path` throws an IMPORT_* error and leaves no partial state. */
 async function expectImportRejected(
@@ -18,8 +18,8 @@ async function expectImportRejected(
   } catch (e) {
     err = e;
   }
-  expect(err).toBeInstanceOf(HotplugError);
-  expect((err as HotplugError).code).toMatch(/^IMPORT_/);
+  expect(err).toBeInstanceOf(AnyPickError);
+  expect((err as AnyPickError).code).toMatch(/^IMPORT_/);
 }
 
 function envelope(overrides: Record<string, unknown> = {}): Record<string, unknown> {
@@ -28,7 +28,7 @@ function envelope(overrides: Record<string, unknown> = {}): Record<string, unkno
   ).toString('base64');
   return {
     version: 1,
-    kind: 'hotplug-account',
+    kind: 'anypick-account',
     meta: {
       name: 'main',
       provider: 'fake',
@@ -42,7 +42,7 @@ function envelope(overrides: Record<string, unknown> = {}): Record<string, unkno
 }
 
 async function writeEnvelope(dir: string, payload: unknown): Promise<string> {
-  const p = join(dir, 'evil.hotplug.json');
+  const p = join(dir, 'evil.anypick.json');
   await writeFile(p, JSON.stringify(payload));
   return p;
 }
@@ -59,7 +59,7 @@ async function fileExists(p: string): Promise<boolean> {
 describe('SEC-01 account import trust boundary', () => {
   let root: string;
   beforeEach(async () => {
-    root = await mkdtemp(join(tmpdir(), 'hotplug-sec01-'));
+    root = await mkdtemp(join(tmpdir(), 'anypick-sec01-'));
   });
   afterEach(async () => {
     await rm(root, { recursive: true, force: true });
@@ -69,7 +69,7 @@ describe('SEC-01 account import trust boundary', () => {
     const { service, fakes } = await createTestEnv(['fake']);
     await fakes.fake.setLive({ email: 'ok@me', token: 's' });
     await service.save('fake', 'main');
-    const out = join(root, 'main.hotplug.json');
+    const out = join(root, 'main.anypick.json');
     await service.exportAccount('fake', 'main', out);
 
     await service.delete('fake', 'main');
@@ -158,7 +158,7 @@ describe('SEC-01 account import trust boundary', () => {
     await writeFile(bad, '{not json');
     await expectImportRejected(service, 'fake', 'a', bad);
 
-    const wrongKind = envelope({ kind: 'hotplug-profile' });
+    const wrongKind = envelope({ kind: 'anypick-profile' });
     const kp = await writeEnvelope(root, wrongKind);
     await expectImportRejected(service, 'fake', 'a', kp);
 

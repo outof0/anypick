@@ -3,19 +3,19 @@ title: Project bindings
 description: Give one repository its own client source without touching your global default.
 ---
 
-`hotplug link` writes a binding scoped to the current directory. It wins over
+`anypick link` writes a binding scoped to the current directory. It wins over
 the global default when you `run` a client from inside that directory, and it is
 invisible everywhere else.
 
 ```bash
 cd ~/src/my-app
-hotplug link claude                        # copy the global binding into this project
-hotplug link claude --with grok/work       # or bind explicitly
-hotplug run claude                         # project binding wins
-hotplug unlink claude
+anypick link claude                        # copy the global binding into this project
+anypick link claude --with grok/work       # or bind explicitly
+anypick run claude                         # project binding wins
+anypick unlink claude
 ```
 
-`hotplug unlink` with no client removes every project binding in the current
+`anypick unlink` with no client removes every project binding in the current
 directory.
 
 ## Resolution order
@@ -24,11 +24,11 @@ When `run` needs a binding it takes the first one it finds:
 
 1. `--with` on the command line — this launch only
 2. The project binding for the current directory
-3. The global binding from `hotplug use`
+3. The global binding from `anypick use`
 
 If none exist, `run` exits `5` rather than guessing.
 
-`hotplug current` shows the effective binding for every client, so you can see
+`anypick current` shows the effective binding for every client, so you can see
 which layer won.
 
 ## A typical split
@@ -36,29 +36,29 @@ which layer won.
 One client per customer, without switching by hand:
 
 ```bash
-hotplug use claude --with grok/work            # your default everywhere
+anypick use claude --with grok/work            # your default everywhere
 
 cd ~/src/client-a
-hotplug link claude --with openrouter-work     # this repo only
+anypick link claude --with openrouter-work     # this repo only
 
 cd ~/src/client-b
-hotplug link claude --with gemini/work
+anypick link claude --with gemini/work
 ```
 
 <Aside type="note" title="Bindings are per directory, not per repo">
 The binding is keyed to the directory path you ran `link` in. A different
-worktree of the same repository is a different project as far as Hotplug is
+worktree of the same repository is a different project as far as AnyPick is
 concerned — which is usually what you want, and occasionally surprising.
 </Aside>
 
 ## Cleaning up
 
-`hotplug unlink` removes the binding but leaves the client's config as the last
-activation left it. To strip the configuration Hotplug wrote for a client:
+`anypick unlink` removes the binding but leaves the client's config as the last
+activation left it. To strip the configuration AnyPick wrote for a client:
 
 ```bash
-hotplug reset claude
+anypick reset claude
 ```
 
-`reset` only removes Hotplug-managed configuration. It never touches native auth
+`reset` only removes AnyPick-managed configuration. It never touches native auth
 files or your own settings.

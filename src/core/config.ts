@@ -1,9 +1,9 @@
 import type { GlobalConfig } from '../types';
 import { CURRENT_SCHEMA_VERSION, DEFAULT_GLOBAL_CONFIG } from '../types';
 import { decodeWithFallback, decoders } from './codec';
-import type { HotplugDatabase } from './db';
+import type { AnyPickDatabase } from './db';
 import { getConfigValue, setConfigValue } from './db';
-import { getHotplugRoot } from './paths';
+import { getAnyPickRoot } from './paths';
 
 const GLOBAL_KEY = 'global';
 
@@ -12,10 +12,10 @@ const GLOBAL_KEY = 'global';
  */
 export class GlobalConfigStore {
   readonly root: string;
-  readonly db: HotplugDatabase;
+  readonly db: AnyPickDatabase;
 
-  constructor(root: string, db: HotplugDatabase) {
-    this.root = getHotplugRoot(root);
+  constructor(root: string, db: AnyPickDatabase) {
+    this.root = getAnyPickRoot(root);
     this.db = db;
   }
 

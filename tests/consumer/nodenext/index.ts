@@ -1,8 +1,8 @@
 /** Public API consumer fixture under NodeNext module resolution. */
-import { createHotplugApp, HotplugError, type Account, type Hotplug, type Provider } from 'hotplug';
+import { createAnyPickApp, AnyPickError, type Account, type AnyPick, type Provider } from 'anypick';
 
 async function main(): Promise<void> {
-  const app: Hotplug = await createHotplugApp({ root: '/tmp/hotplug-consumer-nodenext' });
+  const app: AnyPick = await createAnyPickApp({ root: '/tmp/anypick-consumer-nodenext' });
   const listed = await app.accounts.list('codex');
   const first = listed[0];
   if (first) {
@@ -23,7 +23,7 @@ async function main(): Promise<void> {
   await app.doctor.run();
   app.close();
 
-  const err = new HotplugError('IMPORT_FORMAT', 'bad payload');
+  const err = new AnyPickError('IMPORT_FORMAT', 'bad payload');
   void err;
 }
 

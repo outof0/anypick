@@ -1,4 +1,4 @@
-import type { HotplugDatabase } from './db';
+import type { AnyPickDatabase } from './db';
 
 const SCHEMA = `
 PRAGMA journal_mode = WAL;
@@ -143,6 +143,34 @@ CREATE TABLE IF NOT EXISTS model_catalog_cache (
   fetched_at TEXT NOT NULL,
   PRIMARY KEY (provider, endpoint)
 );
+
+-- The unified local Proxy Hub. Config and public runtime state intentionally
+-- live apart from per-account proxy_state: one hub can serve many providers.
+CREATE TABLE IF NOT EXISTS proxy_hubs (
+  name TEXT PRIMARY KEY NOT NULL,
+  config_json TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS proxy_hub_runtime (
+  name TEXT PRIMARY KEY NOT NULL,
+  state_json TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  FOREIGN KEY (name) REFERENCES proxy_hubs(name) ON DELETE CASCADE
+);
+
+-- token_secret is owner-only material. It is never decoded into public status
+-- types or included in the Tray/CLI snapshot surface.
+CREATE TABLE IF NOT EXISTS proxy_hub_routes (
+  route_id TEXT PRIMARY KEY NOT NULL,
+  hub_name TEXT NOT NULL,
+  manifest_json TEXT NOT NULL,
+  token_secret TEXT NOT NULL UNIQUE,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  FOREIGN KEY (hub_name) REFERENCES proxy_hubs(name) ON DELETE CASCADE
+);
 `;
 
 /**
@@ -165,10 +193,10 @@ export interface SchemaMigration {
   /** Human label, used in logs. */
   name: string;
   /** Apply against an already-open database. Run inside a transaction by caller. */
-  up(db: HotplugDatabase): void;
+  up(db: AnyPickDatabase): void;
 }
 
-function hasColumn(db: HotplugDatabase, table: string, column: string): boolean {
+function hasColumn(db: AnyPickDatabase, table: string, column: string): boolean {
   return db
     .prepare(`PRAGMA table_info(${table})`)
     .all()
@@ -236,13 +264,40 @@ export const MIGRATIONS: SchemaMigration[] = [
         );
       `),
   },
+  {
+    name: 'add proxy hub state and token-scoped routes',
+    up: (db) =>
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS proxy_hubs (
+          name TEXT PRIMARY KEY NOT NULL,
+          config_json TEXT NOT NULL,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS proxy_hub_runtime (
+          name TEXT PRIMARY KEY NOT NULL,
+          state_json TEXT NOT NULL,
+          updated_at TEXT NOT NULL,
+          FOREIGN KEY (name) REFERENCES proxy_hubs(name) ON DELETE CASCADE
+        );
+        CREATE TABLE IF NOT EXISTS proxy_hub_routes (
+          route_id TEXT PRIMARY KEY NOT NULL,
+          hub_name TEXT NOT NULL,
+          manifest_json TEXT NOT NULL,
+          token_secret TEXT NOT NULL UNIQUE,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL,
+          FOREIGN KEY (hub_name) REFERENCES proxy_hubs(name) ON DELETE CASCADE
+        );
+      `),
+  },
 ];
 
 /**
  * Apply `SCHEMA` (baseline) then any pending versioned migrations. Idempotent:
  * safe to call on every open. Reads/writes `PRAGMA user_version`.
  */
-export function migrateSchema(db: HotplugDatabase): void {
+export function migrateSchema(db: AnyPickDatabase): void {
   const versionRow = db.prepare('PRAGMA user_version').get() as
     | { user_version?: unknown }
     | undefined;
@@ -254,7 +309,7 @@ export function migrateSchema(db: HotplugDatabase): void {
   // understand. Refuse before executing even idempotent DDL.
   if (current > target) {
     throw new Error(
-      `hotplug.db schema version ${current} is newer than this Hotplug build supports (${target}). Upgrade Hotplug before using this data directory.`,
+      `anypick.db schema version ${current} is newer than this AnyPick build supports (${target}). Upgrade AnyPick before using this data directory.`,
     );
   }
 

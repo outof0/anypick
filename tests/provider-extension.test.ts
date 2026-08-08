@@ -23,14 +23,9 @@ import {
   CatalogRegistry,
   ClientRegistry,
   registerBuiltinClients,
-  type HotplugApp,
+  type AnyPickApp,
 } from '../src/testing';
 import type { Account, AccountMeta, LiveAuthStatus, Provider, SourceAdapter } from '../src/types';
-import {
-  defaultModelRolesForProxy,
-  suggestModelsForProxyProvider,
-} from '../src/clients/model-roles';
-import { modelPolicyLookup } from '../src/core/model-policy';
 
 /**
  * A minimal but complete third-party provider: file-based auth, no proxy, and
@@ -114,10 +109,10 @@ class AcmeProvider implements Provider {
 describe('third-party provider extension', () => {
   let root: string;
   let liveDir: string;
-  let app: HotplugApp;
+  let app: AnyPickApp;
 
   beforeEach(async () => {
-    root = await mkdtemp(join(tmpdir(), 'hotplug-ext-'));
+    root = await mkdtemp(join(tmpdir(), 'anypick-ext-'));
     liveDir = join(root, 'acme-live');
     await mkdir(liveDir, { recursive: true });
     await writeFile(
@@ -150,14 +145,11 @@ describe('third-party provider extension', () => {
     expect(app.accounts.provider('acme').shortName).toBe('ACME');
   });
 
-  it('supplies its own model roles instead of inheriting built-in vendor ids', () => {
-    const policy = modelPolicyLookup({
-      accountRegistry: app.accountRegistry,
-      catalog: app.catalog,
-    });
-
-    const roles = defaultModelRolesForProxy('acme', 'claude', policy);
-    expect(roles).toEqual({
+  it('supplies its own model policy instead of inheriting built-in vendor ids', () => {
+    // Read policy only through the public Provider surface so this canary stays
+    // on published entrypoints (`anypick/testing` + `anypick` types).
+    const provider = app.accounts.provider('acme');
+    expect(provider.roleDefaults?.()).toEqual({
       default: 'acme-large',
       sonnet: 'acme-medium',
       opus: 'acme-large',
@@ -166,10 +158,12 @@ describe('third-party provider extension', () => {
 
     // The regression this guards: no Claude/GPT ids may leak in from a
     // fallback branch for a provider that never serves them.
-    const suggestions = suggestModelsForProxyProvider('acme', policy);
-    expect(suggestions).toContain('acme-large');
-    expect(suggestions.some((id) => id.includes('claude'))).toBe(false);
-    expect(suggestions.some((id) => id.includes('gpt'))).toBe(false);
+    const suggestions = Object.values(provider.suggestModels?.() ?? {});
+    const friendly = [...(provider.roleFriendlyModels?.() ?? [])];
+    const all = [...suggestions, ...friendly];
+    expect(all).toContain('acme-large');
+    expect(all.some((id) => id.includes('claude'))).toBe(false);
+    expect(all.some((id) => id.includes('gpt'))).toBe(false);
   });
 
   it('saves and reports an account through the normal service path', async () => {

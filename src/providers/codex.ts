@@ -29,7 +29,7 @@ import { hasCodexAuth, codexAccountId, extractCodexIdentity } from './codex-iden
  *
  * CLI live auth: ~/.codex/auth.json
  * Desktop app may keep a different in-memory ChatGPT account (multi-account),
- * but Hotplug can only back up and restore ~/.codex/auth.json. Therefore
+ * but AnyPick can only back up and restore ~/.codex/auth.json. Therefore
  * detectLive() deliberately reports that file, keeping detection, backup,
  * restore, and snapshot matching on one authority.
  */
@@ -251,7 +251,7 @@ export class CodexProvider implements Provider {
 
   /**
    * Delete local auth.json only — does NOT call OpenAI logout/revoke.
-   * Saved hotplug snapshots remain valid for restore.
+   * Saved anypick snapshots remain valid for restore.
    */
   async clearLive(): Promise<void> {
     const path = expandHome(this.authPath);

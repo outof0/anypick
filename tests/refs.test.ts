@@ -9,7 +9,7 @@ import {
   gatewayRef,
   presetRef,
 } from '../src/core/refs';
-import { isHotplugError } from '../src/utils/errors';
+import { isAnyPickError } from '../src/utils/errors';
 
 describe('parseRef', () => {
   it('parses provider/account as account', () => {
@@ -57,8 +57,8 @@ describe('resolveSourceRef', () => {
       });
       expect.unreachable();
     } catch (e) {
-      expect(isHotplugError(e)).toBe(true);
-      if (isHotplugError(e)) {
+      expect(isAnyPickError(e)).toBe(true);
+      if (isAnyPickError(e)) {
         expect(e.exitCode).toBe(3);
         expect(e.code).toBe('RESOURCE_NOT_FOUND');
         expect(e.suggestions.some((s) => s.includes('@work-grok'))).toBe(true);

@@ -1,9 +1,9 @@
 /**
- * Exit codes per hotplug-cli-dx-redesign-spec §25.2
+ * Exit codes per anypick-cli-dx-redesign-spec §25.2
  *
  * Reserved ranges (do NOT reuse for new program errors):
  *   0                — success
- *   1–127            — program/operational errors (hotplug's own)
+ *   1–127            — program/operational errors (anypick's own)
  *   128 + N (128–255) — process terminated by signal N (e.g. 130 = SIGINT)
  *   Known program codes below:
  *     0 SUCCESS, 1 OPERATIONAL, 2 INVALID_USAGE, 3 NOT_FOUND,
@@ -29,7 +29,7 @@ export const ExitCode = {
 
 export type ExitCodeValue = (typeof ExitCode)[keyof typeof ExitCode];
 
-export interface HotplugErrorOptions {
+export interface AnyPickErrorOptions {
   code?: string;
   exitCode?: ExitCodeValue;
   suggestions?: string[];
@@ -38,16 +38,16 @@ export interface HotplugErrorOptions {
   details?: Record<string, unknown>;
 }
 
-export class HotplugError extends Error {
+export class AnyPickError extends Error {
   readonly code?: string;
   readonly exitCode: ExitCodeValue;
   readonly suggestions: string[];
   mutated: boolean;
   readonly details?: Record<string, unknown>;
 
-  constructor(message: string, codeOrOpts?: string | HotplugErrorOptions) {
+  constructor(message: string, codeOrOpts?: string | AnyPickErrorOptions) {
     super(message);
-    this.name = 'HotplugError';
+    this.name = 'AnyPickError';
     if (typeof codeOrOpts === 'string' || codeOrOpts === undefined) {
       this.code = codeOrOpts;
       this.exitCode = ExitCode.OPERATIONAL;
@@ -98,8 +98,8 @@ export class HotplugError extends Error {
   }
 }
 
-export function isHotplugError(err: unknown): err is HotplugError {
-  return err instanceof HotplugError;
+export function isAnyPickError(err: unknown): err is AnyPickError {
+  return err instanceof AnyPickError;
 }
 
 /** Map a common error code string to a default exit code. */
@@ -146,12 +146,12 @@ export function exitCodeForErrorCode(code: string | undefined): ExitCodeValue {
   }
 }
 
-export function hotplugError(
+export function anypickError(
   message: string,
   code: string,
-  opts: Omit<HotplugErrorOptions, 'code'> = {},
-): HotplugError {
-  return new HotplugError(message, {
+  opts: Omit<AnyPickErrorOptions, 'code'> = {},
+): AnyPickError {
+  return new AnyPickError(message, {
     code,
     exitCode: opts.exitCode ?? exitCodeForErrorCode(code),
     suggestions: opts.suggestions,

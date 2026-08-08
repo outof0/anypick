@@ -1,5 +1,5 @@
 {
-  "name": "hotplug-docs",
+  "name": "anypick-docs",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -30,10 +30,17 @@
   "devDependencies": {
     "@astrojs/check": "^0.9.8",
     "@tailwindcss/vite": "^4.1.4",
+    "mri": "^1.2.0",
     "pagefind": "^1.5.2",
     "tailwindcss": "^4.1.4",
     "typescript": "^5.8.3",
     "wrangler": "^4.95.0"
   },
-  "description": "Documentation site for the Hotplug CLI."
+  "pnpm": {
+    "overrides": {
+      "confbox": "0.2.4",
+      "entities": "7.0.1"
+    }
+  },
+  "description": "Documentation site for the AnyPick CLI."
 }

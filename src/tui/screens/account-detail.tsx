@@ -7,12 +7,12 @@
 import { useEffect, useState } from 'react';
 import { Box, Text, useInput } from 'ink';
 import { ScreenShell, Spacer } from '../components/chrome';
-import { formatUsageWindow, type AccountDetailModel } from '../model';
-import type { HotplugApp } from '../../core/app';
+import { formatUsageWindow, identityDisplayText, type AccountDetailModel } from '../model';
+import type { AnyPickApp } from '../../core/app';
 import type { LiveUsage } from '../../types';
 
 export interface AccountDetailScreenProps {
-  app: HotplugApp;
+  app: AnyPickApp;
   detail: AccountDetailModel;
   onBack: () => void;
 }
@@ -28,7 +28,7 @@ export function AccountDetailScreen(props: AccountDetailScreenProps) {
   });
 
   // Usage is a property of the live login on disk, so only fetch it for the
-  // active account (Hotplug keeps exactly one login live at a time).
+  // active account (AnyPick keeps exactly one login live at a time).
   useEffect(() => {
     if (!detail.active) {
       return;
@@ -59,7 +59,7 @@ export function AccountDetailScreen(props: AccountDetailScreenProps) {
     <ScreenShell
       path={[detail.providerId, detail.name]}
       outcome={detail.canonical}
-      support={detail.identity ?? 'no identity'}
+      support={identityDisplayText(detail.identity, 'no identity')}
       hints={[{ key: 'esc', label: 'back' }]}
     >
       <Box flexDirection="column">
@@ -67,7 +67,7 @@ export function AccountDetailScreen(props: AccountDetailScreenProps) {
         <Text dimColor>
           {' '}
           {detail.label && detail.label !== detail.name ? detail.label + ' · ' : ''}
-          {detail.identity ?? 'no identity'}
+          {identityDisplayText(detail.identity, 'no identity')}
         </Text>
         <Spacer />
         <Text> active {detail.active ? 'yes' : 'no'}</Text>

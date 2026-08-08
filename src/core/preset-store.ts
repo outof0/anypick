@@ -1,8 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import type { BindingSpec, SavedPreset } from '../types';
-import { hotplugError, ExitCode } from '../utils/errors';
+import { anypickError, ExitCode } from '../utils/errors';
 import { decode, decoders } from './codec';
-import type { HotplugDatabase } from './db';
+import type { AnyPickDatabase } from './db';
 
 interface PresetRow {
   id: string;
@@ -33,7 +33,7 @@ function parse(row: PresetRow): SavedPreset {
 }
 
 export class PresetStore {
-  constructor(private readonly db: HotplugDatabase) {}
+  constructor(private readonly db: AnyPickDatabase) {}
 
   getByName(name: string): SavedPreset | null {
     const row = this.db
@@ -76,16 +76,16 @@ export class PresetStore {
     },
   ): SavedPreset {
     if (!name || name.startsWith('@') || name.includes('/')) {
-      throw hotplugError(
+      throw anypickError(
         `Invalid preset name "${name}". Preset names cannot contain / or leading @.`,
         'INVALID_USAGE',
         { exitCode: ExitCode.INVALID_USAGE },
       );
     }
     if (this.exists(name)) {
-      throw hotplugError(`Preset \`@${name}\` already exists.`, 'STATE_CONFLICT', {
+      throw anypickError(`Preset \`@${name}\` already exists.`, 'STATE_CONFLICT', {
         exitCode: ExitCode.CAPABILITY_CONFLICT,
-        suggestions: [`hotplug edit @${name}`, `hotplug remove @${name}`],
+        suggestions: [`anypick edit @${name}`, `anypick remove @${name}`],
       });
     }
     const ts = nowIso();
@@ -128,14 +128,14 @@ export class PresetStore {
   ): SavedPreset {
     const existing = this.getByName(name);
     if (!existing) {
-      throw hotplugError(`Preset \`@${name}\` was not found.`, 'PRESET_NOT_FOUND', {
+      throw anypickError(`Preset \`@${name}\` was not found.`, 'PRESET_NOT_FOUND', {
         exitCode: ExitCode.NOT_FOUND,
       });
     }
 
     const newName = patch.name ?? existing.name;
     if (newName !== existing.name && this.exists(newName)) {
-      throw hotplugError(`Preset \`@${newName}\` already exists.`, 'STATE_CONFLICT', {
+      throw anypickError(`Preset \`@${newName}\` already exists.`, 'STATE_CONFLICT', {
         exitCode: ExitCode.CAPABILITY_CONFLICT,
       });
     }
@@ -151,7 +151,7 @@ export class PresetStore {
 
     // model must remain explicit | omitted
     if (nextSpec.model.mode !== 'explicit' && nextSpec.model.mode !== 'omitted') {
-      throw hotplugError('Preset model must be explicit or omitted.', 'INVALID_USAGE', {
+      throw anypickError('Preset model must be explicit or omitted.', 'INVALID_USAGE', {
         exitCode: ExitCode.INVALID_USAGE,
       });
     }

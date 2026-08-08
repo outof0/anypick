@@ -9,7 +9,7 @@ import { mkdir, open, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { isProcessRunning } from './process';
-import { hotplugError, ExitCode } from './errors';
+import { anypickError, ExitCode } from './errors';
 
 export interface LockInfo {
   pid: number;
@@ -108,10 +108,10 @@ export async function withFileLock<T>(
       }
 
       if (Date.now() >= deadline) {
-        throw hotplugError(
+        throw anypickError(
           `Resource locked: ${resource}` +
             (info ? ` (held by pid ${info.pid})` : '') +
-            '. Retry after the other hotplug process finishes.',
+            '. Retry after the other anypick process finishes.',
           'STATE_CONFLICT',
           {
             exitCode: ExitCode.CAPABILITY_CONFLICT,

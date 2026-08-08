@@ -15,11 +15,21 @@ const external = [
 ];
 
 /**
- * Hotplug ships native Node ESM, not a browser bundle. Source imports remain
+ * AnyPick ships native Node ESM, not a browser bundle. Source imports remain
  * extensionless for authoring; Vite resolves them and emits executable `.js`
  * specifiers in dist while TypeScript emits declarations only.
  */
 export default defineConfig({
+  // Ink + ink-testing-library must share the same React instance as the app
+  // under test — without this, vitest can load two React copies and every TUI
+  // mount dies with "Invalid hook call".
+  resolve: {
+    dedupe: ['react', 'react-dom'],
+    alias: {
+      react: resolve(root, 'node_modules/react'),
+      'react-dom': resolve(root, 'node_modules/react-dom'),
+    },
+  },
   build: {
     target: 'node22',
     ssr: true,
@@ -53,5 +63,17 @@ export default defineConfig({
     include: ['tests/**/*.test.ts', 'tests/**/*.test.tsx'],
     environment: 'node',
     setupFiles: ['tests/setup.ts'],
+    // Proxy/process tests bind loopback ports and spawn child processes. Capping
+    // concurrency prevents high-core developer machines from exhausting those
+    // resources while preserving parallel coverage in CI.
+    maxWorkers: 4,
+    // Full suite + Ink renders can exceed the 5s default under load.
+    testTimeout: 20_000,
+    hookTimeout: 20_000,
+    server: {
+      deps: {
+        inline: ['ink', 'ink-testing-library'],
+      },
+    },
   },
 });

@@ -2,10 +2,11 @@ import type { ClientState, GlobalConfig, ResolvedClientPlan, RuntimeProfile } fr
 import type { ClientRegistry } from '../clients/registry';
 import type { ClientStateStore } from './client-state-store';
 import type { ProfileStore } from './profile-store';
-import type { GlobalConfigStore } from './config';
+import type { ConfigService } from './config-service';
 import type { ProviderRegistry } from './registry';
+import { resolveFromContext } from '../clients/resolve';
 import { normalizeProfileName } from '../utils/slug';
-import { getHotplugRoot } from './paths';
+import { getAnyPickRoot } from './paths';
 import { syntheticProxyProfile } from './profile-synth';
 import { proxyEndpointSourceAdapter } from '../sources/account-adapters';
 import { homedir } from 'node:os';
@@ -60,11 +61,69 @@ export class RuntimeService {
     private readonly profiles: ProfileStore,
     private readonly clientState: ClientStateStore,
     private readonly clients: ClientRegistry,
-    private readonly config?: GlobalConfigStore,
+    private readonly config?: ConfigService,
     root?: string,
     private readonly accountRegistry?: ProviderRegistry,
   ) {
-    this.root = getHotplugRoot(root);
+    this.root = getAnyPickRoot(root);
+  }
+
+  /**
+   * Optional Codex live-config hooks, wired in app.ts so this service does not
+   * depend on Proxy/Hub services it was not constructed with.
+   */
+  private codexLiveConfigSync?: (opts?: { forceRouted?: boolean }) => Promise<void>;
+  private codexLiveConfigRestoreNative?: () => Promise<void>;
+  private codexLiveConfigPublish?: (provider: {
+    source: string;
+    endpoint: string;
+    token: string;
+    defaultModel?: string;
+  }) => Promise<void>;
+
+  setCodexLiveConfigSync(fn: (opts?: { forceRouted?: boolean }) => Promise<void>): void {
+    this.codexLiveConfigSync = fn;
+  }
+
+  setCodexLiveConfigRestoreNative(fn: () => Promise<void>): void {
+    this.codexLiveConfigRestoreNative = fn;
+  }
+
+  setCodexLiveConfigPublish(
+    fn: (provider: {
+      source: string;
+      endpoint: string;
+      token: string;
+      defaultModel?: string;
+    }) => Promise<void>,
+  ): void {
+    this.codexLiveConfigPublish = fn;
+  }
+
+  private async syncCodexLiveConfig(opts?: { forceRouted?: boolean }): Promise<void> {
+    try {
+      await this.codexLiveConfigSync?.(opts);
+    } catch {
+      // Best-effort: a failed live-block refresh must never fail activation.
+    }
+  }
+
+  /**
+   * Re-publish the Codex live block after the global binding is committed.
+   * AttachProxyHubRoute may sync earlier — before modelRoles land in the store —
+   * so Default/Model 2–5 would otherwise leave a stale Desktop catalog.
+   */
+  async refreshCodexLiveConfig(opts?: { forceRouted?: boolean }): Promise<void> {
+    await this.syncCodexLiveConfig(opts ?? { forceRouted: true });
+  }
+
+  /** Restore user top-level Codex defaults after a native account switch. */
+  async restoreCodexLiveForNative(): Promise<void> {
+    try {
+      await this.codexLiveConfigRestoreNative?.();
+    } catch {
+      // Best-effort.
+    }
   }
 
   /**
@@ -95,11 +154,13 @@ export class RuntimeService {
     }
 
     if (!opts.dryRun && this.config) {
-      const cfg = await this.config.read();
-      await this.config.write({
-        ...cfg,
-        activeProfile: name,
-      } satisfies GlobalConfig);
+      await this.config.update(
+        (cfg) =>
+          ({
+            ...cfg,
+            activeProfile: name,
+          }) satisfies GlobalConfig,
+      );
     }
 
     return {
@@ -114,7 +175,7 @@ export class RuntimeService {
    * Returns `src=>dest` backup entries for any that currently exist on disk, so
    * a crashed activation can be restored on next startup (TXN-01).
    *
-   * Backups are stored in the owner-only Hotplug recovery directory (not the
+   * Backups are stored in the owner-only AnyPick recovery directory (not the
    * system temp dir) with collision-free hashed filenames, so two targets with
    * the same basename — or concurrent activations — never clobber each other's
    * backup. Files that do not yet exist (first apply) yield no backup: there is
@@ -131,7 +192,7 @@ export class RuntimeService {
       const targets = [
         ...(prior?.managedPaths ?? []),
         ...inspected.configPaths,
-        // All bundled adapters use these Hotplug-owned environment files. They
+        // All bundled adapters use these AnyPick-owned environment files. They
         // must be compensated too even on a first apply.
         join(this.root, 'clients', clientId, 'env.sh'),
         join(this.root, 'clients', clientId, 'env.ps1'),
@@ -215,7 +276,7 @@ export class RuntimeService {
       clientId: client.id,
       dryRun,
       verbose: Boolean(opts.verbose),
-      hotplugRoot: this.root,
+      anypickRoot: this.root,
       proxyEndpoint: opts.proxyEndpoint,
     };
 
@@ -232,6 +293,11 @@ export class RuntimeService {
         managedEnvKeys: result.managedEnvKeys,
       };
       await this.clientState.write(state);
+      // Gateway profile apply: also take over top-level ~/.codex/config.toml so
+      // plain `codex` / desktop honor the gateway without --profile.
+      if (client.id === 'codex') {
+        await this.publishCodexGatewayLive(ctx, name);
+      }
     }
 
     return {
@@ -243,6 +309,60 @@ export class RuntimeService {
       envHint: `${this.root}/clients/${client.id}/env.sh`,
       backupPaths: recovery.backupPaths.length ? recovery.backupPaths : undefined,
     };
+  }
+
+  private async publishCodexProxyLive(
+    source: string,
+    endpoint: string,
+    apiKey: string | undefined,
+    defaultModel: string | undefined,
+  ): Promise<void> {
+    try {
+      const token = apiKey?.trim();
+      if (!endpoint || !token) {
+        // Fall back to hub/proxy resolution without a sticky model override.
+        await this.syncCodexLiveConfig({ forceRouted: true });
+        return;
+      }
+      await this.codexLiveConfigPublish?.({
+        source,
+        endpoint,
+        token,
+        defaultModel,
+      });
+    } catch {
+      // Best-effort: profile files already written.
+    }
+  }
+
+  private async publishCodexGatewayLive(
+    ctx: {
+      profile: RuntimeProfile;
+      proxyEndpoint?: string;
+    },
+    profileName: string,
+  ): Promise<void> {
+    try {
+      const resolved = resolveFromContext({
+        profile: ctx.profile,
+        clientId: 'codex',
+        dryRun: false,
+        verbose: false,
+        anypickRoot: this.root,
+        proxyEndpoint: ctx.proxyEndpoint,
+      });
+      if (!resolved.endpoint || !resolved.apiKey) {
+        return;
+      }
+      await this.codexLiveConfigPublish?.({
+        source: `gateway:${profileName}`,
+        endpoint: resolved.endpoint,
+        token: resolved.apiKey,
+        defaultModel: resolved.defaultModel,
+      });
+    } catch {
+      // Best-effort: profile files already written.
+    }
   }
 
   /**
@@ -286,7 +406,7 @@ export class RuntimeService {
     const profile: RuntimeProfile = syntheticProxyProfile({
       name: label,
       endpoint: opts.endpoint,
-      apiKey: opts.apiKey ?? 'hotplug-proxy',
+      apiKey: opts.apiKey ?? 'anypick-proxy',
       defaultModel,
       sonnetModel: opts.sonnetModel ?? roles?.sonnet,
       opusModel: opts.opusModel ?? roles?.opus,
@@ -323,7 +443,7 @@ export class RuntimeService {
         profile,
         dryRun,
         verbose: Boolean(opts.verbose),
-        hotplugRoot: this.root,
+        anypickRoot: this.root,
       };
       const result = await client.applyPersistent(plan);
       if (!dryRun) {
@@ -335,6 +455,11 @@ export class RuntimeService {
           managedPaths: result.managedPaths,
           managedEnvKeys: result.managedEnvKeys,
         });
+        if (client.id === 'codex') {
+          // Activation bound Codex to a proxy: take over top-level with the
+          // chosen default model (force routed even after a native switch).
+          await this.publishCodexProxyLive(label, opts.endpoint, opts.apiKey, defaultModel);
+        }
       }
       return {
         clientId: client.id,
@@ -352,7 +477,7 @@ export class RuntimeService {
       clientId: client.id,
       dryRun,
       verbose: Boolean(opts.verbose),
-      hotplugRoot: this.root,
+      anypickRoot: this.root,
       proxyEndpoint: opts.endpoint,
     };
     await client.validate(ctx);
@@ -366,6 +491,9 @@ export class RuntimeService {
         managedPaths: result.managedPaths,
         managedEnvKeys: result.managedEnvKeys,
       });
+      if (client.id === 'codex') {
+        await this.publishCodexProxyLive(label, opts.endpoint, opts.apiKey, defaultModel);
+      }
     }
     return {
       clientId: client.id,
@@ -379,7 +507,7 @@ export class RuntimeService {
   }
 
   /**
-   * Build an isolated ephemeral runtime for `hotplug run` (spec §9.7.1).
+   * Build an isolated ephemeral runtime for `anypick run` (spec §9.7.1).
    * Never mutates live client configuration.
    */
   async createEphemeralRuntime(plan: ResolvedClientPlan): Promise<{

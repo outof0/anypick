@@ -14,11 +14,12 @@ import type {
   RuntimeProfile,
   SavedPreset,
 } from '../types';
-import { hotplugError, ExitCode } from '../utils/errors';
+import { anypickError, ExitCode } from '../utils/errors';
 import { displayRef, parseRef, resolveSourceRef, serializeRef, type ParseRefContext } from './refs';
 import { accountAdapterFor, poolAdapterFor } from '../sources/account-adapters';
 import { providerCanProxy } from './capabilities';
 import { gatewayAdapterFromProfile } from '../sources/gateway-adapters';
+import { proxyHubAdapter } from '../sources/proxy-hub-adapters';
 import type { AccountService } from './service';
 import type { ProxyService } from './proxy-service';
 import type { ProfileService } from './profile-service';
@@ -30,6 +31,7 @@ import type { CatalogRegistry } from '../catalog/providers';
 import type { ClientRegistry } from '../clients/registry';
 import type { PoolStore } from './pool-store';
 import { resolveProjectRoot } from './project-root';
+import type { ProxyHubService } from './proxy-hub-service';
 
 export interface ResolveSourceDeps {
   accounts: AccountService;
@@ -42,6 +44,7 @@ export interface ResolveSourceDeps {
   catalog: CatalogRegistry;
   clients: ClientRegistry;
   pools?: PoolStore;
+  hub?: ProxyHubService;
 }
 
 export async function materializeResolvedSource(
@@ -49,7 +52,7 @@ export async function materializeResolvedSource(
   deps: ResolveSourceDeps,
 ): Promise<ResolvedSource> {
   if (ref.kind === 'preset') {
-    throw hotplugError(
+    throw anypickError(
       'Internal error: preset refs must be expanded before materialize.',
       'INVALID_USAGE',
       { exitCode: ExitCode.INVALID_USAGE },
@@ -59,14 +62,14 @@ export async function materializeResolvedSource(
   if (ref.kind === 'account') {
     const account = await deps.accounts.get(ref.provider, ref.name);
     if (!account) {
-      throw hotplugError(
+      throw anypickError(
         `Account \`${ref.provider}/${ref.name}\` was not found.`,
         'ACCOUNT_NOT_FOUND',
         {
           exitCode: ExitCode.NOT_FOUND,
           suggestions: [
-            `hotplug add account ${ref.provider} --current --name ${ref.name}`,
-            'hotplug list accounts',
+            `anypick add account ${ref.provider} --current --name ${ref.name}`,
+            'anypick list accounts',
           ],
         },
       );
@@ -84,7 +87,7 @@ export async function materializeResolvedSource(
   if (ref.kind === 'account-pool') {
     const provider = deps.accountRegistry.get(ref.provider);
     if (!providerCanProxy(provider)) {
-      throw hotplugError(
+      throw anypickError(
         `Provider ${ref.provider} has no proxy — cannot use pool:${ref.provider}.`,
         'PROXY_UNSUPPORTED',
         { exitCode: ExitCode.CAPABILITY_CONFLICT },
@@ -92,14 +95,14 @@ export async function materializeResolvedSource(
     }
     let pool = deps.pools ? await deps.pools.get(ref.provider) : null;
     if (!pool || pool.mode !== 'multi') {
-      throw hotplugError(
-        `Multi-account pool is not enabled for ${ref.provider}.\n\nEnable it:\n  hotplug proxy pool enable ${ref.provider}\n\nOr bind a single account:\n  hotplug use <client> --with ${ref.provider}/<name>`,
+      throw anypickError(
+        `Multi-account pool is not enabled for ${ref.provider}.\n\nEnable it:\n  anypick proxy pool enable ${ref.provider}\n\nOr bind a single account:\n  anypick use <client> --with ${ref.provider}/<name>`,
         'POOL_NOT_ENABLED',
         {
           exitCode: ExitCode.INVALID_USAGE,
           suggestions: [
-            `hotplug proxy pool enable ${ref.provider}`,
-            `hotplug use claude --with ${ref.provider}/work`,
+            `anypick proxy pool enable ${ref.provider}`,
+            `anypick use claude --with ${ref.provider}/work`,
           ],
         },
       );
@@ -113,14 +116,34 @@ export async function materializeResolvedSource(
     };
   }
 
+  if (ref.kind === 'proxy-hub') {
+    if (!deps.hub) {
+      throw new Error('Proxy Hub service is unavailable in this composition.');
+    }
+    const hub = await deps.hub.get(ref.name);
+    if (!hub.enabled) {
+      throw anypickError(
+        `Proxy Hub ${displayRef(ref)} is disabled. Enable it and add a source first.`,
+        'PROXY_DISABLED',
+        { exitCode: ExitCode.CAPABILITY_CONFLICT },
+      );
+    }
+    return {
+      ref,
+      kind: 'proxy-hub',
+      adapter: proxyHubAdapter(ref),
+      display: displayRef(ref),
+    };
+  }
+
   // gateway (profiles store is the physical gateway store)
   const profile = await deps.profileStore.get(ref.name);
   if (!profile) {
-    throw hotplugError(`Gateway \`${ref.name}\` was not found.`, 'GATEWAY_NOT_FOUND', {
+    throw anypickError(`Gateway \`${ref.name}\` was not found.`, 'GATEWAY_NOT_FOUND', {
       exitCode: ExitCode.NOT_FOUND,
       suggestions: [
-        'Accounts use provider/name:  hotplug use claude --with grok/work',
-        'Gateways use their saved name:  hotplug use claude --with openrouter-work',
+        'Accounts use provider/name:  anypick use claude --with grok/work',
+        'Gateways use their saved name:  anypick use claude --with openrouter-work',
       ],
     });
   }
@@ -148,9 +171,9 @@ export async function expandPreset(
 }> {
   const preset = deps.presets.getByName(name);
   if (!preset) {
-    throw hotplugError(`Preset \`@${name}\` was not found.`, 'PRESET_NOT_FOUND', {
+    throw anypickError(`Preset \`@${name}\` was not found.`, 'PRESET_NOT_FOUND', {
       exitCode: ExitCode.NOT_FOUND,
-      suggestions: ['hotplug list presets'],
+      suggestions: ['anypick list presets'],
     });
   }
   if (preset.spec.client !== client) {
@@ -158,18 +181,18 @@ export async function expandPreset(
       ? deps.clients.get(preset.spec.client).name
       : preset.spec.client;
     const wantClient = deps.clients.has(client) ? deps.clients.get(client).name : client;
-    throw hotplugError(
-      `Preset @${name} is for ${presetClient}, not ${wantClient}.\n\nTry:\n  hotplug run ${preset.spec.client} --with @${name}`,
+    throw anypickError(
+      `Preset @${name} is for ${presetClient}, not ${wantClient}.\n\nTry:\n  anypick run ${preset.spec.client} --with @${name}`,
       'PRESET_CLIENT_MISMATCH',
       {
         exitCode: ExitCode.INVALID_USAGE,
-        suggestions: [`hotplug run ${preset.spec.client} --with @${name}`],
+        suggestions: [`anypick run ${preset.spec.client} --with @${name}`],
       },
     );
   }
   const sourceRef = preset.spec.source;
   if (sourceRef.kind === 'preset') {
-    throw hotplugError('Nested presets are not supported.', 'INVALID_USAGE', {
+    throw anypickError('Nested presets are not supported.', 'INVALID_USAGE', {
       exitCode: ExitCode.INVALID_USAGE,
     });
   }
@@ -227,14 +250,14 @@ export function resolveEffectiveBinding(
   }
 
   const clientName = deps.clients.has(client) ? deps.clients.get(client).name : client;
-  throw hotplugError(
-    `No Hotplug source is configured for ${clientName}.\n\nSet a persistent default:\n  hotplug use ${client} --with <source>\n\nOr run once:\n  hotplug run ${client} --with <source>\n\nExisting native configuration may be present, but Hotplug will not use it implicitly.`,
+  throw anypickError(
+    `No AnyPick source is configured for ${clientName}.\n\nSet a persistent default:\n  anypick use ${client} --with <source>\n\nOr run once:\n  anypick run ${client} --with <source>\n\nExisting native configuration may be present, but AnyPick will not use it implicitly.`,
     'NO_ACTIVE_BINDING',
     {
       exitCode: ExitCode.CAPABILITY_CONFLICT,
       suggestions: [
-        `hotplug use ${client} --with <source>`,
-        `hotplug run ${client} --with <source>`,
+        `anypick use ${client} --with <source>`,
+        `anypick run ${client} --with <source>`,
       ],
       details: { client },
     },

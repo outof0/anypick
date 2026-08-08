@@ -1,18 +1,18 @@
 ---
 title: Troubleshooting
-description: What hotplug doctor checks, what it will and will not repair, and how to read a failure.
+description: What anypick doctor checks, what it will and will not repair, and how to read a failure.
 ---
 
 ## Start with doctor
 
 ```bash
-hotplug doctor
-hotplug doctor claude          # narrow to one client or provider
-hotplug doctor --fix --dry-run
-hotplug doctor --fix -y
+anypick doctor
+anypick doctor claude          # narrow to one client or provider
+anypick doctor --fix --dry-run
+anypick doctor --fix -y
 ```
 
-`doctor` inspects the Hotplug data directory, the SQLite database, saved
+`doctor` inspects the AnyPick data directory, the SQLite database, saved
 accounts and gateways, file permissions, lock and PID files, running proxies, and
 any operation journal entry that did not finish.
 
@@ -24,7 +24,7 @@ any operation journal entry that did not finish.
 - delete a stale PID file
 - stop an orphaned proxy
 - delete a temporary client overlay left behind by `run`
-- repair permissions on Hotplug-owned paths
+- repair permissions on AnyPick-owned paths
 - rebuild derived caches
 - complete an interrupted journal rollback
 
@@ -33,7 +33,7 @@ your bindings. Anything outside the allowlist is reported as **manual only**,
 with the suggestion printed next to it — the terminal UI shows the same split.
 
 <Aside type="tip" title="Preview first">
-`hotplug doctor --fix --dry-run` prints exactly which allowlisted actions would
+`anypick doctor --fix --dry-run` prints exactly which allowlisted actions would
 run. Worth doing once so the allowlist stops being abstract.
 </Aside>
 
@@ -41,10 +41,14 @@ run. Worth doing once so the allowlist stops being abstract.
 
 | Code | Meaning | Usual cause |
 | --- | --- | --- |
+| `1` | Operational failure | Unexpected runtime error during a command |
 | `2` | Invalid usage | `use` without `--with` or `--current`, or a bad flag |
 | `3` | Not found | Account, gateway, preset, or client name does not exist |
+| `4` | Auth required | A login or API key is missing or expired |
 | `5` | Capability conflict | The source cannot serve that client, or no binding exists |
+| `6` | Health failure | A health check failed |
 | `7` | Missing dependency | An external proxy binary, such as `kirolink`, is not installed |
+| `8` / `9` | Import refused | Bad export envelope, or the archive is too large |
 | `130` | Cancelled | You pressed Ctrl-C |
 
 ## Common situations
@@ -55,17 +59,17 @@ Check what is actually in effect — a project binding in the current directory
 beats your global default:
 
 ```bash
-hotplug current claude
+anypick current claude
 ```
 
-If a stale project binding is winning, `hotplug unlink claude` removes it.
+If a stale project binding is winning, `anypick unlink claude` removes it.
 
 ### `run` exits 5 with no binding
 
 There is no ephemeral, project, or global binding for that client. Set one:
 
 ```bash
-hotplug use claude --with grok/work
+anypick use claude --with grok/work
 ```
 
 ### A proxy will not start
@@ -73,12 +77,12 @@ hotplug use claude --with grok/work
 Look at the log, then at the port:
 
 ```bash
-hotplug proxy status
-hotplug proxy logs gemini -n 100
-hotplug proxy config gemini work -p 4131     # move it
+anypick proxy status
+anypick proxy logs gemini -n 100
+anypick proxy config gemini work -p 4131     # move it
 ```
 
-If a proxy from an earlier session is holding the port, `hotplug proxy stop`
+If a proxy from an earlier session is holding the port, `anypick proxy stop`
 with no arguments stops every account proxy, including inactive ones.
 
 ### The Gemini proxy rejects a model
@@ -88,43 +92,43 @@ which needs `GEMINI_API_KEY` in the saved login's `.env`. If both sign-ins exist
 pin one while you diagnose:
 
 ```bash
-hotplug proxy config gemini work --oauth-source gemini-cli
-hotplug proxy config gemini work --oauth-source antigravity
+anypick proxy config gemini work --oauth-source gemini-cli
+anypick proxy config gemini work --oauth-source antigravity
 ```
 
 ### The saved login and the live login disagree
 
 The terminal UI marks this `◐ changed`. It means the provider's CLI wrote a new
-credential after Hotplug took its snapshot. Adopt the new one:
+credential after AnyPick took its snapshot. Adopt the new one:
 
 ```bash
-hotplug account refresh codex
+anypick account refresh codex
 ```
 
 ### Proxies keep running after I close the UI
 
-That is deliberate — the supervisor keeps them alive for clients you already
-launched. To stop everything:
+Closing the TUI does not change existing proxy processes. To stop everything:
 
 ```bash
-hotplug tray stop
+anypick tray stop
 ```
 
-Set `HOTPLUG_NO_TRAY=1` if you would rather the UI never start a supervisor.
+The TUI starts a supervisor only when you explicitly press <kbd>Shift+D</kbd> or
+start it from the Tray runtime screen.
 
 ### An activation failed halfway
 
 Mutating activation steps are recorded in an operation journal with backup
 paths, so a failed activation restores the prior state — client config, native
 auth, and any proxy it started. If the process was killed before rollback could
-finish, `hotplug doctor --fix` completes it.
+finish, `anypick doctor --fix` completes it.
 
 ## Digging deeper
 
 ```bash
-hotplug --trace use claude --with grok/work    # name each step, no secrets
-HOTPLUG_DEBUG=1 hotplug proxy status           # echo internal events to stderr
-hotplug doctor --json                          # machine-readable findings
+anypick --trace use claude --with grok/work    # name each step, no secrets
+ANYPICK_DEBUG=1 anypick proxy status           # echo internal events to stderr
+anypick doctor --json                          # machine-readable findings
 ```
 
 `--trace` prints the activation plan step by step, which is usually enough to see

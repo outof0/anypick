@@ -3,13 +3,19 @@ import { mkdtemp, mkdir, writeFile, rm, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createApp, createAppReady } from '../src/core/app';
-import { BASELINE_VERSION, MIGRATIONS, openDatabase } from '../src/core/db';
+import {
+  BASELINE_VERSION,
+  MIGRATIONS,
+  migrateLegacyRootIfPristine,
+  openDatabase,
+} from '../src/core/db';
 import { migrateFilesystemIfNeeded } from '../src/core/migrate-fs';
 import { AccountStore } from '../src/core/store';
 import {
   accountMetaPath,
   accountSnapshotDir,
   activePointerPath,
+  anypickDbPath,
   profileMetaPath,
   profileSecretsPath,
 } from '../src/core/paths';
@@ -19,14 +25,14 @@ describe('SQLite storage', () => {
   let root: string;
 
   beforeEach(async () => {
-    root = await mkdtemp(join(tmpdir(), 'hotplug-sqlite-'));
+    root = await mkdtemp(join(tmpdir(), 'anypick-sqlite-'));
   });
 
   afterEach(async () => {
     await rm(root, { recursive: true, force: true });
   });
 
-  it('persists accounts and snapshots in hotplug.db', async () => {
+  it('persists accounts and snapshots in anypick.db', async () => {
     const { service, fakes, store } = await createTestEnv(['fake']);
     // override store root already set by helper
     const live = fakes.fake;
@@ -46,7 +52,36 @@ describe('SQLite storage', () => {
 
     // DB file exists
     const { pathExists } = await import('../src/utils/fs');
-    expect(await pathExists(join(store.root, 'hotplug.db'))).toBe(true);
+    expect(await pathExists(join(store.root, 'anypick.db'))).toBe(true);
+  });
+
+  it('uses the AnyPick database name for every configured root', () => {
+    expect(anypickDbPath(join(root, 'custom-root'))).toBe(join(root, 'custom-root', 'anypick.db'));
+  });
+
+  it('copies a populated pre-rename root over a bootstrap-only AnyPick root', async () => {
+    const legacyRoot = join(root, 'legacy');
+    const anypickRoot = join(root, 'anypick');
+    const legacy = createApp({ root: legacyRoot });
+    await legacy.profiles.create('work', {
+      provider: 'custom',
+      endpoint: 'https://example.com',
+      apiKey: 'secret',
+      defaultModel: 'example-model',
+    });
+    legacy.close();
+    const bootstrap = createApp({ root: anypickRoot });
+    bootstrap.close();
+
+    expect(migrateLegacyRootIfPristine(anypickRoot, legacyRoot)).toBe(true);
+
+    const migrated = createApp({ root: anypickRoot, skipMigrate: true });
+    await expect(migrated.profiles.get('work')).resolves.toMatchObject({
+      meta: { endpoint: 'https://example.com' },
+      secrets: { apiKey: 'secret' },
+    });
+    migrated.close();
+    expect(await readFile(join(legacyRoot, 'anypick.db'))).toBeDefined();
   });
 
   it('persists profiles and secrets', async () => {
@@ -211,12 +246,12 @@ describe('SQLite storage', () => {
     );
   });
 
-  it('refuses a database created by a newer Hotplug build before modifying it', async () => {
+  it('refuses a database created by a newer AnyPick build before modifying it', async () => {
     const db = openDatabase(root);
     const futureVersion = BASELINE_VERSION + MIGRATIONS.length + 1;
     db.exec(`PRAGMA user_version = ${futureVersion}`);
     db.close();
 
-    expect(() => openDatabase(root)).toThrow(/newer than this Hotplug build supports/);
+    expect(() => openDatabase(root)).toThrow(/newer than this AnyPick build supports/);
   });
 });

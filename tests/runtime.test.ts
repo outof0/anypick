@@ -3,20 +3,21 @@ import { mkdtemp, rm, readFile, mkdir, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createApp } from '../src/core/app';
-import type { HotplugApp } from '../src/core/app';
+import type { AnyPickApp } from '../src/core/app';
 import { ClientRegistry } from '../src/clients/registry';
 import { createClaudeCodeClient } from '../src/clients/claude-code';
 import { buildCodexModelCatalog, codexProfileName, createCodexClient } from '../src/clients/codex';
 import { pathExists } from '../src/utils/fs';
 import { syntheticProxyProfile } from '../src/clients/isolation';
+import { gatewayRef } from '../src/core/refs';
 
 describe('profile use (switch + apply)', () => {
   let root: string;
   let home: string;
-  let app: HotplugApp;
+  let app: AnyPickApp;
 
   beforeEach(async () => {
-    root = await mkdtemp(join(tmpdir(), 'hotplug-runtime-'));
+    root = await mkdtemp(join(tmpdir(), 'anypick-runtime-'));
     home = join(root, 'home');
     await mkdir(home, { recursive: true });
 
@@ -108,6 +109,76 @@ describe('profile use (switch + apply)', () => {
     expect(await pathExists(join(home, '.claude', 'settings.json'))).toBe(false);
     expect(await app.runtime.activeProfile()).toBeNull();
   });
+
+  it('resets only AnyPick-managed Claude settings and removes its global route', async () => {
+    await mkdir(join(home, '.claude'), { recursive: true });
+    await writeFile(
+      join(home, '.claude', 'settings.json'),
+      JSON.stringify({ env: { USER_SETTING: 'keep-me' }, theme: 'dark' }),
+    );
+    await app.runtime.switchProfile('gw');
+    app.bindings.upsertGlobal(
+      'claude',
+      {
+        client: 'claude',
+        source: gatewayRef('gw'),
+        model: { mode: 'omitted' },
+        transportPolicy: 'auto',
+        clientOptions: {},
+      },
+      { kind: 'direct' },
+    );
+
+    await expect(app.bindingService.reset('claude')).resolves.toMatchObject({
+      client: 'claude',
+      removedGlobal: true,
+    });
+    const settings = JSON.parse(await readFile(join(home, '.claude', 'settings.json'), 'utf8')) as {
+      env?: Record<string, string>;
+      theme?: string;
+      _anypickManaged?: unknown;
+    };
+    expect(settings).toMatchObject({ env: { USER_SETTING: 'keep-me' }, theme: 'dark' });
+    expect(settings.env).not.toHaveProperty('ANTHROPIC_AUTH_TOKEN');
+    expect(settings).not.toHaveProperty('_anypickManaged');
+    expect(app.bindings.getGlobal('claude')).toBeNull();
+  });
+
+  it('keeps the global route when client cleanup fails', async () => {
+    const failingRoot = await mkdtemp(join(tmpdir(), 'anypick-reset-failure-'));
+    const failingHome = join(failingRoot, 'home');
+    await mkdir(failingHome, { recursive: true });
+    const clients = new ClientRegistry();
+    const claude = createClaudeCodeClient(failingHome);
+    clients.register({
+      ...claude,
+      reset: vi.fn(async () => {
+        throw new Error('simulated cleanup failure');
+      }),
+    });
+    const failingApp = createApp({ root: failingRoot, clients, bare: true });
+    try {
+      failingApp.bindings.upsertGlobal(
+        'claude',
+        {
+          client: 'claude',
+          source: gatewayRef('gw'),
+          model: { mode: 'omitted' },
+          transportPolicy: 'auto',
+          clientOptions: {},
+        },
+        { kind: 'direct' },
+      );
+
+      await expect(failingApp.bindingService.reset('claude')).rejects.toThrow(
+        'simulated cleanup failure',
+      );
+      expect(failingApp.bindings.getGlobal('claude')).not.toBeNull();
+    } finally {
+      failingApp.close();
+      await rm(failingRoot, { recursive: true, force: true });
+    }
+  });
 });
 
 describe('bareModelId', () => {
@@ -119,8 +190,8 @@ describe('bareModelId', () => {
 });
 
 describe('Codex source-scoped profiles', () => {
-  it('creates a Codex-compatible catalog for configured gateway models', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'hotplug-codex-catalog-'));
+  it('keeps the configured Codex catalog separate from runtime role models', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'anypick-codex-catalog-'));
     const home = join(root, 'home');
     try {
       const client = createCodexClient(home);
@@ -143,17 +214,22 @@ describe('Codex source-scoped profiles', () => {
               fast: 'provider/fast',
               thorough: 'provider/thorough',
             },
+            defaultModel: 'provider/startup-only',
+            sonnetModel: 'provider/sonnet-only',
+            opusModel: 'provider/opus-only',
+            haikuModel: 'provider/haiku-only',
           },
         },
         clientId: 'codex',
         dryRun: false,
         verbose: false,
-        hotplugRoot: root,
+        anypickRoot: root,
       });
 
       const profileName = codexProfileName('gateway:openrouter');
       const config = await readFile(join(home, '.codex', `${profileName}.config.toml`), 'utf8');
       expect(config).toContain('model_catalog_json = ');
+      expect(config).toContain('model = "provider/startup-only"');
       const catalog = JSON.parse(
         await readFile(join(home, '.codex', `${profileName}.model-catalog.json`), 'utf8'),
       ) as { models: Array<{ slug: string; display_name: string }> };
@@ -175,12 +251,47 @@ describe('Codex source-scoped profiles', () => {
       slug: 'provider/model',
       visibility: 'list',
       shell_type: 'shell_command',
-      context_window: 32_768,
+      supported_reasoning_levels: [],
+      supports_parallel_tool_calls: false,
+      input_modalities: ['text'],
+    });
+    expect(catalog.models[0]).not.toHaveProperty('context_window');
+    expect(catalog.models[0]).not.toHaveProperty('default_reasoning_level');
+    expect(catalog.models[0]).not.toHaveProperty('apply_patch_tool_type');
+  });
+
+  it('publishes capabilities only when model metadata describes them', () => {
+    const catalog = buildCodexModelCatalog([
+      {
+        slug: 'provider/described',
+        contextWindow: 200_000,
+        maxContextWindow: 400_000,
+        autoCompactTokenLimit: 180_000,
+        defaultReasoningLevel: 'high',
+        supportedReasoningLevels: [{ effort: 'high', description: 'Provider default' }],
+        inputModalities: ['text', 'image'],
+        supportsParallelToolCalls: true,
+        supportsSearchTool: true,
+        supportsVerbosity: true,
+        supportsImageDetailOriginal: true,
+      },
+    ]) as { models: Array<Record<string, unknown>> };
+    expect(catalog.models[0]).toMatchObject({
+      context_window: 200_000,
+      max_context_window: 400_000,
+      auto_compact_token_limit: 180_000,
+      default_reasoning_level: 'high',
+      supported_reasoning_levels: [{ effort: 'high', description: 'Provider default' }],
+      input_modalities: ['text', 'image'],
+      supports_parallel_tool_calls: true,
+      supports_search_tool: true,
+      support_verbosity: true,
+      supports_image_detail_original: true,
     });
   });
 
   it('adds the live /v1/models catalog from a local proxy', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'hotplug-codex-live-catalog-'));
+    const root = await mkdtemp(join(tmpdir(), 'anypick-codex-live-catalog-'));
     const home = join(root, 'home');
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
       const url = input instanceof URL ? input : new URL(String(input));
@@ -188,7 +299,14 @@ describe('Codex source-scoped profiles', () => {
         return new Response(
           JSON.stringify({
             data: [
-              { id: 'proxy/fast', name: 'Proxy Fast' },
+              {
+                id: 'proxy/fast',
+                name: 'Proxy Fast',
+                context_window: 200_000,
+                auto_compact_token_limit: 168_000,
+                input_modalities: ['text', 'image'],
+                capabilities: { supports_parallel_tool_calls: true },
+              },
               { id: 'proxy/thorough', name: 'Proxy Thorough' },
             ],
           }),
@@ -204,28 +322,43 @@ describe('Codex source-scoped profiles', () => {
         profile: syntheticProxyProfile({
           name: 'proxy:gemini/work',
           endpoint: 'http://127.0.0.1:4130',
-          apiKey: 'hotplug-secret',
+          apiKey: 'anypick-secret',
         }),
         clientId: 'codex',
         dryRun: false,
         verbose: false,
-        hotplugRoot: root,
+        anypickRoot: root,
       });
 
       const profileName = codexProfileName('proxy:gemini/work');
       const catalog = JSON.parse(
         await readFile(join(home, '.codex', `${profileName}.model-catalog.json`), 'utf8'),
-      ) as { models: Array<{ slug: string; display_name: string }> };
+      ) as {
+        models: Array<{
+          slug: string;
+          display_name: string;
+          context_window?: number;
+          auto_compact_token_limit?: number;
+          input_modalities?: string[];
+          supports_parallel_tool_calls?: boolean;
+        }>;
+      };
       expect(catalog.models).toEqual(
         expect.arrayContaining([
           expect.objectContaining({ slug: 'proxy/fast', display_name: 'Proxy Fast' }),
           expect.objectContaining({ slug: 'proxy/thorough', display_name: 'Proxy Thorough' }),
         ]),
       );
+      expect(catalog.models.find((model) => model.slug === 'proxy/fast')).toMatchObject({
+        context_window: 200_000,
+        auto_compact_token_limit: 168_000,
+        input_modalities: ['text', 'image'],
+        supports_parallel_tool_calls: true,
+      });
       expect(fetchMock).toHaveBeenCalledWith(
         new URL('http://127.0.0.1:4130/v1/models'),
         expect.objectContaining({
-          headers: expect.objectContaining({ authorization: 'Bearer hotplug-secret' }),
+          headers: expect.objectContaining({ authorization: 'Bearer anypick-secret' }),
         }),
       );
     } finally {
@@ -235,7 +368,7 @@ describe('Codex source-scoped profiles', () => {
   });
 
   it('keeps the user config separate and gives each source its own provider identity', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'hotplug-codex-user-model-'));
+    const root = await mkdtemp(join(tmpdir(), 'anypick-codex-user-model-'));
     const home = join(root, 'home');
     try {
       await mkdir(join(home, '.codex'), { recursive: true });
@@ -255,7 +388,7 @@ describe('Codex source-scoped profiles', () => {
         clientId: 'codex',
         dryRun: false,
         verbose: false,
-        hotplugRoot: root,
+        anypickRoot: root,
       });
 
       await client.apply({
@@ -268,7 +401,7 @@ describe('Codex source-scoped profiles', () => {
         clientId: 'codex',
         dryRun: false,
         verbose: false,
-        hotplugRoot: root,
+        anypickRoot: root,
       });
 
       const grokProfile = codexProfileName('proxy:grok/work');
@@ -279,20 +412,20 @@ describe('Codex source-scoped profiles', () => {
         readFile(join(home, '.codex', `${geminiProfile}.config.toml`), 'utf8'),
       ]);
       expect(baseConfig).toContain('model = "gpt-5.6-terra"');
-      expect(baseConfig).not.toContain('model_providers.hotplug');
+      expect(baseConfig).not.toContain('model_providers.anypick');
       expect(grokConfig).toContain(`model_provider = "${grokProfile}"`);
       expect(geminiConfig).toContain(`model_provider = "${geminiProfile}"`);
       expect(grokConfig).not.toContain(geminiProfile);
       expect(geminiConfig).not.toContain(grokProfile);
-      expect(grokConfig).toMatch(/env_key = "HOTPLUG_CODEX_.*_API_KEY"/);
-      expect(geminiConfig).toMatch(/env_key = "HOTPLUG_CODEX_.*_API_KEY"/);
+      expect(grokConfig).toMatch(/env_key = "ANYPICK_CODEX_.*_API_KEY"/);
+      expect(geminiConfig).toMatch(/env_key = "ANYPICK_CODEX_.*_API_KEY"/);
     } finally {
       await rm(root, { recursive: true, force: true });
     }
   });
 
   it('injects local proxy limits into Codex official compaction settings', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'hotplug-codex-limits-'));
+    const root = await mkdtemp(join(tmpdir(), 'anypick-codex-limits-'));
     const home = join(root, 'home');
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       new Response(
@@ -312,19 +445,19 @@ describe('Codex source-scoped profiles', () => {
         profile: syntheticProxyProfile({
           name: 'proxy:opencode/default',
           endpoint: 'http://127.0.0.1:4122',
-          apiKey: 'hotplug-secret',
+          apiKey: 'anypick-secret',
           defaultModel: 'deepseek-v4-flash-free',
         }),
         clientId: 'codex',
         dryRun: false,
         verbose: false,
-        hotplugRoot: root,
+        anypickRoot: root,
       });
 
       expect(fetchMock).toHaveBeenCalledWith(
         new URL('http://127.0.0.1:4122/models/deepseek-v4-flash-free'),
         expect.objectContaining({
-          headers: expect.objectContaining({ authorization: 'Bearer hotplug-secret' }),
+          headers: expect.objectContaining({ authorization: 'Bearer anypick-secret' }),
         }),
       );
       const profileName = codexProfileName('proxy:opencode/default');

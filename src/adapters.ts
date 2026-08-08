@@ -4,7 +4,7 @@ export type {
   ClientAdapter,
   ClientCapabilities,
   PluginContext,
-  HotplugPlugin,
+  AnyPickPlugin,
   Provider,
   Protocol,
   SourceAdapter,

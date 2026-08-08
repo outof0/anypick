@@ -1,9 +1,9 @@
 ---
 title: Proxies
-description: How Hotplug translates between protocols, and how to inspect or control the local processes.
+description: How AnyPick translates between protocols, and how to inspect or control the local processes.
 ---
 
-When a client and an account do not speak the same protocol, Hotplug runs a
+When a client and an account do not speak the same protocol, AnyPick runs a
 local proxy between them. It starts on demand as part of activation and stops
 with the supervisor, so in normal use there is nothing to manage. Everything on
 this page is for inspection and debugging.
@@ -26,7 +26,7 @@ provider's real API:
 Model discovery is live, never a bundled list: Gemini reads `models.list` for
 API-key accounts and Code Assist `fetchAvailableModels` for OAuth accounts;
 OpenCode intersects the live catalogs with provider metadata. New models show up
-without a Hotplug release.
+without a AnyPick release.
 
 Reasoning intent survives translation. Codex and OpenAI `reasoning_effort`,
 Responses `reasoning.effort`, Claude `output_config.effort`, adaptive thinking,
@@ -49,21 +49,21 @@ A proxy that has no configured port takes the first free one.
 ## Manual lifecycle
 
 ```bash
-hotplug proxy                              # board: every proxy-capable account
-hotplug proxy status
-hotplug proxy status gemini work
-hotplug proxy start
-hotplug proxy stop
-hotplug proxy enable grok work -p 8080
-hotplug proxy disable grok work
-hotplug proxy logs gemini -f
+anypick proxy                              # board: every proxy-capable account
+anypick proxy status
+anypick proxy status gemini work
+anypick proxy start
+anypick proxy stop
+anypick proxy enable grok work -p 8080
+anypick proxy disable grok work
+anypick proxy logs gemini -f
 ```
 
 `enable` configures a proxy and starts it; `--no-start` writes the config only.
 `disable` is the inverse. `config` (alias `set`) changes host, port, or auth
 options on an existing proxy and restarts it, unless you pass `--no-restart`.
 
-`hotplug proxy stop` with no arguments stops every running account proxy —
+`anypick proxy stop` with no arguments stops every running account proxy —
 including one left behind by an older session for an account that is no longer
 active.
 
@@ -73,9 +73,9 @@ Gemini accepts two sign-ins, and `--oauth-source` decides which one a proxy
 uses:
 
 ```bash
-hotplug proxy config gemini work --oauth-source auto          # default
-hotplug proxy config gemini work --oauth-source gemini-cli
-hotplug proxy config gemini work --oauth-source antigravity
+anypick proxy config gemini work --oauth-source auto          # default
+anypick proxy config gemini work --oauth-source gemini-cli
+anypick proxy config gemini work --oauth-source antigravity
 ```
 
 `auto` honors the Gemini CLI's selected OAuth or API-key login first, then falls
@@ -88,7 +88,7 @@ or when policy requires it.
 ## OpenCode auth mode
 
 ```bash
-hotplug proxy config opencode work --auth-mode auto|public|api
+anypick proxy config opencode work --auth-mode auto|public|api
 ```
 
 `auto` uses whatever the saved credential supports. `public` restricts the proxy
@@ -99,22 +99,23 @@ to the Zen catalog. The upstream base URL can be overridden with
 ## Multi-account pools
 
 The default is one proxy process per account. A pool puts several accounts of
-one provider behind a single port, so a client sees one endpoint and Hotplug
+one provider behind a single port, so a client sees one endpoint and AnyPick
 handles rotation.
 
 ```bash
-hotplug proxy pool enable gemini -p 4130
-hotplug proxy pool member gemini work on
-hotplug proxy pool member gemini alt off      # keep it configured but paused
-hotplug proxy pool status gemini
+anypick proxy pool enable gemini -p 4130
+anypick proxy pool member gemini work on
+anypick proxy pool member gemini alt off      # keep it configured but paused
+anypick proxy pool status gemini
 
-hotplug use claude --with pool:gemini
+anypick use claude --with pool:gemini
 
-hotplug proxy pool disable gemini             # back to one process per account
+anypick proxy pool disable gemini             # back to one process per account
 ```
 
 In the terminal UI's proxy board, `p` toggles the pool and <kbd>space</kbd>
-pauses or re-enables the member under the cursor.
+pauses or re-enables the member under the cursor. On a multi-account pool row,
+<kbd>f</kbd> toggles the safe quota-driven failover guard.
 
 <Aside type="note" title="Opt in deliberately">
 A pool is shared state: one port, several credentials, and rotation you do not
@@ -122,25 +123,40 @@ see per request. Prefer per-account proxies unless you specifically want one
 endpoint with failover.
 </Aside>
 
+## Proxy Hub (opt-in)
+
+Pools keep one provider. The unified **Proxy Hub** is a separate opt-in surface
+that can expose several saved accounts behind one local endpoint and route by
+model. Enable it without rewriting existing bindings, add sources, then bind:
+
+```bash
+anypick proxy hub enable -p 4140 --start
+anypick proxy hub source grok work on
+anypick proxy hub status
+anypick use claude --with hub:default
+```
+
+The Proxy board lists the Hub as its own row when configured; <kbd>enter</kbd>
+or <kbd>m</kbd> opens the Hub editor. Prefer ordinary per-account proxies unless
+you specifically need one shared endpoint across providers.
+
 ## The supervisor
 
 Proxies outlive the terminal UI so a client you launched keeps working after you
-close it.
-
-On macOS, closing the UI hands ownership to a native menu-bar status item with
-no Dock icon. Its menu can reopen Hotplug — in iTerm2 when installed, otherwise
-Terminal — restart enabled proxies, stop every proxy, or quit with a graceful
-shutdown. On Linux the same lifecycle runs as a headless background supervisor,
-with no bundled tray icon; use the CLI to inspect it.
+close it. On macOS the daily owner is the [Desktop Tray](/docs/guides/tray)
+menu-bar helper; elsewhere `anypick tray start` runs a headless supervisor or a
+packaged Tauri helper when one is present.
 
 ```bash
-hotplug tray start
-hotplug tray status
-hotplug tray stop     # quit the supervisor and stop every Hotplug-owned proxy
+anypick tray          # open/start the desktop Tray (macOS)
+anypick tray start
+anypick tray status
+anypick tray stop     # quit the supervisor and stop every AnyPick-owned proxy
 ```
 
-Set `HOTPLUG_NO_TRAY=1` to make the terminal UI exit without starting a
-supervisor at all.
+Closing the TUI with <kbd>q</kbd> leaves background state unchanged. Press
+<kbd>Shift+D</kbd> when you explicitly want to start or reuse the Tray and
+detach, or <kbd>t</kbd> for the runtime screen.
 
-Orphans are cleaned up rather than accumulating: on startup, Hotplug releases
+Orphans are cleaned up rather than accumulating: on startup, AnyPick releases
 leases whose owning process has exited and stops their proxies.

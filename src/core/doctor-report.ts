@@ -1,5 +1,5 @@
 import { mkdir } from 'node:fs/promises';
-import { getHotplugRoot, hotplugDbPath } from './paths';
+import { getAnyPickRoot, anypickDbPath } from './paths';
 import { pathExists } from '../utils/fs';
 import { displayRef } from './refs';
 import { scanPermissions, scanProxyPids, scanStaleLocks, scanTempOverlays } from './doctor-scan';
@@ -9,7 +9,7 @@ export async function runDoctorReport(
   deps: DoctorServiceDeps,
   target?: string,
 ): Promise<DoctorReport> {
-  const root = getHotplugRoot(deps.root);
+  const root = getAnyPickRoot(deps.root);
   const checks: DoctorCheck[] = [];
   const filter = target?.trim().toLowerCase();
 
@@ -28,7 +28,7 @@ export async function runDoctorReport(
     message: `Data root: ${root}`,
   });
 
-  const dbFile = hotplugDbPath(root);
+  const dbFile = anypickDbPath(root);
   const dbExists = await pathExists(dbFile);
   push({
     id: 'sqlite',
@@ -53,8 +53,8 @@ export async function runDoctorReport(
         detail: err instanceof Error ? err.message : String(err),
         forbidden: 'modify_native_auth',
         suggestions: [
-          `hotplug current ${deps.clients.has(p.id) ? p.id : ''}`.trim(),
-          `hotplug add account ${p.id} --current --name <name>`,
+          `anypick current ${deps.clients.has(p.id) ? p.id : ''}`.trim(),
+          `anypick add account ${p.id} --current --name <name>`,
         ],
       });
     }
@@ -82,8 +82,8 @@ export async function runDoctorReport(
         message: `Gateway "${profile.meta.name}" references unknown provider "${profile.meta.provider}"`,
         forbidden: 'change_gateway_endpoint',
         suggestions: [
-          `hotplug edit gateway/${profile.meta.name}`,
-          `hotplug remove @preset or hotplug list gateways`,
+          `anypick edit gateway/${profile.meta.name}`,
+          `anypick remove @preset or anypick list gateways`,
         ],
       });
     }
@@ -116,7 +116,7 @@ export async function runDoctorReport(
             ok: false,
             message: `${c.id}: ${issue}`,
             forbidden: 'modify_unmanaged_client_config',
-            suggestions: [`hotplug current ${c.id} --verbose`, `hotplug reset ${c.id}`],
+            suggestions: [`anypick current ${c.id} --verbose`, `anypick reset ${c.id}`],
           });
         }
       }
@@ -158,8 +158,8 @@ export async function runDoctorReport(
             message: `Project binding ${pb.client} → gateway/${src.name} references missing gateway`,
             forbidden: 'mutate_binding',
             suggestions: [
-              `hotplug unlink ${pb.client}`,
-              `hotplug link ${pb.client} --with <source>`,
+              `anypick unlink ${pb.client}`,
+              `anypick link ${pb.client} --with <source>`,
             ],
           });
         }
@@ -172,8 +172,8 @@ export async function runDoctorReport(
             message: `Project binding ${pb.client} → ${src.provider}/${src.name} references missing account`,
             forbidden: 'mutate_binding',
             suggestions: [
-              `hotplug unlink ${pb.client}`,
-              `hotplug add account ${src.provider} --current --name ${src.name}`,
+              `anypick unlink ${pb.client}`,
+              `anypick add account ${src.provider} --current --name ${src.name}`,
             ],
           });
         }
@@ -200,8 +200,8 @@ export async function runDoctorReport(
           : `Plugin ${f.name} failed to load`,
         detail: f.reason,
         suggestions: f.untrusted
-          ? [`hotplug plugin trust ${f.name}`, `hotplug plugin remove ${f.name}`]
-          : [`hotplug plugin disable ${f.name}`],
+          ? [`anypick plugin trust ${f.name}`, `anypick plugin remove ${f.name}`]
+          : [`anypick plugin disable ${f.name}`],
       });
     }
   }

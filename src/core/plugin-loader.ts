@@ -1,24 +1,34 @@
 import { createHash } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
-import { isAbsolute, join, relative, resolve } from 'node:path';
+import { readdir, readFile, stat } from 'node:fs/promises';
+import { isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import {
   PLUGIN_API_VERSION,
-  type HotplugPlugin,
+  type AnyPickPlugin,
   type PluginLoadFailure,
   type PluginLoadResult,
   type PluginManifest,
   type PluginRecord,
 } from '../types';
-import { hotplugError, ExitCode } from '../utils/errors';
+import { anypickError, ExitCode } from '../utils/errors';
 
-export const PLUGIN_MANIFEST_FILE = 'hotplug.plugin.json';
+export const PLUGIN_MANIFEST_FILE = 'anypick.plugin.json';
 
 /** Plugin names are used as directory-independent keys and printed in receipts. */
 const NAME_PATTERN = /^[a-z0-9][a-z0-9-]{1,63}$/;
 
+/** Directory names skipped when hashing a plugin package (dev debris / VCS). */
+const DIGEST_SKIP_DIRS = new Set([
+  '.git',
+  '.hg',
+  '.svn',
+  'node_modules',
+  '.DS_Store',
+  '__pycache__',
+]);
+
 function fail(message: string, suggestions: string[] = []): never {
-  throw hotplugError(message, 'PLUGIN_INVALID', {
+  throw anypickError(message, 'PLUGIN_INVALID', {
     exitCode: ExitCode.OPERATIONAL,
     suggestions,
   });
@@ -28,7 +38,7 @@ function fail(message: string, suggestions: string[] = []): never {
  * Resolve the entry module inside `root`, refusing anything that escapes it.
  *
  * `main` comes from a file the user may have obtained from a third party, so a
- * `../../` entry must not be able to make Hotplug import an arbitrary module
+ * `../../` entry must not be able to make AnyPick import an arbitrary module
  * from elsewhere on disk under the plugin's name.
  */
 export function resolveEntry(root: string, main: string): string {
@@ -68,8 +78,8 @@ export function parseManifest(raw: string, source: string): PluginManifest {
   }
   if (m.apiVersion !== PLUGIN_API_VERSION) {
     fail(
-      `Plugin ${name} targets Hotplug plugin API ${String(m.apiVersion)}; this build supports ${PLUGIN_API_VERSION}.`,
-      [`Update the plugin, or use a Hotplug release that supports API ${String(m.apiVersion)}.`],
+      `Plugin ${name} targets AnyPick plugin API ${String(m.apiVersion)}; this build supports ${PLUGIN_API_VERSION}.`,
+      [`Update the plugin, or use a AnyPick release that supports API ${String(m.apiVersion)}.`],
     );
   }
   return {
@@ -83,24 +93,86 @@ export function parseManifest(raw: string, source: string): PluginManifest {
 
 export async function readManifest(root: string): Promise<PluginManifest> {
   const path = join(root, PLUGIN_MANIFEST_FILE);
-  let raw: string;
   try {
-    raw = await readFile(path, 'utf8');
-  } catch {
-    fail(`No ${PLUGIN_MANIFEST_FILE} found in ${root}.`, [
-      `A Hotplug plugin is a directory containing ${PLUGIN_MANIFEST_FILE}.`,
-    ]);
+    return parseManifest(await readFile(path, 'utf8'), path);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+      throw error;
+    }
   }
-  return parseManifest(raw, path);
+  return fail(`No ${PLUGIN_MANIFEST_FILE} found in ${root}.`, [
+    `A AnyPick plugin is a directory containing ${PLUGIN_MANIFEST_FILE}.`,
+  ]);
 }
 
-/** SHA-256 of the entry module, the value compared against the trusted digest. */
+/**
+ * SHA-256 of one file. Kept for tests and migration diagnostics; trust pins use
+ * `digestPluginPackage` so helper modules cannot change under a trusted entry.
+ */
 export async function digestEntry(entry: string): Promise<string> {
   const bytes = await readFile(entry);
   return createHash('sha256').update(bytes).digest('hex');
 }
 
-function isPlugin(value: unknown): value is HotplugPlugin {
+async function listPluginFiles(root: string): Promise<string[]> {
+  const out: string[] = [];
+  async function walk(dir: string): Promise<void> {
+    const entries = await readdir(dir, { withFileTypes: true });
+    for (const entry of entries) {
+      if (DIGEST_SKIP_DIRS.has(entry.name)) {
+        continue;
+      }
+      const full = join(dir, entry.name);
+      if (entry.isDirectory()) {
+        await walk(full);
+        continue;
+      }
+      if (entry.isFile() || entry.isSymbolicLink()) {
+        // Only regular files contribute; broken symlinks fail at read time.
+        const info = await stat(full).catch(() => null);
+        if (info?.isFile()) {
+          out.push(full);
+        }
+      }
+    }
+  }
+  await walk(root);
+  return out;
+}
+
+/**
+ * SHA-256 over the whole plugin package, not just the entry module.
+ *
+ * Format (stable, path-order sorted):
+ *   for each relative POSIX path under the plugin root:
+ *     path\\0 + byteLength\\0 + fileBytes
+ *
+ * Hashing only `main` would let a compromised helper module change while the
+ * trusted entry stayed identical (ADR 0012). Manifest + every shipped file are
+ * included so an install is a fixed artifact.
+ */
+export async function digestPluginPackage(root: string): Promise<string> {
+  const files = await listPluginFiles(root);
+  const rels = files
+    .map((full) => ({
+      full,
+      rel: relative(root, full).split(sep).join('/'),
+    }))
+    .toSorted((a, b) => a.rel.localeCompare(b.rel));
+
+  const hash = createHash('sha256');
+  for (const { full, rel } of rels) {
+    const bytes = await readFile(full);
+    hash.update(rel);
+    hash.update('\0');
+    hash.update(String(bytes.byteLength));
+    hash.update('\0');
+    hash.update(bytes);
+  }
+  return hash.digest('hex');
+}
+
+function isPlugin(value: unknown): value is AnyPickPlugin {
   return (
     typeof value === 'object' &&
     value !== null &&
@@ -117,7 +189,7 @@ function isPlugin(value: unknown): value is HotplugPlugin {
  */
 async function loadOne(
   record: PluginRecord,
-): Promise<{ manifest: PluginManifest; plugin: HotplugPlugin }> {
+): Promise<{ manifest: PluginManifest; plugin: AnyPickPlugin }> {
   const manifest = await readManifest(record.path);
   if (manifest.name !== record.name) {
     fail(
@@ -126,16 +198,18 @@ async function loadOne(
     );
   }
   const entry = resolveEntry(record.path, manifest.main);
-  const digest = await digestEntry(entry);
+  // Package digest is checked *before* import: once import runs, top-level code
+  // has already executed in a process holding credential file handles.
+  const digest = await digestPluginPackage(record.path);
   if (digest !== record.digest) {
-    throw hotplugError(
+    throw anypickError(
       `Plugin ${record.name} has changed since you trusted it.`,
       'PLUGIN_UNTRUSTED',
       {
         exitCode: ExitCode.OPERATIONAL,
         suggestions: [
-          `Review the change, then run: hotplug plugin trust ${record.name}`,
-          `Or remove it: hotplug plugin remove ${record.name}`,
+          `Review the change, then run: anypick plugin trust ${record.name}`,
+          `Or remove it: anypick plugin remove ${record.name}`,
         ],
       },
     );
@@ -153,7 +227,7 @@ async function loadOne(
  *
  * A broken or tampered plugin is reported as a failure and skipped rather than
  * aborting startup: the framework's job is switching real logins, and one bad
- * third-party extension must not make `hotplug` unusable (ADR 0012).
+ * third-party extension must not make `anypick` unusable (ADR 0012).
  */
 export async function loadPlugins(records: PluginRecord[]): Promise<PluginLoadResult> {
   const loaded: PluginLoadResult['loaded'] = [];
@@ -179,8 +253,8 @@ export async function loadPlugins(records: PluginRecord[]): Promise<PluginLoadRe
   return { loaded, failures };
 }
 
-/** `HOTPLUG_NO_PLUGINS=1` skips loading entirely, for bisecting a bad plugin. */
+/** `ANYPICK_NO_PLUGINS=1` skips loading entirely, for bisecting a bad plugin. */
 export function pluginsDisabledByEnv(): boolean {
-  const v = process.env.HOTPLUG_NO_PLUGINS;
+  const v = process.env.ANYPICK_NO_PLUGINS;
   return v === '1' || v === 'true';
 }

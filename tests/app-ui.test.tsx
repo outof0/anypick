@@ -18,7 +18,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { render } from 'ink-testing-library';
 import React from 'react';
-import { createAppReady, type HotplugApp } from '../src/core/app';
+import { createAppReady, type AnyPickApp } from '../src/core/app';
 import { ProviderRegistry } from '../src/core/registry';
 import { ClientRegistry, registerBuiltinClients } from '../src/clients/index';
 import { CatalogRegistry, registerBuiltinCatalog } from '../src/catalog/providers';
@@ -28,7 +28,7 @@ import { FakeProvider } from './helpers';
 
 /**
  * Ink renders asynchronously, and the home screen ignores input while its async
- * loaders run (`if (busy) return` in hotplug-home). A fixed sleep is fragile on
+ * loaders run (`if (busy) return` in anypick-home). A fixed sleep is fragile on
  * slow CI, so `settled` polls until the frame stops changing.
  */
 async function settle(ms = 60): Promise<void> {
@@ -70,7 +70,7 @@ async function settled(
   }
 }
 
-async function seedAccount(app: HotplugApp, provider: string, name: string): Promise<void> {
+async function seedAccount(app: AnyPickApp, provider: string, name: string): Promise<void> {
   const { snapshotDir } = await app.accountStore.prepareSnapshot(provider, name);
   await writeFile(join(snapshotDir, 'auth.json'), JSON.stringify({ token: 't' }), { mode: 0o600 });
   await app.accountStore.writeMeta({
@@ -102,11 +102,11 @@ async function waitFor(predicate: () => boolean, budgetMs = 15000): Promise<bool
 // timeout cuts them off first and the slowest cases flake under a full run.
 describe('TuiApp', { timeout: 20000 }, () => {
   let root: string;
-  let app: HotplugApp;
+  let app: AnyPickApp;
   const cleanups: Array<() => void> = [];
 
   beforeEach(async () => {
-    root = await mkdtemp(join(tmpdir(), 'hotplug-appui-'));
+    root = await mkdtemp(join(tmpdir(), 'anypick-appui-'));
     const accountRegistry = new ProviderRegistry();
     accountRegistry.register(
       new FakeProvider('p', join(root, 'live', 'p'), { withProxy: true, defaultProxyPort: 19400 }),
@@ -128,6 +128,7 @@ describe('TuiApp', { timeout: 20000 }, () => {
   });
 
   afterEach(async () => {
+    delete process.env.ANYPICK_TUI_SCREEN;
     for (const c of cleanups.splice(0)) {
       c();
     }
@@ -161,16 +162,67 @@ describe('TuiApp', { timeout: 20000 }, () => {
 
   it('mounts and reaches a rendered home screen without crashing', async () => {
     const ui = mount();
-    await settled(ui, { expect: /work/i });
+    await settled(ui, { expect: /apps/i });
 
     const out = ui.lastFrame() ?? '';
     expect(out.length).toBeGreaterThan(0);
-    // The seeded account should surface somewhere on the landing screen.
-    expect(out).toMatch(/work/i);
+    // The landing screen is app-centric; connections live one level below it.
+    expect(out).toMatch(/apps/i);
+    expect(out).toMatch(/Codex|Claude/i);
+    expect(out).not.toMatch(/Gemini CLI|Kiro/i);
+  });
+
+  it('opens the TUI directly for a first-time user without asking for a mode', async () => {
+    const ui = mount();
+    await settled(ui, { expect: /anypick \/ apps/i });
+
+    expect(ui.lastFrame()).toMatch(/anypick \/ apps/i);
+    expect(ui.lastFrame()).not.toMatch(/setup \/ tray|continue in TUI|tray now/i);
+    expect(ui.exited).toBe(false);
+  });
+
+  it('opens the account manager requested by the tray', async () => {
+    process.env.ANYPICK_TUI_SCREEN = 'accounts';
+    const ui = mount();
+    await settled(ui, { expect: /anypick \/ manage \/ accounts/i });
+    expect(ui.lastFrame()).toMatch(/anypick \/ manage \/ accounts/i);
+  });
+
+  it('opens Tray runtime controls from the TUI without starting a real process', async () => {
+    const ui = mount();
+    await settled(ui, { expect: /anypick \/ apps/i });
+    expect(
+      await waitFor(() => {
+        if (/runtime \/ tray/i.test(ui.lastFrame() ?? '')) {
+          return true;
+        }
+        ui.stdin.write('t');
+        return /runtime \/ tray/i.test(ui.lastFrame() ?? '');
+      }),
+    ).toBe(true);
+    expect(ui.lastFrame()).toMatch(/runtime \/ tray/i);
+    expect(ui.lastFrame()).toMatch(/Default for `anypick`/i);
+  });
+
+  it('starts the add-account flow requested by the tray', async () => {
+    process.env.ANYPICK_TUI_SCREEN = 'add-account';
+    const ui = mount();
+    await settled(ui, { expect: /choose.*provider|add.*account|accounts.*add/i });
+    expect(ui.lastFrame()).toMatch(/choose.*provider|add.*account|accounts.*add/i);
   });
 
   it('renders the saved account identity from the store', async () => {
     const ui = mount();
+    await settled(ui, { expect: /apps/i });
+    expect(
+      await waitFor(() => {
+        if (/anypick \/ manage \/ accounts/i.test(ui.lastFrame() ?? '')) {
+          return true;
+        }
+        ui.stdin.write('a');
+        return /anypick \/ manage \/ accounts/i.test(ui.lastFrame() ?? '');
+      }),
+    ).toBe(true);
     await settled(ui, { expect: /work/i });
     expect(ui.lastFrame() ?? '').toMatch(/work@example\.test|work/i);
   });
@@ -178,7 +230,7 @@ describe('TuiApp', { timeout: 20000 }, () => {
   it('opens the help screen and returns from it', async () => {
     const ui = mount();
     // Input is ignored while loading, so wait for real content before keying.
-    await settled(ui, { expect: /work/i });
+    await settled(ui, { expect: /apps/i });
     const home = ui.lastFrame();
 
     expect(
@@ -199,7 +251,7 @@ describe('TuiApp', { timeout: 20000 }, () => {
 
   it('survives arrow-key navigation without throwing', async () => {
     const ui = mount();
-    await settled(ui, { expect: /work/i });
+    await settled(ui, { expect: /apps/i });
 
     for (const key of ['[B', '[B', '[A', '[C', '[D']) {
       ui.stdin.write(key);
@@ -210,7 +262,7 @@ describe('TuiApp', { timeout: 20000 }, () => {
 
   it('exits on q', async () => {
     const ui = mount();
-    await settled(ui, { expect: /work/i });
+    await settled(ui, { expect: /apps/i });
 
     // The home screen drops input while its loaders run (`if (busy) return`),
     // and "content is visible" does not imply "busy cleared". Re-send the key
@@ -228,7 +280,7 @@ describe('TuiApp', { timeout: 20000 }, () => {
 
   it('tolerates unknown keystrokes', async () => {
     const ui = mount();
-    await settled(ui, { expect: /work/i });
+    await settled(ui, { expect: /apps/i });
 
     for (const key of ['z', 'X', '9', '!', '\t']) {
       ui.stdin.write(key);
@@ -241,7 +293,7 @@ describe('TuiApp', { timeout: 20000 }, () => {
   it('renders with no saved accounts at all', async () => {
     // A fresh install is the first thing a new user sees; it must not blow up on
     // empty collections.
-    const emptyRoot = await mkdtemp(join(tmpdir(), 'hotplug-appui-empty-'));
+    const emptyRoot = await mkdtemp(join(tmpdir(), 'anypick-appui-empty-'));
     const registry = new ProviderRegistry();
     registry.register(new FakeProvider('p', join(emptyRoot, 'live', 'p')));
     const emptyApp = await createAppReady({

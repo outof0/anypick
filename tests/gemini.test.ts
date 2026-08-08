@@ -2,18 +2,6 @@ import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
 import { mkdtemp, rm, readFile, mkdir, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-
-// `detectLive` falls back to the OS credential store, so without this stub these
-// tests would read the developer's real Antigravity login and a cleared ~/.gemini
-// would still report present. Individual tests override the return value.
-const { credentialExists } = vi.hoisted(() => ({ credentialExists: vi.fn(async () => false) }));
-vi.mock('../src/providers/gemini-antigravity-oauth', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../src/providers/gemini-antigravity-oauth')>()),
-  antigravityCredentialExists: credentialExists,
-}));
-
-const { GeminiProvider, upsertEnvFile, readGeminiApiKeyFromEnvFile } =
-  await import('../src/providers/gemini');
 import { createGeminiClient } from '../src/clients/gemini';
 import { parseAntigravityOAuthCredential } from '../src/providers/gemini-antigravity-oauth';
 import { geminiAccountAdapter } from '../src/sources/account-adapters';
@@ -22,6 +10,25 @@ import { openDatabase } from '../src/core/db';
 import { pathExists } from '../src/utils/fs';
 import type { Account } from '../src/types';
 import { syntheticProxyProfile } from '../src/clients/isolation';
+
+// `detectLive` falls back to the OS credential store, so without this stub these
+// tests would read the developer's real Antigravity login and a cleared ~/.gemini
+// would still report present. Individual tests override the return value.
+// `deleteAntigravityOAuthCredential` is also stubbed: `restore()` now calls it
+// when switching to a Gemini CLI account, and the real implementation shells out
+// to the macOS Keychain (`security delete-generic-password`) which hangs in CI.
+const { credentialExists, deleteCred } = vi.hoisted(() => ({
+  credentialExists: vi.fn(async () => false),
+  deleteCred: vi.fn(async () => false),
+}));
+vi.mock('../src/providers/gemini-antigravity-oauth', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../src/providers/gemini-antigravity-oauth')>()),
+  antigravityCredentialExists: credentialExists,
+  deleteAntigravityOAuthCredential: deleteCred,
+}));
+
+const { GeminiProvider, upsertEnvFile, readGeminiApiKeyFromEnvFile } =
+  await import('../src/providers/gemini');
 
 async function writeGeminiHome(
   home: string,
@@ -73,8 +80,17 @@ describe('GeminiProvider', () => {
 
   beforeEach(async () => {
     credentialExists.mockResolvedValue(false);
-    home = await mkdtemp(join(tmpdir(), 'hotplug-gemini-home-'));
-    provider = new GeminiProvider(home);
+    home = await mkdtemp(join(tmpdir(), 'anypick-gemini-home-'));
+    // Pass a no-op deleteAntigravityCredential so restore() never shells out to
+    // the OS keychain during unit tests. Individual tests that want to assert on
+    // the call construct their own GeminiProvider with a spy.
+    provider = new GeminiProvider(
+      home,
+      undefined,
+      undefined,
+      async () => false,
+      async () => null,
+    );
   });
 
   afterEach(async () => {
@@ -102,7 +118,7 @@ describe('GeminiProvider', () => {
   });
 
   // An Antigravity-only user has nothing under ~/.gemini, so a file-only
-  // detectLive reported them signed out and `hotplug use` had nothing to
+  // detectLive reported them signed out and `anypick use` had nothing to
   // checkpoint. CLI files still win when both exist, otherwise restoring a CLI
   // account would be masked by a stale keychain entry.
   it('detectLive falls back to the Antigravity credential store', async () => {
@@ -110,6 +126,20 @@ describe('GeminiProvider', () => {
     const live = await provider.detectLive();
     expect(live.present).toBe(true);
     expect(live.details).toMatch(/antigravity/);
+  });
+
+  it('fingerprints Antigravity unified state without exposing the refresh token', async () => {
+    credentialExists.mockResolvedValue(true);
+    const stateProvider = new GeminiProvider(
+      home,
+      undefined,
+      undefined,
+      async () => false,
+      async () => ({ token: { refresh_token: 'durable-secret' } }),
+    );
+    const live = await stateProvider.detectLive();
+    expect(live.identity).toMatch(/^antigravity:[a-f0-9]{12}$/);
+    expect(live.identity).not.toContain('durable-secret');
   });
 
   it('detectLive prefers gemini-cli files over an Antigravity credential', async () => {
@@ -159,6 +189,49 @@ describe('GeminiProvider', () => {
     expect(await pathExists(join(home, '.gemini', 'oauth_creds.json'))).toBe(true);
   });
 
+  it('restoring an Antigravity snapshot removes all Gemini CLI credential files', async () => {
+    // Start: Gemini CLI account with all three credential files present.
+    await writeGeminiHome(home, { apiKey: 'sk-cli', oauth: true, email: 'cli@example.com' });
+    expect(await pathExists(join(home, '.gemini', 'google_accounts.json'))).toBe(true);
+
+    // Build an Antigravity snapshot (no CLI files).
+    const credFile = join(home, 'cred.json');
+    await writeFile(credFile, JSON.stringify({ refresh_token: 'rt' }));
+    const snapAG = join(home, 'snap-ag');
+    await provider.backupAntigravity(snapAG, credFile);
+
+    // Restore the Antigravity snapshot via a provider that stubs the keychain write.
+    const noopSave = vi.fn(async () => {});
+    const noopHydrate = vi.fn(
+      async (p: import('../src/providers/gemini-antigravity-oauth').AntigravityKeyringPayload) => p,
+    );
+    const p2 = new GeminiProvider(home, noopSave, noopHydrate);
+    await p2.restore(snapAG);
+
+    // All Gemini CLI credential files must be gone.
+    expect(await pathExists(join(home, '.gemini', '.env'))).toBe(false);
+    expect(await pathExists(join(home, '.gemini', 'oauth_creds.json'))).toBe(false);
+    expect(await pathExists(join(home, '.gemini', 'google_accounts.json'))).toBe(false);
+    expect(noopSave).toHaveBeenCalledOnce();
+  });
+
+  it('restoring a Gemini CLI snapshot clears the Antigravity keychain entry', async () => {
+    // Build a CLI snapshot.
+    await writeGeminiHome(home, { apiKey: 'sk-switch', email: 'work@example.com' });
+    const snapCLI = join(home, 'snap-cli');
+
+    // Back up using the shared noop-delete provider, then restore with a
+    // separate provider that has an observable delete spy.
+    await provider.backup(snapCLI);
+
+    const deleteSpy = vi.fn(async () => false);
+    const p2 = new GeminiProvider(home, undefined, undefined, deleteSpy);
+    await p2.restore(snapCLI);
+
+    // restore() must have asked the keychain to drop the old Antigravity entry.
+    expect(deleteSpy).toHaveBeenCalledOnce();
+  });
+
   it('clearLive strips auth keys but keeps unrelated .env lines', async () => {
     const dir = join(home, '.gemini');
     await mkdir(dir, { recursive: true });
@@ -183,12 +256,25 @@ describe('GeminiProvider', () => {
     const destDir = join(home, 'snapshot');
     const meta = await provider.backupAntigravity(destDir, credFile);
     expect(meta.notes).toMatch(/antigravity/i);
-    expect(meta.identity).toBeUndefined();
+    expect(meta.identity).toMatch(/^antigravity:[a-f0-9]{12}$/);
 
     const written = JSON.parse(await readFile(join(destDir, 'antigravity_oauth.json'), 'utf8'));
     // The snapshot must be the shape the proxy accepts on start.
     const reparsed = parseAntigravityOAuthCredential(JSON.stringify(written));
     expect(reparsed).toEqual({ refresh_token: 'rt', token_type: 'Bearer' });
+    await expect(provider.accountSource(destDir)).resolves.toEqual({
+      id: 'antigravity',
+      name: 'Antigravity',
+    });
+  });
+
+  it('labels a normal Gemini snapshot separately from Antigravity', async () => {
+    const snapshot = join(home, 'gemini-cli-snapshot');
+    await mkdir(snapshot, { recursive: true });
+    await expect(provider.accountSource(snapshot)).resolves.toEqual({
+      id: 'gemini-cli',
+      name: 'Gemini CLI',
+    });
   });
 
   it('detectLiveSource(antigravity) reports present for a valid credential file', async () => {
@@ -196,6 +282,7 @@ describe('GeminiProvider', () => {
     await writeFile(credFile, JSON.stringify({ refresh_token: 'rt' }));
     const live = await provider.detectAntigravityLive(credFile);
     expect(live.present).toBe(true);
+    expect(live.identity).toMatch(/^antigravity:[a-f0-9]{12}$/);
     expect(live.details).toMatch(/antigravity/i);
   });
 
@@ -238,22 +325,46 @@ describe('GeminiProvider', () => {
       expect(await provider.snapshotMatchesLive(snap)).toBe(true);
     });
 
-    it('declines to answer for an Antigravity snapshot rather than guessing', async () => {
+    it('matches an Antigravity snapshot against the local unified-state token', async () => {
       const snap = join(home, 'snap-ag');
       const credFile = join(home, 'cred.json');
       await writeFile(credFile, JSON.stringify({ refresh_token: 'rt' }));
+      const stateProvider = new GeminiProvider(
+        home,
+        undefined,
+        undefined,
+        async () => false,
+        async () => ({ token: { refresh_token: 'rt' } }),
+      );
+      await stateProvider.backupAntigravity(snap, credFile);
+      await expect(stateProvider.snapshotMatchesLive(snap)).resolves.toBe(true);
+
+      const otherProvider = new GeminiProvider(
+        home,
+        undefined,
+        undefined,
+        async () => false,
+        async () => ({ token: { refresh_token: 'other' } }),
+      );
+      await expect(otherProvider.snapshotMatchesLive(snap)).resolves.toBe(false);
+    });
+
+    it('declines to match Antigravity when unified state has no token', async () => {
+      const snap = join(home, 'snap-ag-missing');
+      const credFile = join(home, 'cred-missing.json');
+      await writeFile(credFile, JSON.stringify({ refresh_token: 'rt' }));
       await provider.backupAntigravity(snap, credFile);
 
-      // Naming the account inside the credential store means reading the
-      // secret, which prompts. Callers fall back to identity comparison.
-      await expect(provider.snapshotMatchesLive(snap)).rejects.toThrow(/credential store/i);
+      await expect(provider.snapshotMatchesLive(snap)).rejects.toMatchObject({
+        code: 'NOT_DETERMINABLE',
+      });
     });
   });
 });
 
 describe('upsertEnvFile', () => {
   it('merges and replaces keys', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'hotplug-env-'));
+    const dir = await mkdtemp(join(tmpdir(), 'anypick-env-'));
     const path = join(dir, '.env');
     await writeFile(path, 'FOO=1\nGEMINI_API_KEY=old\n', { mode: 0o600 });
     await upsertEnvFile(path, { GEMINI_API_KEY: 'new', GEMINI_MODEL: 'gemini-2.5-pro' });
@@ -288,16 +399,16 @@ describe('geminiAccountAdapter', () => {
 
 describe('createGeminiClient', () => {
   let home: string;
-  let hotplugRoot: string;
+  let anypickRoot: string;
 
   beforeEach(async () => {
-    home = await mkdtemp(join(tmpdir(), 'hotplug-gclient-'));
-    hotplugRoot = await mkdtemp(join(tmpdir(), 'hotplug-groot-'));
+    home = await mkdtemp(join(tmpdir(), 'anypick-gclient-'));
+    anypickRoot = await mkdtemp(join(tmpdir(), 'anypick-groot-'));
   });
 
   afterEach(async () => {
     await rm(home, { recursive: true, force: true });
-    await rm(hotplugRoot, { recursive: true, force: true });
+    await rm(anypickRoot, { recursive: true, force: true });
   });
 
   it('writes GEMINI_API_KEY and GEMINI_MODEL into ~/.gemini/.env', async () => {
@@ -314,7 +425,7 @@ describe('createGeminiClient', () => {
       clientId: 'gemini',
       dryRun: false,
       verbose: false,
-      hotplugRoot,
+      anypickRoot,
     });
 
     const envFile = join(home, '.gemini', '.env');
@@ -328,13 +439,13 @@ describe('createGeminiClient', () => {
 describe('proxyApiKeyGate', () => {
   it('flags gemini snapshot without API key', async () => {
     const { proxyApiKeyGate } = await import('../src/tui/model');
-    const root = await mkdtemp(join(tmpdir(), 'hotplug-gkey-'));
-    const liveHome = await mkdtemp(join(tmpdir(), 'hotplug-gkey-live-'));
+    const root = await mkdtemp(join(tmpdir(), 'anypick-gkey-'));
+    const liveHome = await mkdtemp(join(tmpdir(), 'anypick-gkey-live-'));
     try {
       const { AccountStore } = await import('../src/core/store');
       const { AccountService } = await import('../src/core/service');
       const { ProviderRegistry } = await import('../src/core/registry');
-      const { createAppReady } = await import('../src/core/app');
+      const { createAppReady: _createAppReadyLocal } = await import('../src/core/app');
       const provider = new GeminiProvider(liveHome);
       const registry = new ProviderRegistry();
       registry.register(provider);
@@ -351,7 +462,7 @@ describe('proxyApiKeyGate', () => {
 
       const app = {
         accounts: service,
-      } as unknown as import('../src/core/app').HotplugApp;
+      } as unknown as import('../src/core/app').AnyPickApp;
       const gate = await proxyApiKeyGate(app, 'gemini', 'oauth-only');
       expect(gate.needsApiKey).toBe(true);
       expect(gate.hint).toMatch(/GEMINI_API_KEY|OAuth/i);
@@ -371,7 +482,7 @@ describe('proxyApiKeyGate', () => {
 
 describe('registerBuiltin includes gemini', () => {
   it('provider and client are registered', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'hotplug-gapp-'));
+    const root = await mkdtemp(join(tmpdir(), 'anypick-gapp-'));
     try {
       const app = await createAppReady({ root, skipMigrate: true });
       expect(app.accountRegistry.has('gemini')).toBe(true);
@@ -380,8 +491,8 @@ describe('registerBuiltin includes gemini', () => {
       expect(
         app.clients
           .get('gemini')
-          .modelRoles?.()
-          .map((r) => r.id),
+          ?.modelRoles?.()
+          .map((r: { id: string }) => r.id),
       ).toEqual(['default']);
     } finally {
       await rm(root, { recursive: true, force: true });
@@ -389,8 +500,8 @@ describe('registerBuiltin includes gemini', () => {
   });
 
   it('account service can save and switch gemini logins', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'hotplug-gsvc-'));
-    const liveHome = await mkdtemp(join(tmpdir(), 'hotplug-glive-'));
+    const root = await mkdtemp(join(tmpdir(), 'anypick-gsvc-'));
+    const liveHome = await mkdtemp(join(tmpdir(), 'anypick-glive-'));
     try {
       // Use a dedicated provider instance wired via bare app is hard;
       // exercise provider + store through AccountService with custom registry.

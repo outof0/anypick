@@ -140,6 +140,15 @@ describe('typing a model id by hand', { timeout: 30000 }, () => {
     ui.unmount();
   });
 
+  it('commits hand-typed custom model ID even when partial suggestions match', async () => {
+    const { ui, seen } = await editing();
+    await ui.type('ocg/claude-opus-5');
+    ui.press(ENTER);
+    await settle();
+    expect(seen.committed).toEqual({ default: 'ocg/claude-opus-5' });
+    ui.unmount();
+  });
+
   it('edits mid-string with the caret instead of only at the end', async () => {
     const { ui, seen } = await editing('claude-opus-5');
     ui.press(LEFT);

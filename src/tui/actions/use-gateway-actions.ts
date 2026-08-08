@@ -1,5 +1,5 @@
 import React from 'react';
-import type { HotplugApp } from '../../core/app';
+import type { AnyPickApp } from '../../core/app';
 import { normalizeModelRoles } from '../../clients/model-roles';
 import {
   compatibleAppsForGateway,
@@ -67,7 +67,7 @@ export interface GatewayActions {
 }
 
 export function useGatewayActions(
-  app: HotplugApp,
+  app: AnyPickApp,
   shell: TuiShell,
   nav: TuiNav,
   bindings: AppBindingActions,

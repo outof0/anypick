@@ -1,8 +1,8 @@
 import type { RuntimeProfile, RuntimeProfileMeta, RuntimeProfileSecrets } from '../types';
-import { HotplugError } from '../utils/errors';
+import { AnyPickError } from '../utils/errors';
 import { decode, decodeWithFallback, decoders } from './codec';
-import type { HotplugDatabase } from './db';
-import { getHotplugRoot, profileDir } from './paths';
+import type { AnyPickDatabase } from './db';
+import { getAnyPickRoot, profileDir } from './paths';
 
 /**
  * SQLite-backed runtime profile store.
@@ -10,10 +10,10 @@ import { getHotplugRoot, profileDir } from './paths';
  */
 export class ProfileStore {
   readonly root: string;
-  readonly db: HotplugDatabase;
+  readonly db: AnyPickDatabase;
 
-  constructor(root: string, db: HotplugDatabase) {
-    this.root = getHotplugRoot(root);
+  constructor(root: string, db: AnyPickDatabase) {
+    this.root = getAnyPickRoot(root);
     this.db = db;
   }
 
@@ -64,7 +64,7 @@ export class ProfileStore {
   async require(name: string): Promise<RuntimeProfile> {
     const profile = await this.get(name);
     if (!profile) {
-      throw new HotplugError(`No runtime profile "${name}".`, 'PROFILE_NOT_FOUND');
+      throw new AnyPickError(`No runtime profile "${name}".`, 'PROFILE_NOT_FOUND');
     }
     return profile;
   }
@@ -121,14 +121,14 @@ export class ProfileStore {
   async delete(name: string): Promise<void> {
     const result = this.db.prepare(`DELETE FROM profiles WHERE name = ?`).run(name);
     if (result.changes === 0) {
-      throw new HotplugError(`No runtime profile "${name}".`, 'PROFILE_NOT_FOUND');
+      throw new AnyPickError(`No runtime profile "${name}".`, 'PROFILE_NOT_FOUND');
     }
   }
 
   async rename(oldName: string, newName: string): Promise<void> {
     const src = await this.require(oldName);
     if (await this.get(newName)) {
-      throw new HotplugError(`Profile "${newName}" already exists.`, 'PROFILE_EXISTS');
+      throw new AnyPickError(`Profile "${newName}" already exists.`, 'PROFILE_EXISTS');
     }
 
     const now = new Date().toISOString();

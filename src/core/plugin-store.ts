@@ -1,5 +1,5 @@
 import type { PluginRecord } from '../types';
-import type { HotplugDatabase } from './db';
+import type { AnyPickDatabase } from './db';
 
 interface PluginRow {
   name: string;
@@ -28,12 +28,12 @@ const COLUMNS = 'name, path, version, enabled, digest, added_at, updated_at';
 /**
  * The installed plugin registry.
  *
- * Kept in SQLite rather than a config file so `hotplug plugin` mutations are
+ * Kept in SQLite rather than a config file so `anypick plugin` mutations are
  * transactional with the rest of the data root, and so a plugin cannot enable
  * itself by writing a file the loader happens to read.
  */
 export class PluginStore {
-  constructor(private readonly db: HotplugDatabase) {}
+  constructor(private readonly db: AnyPickDatabase) {}
 
   list(): PluginRecord[] {
     const rows = this.db

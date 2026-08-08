@@ -14,7 +14,7 @@
  *   preference) and walks upward past anything already reserved or bound.
  */
 
-import { HotplugError } from '../utils/errors';
+import { AnyPickError } from '../utils/errors';
 import { isListenPortFree } from '../utils/process';
 import { providerCanProxy } from './capabilities';
 import type { Provider } from '../types';
@@ -27,7 +27,7 @@ const MAX_PORT = 65535;
 export function validatePort(port: number): number {
   // 0 = OS ephemeral (tests / advanced); 1–65535 = explicit bind
   if (!Number.isInteger(port) || port < 0 || port > MAX_PORT) {
-    throw new HotplugError(
+    throw new AnyPickError(
       `Invalid port ${port}. Use an integer 0–${MAX_PORT} (0 = ephemeral).`,
       'PROXY_PORT_INVALID',
     );
@@ -77,7 +77,7 @@ export class ProxyPortAllocator {
     return this.allocateFrom(preferred + 1, opts.providerId, opts.accountName);
   }
 
-  /** Ports already reserved by other hotplug proxy configs. */
+  /** Ports already reserved by other anypick proxy configs. */
   async collectUsedPorts(excludeProvider?: string, excludeAccount?: string): Promise<Set<number>> {
     const used = new Set<number>();
     for (const p of this.registry.list().filter((x) => providerCanProxy(x))) {
@@ -98,7 +98,7 @@ export class ProxyPortAllocator {
     return used;
   }
 
-  /** First free port at or above `base`, skipping hotplug-reserved ports. */
+  /** First free port at or above `base`, skipping anypick-reserved ports. */
   async allocateFrom(base: number, providerId: string, accountName: string): Promise<number> {
     const used = await this.collectUsedPorts(providerId, accountName);
     const start = validatePort(base);
@@ -110,15 +110,15 @@ export class ProxyPortAllocator {
         return port;
       }
     }
-    throw new HotplugError(
+    throw new AnyPickError(
       `No free proxy port found starting from ${start}.`,
       'PROXY_PORT_EXHAUSTED',
     );
   }
 
   /**
-   * Throw unless `port` is free, both in hotplug's own config and on the machine.
-   * Names the conflicting account when hotplug itself already reserved the port,
+   * Throw unless `port` is free, both in anypick's own config and on the machine.
+   * Names the conflicting account when anypick itself already reserved the port,
    * because "used by codex/work" is actionable where a bare port number is not.
    */
   async assertAvailable(port: number, providerId: string, accountName: string): Promise<void> {
@@ -136,7 +136,7 @@ export class ProxyPortAllocator {
           }
         }
       }
-      throw new HotplugError(
+      throw new AnyPickError(
         `Port ${port} is already used by ${
           owners.join(', ') || 'another account'
         }. Pick another with -p.`,
@@ -145,7 +145,7 @@ export class ProxyPortAllocator {
     }
     // Also refuse ports held by foreign OS processes (other apps / zombie proxies)
     if (!(await isListenPortFree(port, '127.0.0.1'))) {
-      throw new HotplugError(
+      throw new AnyPickError(
         `Port ${port} is already in use on this machine. Pick another with -p, or stop the process holding it.`,
         'PROXY_PORT_IN_USE',
       );

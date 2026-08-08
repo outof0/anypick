@@ -8,6 +8,8 @@ import type { AppBindingRow } from '../model';
 
 export interface ManageAppsScreenProps {
   proxyRef: string;
+  /** Breadcrumb for the source that opened this shared screen. */
+  path?: string | string[];
   apps: AppBindingRow[];
   checked: Set<string>;
   selectedIndex: number;
@@ -39,6 +41,7 @@ function appStatus(
 export function ManageAppsScreen(props: ManageAppsScreenProps) {
   const {
     proxyRef,
+    path = ['proxy', 'apps'],
     apps,
     checked,
     selectedIndex,
@@ -153,7 +156,7 @@ export function ManageAppsScreen(props: ManageAppsScreenProps) {
 
   return (
     <ScreenShell
-      path={['proxy', 'apps']}
+      path={path}
       columns={columns}
       busy={busy}
       busyLabel="Looking for supported apps"
@@ -208,7 +211,7 @@ export function describeAppChanges(
     body.push(`${a.clientName.padEnd(10)} ${from}  →  ${proxyRef}`);
   }
   for (const a of detach) {
-    body.push(`${a.clientName.padEnd(10)} ${proxyRef}  →  no Hotplug proxy`);
+    body.push(`${a.clientName.padEnd(10)} ${proxyRef}  →  no AnyPick proxy`);
   }
   return { attach, detach, body };
 }

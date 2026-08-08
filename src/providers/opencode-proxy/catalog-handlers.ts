@@ -17,9 +17,9 @@ export async function handleHealth(runtime: OpenCodeRuntime, res: ServerResponse
   }
   json(res, 200, {
     ok: true,
-    service: 'hotplug-opencode-proxy',
+    service: 'anypick-opencode-proxy',
     compatibility: 'OpenAI + Anthropic API',
-    instanceId: process.env.HOTPLUG_INSTANCE_ID ?? null,
+    instanceId: process.env.ANYPICK_INSTANCE_ID ?? null,
     clients: {
       codex: 'OPENAI_BASE_URL → /v1/responses',
       claude: 'ANTHROPIC_BASE_URL → /v1/messages',
@@ -37,11 +37,22 @@ export async function handleHealth(runtime: OpenCodeRuntime, res: ServerResponse
   });
 }
 
+/** A `?refresh=1` model-list request must always refetch, never serve the 10-min cache. */
+function wantsFreshCatalog(req: IncomingMessage): boolean {
+  const raw = req.url ?? '';
+  const query = raw.includes('?') ? raw.slice(raw.indexOf('?') + 1) : '';
+  return new URLSearchParams(query).get('refresh') === '1';
+}
+
 export async function handleListModels(
   runtime: OpenCodeRuntime,
+  req: IncomingMessage,
   res: ServerResponse,
 ): Promise<void> {
   try {
+    if (wantsFreshCatalog(req)) {
+      runtime.catalog.invalidate();
+    }
     const catalog = await runtime.catalog.live();
     json(res, 200, {
       object: 'list',
@@ -57,6 +68,7 @@ export async function handleListModels(
 export async function handleGetModel(
   runtime: OpenCodeRuntime,
   rawId: string,
+  req: IncomingMessage,
   res: ServerResponse,
 ): Promise<void> {
   try {
@@ -67,6 +79,9 @@ export async function handleGetModel(
         error: { type: 'not_found_error', message: 'Model id required' },
       });
       return;
+    }
+    if (wantsFreshCatalog(req)) {
+      runtime.catalog.invalidate();
     }
     const catalog = await runtime.catalog.live();
     const resolved = resolveOpenCodeModel(id, catalog.ids);

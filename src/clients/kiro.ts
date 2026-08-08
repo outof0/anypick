@@ -41,19 +41,19 @@ async function applyKiroContext(ctx: ApplyContext) {
   if (ctx.dryRun) {
     return {
       managedPaths: [
-        join(ctx.hotplugRoot, 'clients', 'kiro', 'env.sh'),
-        join(ctx.hotplugRoot, 'clients', 'kiro', 'env.ps1'),
+        join(ctx.anypickRoot, 'clients', 'kiro', 'env.sh'),
+        join(ctx.anypickRoot, 'clients', 'kiro', 'env.ps1'),
       ],
       managedEnvKeys: Object.keys(env),
     };
   }
 
   if (ctx.isolatedHome) {
-    // Write env into isolated tree only — never touch live hotplug root env files
-    const isoHotplug = join(ctx.isolatedHome, '.hotplug');
-    const envPaths = await writeClientEnvFiles(isoHotplug, 'kiro', env);
+    // Write env into isolated tree only — never touch live anypick root env files
+    const isoAnyPick = join(ctx.isolatedHome, '.anypick');
+    const envPaths = await writeClientEnvFiles(isoAnyPick, 'kiro', env);
     // Also drop a small dotenv for launchers that source it
-    const dotenv = join(ctx.isolatedHome, '.kiro-hotplug.env');
+    const dotenv = join(ctx.isolatedHome, '.kiro-anypick.env');
     await writeTextFile(
       dotenv,
       Object.entries(env)
@@ -67,7 +67,7 @@ async function applyKiroContext(ctx: ApplyContext) {
     };
   }
 
-  const envPaths = await writeClientEnvFiles(ctx.hotplugRoot, 'kiro', env);
+  const envPaths = await writeClientEnvFiles(ctx.anypickRoot, 'kiro', env);
   return {
     managedPaths: envPaths,
     managedEnvKeys: Object.keys(env),
@@ -84,8 +84,18 @@ export function createKiroClient(home = process.env.HOME ?? homedir()): ClientAd
   const adapter: ClientAdapter = {
     id: 'kiro',
     name: 'Kiro',
+    shortName: 'Kiro',
+    binaryName: 'kiro',
+    binaryEnvVar: 'KIRO_BINARY',
     description: 'Amazon Kiro (runtime env overlay)',
     supportedApiStyles: ['openai', 'anthropic', 'custom'],
+    nativeInstallations: [
+      {
+        sourceId: 'kiro',
+        executables: ['kiro-cli', 'kiro'],
+        macApplications: ['Kiro.app', 'Kiro CLI.app'],
+      },
+    ],
     capabilities: {
       id: 'kiro',
       acceptedProtocols: ['openai', 'anthropic'],
@@ -114,7 +124,7 @@ export function createKiroClient(home = process.env.HOME ?? homedir()): ClientAd
       plan: ResolvedClientPlan,
       paths: readonly IsolatablePath[],
     ): Promise<IsolatedClientRuntime> {
-      const runtimeRoot = await createTempRuntimeRoot('hotplug-kiro-');
+      const runtimeRoot = await createTempRuntimeRoot('anypick-kiro-');
       const isoHome = join(runtimeRoot, 'home');
       await ensureDir(isoHome);
       await materializeIsolatablePaths(isoHome, paths);
@@ -124,7 +134,7 @@ export function createKiroClient(home = process.env.HOME ?? homedir()): ClientAd
         syntheticProxyProfile({
           name: `ephemeral-${plan.source.display}`,
           endpoint: plan.transport.endpoint ?? '',
-          apiKey: 'hotplug-proxy',
+          apiKey: 'anypick-proxy',
           defaultModel: plan.model.mode === 'explicit' ? plan.model.id : undefined,
         });
 
@@ -140,14 +150,14 @@ export function createKiroClient(home = process.env.HOME ?? homedir()): ClientAd
           meta: { ...profile.meta, endpoint },
           secrets: {
             ...profile.secrets,
-            apiKey: profile.secrets.apiKey ?? 'hotplug-proxy',
+            apiKey: profile.secrets.apiKey ?? 'anypick-proxy',
           },
         },
         clientId: 'kiro',
         dryRun: plan.dryRun,
         verbose: plan.verbose,
         proxyEndpoint: endpoint || undefined,
-        hotplugRoot: plan.hotplugRoot,
+        anypickRoot: plan.anypickRoot,
         isolatedHome: isoHome,
       };
 
@@ -156,12 +166,12 @@ export function createKiroClient(home = process.env.HOME ?? homedir()): ClientAd
         await applyKiroContext(ctx);
         env = {
           HOME: isoHome,
-          OPENAI_API_KEY: ctx.profile.secrets.apiKey ?? 'hotplug-proxy',
+          OPENAI_API_KEY: ctx.profile.secrets.apiKey ?? 'anypick-proxy',
           ...(endpoint
             ? {
                 OPENAI_BASE_URL: endpoint,
                 ANTHROPIC_BASE_URL: endpoint,
-                ANTHROPIC_AUTH_TOKEN: ctx.profile.secrets.apiKey ?? 'hotplug-proxy',
+                ANTHROPIC_AUTH_TOKEN: ctx.profile.secrets.apiKey ?? 'anypick-proxy',
               }
             : {}),
         };
@@ -178,7 +188,7 @@ export function createKiroClient(home = process.env.HOME ?? homedir()): ClientAd
         syntheticProxyProfile({
           name: `proxy-${plan.source.display}`,
           endpoint: plan.transport.endpoint ?? '',
-          apiKey: 'hotplug-proxy',
+          apiKey: 'anypick-proxy',
           defaultModel: plan.model.mode === 'explicit' ? plan.model.id : undefined,
         });
       const endpoint =
@@ -195,15 +205,15 @@ export function createKiroClient(home = process.env.HOME ?? homedir()): ClientAd
         dryRun: plan.dryRun,
         verbose: plan.verbose,
         proxyEndpoint: endpoint || undefined,
-        hotplugRoot: plan.hotplugRoot,
+        anypickRoot: plan.anypickRoot,
       };
       return applyKiroContext(ctx);
     },
 
     async reset(state: ClientState): Promise<void> {
-      const hotplugRoot =
-        inferHotplugRoot(state) ?? process.env.HOTPLUG_HOME ?? join(homedir(), '.hotplug');
-      await removeClientEnvFiles(hotplugRoot, 'kiro');
+      const anypickRoot =
+        inferAnyPickRoot(state) ?? process.env.ANYPICK_HOME ?? join(homedir(), '.anypick');
+      await removeClientEnvFiles(anypickRoot, 'kiro');
     },
 
     async inspect(): Promise<ClientInspectResult> {
@@ -212,7 +222,7 @@ export function createKiroClient(home = process.env.HOME ?? homedir()): ClientAd
       return {
         present: true,
         configPaths: [],
-        summary: 'Kiro runtime uses hotplug env files (account auth separate)',
+        summary: 'Kiro runtime uses anypick env files (account auth separate)',
       };
     },
   };
@@ -220,7 +230,7 @@ export function createKiroClient(home = process.env.HOME ?? homedir()): ClientAd
   return adapter;
 }
 
-function inferHotplugRoot(state: ClientState): string | undefined {
+function inferAnyPickRoot(state: ClientState): string | undefined {
   for (const p of state.managedPaths) {
     const idx = p.replace(/\\/g, '/').indexOf('/clients/kiro/');
     if (idx > 0) {

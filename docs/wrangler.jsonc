@@ -1,7 +1,13 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "hotplug-docs",
-  "compatibility_date": "2026-07-26",
+  "name": "anypick-docs",
+  "compatibility_date": "2026-08-08",
+  "routes": [
+    {
+      "pattern": "anypick.dev",
+      "custom_domain": true
+    }
+  ],
   "assets": {
     "directory": "./dist",
     "not_found_handling": "404-page"

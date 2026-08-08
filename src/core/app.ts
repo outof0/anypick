@@ -1,35 +1,29 @@
 import { AccountStore } from './store';
 import { AccountService } from './service';
 import { ProxyService } from './proxy-service';
-import { ProviderRegistry, registry as defaultAccountRegistry } from './registry';
+import { ProviderRegistry } from './registry';
 import { ProfileStore } from './profile-store';
 import { ProfileService } from './profile-service';
 import { ClientStateStore } from './client-state-store';
 import { RuntimeService } from './runtime-service';
 import { DoctorService } from './doctor';
 import { GlobalConfigStore } from './config';
-import { openDatabase, type HotplugDatabase } from './db';
+import { ConfigService } from './config-service';
+import { TraySettingsService } from './tray-settings-service';
+import { migrateLegacyRootIfPristine, openDatabase, type AnyPickDatabase } from './db';
 import { migrateFilesystemIfNeeded } from './migrate-fs';
-import {
-  CatalogRegistry,
-  catalogRegistry as defaultCatalog,
-  registerBuiltinCatalog,
-} from '../catalog/providers';
-import {
-  ClientRegistry,
-  clientRegistry as defaultClients,
-  registerBuiltinClients,
-} from '../clients/index';
+import { CatalogRegistry, registerBuiltinCatalog } from '../catalog/providers';
+import { ClientRegistry, registerBuiltinClients } from '../clients/index';
 import { registerBuiltinProviders } from '../providers/index';
-import { getHotplugRoot } from './paths';
-import { join } from 'node:path';
+import { getAnyPickRoot } from './paths';
+import { dirname, join } from 'node:path';
 import { logInternalError } from '../utils/log';
 import {
   makeEmitter,
   InMemoryEventSink,
   DebugStderrEventSink,
-  type HotplugEvent,
-  type HotplugEventSink,
+  type AnyPickEvent,
+  type AnyPickEventSink,
 } from './events';
 import { withFileLock } from '../utils/lock';
 import { BindingStore } from './binding-store';
@@ -41,12 +35,20 @@ import { migrateBindingsIfNeeded } from './migrate-bindings';
 import { recoverIncompleteOperations } from './activation-executor';
 import { reapStaleLeases } from './proxy-lifecycle';
 import { PoolStore } from './pool-store';
+import { ProxyHubStore } from './proxy-hub-store';
+import { ProxyHubService } from './proxy-hub-service';
 import { runningTrayPid } from './tray-runtime';
 import { PluginStore } from './plugin-store';
 import { ModelCacheStore } from './model-cache-store';
 import { ModelDiscoveryService } from './model-discovery';
 import { modelPolicyLookup } from './model-policy';
 import { PluginService } from './plugin-service';
+import {
+  publishCodexLiveRoute,
+  restoreCodexLiveForNative,
+  syncCodexLiveConfig,
+} from './codex-live-config';
+import { quotaGuardPolicy } from './quota-guard-policy';
 import { loadPlugins, pluginsDisabledByEnv } from './plugin-loader';
 import { PLUGIN_API_VERSION, type LoadedPlugin, type PluginLoadFailure } from '../types';
 
@@ -56,16 +58,22 @@ import { PLUGIN_API_VERSION, type LoadedPlugin, type PluginLoadFailure } from '.
  * Deliberately excludes the database and every raw store. Stores own SQL and
  * assume the coordinator locks held by the services above them (ADR 0009), so
  * an embedder that writes through a store directly bypasses both. Annotate
- * embedding code as `Hotplug` rather than `HotplugApp` and the compiler enforces
+ * embedding code as `AnyPick` rather than `AnyPickApp` and the compiler enforces
  * that for you.
  */
-export interface Hotplug {
+export interface AnyPick {
   root: string;
   accounts: AccountService;
   proxy: ProxyService;
+  /** Unified public proxy endpoint and its token-scoped route manifests. */
+  hub: ProxyHubService;
   accountRegistry: ProviderRegistry;
   profiles: ProfileService;
   runtime: RuntimeService;
+  /** Service-owned global config mutations (ADR 0009). */
+  config: ConfigService;
+  /** Tray-local settings (login item) under the coordinator. */
+  traySettings: TraySettingsService;
   clients: ClientRegistry;
   catalog: CatalogRegistry;
   doctor: DoctorService;
@@ -76,7 +84,7 @@ export interface Hotplug {
   /**
    * Plugins that contributed to the registries above, and those that were
    * enabled but refused. Failures are surfaced (doctor, `plugin list`) rather
-   * than thrown, so one bad extension cannot make Hotplug unusable.
+   * than thrown, so one bad extension cannot make AnyPick unusable.
    */
   pluginRuntime: {
     loaded: readonly LoadedPlugin[];
@@ -84,10 +92,10 @@ export interface Hotplug {
   };
   /** Structured event sink + emitter for degraded/lifecycle conditions (OBS-01). */
   events: {
-    sink: HotplugEventSink;
+    sink: AnyPickEventSink;
     emit: ReturnType<typeof makeEmitter>;
     /** Snapshot of framework lifecycle events, oldest first. */
-    list: () => readonly HotplugEvent[];
+    list: () => readonly AnyPickEvent[];
   };
   /** Release framework-owned resources. Safe to call more than once. */
   close: () => void;
@@ -98,18 +106,20 @@ export interface Hotplug {
  *
  * This is what `createApp` builds and what the CLI, TUI, and tray consume. It is
  * **not** a stability promise: members may be added, renamed, or removed as the
- * internal graph changes. Programmatic consumers should depend on `Hotplug`.
+ * internal graph changes. Programmatic consumers should depend on `AnyPick`.
  */
-export interface HotplugApp extends Hotplug {
-  db: HotplugDatabase;
+export interface AnyPickApp extends AnyPick {
+  db: AnyPickDatabase;
   accountStore: AccountStore;
   profileStore: ProfileStore;
-  config: GlobalConfigStore;
+  /** Raw store for composition/migration only — prefer `config` for mutations. */
+  configStore: GlobalConfigStore;
   bindings: BindingStore;
   presets: PresetStore;
   journal: OperationJournal;
   leases: LeaseStore;
   pools: PoolStore;
+  hubStore: ProxyHubStore;
   pluginStore: PluginStore;
   modelCacheStore: ModelCacheStore;
   /**
@@ -117,7 +127,7 @@ export interface HotplugApp extends Hotplug {
    * whole app to `executeActivation` therefore get structured events instead of
    * silently dropping them.
    */
-  eventSink: HotplugEventSink;
+  eventSink: AnyPickEventSink;
 }
 
 export interface CreateAppOptions {
@@ -129,10 +139,10 @@ export interface CreateAppOptions {
   accountRegistry?: ProviderRegistry;
   catalog?: CatalogRegistry;
   clients?: ClientRegistry;
-  db?: HotplugDatabase;
+  db?: AnyPickDatabase;
   /** Injectable structured event sink (OBS-01). Defaults to an in-memory ring
-   * plus a debug-stderr echo (behind HOTPLUG_DEBUG). */
-  events?: HotplugEventSink;
+   * plus a debug-stderr echo (behind ANYPICK_DEBUG). */
+  events?: AnyPickEventSink;
   /**
    * Already-imported plugins to activate before the registries seal.
    *
@@ -200,10 +210,10 @@ function activatePlugins(
 
 /**
  * Wire stores, registries, and services for CLI or tests.
- * All structured data shares one SQLite database under ~/.hotplug/hotplug.db.
+ * All structured data shares one SQLite database under ~/.anypick/anypick.db.
  */
-export function createApp(opts: CreateAppOptions = {}): HotplugApp {
-  const root = getHotplugRoot(opts.root);
+export function createApp(opts: CreateAppOptions = {}): AnyPickApp {
+  const root = getAnyPickRoot(opts.root);
   const db = opts.db ?? openDatabase(root);
   const ownsDatabase = !opts.db;
 
@@ -243,10 +253,13 @@ export function createApp(opts: CreateAppOptions = {}): HotplugApp {
 
   const accountStore = new AccountStore(root, db);
   const pools = new PoolStore(root, db);
+  const hubStore = new ProxyHubStore(db);
   const profileStore = new ProfileStore(root, db);
   const profiles = new ProfileService(profileStore, catalog);
   const clientState = new ClientStateStore(root, db);
-  const config = new GlobalConfigStore(root, db);
+  const configStore = new GlobalConfigStore(root, db);
+  const config = new ConfigService(configStore);
+  const traySettings = new TraySettingsService(root);
   const runtime = new RuntimeService(
     profileStore,
     clientState,
@@ -270,28 +283,105 @@ export function createApp(opts: CreateAppOptions = {}): HotplugApp {
 
   // The lease store is constructed before the proxy service so it can be a real
   // constructor dependency: proxies started outside the activation pipeline
-  // (e.g. `hotplug proxy start`) record leases and are reaped on restart.
+  // (e.g. `anypick proxy start`) record leases and are reaped on restart.
   const proxy = new ProxyService(
     accountStore,
     accountRegistry,
     pools,
     { bindings, runtime, clientState },
     leases,
+    async () => quotaGuardPolicy(await configStore.read()),
   );
   const accounts = new AccountService(accountStore, accountRegistry, proxy);
+  const hub = new ProxyHubService(root, hubStore, {
+    hubs: hubStore,
+    accounts,
+    pools,
+    accountRegistry,
+  });
+  // Account delete must drop Hub sources/owners and pool membership for that
+  // login — otherwise a removed grok/work stays enabled and blocks attach.
+  accounts.setAfterDelete(async (providerId, accountName) => {
+    await hub.forgetAccount(providerId, accountName);
+    try {
+      const remaining = (await accounts.list(providerId)).map((row) => row.name);
+      await proxy.pools.syncMembers(providerId, remaining);
+    } catch {
+      // Pools are optional; hub prune above is the load-bearing cleanup.
+    }
+  });
 
-  const eventSink: HotplugEventSink = opts.events ?? new InMemoryEventSink();
+  const eventSink: AnyPickEventSink = opts.events ?? new InMemoryEventSink();
   const eventLog = eventSink instanceof InMemoryEventSink ? eventSink : undefined;
   let closed = false;
   const emit = makeEmitter(
-    // Default behavior: in-memory ring + debug-stderr echo (no-op unless HOTPLUG_DEBUG).
+    // Default behavior: in-memory ring + debug-stderr echo (no-op unless ANYPICK_DEBUG).
     new (class extends DebugStderrEventSink {
-      emit(e: Parameters<HotplugEventSink['emit']>[0]): void {
+      emit(e: Parameters<AnyPickEventSink['emit']>[0]): void {
         super.emit(e);
         eventSink.emit(e);
       }
     })(),
   );
+
+  // Keep the live ~/.codex/config.toml managed block in step with the active
+  // Codex route. Re-rendered whenever a proxy/hub lifecycle event could change
+  // which endpoint Codex should point at. Best-effort: never throws.
+  const codexLiveDeps = {
+    hub: {
+      getAttachedRoute: (routeId: string) => hub.getAttachedRoute(routeId),
+      status: (name?: string) => hub.status(name),
+    },
+    proxy: {
+      listProxyRows: () => proxy.listProxyRows(),
+    },
+    accounts: {
+      getAccount: (provider: string, name: string) => accountStore.getAccount(provider, name),
+      readProxyState: (provider: string, name: string) =>
+        accountStore.readProxyState(provider, name),
+    },
+    accountRegistry,
+    // Binding is authoritative — never publish Claude's hub route onto Codex.
+    getCodexSource: () => bindings.getGlobal('codex')?.spec.source ?? null,
+    getCodexModelId: () => {
+      const binding = bindings.getGlobal('codex');
+      if (!binding) {
+        return undefined;
+      }
+      if (binding.spec.model.mode === 'explicit') {
+        return binding.spec.model.id;
+      }
+      const roles = binding.spec.clientOptions?.modelRoles;
+      if (roles && typeof roles === 'object' && !Array.isArray(roles)) {
+        const def = (roles as Record<string, unknown>).default;
+        return typeof def === 'string' ? def : undefined;
+      }
+      return undefined;
+    },
+    getCodexModelRoles: () => {
+      const binding = bindings.getGlobal('codex');
+      const roles = binding?.spec.clientOptions?.modelRoles;
+      if (!roles || typeof roles !== 'object' || Array.isArray(roles)) {
+        return undefined;
+      }
+      const out: Record<string, string> = {};
+      for (const [key, value] of Object.entries(roles as Record<string, unknown>)) {
+        if (typeof value === 'string' && value.trim()) {
+          out[key] = value.trim();
+        }
+      }
+      return Object.keys(out).length > 0 ? out : undefined;
+    },
+    log: (message: string) => emit('info', 'CODEX_LIVE_SYNC', message),
+  };
+  const syncCodexLive = (syncOpts?: { forceRouted?: boolean }) =>
+    syncCodexLiveConfig(codexLiveDeps, syncOpts);
+  runtime.setCodexLiveConfigSync(syncCodexLive);
+  runtime.setCodexLiveConfigRestoreNative(() => restoreCodexLiveForNative(codexLiveDeps));
+  runtime.setCodexLiveConfigPublish((provider) => publishCodexLiveRoute(codexLiveDeps, provider));
+  // Proxy/hub lifecycle: respect native mode (no forceRouted).
+  proxy.setCodexLiveConfigSync(() => syncCodexLiveConfig(codexLiveDeps));
+  hub.setCodexLiveConfigSync(() => syncCodexLiveConfig(codexLiveDeps));
 
   const doctor = new DoctorService({
     accounts,
@@ -323,6 +413,8 @@ export function createApp(opts: CreateAppOptions = {}): HotplugApp {
     catalog,
     clients,
     pools,
+    hubStore,
+    hub,
     journal,
     leases,
     runtime,
@@ -331,7 +423,7 @@ export function createApp(opts: CreateAppOptions = {}): HotplugApp {
 
   const bindingService = new BindingService(resolveDeps);
 
-  const app: HotplugApp = {
+  const app: AnyPickApp = {
     root,
     db,
     accounts,
@@ -345,6 +437,8 @@ export function createApp(opts: CreateAppOptions = {}): HotplugApp {
     catalog,
     doctor,
     config,
+    configStore,
+    traySettings,
     bindings,
     presets,
     journal,
@@ -352,6 +446,8 @@ export function createApp(opts: CreateAppOptions = {}): HotplugApp {
     bindingService,
     modelDiscovery,
     pools,
+    hubStore,
+    hub,
     plugins,
     pluginStore,
     modelCacheStore,
@@ -393,13 +489,13 @@ export function createApp(opts: CreateAppOptions = {}): HotplugApp {
  * Create app and run one-time filesystem → SQLite migration if needed.
  *
  * The migration and config-ensure run under a process-scoped file lock so two
- * concurrent `hotplug` invocations (e.g. a CLI call while the TUI is open) cannot
+ * concurrent `anypick` invocations (e.g. a CLI call while the TUI is open) cannot
  * race the schema bootstrap. The lock is best-effort: a contended lock fails
  * fast rather than blocking the user.
  */
-export async function createAppReady(opts: CreateAppOptions = {}): Promise<HotplugApp> {
-  const root = getHotplugRoot(opts.root);
-  let app: HotplugApp | undefined;
+export async function createAppReady(opts: CreateAppOptions = {}): Promise<AnyPickApp> {
+  const root = getAnyPickRoot(opts.root);
+  let app: AnyPickApp | undefined;
   const ownsDatabase = !opts.db;
 
   try {
@@ -407,6 +503,9 @@ export async function createAppReady(opts: CreateAppOptions = {}): Promise<Hotpl
     // same lock as the legacy filesystem import and initial config bootstrap;
     // constructing the app first used to race before this lock was acquired.
     await withFileLock(join(root, '.migrate.lock'), async () => {
+      if (!opts.root && !process.env.ANYPICK_HOME) {
+        migrateLegacyRootIfPristine(root, join(dirname(root), '.hotplug'));
+      }
       const db = opts.db ?? openDatabase(root);
       // Plugins must be imported before `createApp`, which seals the registries
       // the moment it returns. `bare` builds (tests) skip this so a stray
@@ -437,7 +536,7 @@ export async function createAppReady(opts: CreateAppOptions = {}): Promise<Hotpl
     throw err;
   }
   if (!app) {
-    throw new Error('Hotplug app initialization did not complete');
+    throw new Error('AnyPick app initialization did not complete');
   }
   // A refused plugin is a degraded condition, not a crash: report it as an
   // event so `doctor` can show it even when the user never runs `plugin list`.
@@ -450,7 +549,7 @@ export async function createAppReady(opts: CreateAppOptions = {}): Promise<Hotpl
 
   // Best-effort journal recovery on startup (re-resolves adapters from ResourceRefs).
   // A failure here means a partial/crashed operation could not be rolled back
-  // automatically — log it (HOTPLUG_DEBUG) rather than discarding, since silent
+  // automatically — log it (ANYPICK_DEBUG) rather than discarding, since silent
   // inconsistency is the exact condition this tool must not hide.
   try {
     await recoverIncompleteOperations({
@@ -466,6 +565,8 @@ export async function createAppReady(opts: CreateAppOptions = {}): Promise<Hotpl
         presets: app.presets,
         catalog: app.catalog,
         clients: app.clients,
+        pools: app.pools,
+        hub: app.hub,
       },
     });
   } catch (err) {
@@ -492,19 +593,13 @@ export async function createAppReady(opts: CreateAppOptions = {}): Promise<Hotpl
   return app;
 }
 
-/** Default process-wide app used by CLI entry. */
-let defaultApp: HotplugApp | null = null;
-
-export function getDefaultApp(): HotplugApp {
-  if (!defaultApp) {
-    registerBuiltinProviders(defaultAccountRegistry);
-    registerBuiltinCatalog(defaultCatalog);
-    registerBuiltinClients(defaultClients);
-    defaultApp = createApp({
-      accountRegistry: defaultAccountRegistry,
-      catalog: defaultCatalog,
-      clients: defaultClients,
-    });
-  }
-  return defaultApp;
+/**
+ * @deprecated Process-wide sync construction skips plugin load, migration lock,
+ * and startup recovery. Use `createAppReady` / `createAnyPickApp` instead.
+ * Kept only so accidental callers fail loudly rather than silently half-init.
+ */
+export function getDefaultApp(): never {
+  throw new Error(
+    'getDefaultApp() is removed. Use createAppReady() (CLI/tests) or createAnyPickApp() (embedders).',
+  );
 }

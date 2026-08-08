@@ -44,11 +44,17 @@ export interface ProxyBoardScreenProps {
   onTogglePoolMulti?: (row: ProxyRow) => void;
   /** Space on member: enable/pause in pool. */
   onToggleMember?: (row: ProxyRow) => void;
+  /** Enable/disable safe quota-driven failover for every multi-account pool. */
+  onToggleQuotaGuard?: (row: ProxyRow) => void;
+  /** Open the model-routed Proxy Hub editor. */
+  onHub?: () => void;
   /** Save unsaved live login for proxy provider. */
   onSaveUnsaved?: (row: ProxyRow) => void;
   onSwitch: () => void;
   onAccounts: () => void;
   onHelp?: () => void;
+  onTray?: () => void;
+  onDetach?: () => void;
   onQuit: () => void;
 }
 
@@ -73,10 +79,14 @@ export function ProxyBoardScreen(props: ProxyBoardScreenProps) {
     onManageApps,
     onTogglePoolMulti,
     onToggleMember,
+    onToggleQuotaGuard,
+    onHub,
     onSaveUnsaved,
     onSwitch,
     onAccounts,
     onHelp,
+    onTray,
+    onDetach,
     onQuit,
   } = props;
 
@@ -91,6 +101,7 @@ export function ProxyBoardScreen(props: ProxyBoardScreenProps) {
     selected,
     usedBy ?? (selected ? usedByLabel(selected, apps) : null),
   );
+  const quotaGuardHint: KeyHint = { key: 'f', label: 'failover guard' };
 
   useInput((input, key) => {
     if (busy) {
@@ -104,11 +115,23 @@ export function ProxyBoardScreen(props: ProxyBoardScreenProps) {
       onHelp();
       return;
     }
+    if (input === 't' && onTray) {
+      onTray();
+      return;
+    }
+    if (input === 'D' && onDetach) {
+      onDetach();
+      return;
+    }
     if (key.escape) {
       onSwitch();
       return;
     }
     if (key.tab) {
+      onSwitch();
+      return;
+    }
+    if (input === 'a') {
       onAccounts();
       return;
     }
@@ -123,12 +146,23 @@ export function ProxyBoardScreen(props: ProxyBoardScreenProps) {
     if (!selected) {
       return;
     }
+    if (selected.rowKind === 'hub' && (key.return || input === 'm')) {
+      onHub?.();
+      return;
+    }
+    if (selected.rowKind === 'hub') {
+      return;
+    }
     if (input === ' ' && selected.rowKind === 'member' && onToggleMember) {
       onToggleMember(selected);
       return;
     }
     if (input === 'p' && onTogglePoolMulti && selected.rowKind !== 'unsaved') {
       onTogglePoolMulti(selected);
+      return;
+    }
+    if (input === 'f' && selected.rowKind === 'pool' && onToggleQuotaGuard) {
+      onToggleQuotaGuard(selected);
       return;
     }
     if (
@@ -192,57 +226,82 @@ export function ProxyBoardScreen(props: ProxyBoardScreenProps) {
 
   const hints: KeyHint[] = !selected
     ? [
-        { key: 'tab', label: 'accounts' },
+        { key: 'a', label: 'accounts' },
+        { key: 'tab', label: 'apps' },
         { key: 'h', label: 'help', when: Boolean(onHelp) },
         { key: 'q', label: 'quit' },
       ]
     : selected.needsApiKey
       ? [
-          { key: 'tab', label: 'accounts' },
+          { key: 'a', label: 'accounts' },
+          { key: 'tab', label: 'apps' },
           { key: 'h', label: 'help', when: Boolean(onHelp) },
         ]
-      : selected.rowKind === 'unsaved'
+      : selected.rowKind === 'hub'
         ? [
-            { key: 'enter', label: 'save this login' },
-            { key: 'tab', label: 'accounts' },
+            { key: 'enter', label: 'configure Hub' },
+            { key: 'm', label: 'manage Hub' },
+            { key: 'a', label: 'accounts' },
+            { key: 'tab', label: 'apps' },
           ]
-        : selected.rowKind === 'member'
+        : selected.rowKind === 'unsaved'
           ? [
-              { key: 'space', label: selected.memberEnabled ? 'pause' : 'enable' },
-              { key: 'p', label: 'pool mode' },
-              { key: 'tab', label: 'accounts' },
+              { key: 'enter', label: 'save this login' },
+              { key: 'a', label: 'accounts' },
+              { key: 'tab', label: 'apps' },
             ]
-          : selected.status.running
+          : selected.rowKind === 'member'
             ? [
-                { key: 'enter', label: 'manage apps' },
-                { key: 'm', label: 'manage apps' },
-                { key: 's', label: 'stop' },
-                { key: 'r', label: 'restart' },
-                { key: 'd', label: 'disable' },
-                { key: 'p', label: 'pool', when: Boolean(onTogglePoolMulti) },
-                { key: 'l', label: 'logs' },
-                { key: 'tab', label: 'accounts' },
+                { key: 'space', label: selected.memberEnabled ? 'pause' : 'enable' },
+                { key: 'p', label: 'pool mode' },
+                { key: 'a', label: 'accounts' },
+                { key: 'tab', label: 'apps' },
               ]
-            : selected.status.enabled
+            : selected.status.running
               ? [
-                  { key: 'enter', label: 'start' },
+                  { key: 'enter', label: 'manage apps' },
                   { key: 'm', label: 'manage apps' },
+                  { key: 's', label: 'stop' },
+                  { key: 'r', label: 'restart' },
                   { key: 'd', label: 'disable' },
                   { key: 'p', label: 'pool', when: Boolean(onTogglePoolMulti) },
+                  ...(selected.rowKind === 'pool' && onToggleQuotaGuard ? [quotaGuardHint] : []),
                   { key: 'l', label: 'logs' },
-                  { key: 'tab', label: 'accounts' },
+                  { key: 'a', label: 'accounts' },
+                  { key: 'tab', label: 'apps' },
                 ]
-              : selected.stateLabel === 'unavailable'
+              : selected.status.enabled
                 ? [
-                    { key: 'enter', label: 'check again' },
+                    { key: 'enter', label: 'start' },
+                    { key: 'm', label: 'manage apps' },
+                    { key: 'd', label: 'disable' },
+                    { key: 'p', label: 'pool', when: Boolean(onTogglePoolMulti) },
+                    ...(selected.rowKind === 'pool' && onToggleQuotaGuard ? [quotaGuardHint] : []),
                     { key: 'l', label: 'logs' },
-                    { key: 'tab', label: 'switch' },
+                    { key: 'a', label: 'accounts' },
+                    { key: 'tab', label: 'apps' },
                   ]
-                : [
-                    { key: 'enter', label: 'turn on and start' },
-                    { key: 'p', label: 'multi pool', when: Boolean(onTogglePoolMulti) },
-                    { key: 'tab', label: 'accounts' },
-                  ];
+                : selected.stateLabel === 'unavailable'
+                  ? [
+                      { key: 'enter', label: 'check again' },
+                      { key: 'l', label: 'logs' },
+                      { key: 'a', label: 'accounts' },
+                      { key: 'tab', label: 'apps' },
+                    ]
+                  : [
+                      { key: 'enter', label: 'turn on and start' },
+                      { key: 'p', label: 'multi pool', when: Boolean(onTogglePoolMulti) },
+                      ...(selected.rowKind === 'pool' && onToggleQuotaGuard
+                        ? [quotaGuardHint]
+                        : []),
+                      { key: 'a', label: 'accounts' },
+                      { key: 'tab', label: 'apps' },
+                    ];
+
+  hints.push(
+    { key: 't', label: 'tray runtime', when: Boolean(onTray) },
+    { key: 'D', label: 'detach to Tray', when: Boolean(onDetach) },
+  );
 
   return (
     <ScreenShell

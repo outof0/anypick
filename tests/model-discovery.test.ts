@@ -2,7 +2,7 @@
  * Live model discovery, its cache, and its fallback chain.
  *
  * The point of this feature is that a vendor shipping a new model must not
- * require a Hotplug release, so the tests that matter are the ones proving the
+ * require a AnyPick release, so the tests that matter are the ones proving the
  * live list wins, the cache actually spares a request, and a vendor being down
  * degrades to something usable instead of an empty picker.
  */
@@ -18,7 +18,7 @@ import { ModelDiscoveryService, MODEL_CACHE_TTL_MS } from '../src/core/model-dis
 import { CatalogRegistry, registerBuiltinCatalog } from '../src/catalog/providers';
 import { parseModelIds } from '../src/catalog/model-fetch';
 import { modelPolicyLookup } from '../src/core/model-policy';
-import type { HotplugDatabase } from '../src/core/db';
+import type { AnyPickDatabase } from '../src/core/db';
 import type { ModelDiscoveryContext, ModelPolicy } from '../src/types';
 
 interface Call {
@@ -73,13 +73,13 @@ describe('parseModelIds', () => {
 
 describe('ModelDiscoveryService', () => {
   let root: string;
-  let db: HotplugDatabase;
+  let db: AnyPickDatabase;
   let cache: ModelCacheStore;
   let catalog: CatalogRegistry;
   let calls: Call[];
 
   beforeEach(async () => {
-    root = await mkdtemp(join(tmpdir(), 'hotplug-discovery-'));
+    root = await mkdtemp(join(tmpdir(), 'anypick-discovery-'));
     db = openDatabase(root);
     migrateSchema(db);
     cache = new ModelCacheStore(root, db);
@@ -155,7 +155,7 @@ describe('ModelDiscoveryService', () => {
 
   it('keeps the cache across service instances, which is why it is on disk', async () => {
     await service({ reply: twoModels }).list({ providerId: 'openrouter', apiKey: 'k' });
-    // A fresh instance stands in for the next `hotplug` invocation: the TUI is a
+    // A fresh instance stands in for the next `anypick` invocation: the TUI is a
     // short-lived process, so an in-memory cache would expire on every launch.
     const next = await service({ reply: twoModels }).list({
       providerId: 'openrouter',
@@ -270,12 +270,12 @@ describe('ModelDiscoveryService', () => {
 
 describe('per-vendor request shape', () => {
   let root: string;
-  let db: HotplugDatabase;
+  let db: AnyPickDatabase;
   let calls: Call[];
   let catalog: CatalogRegistry;
 
   beforeEach(async () => {
-    root = await mkdtemp(join(tmpdir(), 'hotplug-discovery-shape-'));
+    root = await mkdtemp(join(tmpdir(), 'anypick-discovery-shape-'));
     db = openDatabase(root);
     migrateSchema(db);
     calls = [];

@@ -6,10 +6,10 @@
  * SQLite database, and kiro-cli reads the keychain *first* — so switching a Kiro
  * account has to write both tiers. Restoring only the database would be
  * silently ignored while a stale keychain item is still readable, which is the
- * worst possible outcome: hotplug reports a switch that did not happen.
+ * worst possible outcome: anypick reports a switch that did not happen.
  *
  * Every access mirrors what kiro-cli itself does — `/usr/bin/security` and
- * `INSERT OR REPLACE INTO auth_kv` — so an item hotplug writes carries the same
+ * `INSERT OR REPLACE INTO auth_kv` — so an item anypick writes carries the same
  * keychain ACL and kiro-cli reads it back without an authorization prompt.
  *
  * The secret never crosses `argv`: `security(1)` is driven through its `-i`
@@ -38,12 +38,12 @@ const SECURITY_TIMEOUT_MS = 5_000;
 
 /** Set by the test suite so no test can touch the developer's real keychain. */
 function keychainEnabled(): boolean {
-  return process.platform === 'darwin' && process.env.HOTPLUG_KIRO_NO_KEYCHAIN !== '1';
+  return process.platform === 'darwin' && process.env.ANYPICK_KIRO_NO_KEYCHAIN !== '1';
 }
 
 /** kiro-cli's data directory, following the same platform rules it does. */
 export function kiroSecretDbPath(home = homedir()): string {
-  const override = process.env.HOTPLUG_KIRO_SECRET_DB;
+  const override = process.env.ANYPICK_KIRO_SECRET_DB;
   if (override) {
     return override;
   }

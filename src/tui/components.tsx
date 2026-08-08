@@ -5,13 +5,13 @@
  */
 import { Box, Text, useInput, useStdout } from 'ink';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { HotplugApp } from '../core/app';
+import type { AnyPickApp } from '../core/app';
 import { G, LoadingView, ScreenShell } from './components/chrome';
 import { AddModeScreen, addModeOptions, type AddMode } from './screens/add-account';
 import { clampIndex } from './app-ui-helpers';
 
 export function AddModeGate(props: {
-  app: HotplugApp;
+  app: AnyPickApp;
   providerId: string;
   /** Sign-in source for providers with more than one (e.g. Gemini's Antigravity). */
   source?: 'antigravity';
@@ -102,7 +102,7 @@ export function MessageContinue({ onContinue }: { onContinue: () => void }) {
 }
 
 export function ProxyLogsView(props: {
-  app: HotplugApp;
+  app: AnyPickApp;
   providerId: string;
   name: string;
   text: string;

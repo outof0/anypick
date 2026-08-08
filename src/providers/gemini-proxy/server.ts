@@ -39,7 +39,12 @@ import {
 } from '../protocol/gemini/translate';
 import { normalizeLocalApiUrl, readBody, requireProxyAuth } from '../proxy-shared';
 import { assertLoopbackHost } from '../../utils/network';
-import { classifyUpstreamFailure, CooldownRegistry } from '../upstream-policy';
+import {
+  classifyUpstreamFailure,
+  CooldownRegistry,
+  isCredentialQuotaFailure,
+} from '../upstream-policy';
+import { QuotaGuard, type QuotaGuardOptions } from '../quota-guard';
 import {
   reasoningFromAnthropic,
   reasoningFromOpenAI,
@@ -57,6 +62,8 @@ export interface GeminiProxyServerOptions {
    * When set, keys are loaded from each dir's .env.
    */
   authDirs?: string[];
+  /** Saved pool-account labels in the same order as authDirs. */
+  authAccountNames?: string[];
   /** Override API key (tests). Single key — ignores dirs. */
   apiKey?: string;
   /** Optional Code Assist project for OAuth accounts. */
@@ -72,6 +79,7 @@ export interface GeminiProxyServerOptions {
   token?: string;
   log?: (line: string) => void;
   quiet?: boolean;
+  quotaGuard?: QuotaGuardOptions;
 }
 
 const COMPAT_LABEL = 'OpenAI + Anthropic → Gemini API';
@@ -86,6 +94,10 @@ const ANTIGRAVITY_OAUTH_CLIENT_SECRET = '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';
 
 export type GeminiOAuthSource = 'auto' | 'gemini-cli' | 'antigravity';
 type GeminiAuthRoute = 'api-key' | Exclude<GeminiOAuthSource, 'auto'>;
+interface GeminiApiKey {
+  key: string;
+  accountName?: string;
+}
 
 interface OAuthProfile {
   clientId: string;
@@ -127,7 +139,7 @@ export function createGeminiProxyServer(opts: GeminiProxyServerOptions): Server 
   assertLoopbackHost(opts.host);
   const upstream = (opts.upstream ?? DEFAULT_UPSTREAM).replace(/\/$/, '');
   const oauthSource = opts.oauthSource ?? 'auto';
-  const proxyToken = opts.token ?? process.env.HOTPLUG_PROXY_TOKEN ?? '';
+  const proxyToken = opts.token ?? process.env.ANYPICK_PROXY_TOKEN ?? '';
   const oauthProfile = (source: Exclude<GeminiOAuthSource, 'auto'>): OAuthProfile =>
     source === 'antigravity'
       ? {
@@ -150,8 +162,8 @@ export function createGeminiProxyServer(opts: GeminiProxyServerOptions): Server 
   const log =
     opts.log ?? (opts.quiet ? () => {} : (line: string) => process.stderr.write(`${line}\n`));
 
-  /** Ordered API keys for failover (sticky index until error). */
-  let keyRing: string[] = [];
+  /** Ordered API keys; Quota Guard may promote a healthy pool account. */
+  let keyRing: GeminiApiKey[] = [];
   const oauthStates = new Map<Exclude<GeminiOAuthSource, 'auto'>, OAuthRouteState>();
   const oauthRefreshInflight = new Map<Exclude<GeminiOAuthSource, 'auto'>, Promise<string>>();
   const modelCatalogs = new Map<
@@ -168,31 +180,32 @@ export function createGeminiProxyServer(opts: GeminiProxyServerOptions): Server 
   let autoActiveRoute: GeminiAuthRoute | undefined;
   const proxySessionId = randomUUID();
   const cooldowns = new CooldownRegistry();
+  const quotaGuard = new QuotaGuard(opts.quotaGuard ?? { enabled: false, cooldownMs: 60 * 60_000 });
 
   const server = createServer((req, res) => {
     void handle(req, res);
   });
 
-  async function loadKeyRing(): Promise<string[]> {
+  async function loadKeyRing(): Promise<GeminiApiKey[]> {
     if (opts.apiKey?.trim()) {
-      return [opts.apiKey.trim()];
+      return [{ key: opts.apiKey.trim() }];
     }
     if (keyRing.length) {
       return keyRing;
     }
     const dirs = opts.authDirs && opts.authDirs.length > 0 ? opts.authDirs : [opts.authDir];
-    const keys: string[] = [];
-    for (const dir of dirs) {
+    const keys: GeminiApiKey[] = [];
+    for (const [index, dir] of dirs.entries()) {
       const envFile = dir.endsWith('.env') ? dir : join(dir, '.env');
       const k = await readGeminiApiKeyFromEnvFile(envFile);
-      if (k && !keys.includes(k)) {
-        keys.push(k);
+      if (k && !keys.some((candidate) => candidate.key === k)) {
+        keys.push({ key: k, accountName: opts.authAccountNames?.[index] });
       }
     }
     if (keys.length === 0) {
       const envKey = process.env.GEMINI_API_KEY?.trim() || process.env.GOOGLE_API_KEY?.trim();
       if (envKey) {
-        keys.push(envKey);
+        keys.push({ key: envKey });
       }
     }
     if (keys.length === 0) {
@@ -204,9 +217,9 @@ export function createGeminiProxyServer(opts: GeminiProxyServerOptions): Server 
     return keys;
   }
 
-  async function currentKey(): Promise<string> {
+  async function currentKey(): Promise<GeminiApiKey> {
     const keys = await loadKeyRing();
-    return keys[0];
+    return (await quotaGuard.ordered(keys))[0] ?? keys[0];
   }
 
   function oauthState(source: Exclude<GeminiOAuthSource, 'auto'>): OAuthRouteState {
@@ -515,7 +528,7 @@ export function createGeminiProxyServer(opts: GeminiProxyServerOptions): Server 
         );
       } else {
         catalog = {
-          models: (await listGeminiModelsFromGoogle(upstream, await currentKey(), log)).map(
+          models: (await listGeminiModelsFromGoogle(upstream, (await currentKey()).key, log)).map(
             (id) => ({
               id,
             }),
@@ -637,9 +650,9 @@ export function createGeminiProxyServer(opts: GeminiProxyServerOptions): Server 
     if ((method === 'GET' || method === 'HEAD') && (path === '/' || path === '/health')) {
       json(res, 200, {
         ok: true,
-        service: 'hotplug-gemini-proxy',
+        service: 'anypick-gemini-proxy',
         compatibility: COMPAT_LABEL,
-        instanceId: process.env.HOTPLUG_INSTANCE_ID ?? null,
+        instanceId: process.env.ANYPICK_INSTANCE_ID ?? null,
         // Health is process/config state only; do not read the key here.
         auth: 'ok',
         clients: {
@@ -1158,7 +1171,8 @@ export function createGeminiProxyServer(opts: GeminiProxyServerOptions): Server 
     const action = stream ? 'streamGenerateContent' : 'generateContent';
     const keyMode = route === 'api-key';
     const upstreamModel = model;
-    const token = keyMode ? await currentKey() : await currentOAuthToken(route);
+    const apiKeyCandidates = keyMode ? await quotaGuard.ordered(await loadKeyRing()) : [];
+    const oauthToken = keyMode ? undefined : await currentOAuthToken(route);
     const target = keyMode
       ? `${upstream}/v1beta/models/${encodeURIComponent(upstreamModel)}:${action}`
       : `${codeAssistBase(route)}/v1internal:${action}`;
@@ -1182,76 +1196,94 @@ export function createGeminiProxyServer(opts: GeminiProxyServerOptions): Server 
       ? body
       : {
           model: upstreamModel,
-          project: await resolveOAuthProject(route, token),
+          project: await resolveOAuthProject(route, oauthToken!),
           user_prompt_id: randomUUID(),
           request: { ...body, session_id: proxySessionId },
         };
-    let upstreamRes: Response;
-    try {
-      upstreamRes = await fetch(target, {
-        method: 'POST',
-        headers: {
-          'content-type': 'application/json',
-          ...(keyMode
-            ? { 'x-goog-api-key': token }
-            : {
-                authorization: `Bearer ${token}`,
-                ...(oauthProfile(route).userAgent
-                  ? { 'user-agent': oauthProfile(route).userAgent }
-                  : {}),
-              }),
-        },
-        body: JSON.stringify(requestBody),
-        signal: AbortSignal.timeout(600_000),
-        redirect: 'manual',
-      });
-    } catch (err) {
-      throw new GeminiUpstreamError(
-        502,
-        undefined,
-        `Gemini network error: ${err instanceof Error ? err.message : String(err)}`,
-      );
-    }
-    const text = await upstreamRes.text();
-    log(`  ← ${upstreamRes.status}`);
-    if (!upstreamRes.ok) {
-      if (upstreamRes.status === 429) {
-        const bodyPreview = text.slice(0, 2000);
-        const failure = classifyUpstreamFailure(
+    const candidates: Array<GeminiApiKey | undefined> = keyMode ? apiKeyCandidates : [undefined];
+    let lastQuotaError: GeminiUpstreamError | undefined;
+    for (const [index, candidate] of candidates.entries()) {
+      const token = candidate?.key ?? oauthToken!;
+      let upstreamRes: Response;
+      try {
+        upstreamRes = await fetch(target, {
+          method: 'POST',
+          headers: {
+            'content-type': 'application/json',
+            ...(keyMode
+              ? { 'x-goog-api-key': token }
+              : {
+                  authorization: `Bearer ${token}`,
+                  ...(oauthProfile(route).userAgent
+                    ? { 'user-agent': oauthProfile(route).userAgent }
+                    : {}),
+                }),
+          },
+          body: JSON.stringify(requestBody),
+          signal: AbortSignal.timeout(600_000),
+          redirect: 'manual',
+        });
+      } catch (err) {
+        throw new GeminiUpstreamError(
+          502,
+          undefined,
+          `Gemini network error: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+      const text = await upstreamRes.text();
+      log(`  ← ${upstreamRes.status}`);
+      if (!upstreamRes.ok) {
+        const failure = classifyUpstreamFailure(upstreamRes.status, upstreamRes.headers, text);
+        const credentialQuota = isCredentialQuotaFailure(
           upstreamRes.status,
           upstreamRes.headers,
-          bodyPreview,
+          text,
         );
-        if (failure.retryAfterMs) {
+        if (failure.retryAfterMs && !credentialQuota) {
           cooldowns.set(routeKey, failure.retryAfterMs);
         }
+        const upstreamError = new GeminiUpstreamError(
+          upstreamRes.status,
+          upstreamRes.headers,
+          extractGeminiErrorMessage(text, upstreamRes.status),
+          text,
+        );
+        const next = candidates[index + 1];
+        if (keyMode && quotaGuard.enabled && next && credentialQuota) {
+          await quotaGuard.exhausted(
+            candidate?.accountName,
+            next.accountName,
+            failure.retryAfterMs,
+          );
+          log(
+            `  quota guard: ${candidate?.accountName ?? 'current key'} cooling; retrying pool member`,
+          );
+          lastQuotaError = upstreamError;
+          continue;
+        }
+        if (!keyMode && upstreamRes.status === 404) {
+          // Force the next alias/default resolution to re-read account availability.
+          modelCatalogs.delete(route);
+          modelCatalogFailures.delete(route);
+        }
+        throw upstreamError;
       }
-      const upstreamError = new GeminiUpstreamError(
-        upstreamRes.status,
-        upstreamRes.headers,
-        extractGeminiErrorMessage(text, upstreamRes.status),
-        text,
-      );
-      if (!keyMode && upstreamRes.status === 404) {
-        // Force the next alias/default resolution to re-read account availability.
-        modelCatalogs.delete(route);
-        modelCatalogFailures.delete(route);
+      await quotaGuard.activate(candidate?.accountName);
+      try {
+        const parsed = JSON.parse(text) as GeminiGenerateResponse & {
+          response?: GeminiGenerateResponse;
+        };
+        return keyMode ? parsed : (parsed.response ?? parsed);
+      } catch {
+        throw new GeminiUpstreamError(
+          502,
+          upstreamRes.headers,
+          `Gemini returned non-JSON response: ${text.slice(0, 300)}`,
+          text,
+        );
       }
-      throw upstreamError;
     }
-    try {
-      const parsed = JSON.parse(text) as GeminiGenerateResponse & {
-        response?: GeminiGenerateResponse;
-      };
-      return keyMode ? parsed : (parsed.response ?? parsed);
-    } catch {
-      throw new GeminiUpstreamError(
-        502,
-        upstreamRes.headers,
-        `Gemini returned non-JSON response: ${text.slice(0, 300)}`,
-        text,
-      );
-    }
+    throw lastQuotaError ?? new GeminiUpstreamError(503, undefined, 'No eligible pool account.');
   }
 
   return server;
@@ -1683,7 +1715,7 @@ async function listGeminiModelsFromCodeAssistQuota(
   const response = await fetch(`${base}/v1internal:retrieveUserQuota`, {
     method: 'POST',
     headers,
-    body: JSON.stringify({ project: project ?? '', userAgent: 'hotplug-gemini-proxy' }),
+    body: JSON.stringify({ project: project ?? '', userAgent: 'anypick-gemini-proxy' }),
     signal: AbortSignal.timeout(30_000),
   });
   const text = await response.text();

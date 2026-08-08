@@ -1,6 +1,6 @@
 ---
 title: Concepts
-description: Clients, sources, bindings, and presets — the model behind every Hotplug command.
+description: Clients, sources, bindings, and presets — the model behind every AnyPick command.
 ---
 
 Four words carry the whole CLI. Once they are clear, every command reads the
@@ -9,19 +9,19 @@ same way.
 | Word | Meaning |
 | --- | --- |
 | **Client** | The CLI you run: `claude`, `codex`, `gemini`, `kiro` |
-| **Source** | What powers it: an account (`grok/work`), a gateway (`openrouter-work`), a pool (`pool:gemini`), or a preset (`@work`) |
+| **Source** | What powers it: an account (`grok/work`), a gateway (`openrouter-work`), a pool (`pool:gemini`), the opt-in hub (`hub:default`), or a preset (`@work`) |
 | **Binding** | A concrete snapshot: this client → this source, plus model roles |
 | **Preset** | An editable template (`@name`), created only when you pass `--save` |
 
 The grammar never changes:
 
 ```bash
-hotplug use|run <client> --with <source|@preset>
+anypick use|run <client> --with <source|@preset>
 ```
 
 ## Clients
 
-A client is a CLI Hotplug knows how to configure. `hotplug clients` lists them
+A client is a CLI AnyPick knows how to configure. `anypick clients` lists them
 along with what it writes for each:
 
 - `claude` — Claude Code (`ANTHROPIC_*` variables; isolated temp home on `run`)
@@ -30,7 +30,7 @@ along with what it writes for each:
 - `kiro` — Kiro
 
 Each client has an isolation manifest describing which files and variables
-belong to it, which is what makes `hotplug reset <client>` and rollback exact
+belong to it, which is what makes `anypick reset <client>` and rollback exact
 rather than best-effort.
 
 <Aside type="note" title="Only two clients cross providers">
@@ -41,15 +41,15 @@ silently proxied.
 </Aside>
 
 That list is about *binding*. Switching which account is live is broader,
-because Hotplug writes the tool's own credential file rather than something only
+because AnyPick writes the tool's own credential file rather than something only
 it understands — so anything else reading that file follows. `claude` covers the
 Claude Code CLI and its IDE extensions, and a `gemini` login may be the Gemini
 CLI's OAuth or Antigravity's.
 
 <Aside type="caution" title="The Codex desktop app keeps its own session">
-Hotplug can back up and restore `~/.codex/auth.json`, which is what the Codex
+AnyPick can back up and restore `~/.codex/auth.json`, which is what the Codex
 CLI reads. The desktop app tracks its signed-in ChatGPT account separately, so it
-does not follow a switch. Hotplug detects that disagreement and suppresses the
+does not follow a switch. AnyPick detects that disagreement and suppresses the
 quota readout instead of attributing one account's usage to another.
 </Aside>
 
@@ -58,7 +58,7 @@ quota readout instead of attributing one account's usage to another.
 A source is anything that can answer model requests.
 
 **Accounts** are native logins that some other tool created — a Codex
-`auth.json`, a Grok credential, a Gemini OAuth token. Hotplug snapshots them so
+`auth.json`, a Grok credential, a Gemini OAuth token. AnyPick snapshots them so
 several can coexist, and restores the one you selected when you activate a
 binding. See [Accounts](/docs/guides/accounts).
 
@@ -69,6 +69,10 @@ optionally a model catalog. Nothing to log into. See
 **Pools** are an opt-in grouping of several accounts of one provider behind a
 single port, for failover. See [Proxies](/docs/guides/proxies#multi-account-pools).
 
+**Proxy Hub** is a separate opt-in endpoint that can expose several saved
+accounts behind one local address and route by model (`hub:default`). See
+[Proxies](/docs/guides/proxies#proxy-hub-opt-in).
+
 They are interchangeable at the `--with` boundary. A client neither knows nor
 cares which kind it got.
 
@@ -77,18 +81,18 @@ cares which kind it got.
 A binding is a **snapshot**, not a reference. When you run:
 
 ```bash
-hotplug use claude --with grok/work
+anypick use claude --with grok/work
 ```
 
-Hotplug resolves the source, picks model defaults, plans the activation steps,
+AnyPick resolves the source, picks model defaults, plans the activation steps,
 and records the result. Later edits to the account or preset do not silently
 rewrite that binding — which is the point. What ran yesterday still runs today.
 
 There are three scopes, checked in this order when you `run`:
 
 1. **Ephemeral** — `run --with <source>` applies for that launch only
-2. **Project** — `hotplug link` writes a binding scoped to the current directory
-3. **Global** — `hotplug use` writes the default
+2. **Project** — `anypick link` writes a binding scoped to the current directory
+3. **Global** — `anypick use` writes the default
 
 ```
 use   = set the global default (persistent)
@@ -96,7 +100,7 @@ run   = launch with the effective binding (ephemeral; never rewrites defaults)
 link  = set a project-local binding
 ```
 
-Inspect what is in effect with `hotplug current`, optionally narrowed to one
+Inspect what is in effect with `anypick current`, optionally narrowed to one
 client.
 
 ## Presets
@@ -105,24 +109,25 @@ A preset is the one editable thing. It is a named template you can reuse and
 revise:
 
 ```bash
-hotplug use claude --with grok/work --save work-stack
-hotplug use claude --with @work-stack
-hotplug preset edit work-stack --model …
+anypick use claude --with grok/work --save work-stack
+anypick use claude --with @work-stack
+anypick preset show work-stack
 ```
 
-Editing a preset does not touch bindings that were created from it, because
-those are snapshots. Re-run `use` to pick up the new template.
+There is no in-place preset editor: create a new snapshot with `use … --save`,
+or remove the old one with `preset remove`. Editing a preset would not rewrite
+bindings that were created from it anyway, because those are snapshots.
 
 <Aside type="note" title="Why snapshots">
 The alternative — bindings that follow their source live — means a change in one
-place quietly changes what every client launches. Hotplug makes re-activation
+place quietly changes what every client launches. AnyPick makes re-activation
 explicit instead.
 </Aside>
 
 ## Activation
 
 Turning a binding into a working client is a planned operation, not a series of
-side effects. Hotplug builds a step list, records mutating steps in an operation
+side effects. AnyPick builds a step list, records mutating steps in an operation
 journal with backup paths, then executes. If a step fails, prior state is
 restored — client config, native auth, and any proxy it started.
 
@@ -131,7 +136,7 @@ run, without secrets.
 
 ## Non-interactive behavior
 
-Hotplug never prompts when there is no TTY, and never guesses a source.
+AnyPick never prompts when there is no TTY, and never guesses a source.
 `use <client>` requires `--with` or `--current`; without one it exits `2`. This
 makes it safe in CI and in scripts. `--no-input` forces the same behavior on a
 TTY, and `--json` switches every command to machine-readable output.

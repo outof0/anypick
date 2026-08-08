@@ -92,7 +92,7 @@ describe('DATA-01 atomic, non-destructive snapshot save', () => {
 
     await fake.setLive({ email: 'ok@me', token: 's' });
     await service.save('fake', 'main');
-    const out = join(root, 'main.hotplug.json');
+    const out = join(root, 'main.anypick.json');
     await service.exportAccount('fake', 'main', out);
 
     await service.delete('fake', 'main');

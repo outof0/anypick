@@ -1,20 +1,20 @@
-# hotplug — Unified Account & Runtime Configuration CLI
+# anypick — Unified Account & Runtime Configuration CLI
 
 | Field | Value |
 |-------|--------|
-| **Title** | hotplug: Unified Account & Runtime Configuration CLI |
+| **Title** | anypick: Unified Account & Runtime Configuration CLI |
 | **Author** | TBD |
-| **Date** | 2026-07-15 |
+| **Date** | 08-08-2026 |
 | **Status** | Implemented (v0.2 foundation) |
 | **Notes** | Core account + profile + runtime + client adapters shipped. Providers own their account/pool source policy through `sourceAdapter` / `poolSourceAdapter`; registries are app-scoped. An external plugin loader remains an explicit follow-up, not an implied capability. |
-| **Project** | `hotplug` (keep existing package/binary name) |
-| **Workspace** | `/Users/erik/workspace/lab/js/hotplug` |
+| **Project** | `anypick` (keep existing package/binary name) |
+| **Workspace** | `/Users/erik/workspace/lab/js/anypick` |
 
 ---
 
 ## Overview
 
-`hotplug` today is a focused, well-structured CLI for **backing up and switching local auth snapshots** for Codex, Grok, and Kiro, with optional **provider-owned compatibility proxies**. It already embodies the right principles: pluggable providers, opaque snapshots, filesystem storage under `~/.hotplug`, minimal dependencies (`commander`, `@clack/prompts`, `picocolors`), and core that never parses provider secrets.
+`anypick` today is a focused, well-structured CLI for **backing up and switching local auth snapshots** for Codex, Grok, and Kiro, with optional **provider-owned compatibility proxies**. It already embodies the right principles: pluggable providers, opaque snapshots, filesystem storage under `~/.anypick`, minimal dependencies (`commander`, `@clack/prompts`, `picocolors`), and core that never parses provider secrets.
 
 This design **extends** that foundation into a unified control plane for AI developer tooling:
 
@@ -35,7 +35,7 @@ The migration path is evolutionary: keep `AccountStore` / `AccountService` / exi
 |-------|----------|------|
 | CLI | `src/cli.ts`, `src/cli/commands.ts`, `interactive.ts`, `format.ts` | commander + interactive menu |
 | Service | `src/core/service.ts` (`AccountService`) | save / use / delete / import / export / proxy lifecycle |
-| Store | `src/core/store.ts` (`AccountStore`) | `~/.hotplug/providers/<id>/accounts/<name>/` |
+| Store | `src/core/store.ts` (`AccountStore`) | `~/.anypick/providers/<id>/accounts/<name>/` |
 | Registry | `src/core/registry.ts` | in-memory `Provider` map |
 | Providers | `src/providers/{codex,grok,kiro}.ts` | backup/restore (+ proxy for grok/kiro) |
 | Types | `src/types.ts` | `Provider`, `AccountMeta`, `ProxyContext`, … |
@@ -44,10 +44,10 @@ The migration path is evolutionary: keep `AccountStore` / `AccountService` / exi
 
 | Pain | Today | Desired |
 |------|-------|---------|
-| API gateways | Manual env vars / client config files | `hotplug runtime use openrouter-work --client claude` |
+| API gateways | Manual env vars / client config files | `anypick runtime use openrouter-work --client claude` |
 | Multi-client reuse | One provider ≈ one tool's auth files | One Runtime Profile applied to Claude Code *and* Codex |
 | Model aliases | None | Profile maps `claude-sonnet` → provider-specific model id |
-| Client reset | Manual cleanup | `hotplug runtime reset --client claude` |
+| Client reset | Manual cleanup | `anypick runtime reset --client claude` |
 | Adapter boundaries | Auth + proxy fused on `Provider` | Explicit Auth / Proxy / Client adapters |
 | Discoverability | Flat `save`/`use` commands | Noun-verb groups + `doctor` + dry-run |
 
@@ -67,13 +67,13 @@ The migration path is evolutionary: keep `AccountStore` / `AccountService` / exi
 
 1. One-command **account switch** (existing, refined under `account` noun).
 2. One-command **runtime apply** to a client from a named profile.
-3. One-command **client reset** of hotplug-managed settings.
+3. One-command **client reset** of anypick-managed settings.
 4. CRUD for **Runtime Profiles** (create, edit, delete, rename, duplicate, list).
 5. **Model mapping** and **client-specific overlays** on profiles.
 6. **Proxy** enable/disable/start/stop/status with auto-start on account or profile activation when enabled.
 7. Plugin architecture: new provider / client / auth / proxy = new adapter only.
 8. Excellent DX: interactive + non-interactive, colors, dry-run, verbose, doctor, completion.
-9. Backward-compatible migration of `~/.hotplug` account data.
+9. Backward-compatible migration of `~/.anypick` account data.
 10. Cross-platform: macOS, Linux, Windows; Node ≥ 20; pnpm; TypeScript.
 
 ### Non-Goals
@@ -91,19 +91,19 @@ The migration path is evolutionary: keep `AccountStore` / `AccountService` / exi
 
 | # | Decision | Choice | Rationale |
 |---|----------|--------|-----------|
-| K1 | Package / binary name | **Keep `hotplug`** | Short, already linked in PATH, data root `~/.hotplug` and `HOTPLUG_HOME` established; rename cost (muscle memory, docs, exports) outweighs branding. Description expands; keywords add `runtime`, `profiles`. |
+| K1 | Package / binary name | **Keep `anypick`** | Short, already linked in PATH, data root `~/.anypick` and `ANYPICK_HOME` established; rename cost (muscle memory, docs, exports) outweighs branding. Description expands; keywords add `runtime`, `profiles`. |
 | K2 | CLI framework | **Keep `commander`** | Already integrated (`buildProgram` in `commands.ts`), handles nested subcommands, version, global options. oclif is heavier; yargs/citty offer no clear win for this surface. Keep `@clack/prompts` for interactive, `picocolors` for output. |
-| K3 | Evolution vs rewrite | **Evolve in place** | Core store/service/providers/tests are solid. Greenfield would reintroduce bugs and break `~/.hotplug` users. Extract interfaces; add modules; deprecate flat commands. |
+| K3 | Evolution vs rewrite | **Evolve in place** | Core store/service/providers/tests are solid. Greenfield would reintroduce bugs and break `~/.anypick` users. Extract interfaces; add modules; deprecate flat commands. |
 | K4 | Adapter split | **Four adapter kinds** + composition | `AuthStrategy` (file snapshot), `ProxyAdapter` (lifecycle), `ProviderAdapter` (catalog + optional default auth/proxy refs), `ClientAdapter` (apply/reset runtime). Existing `Provider` class becomes a **facade** composing Auth + optional Proxy for migration. |
 | K5 | Accounts vs profiles | **Orthogonal, not exclusive** | Accounts restore *native tool auth*. Profiles apply *API runtime config* to *clients*. A machine may have both active. Per-client state records *how* that client is currently configured (`mode: account \| profile \| none`). Account switch does not wipe unrelated client runtime files; runtime apply does not delete account snapshots. |
 | K6 | Mutual interference | **Client-scoped apply** | `runtime use <profile> --client X` only mutates client X. Optional `--all-clients` later. Account `use` only mutates that auth provider's live files (+ proxy). Explicit `runtime reset` undoes client config. |
-| K7 | Secrets storage | **Separate secrets files, mode 0600** | Profiles: `~/.hotplug/profiles/<name>/secrets.json` (apiKey, header values). Meta + non-secret config in `profile.json`. Never log secrets; redacted in `--json` unless `--reveal`. No DB. Optional future OS keychain backend behind same interface. |
+| K7 | Secrets storage | **Separate secrets files, mode 0600** | Profiles: `~/.anypick/profiles/<name>/secrets.json` (apiKey, header values). Meta + non-secret config in `profile.json`. Never log secrets; redacted in `--json` unless `--reveal`. No DB. Optional future OS keychain backend behind same interface. |
 | K8 | Client overlay model | **Profile base + clientOverrides** | Profile holds provider, endpoint, key, models, headers. `clientOverrides.claude` may set `defaultModel`, `sonnetModel`, etc. Client adapter merges base → overrides → writes tool-specific targets. |
-| K9 | Command taxonomy | **Noun groups + aliases** | `account *`, `profile *`, `runtime *`, `proxy *`, `doctor`, `completion`. Keep `hotplug use codex work` as alias → `account use` for one major version. |
-| K10 | Plugin loading | **Builtin register + optional external entry** | v1: `registerBuiltin*()` like today. v1.1: load `~/.hotplug/plugins/*.js` or `package.json` `"hotplugPlugin"` — discoverable, no core edits for third-party. |
+| K9 | Command taxonomy | **Noun groups + aliases** | `account *`, `profile *`, `runtime *`, `proxy *`, `doctor`, `completion`. Keep `anypick use codex work` as alias → `account use` for one major version. |
+| K10 | Plugin loading | **Builtin register + optional external entry** | v1: `registerBuiltin*()` like today. v1.1: load `~/.anypick/plugins/*.js` or `package.json` `"anypickPlugin"` — discoverable, no core edits for third-party. |
 | K11 | Dry-run | **Global `--dry-run`** | Services return a `Plan` of filesystem ops; executor applies or prints. |
-| K12 | Shell completion | **commander completion + static script** | Ship `hotplug completion bash\|zsh\|fish` generating scripts; dynamic account/profile names via `hotplug __complete` helper when practical. |
-| K13 | Config schema version | **Root `~/.hotplug/config.json` with `schemaVersion`** | Enables migrations; v0 data (no config.json) treated as schema 1 accounts-only. |
+| K12 | Shell completion | **commander completion + static script** | Ship `anypick completion bash\|zsh\|fish` generating scripts; dynamic account/profile names via `anypick __complete` helper when practical. |
+| K13 | Config schema version | **Root `~/.anypick/config.json` with `schemaVersion`** | Enables migrations; v0 data (no config.json) treated as schema 1 accounts-only. |
 | K14 | Proxy attachment | **Attachable to Account and/or Profile** | Account proxy stays as today (`proxy.json` under account). Profiles may reference a `proxy` block for gateway cases that need a local shim. ProxyAdapter registry keyed by proxy id (e.g. `grok-openai`, `kirolink`). |
 
 ---
@@ -115,7 +115,7 @@ The migration path is evolutionary: keep `AccountStore` / `AccountService` / exi
 ```
 ┌──────────────────────────────────────────────────────────────────────────┐
 │  CLI  (commander + @clack + picocolors)                                  │
-│  hotplug [account|profile|runtime|proxy|doctor|completion|…]              │
+│  anypick [account|profile|runtime|proxy|doctor|completion|…]              │
 │  global: --json --verbose --dry-run --reveal                             │
 └────────────────────────────────┬─────────────────────────────────────────┘
                                  │
@@ -173,7 +173,7 @@ The migration path is evolutionary: keep `AccountStore` / `AccountService` / exi
 ```mermaid
 flowchart TB
   subgraph user [User]
-    CLI[hotplug CLI]
+    CLI[anypick CLI]
   end
 
   subgraph modes [Operating modes]
@@ -202,8 +202,8 @@ flowchart TB
 #### Repository (target)
 
 ```
-hotplug/
-├── package.json                 # name: hotplug, bin: hotplug
+anypick/
+├── package.json                 # name: anypick, bin: anypick
 ├── tsconfig.json
 ├── vite.config.ts                 # Vite Node/SSR build + Vitest configuration
 ├── DESIGN.md                    # keep; point to this RFC when merged
@@ -301,10 +301,10 @@ hotplug/
 | `src/providers/*` | Auth + Proxy adapters; temporary facades keep old tests green |
 | `src/cli/commands.ts` | `src/cli/program.ts` + `commands/*` |
 
-#### Runtime data layout (`~/.hotplug` / `$HOTPLUG_HOME`)
+#### Runtime data layout (`~/.anypick` / `$ANYPICK_HOME`)
 
 ```
-~/.hotplug/
+~/.anypick/
 ├── config.json                    # NEW: schemaVersion, defaults, ui prefs
 ├── providers/                     # UNCHANGED layout for accounts
 │   └── <authProviderId>/          # codex | grok | kiro | …
@@ -481,7 +481,7 @@ export interface ClientAdapter {
 
   /**
    * Validate profile (+ overrides) before write.
-   * Throw HotplugError with code CLIENT_CONFIG_INVALID.
+   * Throw AnyPickError with code CLIENT_CONFIG_INVALID.
    */
   validate(ctx: ApplyContext): Promise<void>;
 
@@ -492,7 +492,7 @@ export interface ClientAdapter {
   planApply(ctx: ApplyContext): Promise<FsOp[]>;
 
   /**
-   * Build plan to remove hotplug-managed config and restore backups if present.
+   * Build plan to remove anypick-managed config and restore backups if present.
    * Preserve user settings outside managedPaths / managed markers.
    */
   planReset(state: ClientState): Promise<FsOp[]>;
@@ -639,24 +639,24 @@ The **adapter owns** whether it writes:
 - a small env file that the user sources, and/or
 - documented export instructions when the tool only supports shell env.
 
-v1 preference: **write the client's native config files** when paths are well-known; fall back to `~/.hotplug/clients/<id>/env.sh` (and `.ps1` on Windows) plus a printed `source` hint. Exact Claude/Codex paths are finalized during implementation against current tool docs (Open Question if formats churn).
+v1 preference: **write the client's native config files** when paths are well-known; fall back to `~/.anypick/clients/<id>/env.sh` (and `.ps1` on Windows) plus a printed `source` hint. Exact Claude/Codex paths are finalized during implementation against current tool docs (Open Question if formats churn).
 
 #### Managed-region markers
 
 To reset safely without destroying user edits:
 
 ```toml
-# codex config.toml — hotplug-managed block
-# >>> hotplug:managed
+# codex config.toml — anypick-managed block
+# >>> anypick:managed
 model = "…"
-# <<< hotplug:managed
+# <<< anypick:managed
 ```
 
 Or JSON:
 
 ```json
 {
-  "_hotplugManaged": {
+  "_anypickManaged": {
     "keys": ["env.ANTHROPIC_API_KEY", "model"]
   }
 }
@@ -677,55 +677,55 @@ Client adapters use markers or `ClientState.managedPaths` + file backups. Prefer
 | `--dry-run` | Print plan; no writes, no process start |
 | `--reveal` | Allow secrets in output (dangerous; for export debugging) |
 | `--version` / `-V` | Version |
-| `HOTPLUG_HOME` | Data root override |
+| `ANYPICK_HOME` | Data root override |
 
 #### Command tree
 
 ```
-hotplug                          Interactive hub (extended menu)
-hotplug doctor                   Health checks
-hotplug completion <shell>       bash | zsh | fish
+anypick                          Interactive hub (extended menu)
+anypick doctor                   Health checks
+anypick completion <shell>       bash | zsh | fish
 
-hotplug account list [provider]
-hotplug account current <provider>
-hotplug account backup <provider> <name>     # was: save
-hotplug account switch <provider> <name>     # was: use
-hotplug account delete <provider> <name>
-hotplug account rename <provider> <old> <new>
-hotplug account export|import …
+anypick account list [provider]
+anypick account current <provider>
+anypick account backup <provider> <name>     # was: save
+anypick account switch <provider> <name>     # was: use
+anypick account delete <provider> <name>
+anypick account rename <provider> <old> <new>
+anypick account export|import …
 
-hotplug profile list
-hotplug profile show <name>
-hotplug profile create <name> [options]
-hotplug profile edit <name> [options]
-hotplug profile delete <name>
-hotplug profile rename <old> <new>
-hotplug profile duplicate <name> <newName>
+anypick profile list
+anypick profile show <name>
+anypick profile create <name> [options]
+anypick profile edit <name> [options]
+anypick profile delete <name>
+anypick profile rename <old> <new>
+anypick profile duplicate <name> <newName>
 
-hotplug runtime use <profile> --client <id> [--no-proxy]
-hotplug runtime reset --client <id>
-hotplug runtime status [--client <id>]
-hotplug runtime which --client <id>
+anypick runtime use <profile> --client <id> [--no-proxy]
+anypick runtime reset --client <id>
+anypick runtime status [--client <id>]
+anypick runtime which --client <id>
 
-hotplug proxy enable …   # account-scoped (existing) OR --profile <name>
-hotplug proxy disable …
-hotplug proxy start|stop|status|logs …
+anypick proxy enable …   # account-scoped (existing) OR --profile <name>
+anypick proxy disable …
+anypick proxy start|stop|status|logs …
 
-hotplug providers                 Catalog (API providers + auth providers)
-hotplug clients                   List client adapters
+anypick providers                 Catalog (API providers + auth providers)
+anypick clients                   List client adapters
 ```
 
 #### Backward-compatible aliases (v1)
 
 | Legacy | Maps to |
 |--------|---------|
-| `hotplug save …` | `account backup …` |
-| `hotplug use <provider> <name>` | `account switch …` |
-| `hotplug list` | `account list` |
-| `hotplug current` | `account current` |
-| `hotplug delete` | `account delete` |
-| `hotplug export/import` | `account export/import` |
-| `hotplug providers` | list both catalog + auth facades (annotated) |
+| `anypick save …` | `account backup …` |
+| `anypick use <provider> <name>` | `account switch …` |
+| `anypick list` | `account list` |
+| `anypick current` | `account current` |
+| `anypick delete` | `account delete` |
+| `anypick export/import` | `account export/import` |
+| `anypick providers` | list both catalog + auth facades (annotated) |
 
 Deprecation: warn once per invocation when using legacy flat commands; remove aliases in next major after notice.
 
@@ -734,11 +734,11 @@ Deprecation: warn once per invocation when using legacy flat commands; remove al
 ```bash
 # ── Accounts (unchanged mental model) ──
 # Log into Codex as work, then:
-hotplug account backup codex work
-hotplug account switch codex personal
+anypick account backup codex work
+anypick account switch codex personal
 
 # ── Runtime profiles ──
-hotplug profile create openrouter-work \
+anypick profile create openrouter-work \
   --provider openrouter \
   --endpoint https://openrouter.ai/api/v1 \
   --api-key "$OPENROUTER_API_KEY" \
@@ -751,11 +751,11 @@ hotplug profile create openrouter-work \
   --client-override claude.opusModel=claude-opus \
   --client-override claude.haikuModel=claude-haiku
 
-hotplug runtime use openrouter-work --client claude
-hotplug runtime use openrouter-work --client codex
+anypick runtime use openrouter-work --client claude
+anypick runtime use openrouter-work --client codex
 
-hotplug runtime reset --client claude
-hotplug doctor
+anypick runtime reset --client claude
+anypick doctor
 ```
 
 Interactive create: `@clack` prompts for provider → endpoint default → api key (password) → models → optional client overrides.
@@ -766,7 +766,7 @@ Interactive create: `@clack` prompts for provider → endpoint default → api k
 |--------|-------------|
 | `--provider <id>` | Required on create |
 | `--endpoint <url>` | Base URL |
-| `--api-key <key>` | Stored in secrets.json (prefer env `HOTPLUG_API_KEY` to avoid shell history) |
+| `--api-key <key>` | Stored in secrets.json (prefer env `ANYPICK_API_KEY` to avoid shell history) |
 | `--header <Name:Value>` | Repeatable; sensitive values → secrets |
 | `--map <alias=target>` | Model map entry |
 | `--model-default <id-or-alias>` | Default model |
@@ -778,7 +778,7 @@ Interactive create: `@clack` prompts for provider → endpoint default → api k
 
 ### 6. Configuration file format
 
-#### `~/.hotplug/config.json`
+#### `~/.anypick/config.json`
 
 ```json
 {
@@ -799,8 +799,8 @@ Interactive create: `@clack` prompts for provider → endpoint default → api k
 {
   "name": "work",
   "provider": "codex",
-  "createdAt": "2026-07-15T10:00:00.000Z",
-  "updatedAt": "2026-07-15T12:00:00.000Z",
+  "createdAt": "2026-08-08T10:00:00.000Z",
+  "updatedAt": "2026-08-08T12:00:00.000Z",
   "label": "Work",
   "identity": "you@company.com",
   "notes": "optional"
@@ -824,8 +824,8 @@ Interactive create: `@clack` prompts for provider → endpoint default → api k
 {
   "name": "openrouter-work",
   "provider": "openrouter",
-  "createdAt": "2026-07-15T10:00:00.000Z",
-  "updatedAt": "2026-07-15T10:00:00.000Z",
+  "createdAt": "2026-08-08T10:00:00.000Z",
+  "updatedAt": "2026-08-08T10:00:00.000Z",
   "label": "OpenRouter Work",
   "endpoint": "https://openrouter.ai/api/v1",
   "headerNames": ["HTTP-Referer", "X-Title"],
@@ -860,7 +860,7 @@ Interactive create: `@clack` prompts for provider → endpoint default → api k
   "apiKey": "sk-or-…",
   "headers": {
     "HTTP-Referer": "https://…",
-    "X-Title": "hotplug"
+    "X-Title": "anypick"
   }
 }
 ```
@@ -872,7 +872,7 @@ Interactive create: `@clack` prompts for provider → endpoint default → api k
   "clientId": "claude",
   "mode": "profile",
   "profileName": "openrouter-work",
-  "updatedAt": "2026-07-15T11:00:00.000Z",
+  "updatedAt": "2026-08-08T11:00:00.000Z",
   "managedPaths": [
     "/Users/me/.claude/settings.json"
   ],
@@ -887,8 +887,8 @@ Interactive create: `@clack` prompts for provider → endpoint default → api k
 
 | Kind | File |
 |------|------|
-| Account (existing) | `{ version, kind: "hotplug-account", meta, proxy, files }` |
-| Profile (new) | `{ version: 1, kind: "hotplug-profile", meta, secrets? }` — secrets optional with `--include-secrets` |
+| Account (existing) | `{ version, kind: "anypick-account", meta, proxy, files }` |
+| Profile (new) | `{ version: 1, kind: "anypick-profile", meta, secrets? }` — secrets optional with `--include-secrets` |
 
 ---
 
@@ -996,7 +996,7 @@ flowchart LR
 - Secrets isolated from metadata.
 - Atomic writes (`writeJsonFile` already uses temp + rename in `src/utils/fs.ts`).
 - Restrictive modes: secrets `0600`, meta `0644` where OS allows (Windows best-effort).
-- `HOTPLUG_HOME` for tests and portable installs.
+- `ANYPICK_HOME` for tests and portable installs.
 
 #### Size / load estimates
 
@@ -1024,7 +1024,7 @@ globalConfigPath(root)
 
 Account path helpers **remain binary-compatible**.
 
-#### Migration algorithm (`hotplug doctor` or first command)
+#### Migration algorithm (`anypick doctor` or first command)
 
 1. If `config.json` missing and `providers/` exists → write `schemaVersion: 2`, no account moves.
 2. If unknown future `schemaVersion` → hard error with upgrade message.
@@ -1038,7 +1038,7 @@ Account path helpers **remain binary-compatible**.
 | `**/snapshot/**` | `0600` |
 | export with secrets | `0600` |
 | `meta.json` / `profile.json` / `state.json` | `0644` |
-| `~/.hotplug` directory | `0700` recommended (enforce on create) |
+| `~/.anypick` directory | `0700` recommended (enforce on create) |
 
 ---
 
@@ -1065,10 +1065,10 @@ Builtin registration mirrors `registerBuiltinProviders` in `src/providers/index.
 
 #### v1.1 external plugins (designed now, implement later)
 
-1. Scan `~/.hotplug/plugins/*.js` (ESM).
+1. Scan `~/.anypick/plugins/*.js` (ESM).
 2. Each exports `export default function register(regs: Registries): void`.
 3. Failures: warn and skip (don't crash CLI) unless `--verbose`.
-4. Optional: npm packages with `"hotplugPlugin": true"` listed in `config.json` `plugins: ["@acme/hotplug-foo"]`.
+4. Optional: npm packages with `"anypickPlugin": true"` listed in `config.json` `plugins: ["@acme/anypick-foo"]`.
 
 **Constraints for plugins**
 
@@ -1087,10 +1087,10 @@ Builtin registration mirrors `registerBuiltinProviders` in `src/providers/index.
 
 ### 10. Error handling strategy
 
-Extend `HotplugError` (`src/utils/errors.ts`):
+Extend `AnyPickError` (`src/utils/errors.ts`):
 
 ```ts
-export class HotplugError extends Error {
+export class AnyPickError extends Error {
   constructor(
     message: string,
     readonly code?: string,
@@ -1141,7 +1141,7 @@ Keep **vitest** + temp dirs pattern from `tests/helpers.ts`.
 | Unit | slug, redaction, plan executor | pure tests |
 | Auth adapters | backup/restore | temp home dirs (like `providers.test.ts`) |
 | Proxy adapters | start/stop | Fake HTTP server (like `FakeProvider`) |
-| ProfileStore | CRUD, secrets mode | temp `HOTPLUG_HOME` |
+| ProfileStore | CRUD, secrets mode | temp `ANYPICK_HOME` |
 | RuntimeService | apply/reset/idempotent re-apply | Fake `ClientAdapter` recording plans |
 | Client adapters | plan contents | golden expected ops; optional fixture files |
 | AccountService | regression | existing `service.test.ts` must stay green |
@@ -1200,7 +1200,7 @@ Ordered for incremental mergeability (see also **PR Plan**).
 
 ### Library exports (`src/index.ts`)
 
-**Keep:** `AccountStore`, `AccountService`, `ProviderRegistry`, `registerBuiltinProviders`, provider classes, `HotplugError`, `getHotplugRoot`, types for accounts/proxy.
+**Keep:** `AccountStore`, `AccountService`, `ProviderRegistry`, `registerBuiltinProviders`, provider classes, `AnyPickError`, `getAnyPickRoot`, types for accounts/proxy.
 
 **Add:** `ProfileStore`, `ProfileService`, `RuntimeService`, `ProxyService`, `DoctorService`, adapter types, `registerBuiltins`, client/profile types.
 
@@ -1239,7 +1239,7 @@ Migration: automatic, non-destructive (K13).
 | Pros | Cons |
 |------|------|
 | Clean module boundaries from day one | Reimplements working account/proxy code |
-| Fresh UX without aliases | Breaks existing users and `~/.hotplug` |
+| Fresh UX without aliases | Breaks existing users and `~/.anypick` |
 | | Higher risk before any runtime feature ships |
 
 **Rejected** in favor of evolutionary path (K3, K1).
@@ -1280,7 +1280,7 @@ One entity with optional fields for files *or* API keys.
 | Pros | Cons |
 |------|------|
 | Better secret hygiene | Cross-platform complexity (Keychain/dpapi/libsecret) |
-| | Harder testing and portable `HOTPLUG_HOME` |
+| | Harder testing and portable `ANYPICK_HOME` |
 
 **Deferred** — design secrets behind interface `SecretStore` with `FileSecretStore` default; keychain as future adapter (Open Question).
 
@@ -1290,16 +1290,16 @@ One entity with optional fields for files *or* API keys.
 
 | Threat | Severity | Mitigation |
 |--------|----------|------------|
-| Secrets in shell history | Medium | Prefer `HOTPLUG_API_KEY` env / interactive password prompt; document risk of `--api-key` |
+| Secrets in shell history | Medium | Prefer `ANYPICK_API_KEY` env / interactive password prompt; document risk of `--api-key` |
 | Secrets in logs / `--json` | High | Redaction by default; `--reveal` opt-in |
-| World-readable `~/.hotplug` | High | `0700` on root; `0600` secrets/snapshots |
+| World-readable `~/.anypick` | High | `0700` on root; `0600` secrets/snapshots |
 | Export files left in Downloads | Medium | mode `0600`; warn in help |
 | Path traversal in profile names | Medium | Reuse `normalizeAccountName` slug rules for profile/client names |
 | Proxy binds non-localhost | Medium | Default `127.0.0.1`; warn if host is `0.0.0.0` |
 | Malicious plugin (future) | High | v1 builtins only; later: no auto-download, user-installed only |
 | SSRF via endpoint in proxy | Low | Proxies already provider-owned; don't generic-fetch user URLs in core |
 
-**AuthN/AuthZ:** Local user trust model only — whoever can read `~/.hotplug` can use all credentials. No multi-user daemon.
+**AuthN/AuthZ:** Local user trust model only — whoever can read `~/.anypick` can use all credentials. No multi-user daemon.
 
 **Privacy:** Identity fields remain best-effort display (JWT email claims, etc.), never verified — same as today.
 
@@ -1353,7 +1353,7 @@ Doctor check categories:
 4. **Profile-level proxy that depends on account tokens** (Grok) — require explicit `account use` first, or allow profile to reference `authProvider + accountName` for token path?
 5. **Should `runtime use` without `--client`** use `config.defaultClient` or require explicit client?
 6. **Multi-client apply** — ship `--all-clients` in first runtime PR or wait?
-7. **Rename binary** — confirm stakeholders accept keeping `hotplug` (recommended).
+7. **Rename binary** — confirm stakeholders accept keeping `anypick` (recommended).
 8. **Windows env application** — write `.ps1` companion for `env.sh`, or document `$env:` manually?
 9. **Header secret detection** — treat all header values as secret, or only known names (`Authorization`)?
 10. **External plugin timeline** — implement loader in same major or strictly later?
@@ -1362,16 +1362,16 @@ Doctor check categories:
 
 ## References
 
-- Existing design: [`/Users/erik/workspace/lab/js/hotplug/DESIGN.md`](/Users/erik/workspace/lab/js/hotplug/DESIGN.md)
-- Package: [`package.json`](/Users/erik/workspace/lab/js/hotplug/package.json) — commander ^13, @clack/prompts, picocolors, vitest, pnpm, Node ≥ 20
-- Types: [`src/types.ts`](/Users/erik/workspace/lab/js/hotplug/src/types.ts)
-- Service: [`src/core/service.ts`](/Users/erik/workspace/lab/js/hotplug/src/core/service.ts)
-- Store: [`src/core/store.ts`](/Users/erik/workspace/lab/js/hotplug/src/core/store.ts)
-- Registry: [`src/core/registry.ts`](/Users/erik/workspace/lab/js/hotplug/src/core/registry.ts)
-- Paths: [`src/core/paths.ts`](/Users/erik/workspace/lab/js/hotplug/src/core/paths.ts)
-- Providers: [`src/providers/codex.ts`](/Users/erik/workspace/lab/js/hotplug/src/providers/codex.ts), [`grok.ts`](/Users/erik/workspace/lab/js/hotplug/src/providers/grok.ts), [`kiro.ts`](/Users/erik/workspace/lab/js/hotplug/src/providers/kiro.ts), [`proxy-process.ts`](/Users/erik/workspace/lab/js/hotplug/src/providers/proxy-process.ts)
-- CLI: [`src/cli/commands.ts`](/Users/erik/workspace/lab/js/hotplug/src/cli/commands.ts), [`interactive.ts`](/Users/erik/workspace/lab/js/hotplug/src/cli/interactive.ts)
-- Tests: [`tests/service.test.ts`](/Users/erik/workspace/lab/js/hotplug/tests/service.test.ts), [`tests/helpers.ts`](/Users/erik/workspace/lab/js/hotplug/tests/helpers.ts), [`tests/providers.test.ts`](/Users/erik/workspace/lab/js/hotplug/tests/providers.test.ts)
+- Existing design: [`/Users/erik/workspace/lab/js/anypick/DESIGN.md`](/Users/erik/workspace/lab/js/anypick/DESIGN.md)
+- Package: [`package.json`](/Users/erik/workspace/lab/js/anypick/package.json) — commander ^13, @clack/prompts, picocolors, vitest, pnpm, Node ≥ 20
+- Types: [`src/types.ts`](/Users/erik/workspace/lab/js/anypick/src/types.ts)
+- Service: [`src/core/service.ts`](/Users/erik/workspace/lab/js/anypick/src/core/service.ts)
+- Store: [`src/core/store.ts`](/Users/erik/workspace/lab/js/anypick/src/core/store.ts)
+- Registry: [`src/core/registry.ts`](/Users/erik/workspace/lab/js/anypick/src/core/registry.ts)
+- Paths: [`src/core/paths.ts`](/Users/erik/workspace/lab/js/anypick/src/core/paths.ts)
+- Providers: [`src/providers/codex.ts`](/Users/erik/workspace/lab/js/anypick/src/providers/codex.ts), [`grok.ts`](/Users/erik/workspace/lab/js/anypick/src/providers/grok.ts), [`kiro.ts`](/Users/erik/workspace/lab/js/anypick/src/providers/kiro.ts), [`proxy-process.ts`](/Users/erik/workspace/lab/js/anypick/src/providers/proxy-process.ts)
+- CLI: [`src/cli/commands.ts`](/Users/erik/workspace/lab/js/anypick/src/cli/commands.ts), [`interactive.ts`](/Users/erik/workspace/lab/js/anypick/src/cli/interactive.ts)
+- Tests: [`tests/service.test.ts`](/Users/erik/workspace/lab/js/anypick/tests/service.test.ts), [`tests/helpers.ts`](/Users/erik/workspace/lab/js/anypick/tests/helpers.ts), [`tests/providers.test.ts`](/Users/erik/workspace/lab/js/anypick/tests/providers.test.ts)
 
 ---
 
@@ -1416,7 +1416,7 @@ Incremental, independently reviewable PRs. Each should leave `pnpm test` / `pnpm
 ### PR 4 — Provider catalog (API providers)
 
 - **Title:** `feat: add ProviderAdapter catalog for API gateways and natives`
-- **Files/components:** `src/adapters/providers/catalog.ts`, `src/core/registry/providers.ts` (catalog vs legacy), CLI `hotplug providers` output sections, tests
+- **Files/components:** `src/adapters/providers/catalog.ts`, `src/core/registry/providers.ts` (catalog vs legacy), CLI `anypick providers` output sections, tests
 - **Dependencies:** PR 3
 - **Description:** Register openai, anthropic, grok, openrouter, litellm, local with defaults. No profiles yet.
 
@@ -1471,7 +1471,7 @@ Incremental, independently reviewable PRs. Each should leave `pnpm test` / `pnpm
 
 ### PR 12 — Doctor command
 
-- **Title:** `feat: hotplug doctor health checks`
+- **Title:** `feat: anypick doctor health checks`
 - **Files/components:** `src/core/service/doctor.ts`, `src/cli/commands/doctor.ts`, tests for synthetic failures
 - **Dependencies:** PR 7 (state), PR 5 (profiles), PR 2 (proxy)
 - **Description:** Schema, permissions, accounts, profiles, clients, proxies, binary presence. JSON output supported.
@@ -1492,7 +1492,7 @@ Incremental, independently reviewable PRs. Each should leave `pnpm test` / `pnpm
 
 ### PR 15 (optional) — External plugin loader
 
-- **Title:** `feat: load external hotplug plugins from ~/.hotplug/plugins`
+- **Title:** `feat: load external anypick plugins from ~/.anypick/plugins`
 - **Files/components:** `src/core/plugins.ts`, config flag, tests with temp plugin module
 - **Dependencies:** PR 3 (registries stable)
 - **Description:** Opt-in ESM plugin registration without core edits.
@@ -1507,11 +1507,11 @@ Incremental, independently reviewable PRs. Each should leave `pnpm test` / `pnpm
 | New AI client | Only new `ClientAdapter` + register |
 | New auth mechanism | Only new `AuthStrategy` + register |
 | New proxy | Only new `ProxyAdapter` + register |
-| Account switch one command | `hotplug account switch codex work` (or legacy `use`) |
-| Runtime apply one command | `hotplug runtime use <profile> --client claude` |
-| Reset one command | `hotplug runtime reset --client claude` |
+| Account switch one command | `anypick account switch codex work` (or legacy `use`) |
+| Runtime apply one command | `anypick runtime use <profile> --client claude` |
+| Reset one command | `anypick runtime reset --client claude` |
 | Isolation | No core imports of client/provider-specific paths except adapter packages |
-| Existing data | Pre-upgrade `~/.hotplug/providers/**` works without manual migration |
+| Existing data | Pre-upgrade `~/.anypick/providers/**` works without manual migration |
 | Understandability | New engineer can add OpenRouter client mapping by reading one adapter file |
 
 ---

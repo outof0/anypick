@@ -14,7 +14,7 @@ import {
   stopPidFile,
   waitForHttp,
 } from '../utils/process';
-import { HotplugError } from '../utils/errors';
+import { AnyPickError } from '../utils/errors';
 import { assertLoopbackHost } from '../utils/network';
 
 export interface ExternalProxyOptions {
@@ -32,7 +32,14 @@ export interface ExternalProxyOptions {
   compatibility: string;
   /** Optional env overrides. */
   env?: (ctx: ProxyContext) => NodeJS.ProcessEnv;
-  /** How long to wait for the HTTP listener (ms). */
+  /**
+   * How long to wait for the HTTP listener (ms).
+   *
+   * Generous by default: `waitForHttp` gives up as soon as `requirePid` dies, so
+   * a real failure still reports immediately and this budget only covers a
+   * process that is starting slowly. Too small a value turns a loaded machine
+   * into a spurious PROXY_START_FAILED after the child has already been killed.
+   */
   readyTimeoutMs?: number;
   /** Friendly name for error messages. */
   label: string;
@@ -56,7 +63,7 @@ export async function startExternalProxy(
 
   const bin = await resolveBinary(opts.binaries, opts.extraPaths ?? []);
   if (!bin) {
-    throw new HotplugError(
+    throw new AnyPickError(
       `${opts.label} proxy binary not found (looked for: ${opts.binaries.join(', ')}). Install it and ensure it is on PATH.`,
       'PROXY_BINARY_MISSING',
     );
@@ -79,7 +86,7 @@ export async function startExternalProxy(
   });
 
   const ready = await waitForHttp(endpoint, {
-    timeoutMs: opts.readyTimeoutMs ?? 4000,
+    timeoutMs: opts.readyTimeoutMs ?? 15_000,
     requirePid: pid,
   });
 
@@ -95,7 +102,7 @@ export async function startExternalProxy(
       ? 'it is still running but never answered the readiness probe'
       : 'it exited immediately';
     const detail = log ? `\n${log}` : '\n(no output was written to the log)';
-    throw new HotplugError(
+    throw new AnyPickError(
       `${opts.label} proxy failed to start on ${host}:${port} — ${cause}.\n` +
         `Ran: ${bin} ${args.join(' ')}${detail}`,
       {
@@ -153,7 +160,7 @@ async function stopFreshSpawn(pid: number): Promise<void> {
 }
 
 export async function stopExternalProxy(ctx: ProxyContext): Promise<void> {
-  // A third-party binary does not echo HOTPLUG_INSTANCE_ID, so ownership is
+  // A third-party binary does not echo ANYPICK_INSTANCE_ID, so ownership is
   // proved from the process start time instead (see StopPidFileOptions).
   await stopPidFile(pidPath(ctx), { expectInstanceId: false });
 }

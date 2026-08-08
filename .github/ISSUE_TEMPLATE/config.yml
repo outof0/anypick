@@ -1,5 +1,5 @@
 blank_issues_enabled: true
 contact_links:
   - name: Security vulnerability
-    url: https://github.com/hotplug-dev/hotplug/security/advisories/new
+    url: https://github.com/outof0/anypick/security/advisories/new
     about: Report credential exposure, proxy auth bypass, or unsafe account switching privately. Do not open a public issue.

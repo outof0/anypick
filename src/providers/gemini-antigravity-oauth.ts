@@ -19,6 +19,13 @@
 import { execFile } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 import { promisify } from 'node:util';
+import {
+  antigravityStateCredentialExists,
+  assertAntigravityStateSafeToMutate,
+  deleteAntigravityStateOAuthPayload,
+  readAntigravityStateOAuthPayload,
+  writeAntigravityStateOAuthPayload,
+} from './gemini-antigravity-state';
 
 const execFileAsync = promisify(execFile);
 
@@ -135,8 +142,15 @@ async function readFromKeychain(): Promise<string> {
 export async function loadAntigravityOAuthCredentials(
   credentialFile?: string,
 ): Promise<GeminiOAuthCredentials | null> {
-  const raw = credentialFile ? await readFile(credentialFile, 'utf8') : await readFromKeychain();
-  return parseAntigravityOAuthCredential(raw);
+  if (credentialFile) {
+    // Portable proxy credentials may deliberately contain only a still-valid
+    // access token. Restore snapshots are stricter because they must carry a
+    // durable refresh token, but the proxy loader remains backward-compatible
+    // with this flat access-token-only shape.
+    return parseAntigravityOAuthCredential(await readFile(credentialFile, 'utf8'));
+  }
+  const payload = await readAntigravityOAuthPayload(credentialFile);
+  return payload ? fromKeyringPayload(payload) : null;
 }
 
 /**
@@ -149,6 +163,20 @@ export async function loadAntigravityOAuthCredentials(
 export async function readAntigravityOAuthPayload(
   credentialFile?: string,
 ): Promise<AntigravityKeyringPayload | null> {
+  if (!credentialFile) {
+    // The unified state is what a running/current Antigravity IDE actually
+    // uses. Prefer it over the keyring mirror, which can lag behind or vanish
+    // while the IDE still has a valid durable login.
+    try {
+      const state = await readAntigravityStateOAuthPayload();
+      if (state) {
+        return state;
+      }
+    } catch {
+      // A different Antigravity generation may have an unfamiliar state
+      // envelope. Fall back to the long-standing go-keyring representation.
+    }
+  }
   const raw = credentialFile ? await readFile(credentialFile, 'utf8') : await readFromKeychain();
   const parsed = decodeStoreValue(raw);
   if (!parsed || typeof parsed !== 'object') {
@@ -167,17 +195,23 @@ export async function readAntigravityOAuthPayload(
 }
 
 /**
- * Older Hotplug snapshots kept only the durable refresh token. Antigravity's
- * desktop client expects a usable access token in its keychain item and does
- * not refresh that reduced shape during setup, so materialize one before a
- * restore. Newer whole payloads are returned unchanged.
+ * Materializes an access token before writing back to the OS credential store.
+ * Antigravity's desktop client does not refresh a token-less or expired keychain
+ * entry during setup, so we do it here. An access token without an expiry must
+ * also be refreshed: Antigravity's unified state treats a missing expiry as
+ * epoch zero and refuses to use it.
  */
 export async function hydrateAntigravityOAuthPayload(
   payload: AntigravityKeyringPayload,
   fetchImpl: FetchLike = fetch,
 ): Promise<AntigravityKeyringPayload> {
   if (payload.token?.access_token) {
-    return payload;
+    const expiry = payload.token.expiry;
+    // 60-second margin so the token won't expire mid-request.
+    const stillValid = expiry ? new Date(expiry).getTime() > Date.now() + 60_000 : false;
+    if (stillValid) {
+      return payload;
+    }
   }
   if (!payload.token?.refresh_token) {
     throw new Error('Cannot refresh an Antigravity credential with no refresh token.');
@@ -223,7 +257,7 @@ export async function hydrateAntigravityOAuthPayload(
 
 /**
  * Put a snapshotted Antigravity credential back into the OS credential store,
- * so Antigravity itself follows an account switch rather than only Hotplug's
+ * so Antigravity itself follows an account switch rather than only AnyPick's
  * proxy — the whole point of switching.
  *
  * Writes with an update flag wherever the platform offers one: updating in
@@ -237,6 +271,7 @@ export async function saveAntigravityOAuthCredential(
   if (!payload.token?.refresh_token) {
     throw new Error('Refusing to write an Antigravity credential with no refresh token.');
   }
+  const statePaths = await assertAntigravityStateSafeToMutate({ expectedPayload: payload });
   const json = JSON.stringify(payload);
 
   if (process.platform === 'darwin') {
@@ -249,19 +284,13 @@ export async function saveAntigravityOAuthCredential(
       ['-i'],
       `add-generic-password -U -s "${KEYRING_SERVICE}" -a "${KEYRING_ACCOUNT}" -X ${hex}\n`,
     );
-    return;
-  }
-
-  if (process.platform === 'linux') {
+  } else if (process.platform === 'linux') {
     await runWithStdin(
       'secret-tool',
       ['store', '--label=gemini', 'service', KEYRING_SERVICE, 'username', KEYRING_ACCOUNT],
       json,
     );
-    return;
-  }
-
-  if (process.platform === 'win32') {
+  } else if (process.platform === 'win32') {
     const target = `${KEYRING_SERVICE}:${KEYRING_ACCOUNT}`;
     const script = [
       "$ErrorActionPreference='Stop';",
@@ -288,12 +317,16 @@ export async function saveAntigravityOAuthCredential(
       '[Runtime.InteropServices.Marshal]::FreeHGlobal($p);',
     ].join('');
     await runWithStdin('powershell', ['-NoProfile', '-NonInteractive', '-Command', script], json);
-    return;
+  } else {
+    throw new Error(
+      `Writing the Antigravity OAuth credential is not supported on ${process.platform}.`,
+    );
   }
 
-  throw new Error(
-    `Writing the Antigravity OAuth credential is not supported on ${process.platform}.`,
-  );
+  // Keyring first, then the authoritative IDE state. The preflight above
+  // validates every state envelope and refuses a running owner before either
+  // store changes.
+  await writeAntigravityStateOAuthPayload(payload, { paths: statePaths });
 }
 
 /** Feed a secret to a helper over stdin rather than argv. */
@@ -320,6 +353,9 @@ function runWithStdin(command: string, args: string[], input: string): Promise<v
  * credential itself and the prompt is acceptable.
  */
 export async function antigravityCredentialExists(): Promise<boolean> {
+  if (await antigravityStateCredentialExists()) {
+    return true;
+  }
   try {
     if (process.platform === 'darwin') {
       await execFileAsync('/usr/bin/security', [
@@ -361,6 +397,8 @@ export async function antigravityCredentialExists(): Promise<boolean> {
  * a missing entry is the desired end state either way.
  */
 export async function deleteAntigravityOAuthCredential(): Promise<boolean> {
+  const statePaths = await assertAntigravityStateSafeToMutate({ expectedPayload: null });
+  let deleted = false;
   if (process.platform === 'darwin') {
     try {
       await execFileAsync('/usr/bin/security', [
@@ -370,13 +408,11 @@ export async function deleteAntigravityOAuthCredential(): Promise<boolean> {
         '-a',
         KEYRING_ACCOUNT,
       ]);
-      return true;
+      deleted = true;
     } catch {
-      return false;
+      // A missing mirror is fine; the unified state below remains authoritative.
     }
-  }
-
-  if (process.platform === 'linux') {
+  } else if (process.platform === 'linux') {
     try {
       await execFileAsync('secret-tool', [
         'clear',
@@ -385,22 +421,20 @@ export async function deleteAntigravityOAuthCredential(): Promise<boolean> {
         'username',
         KEYRING_ACCOUNT,
       ]);
-      return true;
+      deleted = true;
     } catch {
-      return false;
+      // A missing mirror is fine.
     }
-  }
-
-  if (process.platform === 'win32') {
+  } else if (process.platform === 'win32') {
     try {
       await execFileAsync('cmdkey', [`/delete:${KEYRING_SERVICE}:${KEYRING_ACCOUNT}`]);
-      return true;
+      deleted = true;
     } catch {
-      return false;
+      // A missing mirror is fine.
     }
   }
-
-  return false;
+  const stateChanges = await deleteAntigravityStateOAuthPayload({ paths: statePaths });
+  return deleted || stateChanges > 0;
 }
 
 /** Normalize a nested {token:{...}} payload down to a flat credential. */

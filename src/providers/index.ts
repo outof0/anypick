@@ -1,5 +1,6 @@
 import type { ProviderRegistry } from '../core/registry';
 import { codexProvider } from './codex';
+import { claudeProvider } from './claude';
 import { geminiProvider } from './gemini';
 import { grokProvider } from './grok';
 import { kiroProvider } from './kiro';
@@ -10,6 +11,7 @@ import { opencodeProvider } from './opencode';
  * To add a provider: implement Provider, import here, register().
  */
 export function registerBuiltinProviders(registry: ProviderRegistry): void {
+  registry.register(claudeProvider);
   registry.register(codexProvider);
   registry.register(geminiProvider);
   registry.register(grokProvider);
@@ -17,4 +19,11 @@ export function registerBuiltinProviders(registry: ProviderRegistry): void {
   registry.register(opencodeProvider);
 }
 
-export { codexProvider, geminiProvider, grokProvider, kiroProvider, opencodeProvider };
+export {
+  claudeProvider,
+  codexProvider,
+  geminiProvider,
+  grokProvider,
+  kiroProvider,
+  opencodeProvider,
+};

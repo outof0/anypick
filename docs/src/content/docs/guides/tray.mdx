@@ -1,0 +1,170 @@
+---
+title: Desktop Tray
+description: Menu-bar daily surface for app routes, proxies, quota, and the background supervisor.
+---
+
+The Tray is AnyPick's always-on surface: a menu-bar popover on macOS that can
+switch routes, show quota, and own local proxies without keeping a terminal open.
+It is the same activation path as `anypick use` and the Terminal UI — planned,
+journalled, rolled back on failure.
+
+```bash
+anypick tray          # open or start the desktop Tray (macOS)
+anypick tray start    # start the background supervisor
+anypick tray status
+anypick tray stop     # quit the supervisor and stop every AnyPick-owned proxy
+```
+
+Bare `anypick` can open the Tray when that is your saved default. The first
+interactive bare run on macOS asks whether future bare runs should open the
+**Menu bar Tray** or the **Terminal UI**. Change it later from the TUI
+`runtime / tray` screen (<kbd>t</kbd>, then <kbd>f</kbd>) or with
+`ANYPICK_UI=tui|tray` for one invocation.
+
+<Aside type="note" title="macOS is the full desktop surface">
+Choosing the Tray as the default bare surface, and `anypick tray` / `--tray` as
+an interactive open, requires macOS. On other platforms `anypick tray start`
+still runs the proxy supervisor — headless, or with a packaged Tauri helper when
+one is present — but there is no menu-bar default surface to pick.
+</Aside>
+
+## What you see
+
+### Menu-bar popover
+
+The compact panel is three tabs:
+
+| Tab | Contents |
+| --- | --- |
+| **Apps** | Claude Code and Codex route cards — active account, model, usage, quick Switch |
+| **Proxies** | Account proxies and Proxy Hub runtime controls |
+| **Logs** | Recent supervisor activity (full log streams open in the main window) |
+
+Each app row shows the **active account identity** (not only a short id), the
+current model, and — when the provider supports it — a **Usage · N%** meter
+for the login that is live on disk. AnyPick never opens a saved account just to
+measure quota.
+
+Route chips and the Switch control pick an alternate **source** — not a model.
+They appear when the app has **two or more** enabled sources. Switch groups into
+**Accounts** (native logins), **Proxies** (Proxy Hub first, then account/pool
+proxies such as Grok or OpenCode for Codex), and **Gateways**. Empty groups are
+hidden; opening Switch lands in the group that owns the live route. Bootstrap
+defaults are applied so the client can start; Claude and Codex still get the full
+catalog and can change models in their own pickers. Role overrides (Claude
+sonnet/opus/haiku) live under **Model Settings…** (from Switch, nested under
+**Apps** — not the global Settings sidebar), not in Switch.
+
+When routing needs a decision, the menu-bar icon shows a small attention badge
+and the popover footer links to the review screen.
+
+On first launch (no saved accounts yet) both the popover and the main **Apps**
+screen show a short checklist: save an account, use an installed client, pick a
+route, and optionally set up Proxy Hub. Dismiss with **Not Now** (or the ✕);
+finishing the three core steps dismisses automatically. Bring tips back from
+**Settings → Show Setup Tips Again**. Until the supervisor snapshot arrives, a
+loading placeholder prevents an empty flash. The last menu-bar tab and main
+sidebar destination are remembered between launches.
+
+**Open** promotes the helper into a normal main window (Dock icon while open).
+Closing that window returns it to menu-bar-only. The window is resizable (frame
+is remembered) and supports standard shortcuts: <kbd>⌘,</kbd> Settings,
+<kbd>⌘R</kbd> Refresh, <kbd>⌘N</kbd> Add Account, <kbd>⌘W</kbd> Close,
+<kbd>⌘1</kbd>–<kbd>⌘5</kbd> sidebar destinations.
+
+### Main window
+
+| Sidebar | Purpose |
+| --- | --- |
+| **Apps** | Full route browser for Claude Code and Codex |
+| **Accounts** | Saved logins — detect, save, refresh, remove |
+| **Proxies** | Per-account proxies, Proxy Hub, hub sources, routing issues |
+| **Logs** | Allowlisted proxy / hub log streams |
+| **Settings** | Launch-at-login, quota display, Quota Guard, proxy auto-start |
+
+Vocabulary matches the Terminal UI where it can: **Apps**, **Accounts** /
+**Saved accounts**, **Proxies**, **Proxy Hub**, **Hub Sources**.
+
+### Settings
+
+| Toggle | Effect |
+| --- | --- |
+| **Open at Login** | Launch the menu-bar tray when you sign in (macOS LaunchAgent) |
+| **Show account quota** | Fetch remaining usage for Apps rows |
+| **Quota Guard** | On pooled proxies, switch away after a confirmed provider limit |
+| **Start enabled proxies** | When the tray launches, start every proxy left enabled |
+
+Maintenance actions refresh state and restart proxies. Per-client **Reset**
+clears AnyPick-managed config for that client the same way `anypick reset`
+does.
+
+## Apps vs native-only clients
+
+Routing in the Tray focuses on clients whose policy is **all-compatible** —
+today **Claude Code** and **Codex**. Each card separates:
+
+- **Native** accounts — switch the live login; the client keeps its own model
+  settings
+- **Accounts, gateways, pools, Proxy Hub** — one Switch entry per source. Hub
+  attach publishes every uniquely routed model to the client catalog so Codex
+  `/model` and Claude role slots can choose among them without reopening Switch
+
+Gemini and Kiro are **native-only** here: they appear when a saved account
+exists and the matching CLI/IDE is installed, so the popover never fills with
+disabled placeholders. Grok and similar providers that have no app-routing
+surface still get account-switch actions when AnyPick manages their login.
+
+## From the Terminal UI
+
+| Key | Action |
+| --- | --- |
+| <kbd>t</kbd> | Open `runtime / tray` — status, start/stop, flip default surface |
+| <kbd>Shift+D</kbd> | Start or reuse the Tray, then close the TUI |
+| <kbd>q</kbd> | Close the TUI only — Tray and proxies stay as they are |
+
+On `runtime / tray`:
+
+| Key | Action |
+| --- | --- |
+| <kbd>t</kbd> | Turn the Tray (and its proxies) on or off |
+| <kbd>f</kbd> | Flip the bare-`anypick` default between Menu bar Tray and Terminal UI |
+| <kbd>D</kbd> | Detach to Tray |
+| <kbd>r</kbd> | Refresh status |
+
+Stopping the Tray from that screen also stops the proxies it currently owns —
+the same scope as `anypick tray stop`.
+
+## Supervisor lifecycle
+
+Proxies outlive both UIs so a client you launched keeps working after you close
+the terminal or the popover.
+
+```bash
+anypick tray start
+anypick tray status
+anypick tray stop
+```
+
+- **start** — background supervisor; on macOS also ensures the menu-bar helper
+- **status** — pid, managed proxy count, mode (`menu-bar`, `Tauri tray`, or
+  `headless`)
+- **stop** — quit supervisor and stop every AnyPick-owned proxy
+
+Orphans are cleaned on startup: leases whose owning process has exited release
+their proxies instead of accumulating.
+
+<Aside type="caution" title="Antigravity stays in charge of its own process">
+AnyPick never force-quits Antigravity to replace Gemini credentials. Quit it
+completely, retry the switch, then reopen it.
+</Aside>
+
+## Secrets stay out of the menu
+
+The helper is a display and click surface only. Snapshots send labels, status,
+loopback proxy addresses, and opaque action ids. Credentials, remote endpoints,
+and per-instance proxy bearer tokens never cross into the tray process. A click
+returns an action id + revision; the supervisor resolves and runs the real
+activation.
+
+See [Apps & Terminal UI](/docs/guides/terminal-ui) for the full route builder and
+[Proxies](/docs/guides/proxies) for pools, hub, and proxy boards.

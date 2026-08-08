@@ -13,7 +13,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { render } from 'ink-testing-library';
 import React from 'react';
-import { createAppReady, type HotplugApp } from '../src/core/app';
+import { createAppReady, type AnyPickApp } from '../src/core/app';
 import { ProviderRegistry } from '../src/core/registry';
 import { ClientRegistry, registerBuiltinClients } from '../src/clients/index';
 import { CatalogRegistry, registerBuiltinCatalog } from '../src/catalog/providers';
@@ -91,11 +91,10 @@ async function press(ui: Ui, keys: string, pattern: RegExp, budgetMs = 10000): P
   throw new Error(`Timed out sending ${keys} for ${pattern}. Last frame:\n${ui.lastFrame() ?? ''}`);
 }
 
-/** Walk the switch board to the add-account screen for the only provider. */
+/** Walk the app-first launcher to the add-account screen for the only provider. */
 async function openAddScreen(ui: Ui): Promise<void> {
-  await waitForFrame(ui, /No saved logins yet/);
-  await press(ui, '\t', /hotplug \/ proxy/);
-  await press(ui, '\t', /hotplug \/ accounts/);
+  await waitForFrame(ui, /AnyPick \/ apps/);
+  await press(ui, 'a', /AnyPick \/ accounts/);
   await press(ui, 'a', /Choose a tool|Use an API key instead/);
   if (/Choose a tool/.test(ui.lastFrame() ?? '')) {
     await press(ui, '\r', /Use an API key instead/);
@@ -124,11 +123,11 @@ describe('addModeOptions', () => {
 
 describe('TUI api-key flow', { timeout: 30000 }, () => {
   let root: string;
-  let app: HotplugApp;
+  let app: AnyPickApp;
   const cleanups: Array<() => void> = [];
 
   beforeEach(async () => {
-    root = await mkdtemp(join(tmpdir(), 'hotplug-credtui-'));
+    root = await mkdtemp(join(tmpdir(), 'anypick-credtui-'));
     const accountRegistry = new ProviderRegistry();
     accountRegistry.register(new KeyProvider('p', join(root, 'live', 'p')));
     const clients = new ClientRegistry();
@@ -198,7 +197,7 @@ describe('TUI api-key flow', { timeout: 30000 }, () => {
     await settle();
     ui.stdin.write('\r');
 
-    await waitForFrame(ui, /hotplug \/ accounts\s+1 saved/);
+    await waitForFrame(ui, /AnyPick \/ manage \/ accounts\s+1 saved/);
     expect(ui.lastFrame() ?? '').toMatch(/teamkey/);
     const account = await app.accounts.get('p', 'teamkey');
     expect(account?.meta.credentialKind).toBe('proxy-only');

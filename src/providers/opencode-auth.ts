@@ -278,7 +278,7 @@ async function refreshOpenAiOauth(
     headers: {
       'content-type': 'application/x-www-form-urlencoded',
       accept: 'application/json',
-      'user-agent': 'hotplug-opencode/0.8',
+      'user-agent': 'anypick-opencode/0.8',
     },
     body,
   });

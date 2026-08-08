@@ -6,7 +6,7 @@
 import { SelectPrompt, isCancel, updateSettings } from '@clack/core';
 import { buildLauncherModel, type LauncherAction, type LauncherModel } from './launcher-model';
 import { cursorForActionId, orderedActions, renderLauncherFrame } from './launcher-render';
-import type { HotplugApp } from '../core/app';
+import type { AnyPickApp } from '../core/app';
 import { ExitCode } from '../utils/errors';
 
 export type LauncherResult =
@@ -28,7 +28,7 @@ function onLauncherSigint(): void {
  * Esc / q → exitCode 0; Ctrl-C → exitCode 130; 1-9 select that row.
  */
 export async function openRootLauncher(
-  app: HotplugApp,
+  app: AnyPickApp,
   opts: OpenLauncherOpts = {},
 ): Promise<LauncherResult> {
   updateSettings({

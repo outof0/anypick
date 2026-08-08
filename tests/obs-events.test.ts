@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { createAppReady } from '../src/core/app';
 import { OperationJournal } from '../src/core/journal';
 import { recoverIncompleteOperations } from '../src/core/activation-executor';
-import { makeEmitter, type HotplugEventSink } from '../src/core/events';
+import { makeEmitter, type AnyPickEventSink } from '../src/core/events';
 
 // OBS-01: observable degraded state & lifecycle.
 // Degraded conditions (startup recovery failure, lease reap failure, recovery
@@ -13,7 +13,7 @@ import { makeEmitter, type HotplugEventSink } from '../src/core/events';
 // sink. Library consumers receive ordered, redacted events; secret material is
 // never placed into an event.
 
-class CollectingSink implements HotplugEventSink {
+class CollectingSink implements AnyPickEventSink {
   readonly events: Array<{
     code: string;
     severity: string;
@@ -34,7 +34,7 @@ describe('OBS-01 structured events', () => {
   let root: string;
 
   beforeEach(async () => {
-    root = await mkdtemp(join(tmpdir(), 'hotplug-obs-'));
+    root = await mkdtemp(join(tmpdir(), 'anypick-obs-'));
   });
 
   afterEach(async () => {

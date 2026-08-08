@@ -14,7 +14,14 @@ exports[`§28.4 dry-run plan + doctor report golden > doctor report shape is sta
       "fixable": undefined,
       "forbidden": undefined,
       "id": "sqlite",
-      "message": "SQLite: <ROOT>/hotplug.db",
+      "message": "SQLite: <ROOT>/anypick.db",
+      "ok": true,
+    },
+    {
+      "fixable": undefined,
+      "forbidden": undefined,
+      "id": "auth:claude",
+      "message": "claude: no live auth",
       "ok": true,
     },
     {
@@ -105,7 +112,7 @@ exports[`§28.4 dry-run plan + doctor report golden > doctor report shape is sta
       "fixable": undefined,
       "forbidden": undefined,
       "id": "permissions",
-      "message": "Hotplug-owned permissions look restrictive",
+      "message": "AnyPick-owned permissions look restrictive",
       "ok": true,
     },
     {
@@ -141,13 +148,13 @@ exports[`§28.4 dry-run plan + doctor report golden > forbidden findings formatt
 Doctor will not perform this change automatically.
 
 Review / fix manually:
-  hotplug use codex --with codex/personal"
+  anypick use codex --with codex/personal"
 `;
 
 exports[`§28.4 golden snapshots > deterministic not-found errors are stable 1`] = `
 "Account \`grok/missing\` was not found.
 
-hotplug list accounts
+anypick list accounts
 
 No configuration was changed."
 `;
@@ -155,7 +162,7 @@ No configuration was changed."
 exports[`§28.4 golden snapshots > deterministic not-found errors are stable 2`] = `
 "Gateway \`nope\` was not found.
 
-hotplug list gateways
+anypick list gateways
 
 No configuration was changed."
 `;
@@ -175,16 +182,16 @@ exports[`§28.4 golden snapshots > doctor fix allowlist snapshot 1`] = `
 exports[`§28.4 golden snapshots > missing-dependency error is stable 1`] = `
 "Required external proxy for kiro/work is not installed.
 
-hotplug doctor claude
+anypick doctor claude
 
 No configuration was changed."
 `;
 
 exports[`§28.4 golden snapshots > no-binding error is stable 1`] = `
-"No Hotplug binding for claude. \`run\` will not use unmanaged native config.
+"No AnyPick binding for claude. \`run\` will not use unmanaged native config.
 
-hotplug use claude --with <source>
-hotplug run claude --with <source>
+anypick use claude --with <source>
+anypick run claude --with <source>
 
 No configuration was changed."
 `;
@@ -193,11 +200,11 @@ exports[`§28.4 golden snapshots > no-binding error is stable 2`] = `
 {
   "error": {
     "code": "NO_ACTIVE_BINDING",
-    "message": "No Hotplug binding for claude. \`run\` will not use unmanaged native config.",
+    "message": "No AnyPick binding for claude. \`run\` will not use unmanaged native config.",
     "mutated": false,
     "suggestions": [
-      "hotplug use claude --with <source>",
-      "hotplug run claude --with <source>",
+      "anypick use claude --with <source>",
+      "anypick run claude --with <source>",
     ],
   },
 }
@@ -206,35 +213,35 @@ exports[`§28.4 golden snapshots > no-binding error is stable 2`] = `
 exports[`§28.4 golden snapshots > root help after-text is stable 1`] = `
 "
 Common
-  hotplug use claude --with grok/work   set default source
-  hotplug use claude --with gemini/work Claude via Gemini proxy
-  hotplug use claude --current          re-apply stored binding
-  hotplug run claude                    launch with effective binding
-  hotplug run claude --with openrouter-work
-  hotplug current                       show bindings
-  hotplug list                          accounts · gateways · clients · presets
-  hotplug add account codex --current --name personal
-  hotplug add account gemini --current --name work
-  hotplug add gateway openrouter-work --provider openrouter --endpoint …
-  hotplug reset claude
+  anypick use claude --with grok/work   set default source
+  anypick use claude --with gemini/work Claude via Gemini proxy
+  anypick use claude --current          re-apply stored binding
+  anypick run claude                    launch with effective binding
+  anypick run claude --with openrouter-work
+  anypick current                       show bindings
+  anypick list                          accounts · gateways · clients · presets
+  anypick add account codex --current --name personal
+  anypick add account gemini --current --name work
+  anypick add gateway openrouter-work --provider openrouter --endpoint …
+  anypick reset claude
 
 Projects
-  hotplug link claude                   project binding from global
-  hotplug link claude --with grok/work
-  hotplug unlink claude
+  anypick link claude                   project binding from global
+  anypick link claude --with grok/work
+  anypick unlink claude
 
 Proxy pool (opt-in multi-account)
-  hotplug proxy pool enable gemini      one endpoint, many logins
-  hotplug use claude --with pool:gemini
+  anypick proxy pool enable gemini      one endpoint, many logins
+  anypick use claude --with pool:gemini
 
 Troubleshooting
-  hotplug doctor   hotplug completion zsh   hotplug update
+  anypick doctor   anypick completion zsh   anypick update
 
 Manage
   account  gateway  preset  proxy
 
 Grammar: use|run <client> --with <source|@preset|pool:provider>
-TUI: bare hotplug · g gateways · models on Proxy/Gateways · p multi pool"
+TUI: bare anypick · g gateways · models on Proxy/Gateways · p multi pool"
 `;
 
 exports[`§28.4 golden snapshots > use success + model formatting are stable 1`] = `

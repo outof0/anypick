@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import type { ProxyLease } from '../types';
 import { decode } from './codec';
 import { decoders } from './codec';
-import type { HotplugDatabase } from './db';
+import type { AnyPickDatabase } from './db';
 
 interface LeaseRow {
   lease_id: string;
@@ -43,7 +43,7 @@ function parse(row: LeaseRow): ProxyLease {
 }
 
 export class LeaseStore {
-  constructor(private readonly db: HotplugDatabase) {}
+  constructor(private readonly db: AnyPickDatabase) {}
 
   create(opts: {
     provider: string;

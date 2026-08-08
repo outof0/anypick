@@ -15,6 +15,7 @@ import type {
   SourceAdapter,
 } from '../types';
 import { kiroAccountAdapter, poolAdapterFor } from '../sources/account-adapters';
+import { KIRO_PROXY_BINARIES, resolveKiroProxyCommand } from '../sources/kiro-proxy-bin';
 import {
   copyFileSafe,
   ensureDir,
@@ -24,7 +25,7 @@ import {
   restoreRequiredFile,
   writeJsonFile,
 } from '../utils/fs';
-import { HotplugError } from '../utils/errors';
+import { AnyPickError } from '../utils/errors';
 import {
   clearKiroSecrets,
   kiroSecretIdentity,
@@ -244,19 +245,19 @@ export class KiroProvider implements Provider {
    */
   async backupInput(input: CredentialInput, destDir: string): Promise<SnapshotMeta> {
     if (input.kind !== 'api-key') {
-      throw new HotplugError(
+      throw new AnyPickError(
         `AWS Kiro does not accept a ${input.kind} credential.`,
         'UNSUPPORTED_CREDENTIAL_INPUT',
       );
     }
     const kiroApiKey = input.secret.trim();
     if (!kiroApiKey) {
-      throw new HotplugError('The Kiro API key is empty.', 'INVALID_CREDENTIAL');
+      throw new AnyPickError('The Kiro API key is empty.', 'INVALID_CREDENTIAL');
     }
     // kirolink refuses a shorter key, and it refuses it at proxy start — which
     // is long after the point where the user could still see what they typed.
     if (Buffer.byteLength(kiroApiKey) < MIN_API_KEY_BYTES) {
-      throw new HotplugError(
+      throw new AnyPickError(
         `That Kiro API key is too short to be valid (needs at least ${MIN_API_KEY_BYTES} characters).`,
         {
           code: 'INVALID_CREDENTIAL',
@@ -270,7 +271,7 @@ export class KiroProvider implements Provider {
     // kirolink would refuse has to fail here. At proxy start it is a line in a
     // log file nobody is watching.
     if (apiRegion && !/^[a-z0-9-]+$/u.test(apiRegion)) {
-      throw new HotplugError(`"${apiRegion}" is not a valid Kiro API region.`, {
+      throw new AnyPickError(`"${apiRegion}" is not a valid Kiro API region.`, {
         code: 'INVALID_CREDENTIAL',
         suggestions: [`Known regions: ${API_REGIONS.join(', ')}.`],
       });
@@ -305,7 +306,7 @@ export class KiroProvider implements Provider {
     const identity = kiroSecretIdentity(secrets) ?? (await identityFrom(copied));
 
     if (saved === 0) {
-      throw new HotplugError(
+      throw new AnyPickError(
         `No Kiro login found in the kiro-cli secret store or ${this.cacheDir}. Run kiro-cli login first.`,
         'NO_LIVE_AUTH',
       );
@@ -325,7 +326,7 @@ export class KiroProvider implements Provider {
     const secrets = await readSecretsFile(join(srcDir, SECRETS_FILE));
     const names = await this.snapshotTokenFiles(srcDir);
     if (!secrets && names.length === 0) {
-      throw new HotplugError(`Kiro snapshot has no credentials in ${srcDir}`, 'EMPTY_SNAPSHOT');
+      throw new AnyPickError(`Kiro snapshot has no credentials in ${srcDir}`, 'EMPTY_SNAPSHOT');
     }
 
     // Another account's cache file left in place would still be picked up — the
@@ -379,7 +380,7 @@ export class KiroProvider implements Provider {
     // the proxy would serve a different identity than the account the user
     // bound — silently, since it still starts and answers /health. These are
     // environment overrides, which kirolink applies for the run without writing
-    // them back, so a bare `kirolink` outside Hotplug keeps the user's own mode.
+    // them back, so a bare `kirolink` outside AnyPick keeps the user's own mode.
     const apiKey = await readApiKeyFile(join(ctx.snapshotDir, API_KEY_FILE));
     const authMode: Record<string, string> = apiKey
       ? {
@@ -391,41 +392,39 @@ export class KiroProvider implements Provider {
 
     const tokenPath = apiKey ? undefined : await this.resolveTokenPath();
 
-    // Discovery is PATH-based only (spec §19.5): no hardcoded platform-specific
-    // paths, so this works unchanged on macOS, Linux, and Windows.
-    //   - KIROLINK_BIN  : explicit binary override (e.g. full path or alias)
+    // Discovery is shared with the capability gate (spec §19.5) so a machine
+    // that classified `managed_external_proxy` cannot then fail to spawn:
+    //   - KIROLINK_BIN  : explicit binary override (full path or alias)
     //   - KIROLINK_JS   : run a JS entry via `node` (no shebang exec needed)
-    const jsEntry = process.env.KIROLINK_JS;
-    const useNodeEntry = jsEntry != null && (await pathExists(jsEntry));
+    //   - PATH + derived package-manager / user-local bin dirs otherwise
+    const env = () => ({
+      ...process.env,
+      ...authMode,
+      ...(tokenPath ? { KIRO_PROXY_TOKEN_PATH: tokenPath } : {}),
+    });
+    const command = resolveKiroProxyCommand();
 
-    if (useNodeEntry) {
+    if (command?.kind === 'node-entry') {
       return startExternalProxy(ctx, {
         label: 'Kiro',
         binaries: ['node'],
         defaultPort: DEFAULT_PORT,
         compatibility: this.proxyCompatibility,
-        buildArgs: (_c, port, host) => [jsEntry, '-p', String(port), '--host', host],
-        env: () => ({
-          ...process.env,
-          ...authMode,
-          ...(tokenPath ? { KIRO_PROXY_TOKEN_PATH: tokenPath } : {}),
-        }),
-        readyTimeoutMs: 5000,
+        buildArgs: (_c, port, host) => [command.entry, '-p', String(port), '--host', host],
+        env,
       });
     }
 
     return startExternalProxy(ctx, {
       label: 'Kiro',
-      binaries: process.env.KIROLINK_BIN ? [process.env.KIROLINK_BIN] : ['kirolink', 'kiro-proxy'],
+      // A resolved path is passed as the sole binary so `startExternalProxy`
+      // spawns exactly what the gate saw; the name list is the fallback when
+      // discovery returned nothing (its error names all the tried names).
+      binaries: command ? [command.path] : [...KIRO_PROXY_BINARIES],
       defaultPort: DEFAULT_PORT,
       compatibility: this.proxyCompatibility,
       buildArgs: (_c, port, host) => ['-p', String(port), '--host', host],
-      env: () => ({
-        ...process.env,
-        ...authMode,
-        ...(tokenPath ? { KIRO_PROXY_TOKEN_PATH: tokenPath } : {}),
-      }),
-      readyTimeoutMs: 5000,
+      env,
     });
   }
 

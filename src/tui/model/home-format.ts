@@ -1,12 +1,12 @@
 import type { AccountRow, LiveAccountRelation, ProviderPoolRow } from './types';
-import type { HotplugHomeRow, HotplugProviderSummary } from './hotplug';
-import { accountDisplayName, identitiesMatch } from './identity';
+import type { AnyPickHomeRow, AnyPickProviderSummary } from './anypick';
+import { accountDisplayName, identitiesMatch, identityDisplayText } from './identity';
 import { G } from '../components/chrome/status';
 
-export function formatHotplugHomeLine(row: HotplugHomeRow, selected: boolean): string {
+export function formatAnyPickHomeLine(row: AnyPickHomeRow, selected: boolean): string {
   const mark = selected ? G.focus : ' ';
   const name = accountDisplayName(row).padEnd(12);
-  const id = (row.identity ?? '').padEnd(22);
+  const id = identityDisplayText(row.identity, '').padEnd(22);
   let status: string;
   if (row.isLiveMatch) {
     status = `${G.live} live`;
@@ -23,7 +23,7 @@ export function formatHotplugHomeLine(row: HotplugHomeRow, selected: boolean): s
 /**
  * Group header — tool name only. No ambient right label.
  */
-export function providerGroupHeader(p: HotplugProviderSummary): {
+export function providerGroupHeader(p: AnyPickProviderSummary): {
   name: string;
   right: string;
 } {
@@ -82,33 +82,33 @@ export function rowMatchesLive(input: {
  *   │ account-1   dev1@work.com        saved
  * Selection drawn by the renderer (background + left bar).
  */
-export function formatHotplugHomeV2(
-  row: HotplugHomeRow,
+export function formatAnyPickHomeV2(
+  row: AnyPickHomeRow,
   _providerId: string,
   _providerName: string,
 ): { name: string; identity: string; tag: 'LIVE' | 'SAVED' } {
   return {
     name: accountDisplayName(row),
-    identity: row.identity ?? '—',
+    identity: identityDisplayText(row.identity),
     tag: row.active && row.isLiveMatch ? 'LIVE' : 'SAVED',
   };
 }
 
 /** Status dot color for a row (Codex-style: green=live, gray=saved). */
-export function hotplugRowColor(row: HotplugHomeRow): 'green' | 'gray' {
+export function anypickRowColor(row: AnyPickHomeRow): 'green' | 'gray' {
   return row.active && row.isLiveMatch ? 'green' : 'gray';
 }
 
 /** Legacy flat line (accounts workshop / tests). */
-export function formatHotplugHomeFlatLine(row: HotplugHomeRow, selected: boolean): string {
+export function formatAnyPickHomeFlatLine(row: AnyPickHomeRow, selected: boolean): string {
   const mark = selected ? G.focus : ' ';
   const live = row.isLiveMatch ? G.live : row.active ? G.open : '·';
-  const id = row.identity ? `  ${row.identity}` : '';
+  const id = row.identity ? `  ${identityDisplayText(row.identity)}` : '';
   const proxy = row.proxyLabel ? `  ${row.proxyLabel}` : '';
   return `${mark} ${live} ${row.ref.padEnd(22)} ${row.statusText.padEnd(14)}${id}${proxy}`;
 }
 
-export function filterHotplugHomeRows(rows: HotplugHomeRow[], query: string): HotplugHomeRow[] {
+export function filterAnyPickHomeRows(rows: AnyPickHomeRow[], query: string): AnyPickHomeRow[] {
   const q = query.trim().toLowerCase();
   if (!q) {
     return rows;

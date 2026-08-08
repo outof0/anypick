@@ -1,13 +1,14 @@
-import type { HotplugApp } from '../../core/app';
+import type { AnyPickApp } from '../../core/app';
 import type { ProxyStatus } from '../../types';
 import type { ProxyRow, ProxyStateLabel } from './types';
 import { formatProxyEndpoint, proxyStateLabel, proxyStateText } from './identity';
 import { shortToolName } from './names';
 import { providerCanProxy } from '../../core/capabilities';
 
-export async function loadProxyOverview(app: HotplugApp): Promise<ProxyRow[]> {
+export async function loadProxyOverview(app: AnyPickApp): Promise<ProxyRow[]> {
   const out: ProxyRow[] = [];
   const seen = new Set<string>();
+  const quotaGuardEnabled = (await app.config.read()).ui?.quotaGuard?.enabled === true;
 
   const proxyProviders = app.accounts.listProviders().filter((p) => providerCanProxy(p));
 
@@ -30,6 +31,41 @@ export async function loadProxyOverview(app: HotplugApp): Promise<ProxyRow[]> {
       }
     })() ??
     '—';
+
+  const hubStatus = await app.hub.status().catch(() => null);
+  if (hubStatus) {
+    const endpoint = hubStatus.endpoint?.replace(/^https?:\/\//u, '');
+    out.push({
+      providerId: 'proxy-hub',
+      providerName: 'Proxy Hub',
+      name: hubStatus.name,
+      active: true,
+      status: {
+        enabled: hubStatus.enabled,
+        running: hubStatus.running,
+        endpoint: hubStatus.endpoint,
+        detail: hubStatus.detail,
+      },
+      stateLabel: hubStatus.running
+        ? 'running'
+        : hubStatus.enabled
+          ? 'enabled-stopped'
+          : 'disabled',
+      stateText: hubStatus.running ? 'running' : hubStatus.enabled ? 'stopped' : 'off',
+      endpointText: endpoint ?? '—',
+      compatibilityText: 'OpenAI + Anthropic',
+      detailText: [
+        `${hubStatus.sourceCount} source${hubStatus.sourceCount === 1 ? '' : 's'}`,
+        `${hubStatus.modelCount} model${hubStatus.modelCount === 1 ? '' : 's'}`,
+        ...(hubStatus.conflictCount > 0
+          ? [`${hubStatus.conflictCount} conflict${hubStatus.conflictCount === 1 ? '' : 's'}`]
+          : []),
+      ].join(' · '),
+      inactiveEnabled: false,
+      rowKind: 'hub',
+      displayRef: `hub:${hubStatus.name}`,
+    });
+  }
 
   const pushAccount = (
     providerId: string,
@@ -66,7 +102,7 @@ export async function loadProxyOverview(app: HotplugApp): Promise<ProxyRow[]> {
   };
 
   for (const p of proxyProviders) {
-    let listed: Awaited<ReturnType<HotplugApp['accounts']['list']>> = [];
+    let listed: Awaited<ReturnType<AnyPickApp['accounts']['list']>> = [];
     try {
       listed = await app.accounts.list(p.id);
     } catch {
@@ -97,8 +133,9 @@ export async function loadProxyOverview(app: HotplugApp): Promise<ProxyRow[]> {
         rowKind: 'pool',
         displayRef: `pool:${p.id}`,
         name: 'pool',
-        detailText: `${enabledCount} of ${pool.members.length} accounts enabled`,
+        detailText: `${enabledCount} of ${pool.members.length} accounts enabled · Quota Guard ${quotaGuardEnabled ? 'on' : 'off'}`,
         stateText: poolStatus.running ? 'running' : pool.enabled ? 'stopped' : 'off',
+        quotaGuardEnabled,
       });
       for (const m of pool.members) {
         const acc = listed.find((a) => a.name === m.account);
@@ -176,6 +213,9 @@ export async function loadProxyOverview(app: HotplugApp): Promise<ProxyRow[]> {
   }
 
   out.sort((a, b) => {
+    if (a.rowKind === 'hub' || b.rowKind === 'hub') {
+      return a.rowKind === 'hub' ? -1 : 1;
+    }
     if (a.providerId !== b.providerId) {
       return a.providerId.localeCompare(b.providerId);
     }
@@ -212,7 +252,7 @@ export async function loadProxyOverview(app: HotplugApp): Promise<ProxyRow[]> {
  * of provider-specific file knowledge.
  */
 export async function proxyApiKeyGate(
-  app: HotplugApp,
+  app: AnyPickApp,
   providerId: string,
   accountName: string,
 ): Promise<{ needsApiKey: boolean; hint?: string }> {

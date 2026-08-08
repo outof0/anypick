@@ -1,18 +1,19 @@
 import { LoadingView } from '../components/chrome';
 import { AddModeGate } from '../components';
-import { HotplugHomeScreen } from '../screens/hotplug-home';
+import { AnyPickHomeScreen } from '../screens/anypick-home';
 import { AccountsHomeScreen } from '../screens/accounts-home';
 import { AccountDetailScreen } from '../screens/account-detail';
-import { HotplugPreviewScreen } from '../screens/hotplug-preview';
+import { AnyPickPreviewScreen } from '../screens/anypick-preview';
 import { AddProviderScreen, AddSourceScreen, StashResultScreen } from '../screens/add-account';
 import { CredentialFormScreen } from '../screens/credential-form';
-import { appsUsingProxy } from '../model';
+import { accountProviderFilterOptions, appsUsingProxy, filterHomeByProvider } from '../model';
 import { clampIndex } from '../app-ui-helpers';
 import type { Route } from './context';
 
-/** Accounts, the add-account flow, and the Switch board this app opens on. */
+/** Account management, native switching, and the account-specific fallback board. */
 export const accountRoute: Route = (ctx) => {
-  const { app, columns, shell, nav, accounts, homeFilter } = ctx;
+  const { app, columns, shell, nav, accounts, homeFilter, accountProviderFilter, trayRuntime } =
+    ctx;
   const { screen, go, quit, selectedIndex, setSelectedIndex, busy, busyLabel, error, receipt } =
     shell;
   const { setReceipt } = shell;
@@ -25,6 +26,7 @@ export const accountRoute: Route = (ctx) => {
     liveUsageSummary,
     contextLines,
     openSwitch,
+    openApps,
     openProxy,
     openAccounts,
     openGateways,
@@ -52,7 +54,15 @@ export const accountRoute: Route = (ctx) => {
             });
             return;
           }
-          if (row.providerId === 'gemini') {
+          let needsSourcePick = false;
+          try {
+            needsSourcePick = Boolean(
+              app.accounts.provider(row.providerId).requiresAccountSourcePick,
+            );
+          } catch {
+            needsSourcePick = false;
+          }
+          if (needsSourcePick) {
             go({ kind: 'add-source', providerId: row.providerId });
             return;
           }
@@ -180,9 +190,9 @@ export const accountRoute: Route = (ctx) => {
     );
   }
 
-  if (screen.kind === 'hotplug-preview' && preview) {
+  if (screen.kind === 'anypick-preview' && preview) {
     return (
-      <HotplugPreviewScreen
+      <AnyPickPreviewScreen
         preview={preview}
         busy={busy}
         error={error}
@@ -197,16 +207,23 @@ export const accountRoute: Route = (ctx) => {
   }
 
   if (screen.kind === 'accounts' && home) {
-    const idx = clampIndex(selectedIndex, home.rows.length);
+    const providerOptions = accountProviderFilterOptions(home);
+    const filteredHome = filterHomeByProvider(home, accountProviderFilter.selectedId);
+    const idx = clampIndex(selectedIndex, filteredHome.rows.length);
     return (
       <AccountsHomeScreen
-        model={home}
+        model={filteredHome}
         selectedIndex={idx}
         columns={columns}
         receipt={receipt}
         busy={busy}
         busyLabel={busyLabel}
-        onMove={(d) => setSelectedIndex(clampIndex(idx + d, home.rows.length))}
+        onMove={(d) => setSelectedIndex(clampIndex(idx + d, filteredHome.rows.length))}
+        providerFilterId={accountProviderFilter.selectedId}
+        providerFilterLabel={accountProviderFilter.label(providerOptions)}
+        providerFilterOptions={providerOptions}
+        onCycleProvider={() => accountProviderFilter.cycle(providerOptions)}
+        onClearProvider={accountProviderFilter.clear}
         onAdd={(providerId) => {
           accounts.startAdd(providerId);
         }}
@@ -240,11 +257,7 @@ export const accountRoute: Route = (ctx) => {
         onImport={accounts.startImport}
         onOpenSwitch={(row) => {
           setReceipt(null);
-          if (row.rowKind === 'save-live') {
-            void accounts.openSwitchConfirm(row);
-            return;
-          }
-          void openSwitch(row.ref);
+          void accounts.openSwitchConfirm(row);
         }}
         onSaveLive={(row) => {
           setReceipt(null);
@@ -252,7 +265,7 @@ export const accountRoute: Route = (ctx) => {
         }}
         onBack={() => {
           setReceipt(null);
-          void openSwitch();
+          void openApps();
         }}
         onNextSection={() => {
           setReceipt(null);
@@ -261,19 +274,34 @@ export const accountRoute: Route = (ctx) => {
         onHelp={() => {
           go({ kind: 'help', context: 'accounts', back: { kind: 'accounts' } });
         }}
+        onTray={() => {
+          void trayRuntime.open(screen).catch((err: unknown) => {
+            shell.reportFail(err, 'Could not open Tray runtime controls.');
+          });
+        }}
+        onDetach={() => {
+          void trayRuntime.detach().catch((err: unknown) => {
+            shell.reportFail(err, 'Could not detach AnyPick to the Tray.');
+          });
+        }}
         onQuit={() => quit(0)}
       />
     );
   }
 
   if (!home) {
-    return <LoadingView label="Loading saved logins" />;
+    return (
+      <LoadingView
+        path={screen.kind === 'accounts' ? ['manage', 'accounts'] : 'switch'}
+        label="Loading saved accounts"
+      />
+    );
   }
 
   const { model, committed } = homeFilter.view(home);
   const idx = clampIndex(selectedIndex, model.rows.length);
   return (
-    <HotplugHomeScreen
+    <AnyPickHomeScreen
       model={model}
       selectedIndex={idx}
       columns={columns}
@@ -316,7 +344,17 @@ export const accountRoute: Route = (ctx) => {
       onFilterSubmit={homeFilter.submit}
       onFilterClear={homeFilter.clear}
       onHelp={() => {
-        go({ kind: 'help', context: 'switch', back: { kind: 'hotplug' } });
+        go({ kind: 'help', context: 'switch', back: { kind: 'anypick' } });
+      }}
+      onTray={() => {
+        void trayRuntime.open(screen).catch((err: unknown) => {
+          shell.reportFail(err, 'Could not open Tray runtime controls.');
+        });
+      }}
+      onDetach={() => {
+        void trayRuntime.detach().catch((err: unknown) => {
+          shell.reportFail(err, 'Could not detach AnyPick to the Tray.');
+        });
       }}
       onQuit={() => quit(0)}
     />

@@ -10,6 +10,9 @@ export function proxyRowLabel(row: ProxyRow): string {
   if (row.rowKind === 'unsaved') {
     return `${row.providerId} · not saved`;
   }
+  if (row.rowKind === 'hub') {
+    return `hub:${row.name}`;
+  }
   return `${row.providerId}/${row.name}`;
 }
 
@@ -17,6 +20,9 @@ export function proxyRowLabel(row: ProxyRow): string {
 export function proxyBindingRef(row: ProxyRow): string {
   if (row.rowKind === 'pool') {
     return `pool:${row.providerId}`;
+  }
+  if (row.rowKind === 'hub') {
+    return `hub:${row.name}`;
   }
   return `${row.providerId}/${row.name}`;
 }

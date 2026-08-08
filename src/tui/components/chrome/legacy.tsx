@@ -64,7 +64,7 @@ function legacyScreenPath(screen?: string): string {
     return 'switch';
   }
   const s = screen.toLowerCase();
-  if (s === 'hotplug' || s === 'home') {
+  if (s === 'anypick' || s === 'home') {
     return 'switch';
   }
   return s;

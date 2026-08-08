@@ -41,7 +41,7 @@ export function formatUpstreamModelError(raw: string, model: string | undefined)
     // fall through
   }
   if (/not exist|access|invalid model|unknown model/i.test(slice)) {
-    return `Model "${model ?? '?'}" rejected by OpenCode: ${slice}. Pick another via hotplug model map or Claude /model.`;
+    return `Model "${model ?? '?'}" rejected by OpenCode: ${slice}. Pick another via anypick model map or Claude /model.`;
   }
   return slice || `OpenCode error for model ${model ?? '?'}`;
 }

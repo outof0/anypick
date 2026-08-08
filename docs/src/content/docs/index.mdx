@@ -1,21 +1,24 @@
 ---
-title: Hotplug documentation
+title: AnyPick documentation
 description: Point any supported AI client at any provider you already pay for.
 ---
 
-Hotplug owns the boring half of using more than one AI provider: auth
-snapshots, local proxies, protocol translation, and client configuration. You
-pick a client and a source; it does the rest.
+AnyPick answers one question for **Claude Code** and **Codex**: which login
+should power this app right now? You pick on the **Apps** screen; AnyPick
+handles auth snapshots, local proxies, and client config.
 
-Nearly all of it happens in the terminal UI — run `hotplug` with no arguments.
-The subcommands documented here mirror it one-for-one, for scripts and CI.
+Run `anypick` with no arguments. The subcommands mirror the same flows for
+scripts and CI.
 
 <CardGrid>
   <Card title="Getting started" href="/docs/getting-started">
-    Install, open the UI, save your first account, launch a client against it.
+    Install, open Apps, save a login, connect Claude or Codex.
   </Card>
-  <Card title="Terminal UI" href="/docs/guides/terminal-ui">
-    Every screen, key, and status glyph in the command center.
+  <Card title="Apps & Terminal UI" href="/docs/guides/terminal-ui">
+    Source → models → preview → activate — the route builder step by step.
+  </Card>
+  <Card title="Desktop Tray" href="/docs/guides/tray">
+    Menu-bar routes, proxies, quota, and the background supervisor.
   </Card>
   <Card title="Concepts" href="/docs/concepts">
     Clients, sources, bindings, and presets — the four words the CLI uses.
@@ -36,6 +39,9 @@ The subcommands documented here mirror it one-for-one, for scripts and CI.
   </Card>
   <Card title="Project bindings" href="/docs/guides/projects">
     Give one repository its own source without touching your default.
+  </Card>
+  <Card title="Plugins" href="/docs/guides/plugins">
+    Install a local provider, client, or catalog without forking AnyPick.
   </Card>
 </CardGrid>
 

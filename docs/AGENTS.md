@@ -1,12 +1,12 @@
-# Working on the Hotplug docs site
+# Working on the AnyPick docs site
 
-The site people read to decide whether to install Hotplug, plus the reference
+The site people read to decide whether to install AnyPick, plus the reference
 they check when it misbehaves. A wrong sentence here is worse than a bug: it
 tells someone to trust a pairing the CLI rejects.
 
 `AGENT.md` in this directory is the nimbus-docs template's own authoring guide —
 file layout, frontmatter shape, `<Render />`, the component registry. Read it for
-mechanics. This file is the Hotplug-specific part. `../AGENTS.md` covers the CLI.
+mechanics. This file is the AnyPick-specific part. `../AGENTS.md` covers the CLI.
 
 ## Commands
 
@@ -40,10 +40,10 @@ claims that had to be walked back.
   what is *allowed*.
 - **Binding and switching are different questions.** Binding a client to a
   foreign provider is the narrow list above. Switching which account is live is
-  broader, because Hotplug restores the provider's own credential file, so
+  broader, because AnyPick restores the provider's own credential file, so
   anything reading it follows — Claude Code's IDE extensions, or Antigravity on a
   Gemini login. Documented exception: the Codex desktop app keeps its own
-  signed-in account and does **not** follow `~/.codex/auth.json`; Hotplug only
+  signed-in account and does **not** follow `~/.codex/auth.json`; AnyPick only
   detects the mismatch to suppress the quota readout.
 - **Do not invite readers to point third-party tools at a proxy.** The proxies do
   speak standard OpenAI and Anthropic wire formats, but each requires a
@@ -64,9 +64,8 @@ claims that had to be walked back.
   `src/styles/globals.css`. Dark mode is `[data-mode="dark"]` on `<html>`, set by
   the inline script in `BaseLayout.astro` — do not add a second mechanism.
 - `src/pages/index.astro` is the exception. The landing page is always dark and
-  uses brand hex directly (`#2563FF` accent, `#F2F4F8` / `#8792A6` text), because
-  the theme's `primary` token is cyan and loses contrast against white text on
-  navy. Keep it self-contained rather than bending the tokens for one page.
+  uses the AnyPick primary (`#7357FF`) plus its semantic tokens directly. Keep it
+  self-contained rather than bending the documentation tokens for one page.
 - `.oxfmtrc.json` at the repo root ignores `docs/**` and `*.md`. Do not run
   oxfmt or oxlint here.
 

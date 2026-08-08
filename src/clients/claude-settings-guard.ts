@@ -1,16 +1,16 @@
 /**
  * Claude Code rewrites ~/.claude/settings.json mid-session (model, effort, …)
- * and can clobber hotplug-managed env (BASE_URL → stale openrouter/etc.).
+ * and can clobber anypick-managed env (BASE_URL → stale openrouter/etc.).
  * Result: next API call 404s with "selected model may not exist" and never hits
  * the local proxy — even while the proxy log shows earlier turns succeeded.
  *
- * While a hotplug proxy is alive, re-assert BASE_URL/AUTH on a short interval
- * when _hotplugManaged is present.
+ * While a anypick proxy is alive, re-assert BASE_URL/AUTH on a short interval
+ * when _anypickManaged is present.
  */
 import { join } from 'node:path';
 import { homedir } from 'node:os';
 import { pathExists, readJsonFile, writeJsonFile } from '../utils/fs';
-import { HOTPLUG_MANAGED_KEY } from './env-files';
+import { ANYPICK_MANAGED_KEY } from './env-files';
 
 export interface ClaudeSettingsGuardOptions {
   /** Expected ANTHROPIC_BASE_URL (local proxy). */
@@ -39,7 +39,7 @@ export async function repairClaudeSettingsIfDrifted(
   const home = opts.home ?? process.env.HOME ?? homedir();
   const path = settingsPath(home);
   const expected = normalizeBase(opts.endpoint);
-  const apiKey = opts.apiKey ?? 'hotplug-proxy';
+  const apiKey = opts.apiKey ?? 'anypick-proxy';
   const log = opts.log ?? (() => {});
 
   if (!(await pathExists(path))) {
@@ -53,9 +53,9 @@ export async function repairClaudeSettingsIfDrifted(
     return false;
   }
 
-  const managed = doc[HOTPLUG_MANAGED_KEY] as { keys?: string[] } | undefined;
+  const managed = doc[ANYPICK_MANAGED_KEY] as { keys?: string[] } | undefined;
   if (!managed?.keys?.includes('ANTHROPIC_BASE_URL')) {
-    // Not a hotplug-managed Claude install — leave alone.
+    // Not a anypick-managed Claude install — leave alone.
     return false;
   }
 

@@ -10,7 +10,7 @@ import { readKiroSecrets, writeKiroSecrets } from '../src/providers/kiro-secret-
 import { OpenCodeProvider } from '../src/providers/opencode';
 
 async function tempHome(): Promise<string> {
-  return mkdtemp(join(tmpdir(), 'hotplug-prov-'));
+  return mkdtemp(join(tmpdir(), 'anypick-prov-'));
 }
 
 async function availablePort(): Promise<number> {
@@ -432,12 +432,12 @@ describe('KiroProvider secret store', () => {
     const home = await tempHome();
     // Keychain access is disabled suite-wide (tests/setup.ts); point the
     // SQLite tier at a throwaway file so kiro-cli's real store is never opened.
-    process.env.HOTPLUG_KIRO_SECRET_DB = join(home, 'kiro-data.sqlite3');
+    process.env.ANYPICK_KIRO_SECRET_DB = join(home, 'kiro-data.sqlite3');
     return home;
   }
 
   afterEach(() => {
-    delete process.env.HOTPLUG_KIRO_SECRET_DB;
+    delete process.env.ANYPICK_KIRO_SECRET_DB;
   });
 
   const token = (profile: string) =>
@@ -500,7 +500,7 @@ describe('KiroProvider api key', () => {
     snap: string;
   }> {
     const home = await tempHome();
-    process.env.HOTPLUG_KIRO_SECRET_DB = join(home, 'kiro-data.sqlite3');
+    process.env.ANYPICK_KIRO_SECRET_DB = join(home, 'kiro-data.sqlite3');
     const provider = new KiroProvider(home);
     const snap = join(home, 'snap');
     await mkdir(snap);
@@ -509,7 +509,7 @@ describe('KiroProvider api key', () => {
   }
 
   afterEach(() => {
-    delete process.env.HOTPLUG_KIRO_SECRET_DB;
+    delete process.env.ANYPICK_KIRO_SECRET_DB;
   });
 
   it('saves the key as a proxy-only snapshot with a non-disclosing identity', async () => {

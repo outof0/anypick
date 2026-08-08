@@ -2,16 +2,17 @@ import { ProxyLogsView } from '../components';
 import { ProxyBoardScreen } from '../screens/proxy-board';
 import { ManageAppsScreen } from '../screens/manage-apps';
 import { ProxyModelsScreen } from '../screens/proxy-models';
+import { ProxyHubScreen } from '../screens/proxy-hub';
 import { suggestAccountSlug } from '../model';
 import { clampIndex, modelSummariesForApps, toggleChecked } from '../app-ui-helpers';
 import type { Route } from './context';
 
 export const proxyRoute: Route = (ctx) => {
-  const { app, columns, shell, nav, bindings, proxies, roleEditor } = ctx;
+  const { app, columns, shell, nav, bindings, proxies, roleEditor, trayRuntime } = ctx;
   const { screen, go, quit, selectedIndex, setSelectedIndex, busy, busyLabel, error, receipt } =
     shell;
   const { setReceipt } = shell;
-  const { proxyRows, apps, openSwitch, openProxy, openAccounts } = nav;
+  const { proxyRows, apps, openApps, openProxy, openAccounts } = nav;
   const { bindingWith, resolveProxyRow, openAppChangesConfirm, openModelReedit } = bindings;
   const { editingRoleId, editDraft, editCursor, suggestionIndex } = roleEditor;
 
@@ -27,6 +28,38 @@ export const proxyRoute: Route = (ctx) => {
           void openProxy(`${screen.providerId}/${screen.name}`);
         }}
         readLogs={() => app.proxy.proxyLogs(screen.providerId, screen.name, 80)}
+      />
+    );
+  }
+
+  if (screen.kind === 'proxy-hub') {
+    const idx = clampIndex(selectedIndex, screen.view.sources.length);
+    return (
+      <ProxyHubScreen
+        view={screen.view}
+        selectedIndex={idx}
+        columns={columns}
+        busy={busy}
+        busyLabel={busyLabel}
+        error={error}
+        onMove={(d) => setSelectedIndex(clampIndex(idx + d, screen.view.sources.length))}
+        onToggle={(index) => {
+          const source = screen.view.sources[index];
+          if (source) {
+            void proxies.doToggleHubSource(source);
+          }
+        }}
+        onStart={() => void proxies.doStartHub()}
+        onStop={() => void proxies.doStopHub()}
+        onRefresh={() => void proxies.doRefreshHub()}
+        onAccounts={() => void openAccounts()}
+        onBack={() => {
+          void openProxy('hub:default');
+        }}
+        onHelp={() =>
+          go({ kind: 'help', context: 'proxy', back: { kind: 'proxy-hub', view: screen.view } })
+        }
+        onQuit={() => quit(0)}
       />
     );
   }
@@ -59,6 +92,9 @@ export const proxyRoute: Route = (ctx) => {
           onSelectRow: setSelectedIndex,
         })}
         onConfirm={() => bindings.commitProxyModels(screen)}
+        onReload={() => {
+          bindings.refreshProxyModelSuggestions(screen.providerId, screen.name, true);
+        }}
         onCancel={() => bindings.cancelProxyModels(screen)}
       />
     );
@@ -148,6 +184,14 @@ export const proxyRoute: Route = (ctx) => {
           setReceipt(null);
           void proxies.doTogglePoolMember(row);
         }}
+        onToggleQuotaGuard={(row) => {
+          setReceipt(null);
+          void proxies.doToggleQuotaGuard(row);
+        }}
+        onHub={() => {
+          setReceipt(null);
+          void proxies.openHub();
+        }}
         onSaveUnsaved={(row) => {
           setReceipt(null);
           const slug = suggestAccountSlug(row.identity);
@@ -166,7 +210,7 @@ export const proxyRoute: Route = (ctx) => {
         }}
         onSwitch={() => {
           setReceipt(null);
-          void openSwitch();
+          void openApps();
         }}
         onAccounts={() => {
           setReceipt(null);
@@ -174,6 +218,16 @@ export const proxyRoute: Route = (ctx) => {
         }}
         onHelp={() => {
           go({ kind: 'help', context: 'proxy', back: { kind: 'proxy' } });
+        }}
+        onTray={() => {
+          void trayRuntime.open(screen).catch((err: unknown) => {
+            shell.reportFail(err, 'Could not open Tray runtime controls.');
+          });
+        }}
+        onDetach={() => {
+          void trayRuntime.detach().catch((err: unknown) => {
+            shell.reportFail(err, 'Could not detach AnyPick to the Tray.');
+          });
         }}
         onQuit={() => quit(0)}
       />

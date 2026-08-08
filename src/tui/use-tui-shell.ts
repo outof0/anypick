@@ -1,6 +1,6 @@
 import React from 'react';
 import { useApp } from 'ink';
-import { isHotplugError } from '../utils/errors';
+import { isAnyPickError } from '../utils/errors';
 import type { OperationReceipt, OperationReceiptLine } from './model/types';
 import type { Screen } from './model/screen';
 
@@ -41,7 +41,7 @@ export interface TuiShell {
   setReceipt: React.Dispatch<React.SetStateAction<OperationReceipt | null>>;
   reportOk: (text: string) => void;
   /**
-   * Report a failure as a receipt. Any `HotplugError` suggestions are appended
+   * Report a failure as a receipt. Any `AnyPickError` suggestions are appended
    * as info lines, so remediation hints reach the TUI the same way
    * `toHuman()` carries them to the CLI. `fallback` replaces the raw value for
    * a non-`Error` throw, where `String(err)` would be unreadable.
@@ -118,7 +118,7 @@ export function useTuiShell(onExit: (code?: number) => void): TuiShell {
   const reportFail = React.useCallback((err: unknown, fallback?: string) => {
     const text = err instanceof Error ? err.message : (fallback ?? String(err));
     const lines: OperationReceiptLine[] = [{ kind: 'fail', text }];
-    if (isHotplugError(err)) {
+    if (isAnyPickError(err)) {
       for (const s of err.suggestions) {
         lines.push({ kind: 'info', text: `– ${s}` });
       }

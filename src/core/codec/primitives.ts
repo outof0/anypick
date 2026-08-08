@@ -47,6 +47,10 @@ export interface GatewayRef {
   kind: 'gateway';
   name: string;
 }
+export interface ProxyHubRef {
+  kind: 'proxy-hub';
+  name: string;
+}
 export interface PresetRef {
   kind: 'preset';
   name: string;
@@ -55,7 +59,7 @@ export interface PoolRef {
   kind: 'account-pool';
   provider: string;
 }
-export type DecodedResourceRef = AccountRef | GatewayRef | PresetRef | PoolRef;
+export type DecodedResourceRef = AccountRef | GatewayRef | ProxyHubRef | PresetRef | PoolRef;
 
 export function decodeResourceRef(v: unknown, context: string): DecoderResult<DecodedResourceRef> {
   if (!isRecord(v)) {
@@ -75,6 +79,12 @@ export function decodeResourceRef(v: unknown, context: string): DecoderResult<De
       return fail(`${context}.name: expected string`);
     }
     return ok({ kind: 'gateway', name: v.name });
+  }
+  if (v.kind === 'proxy-hub') {
+    if (!isString(v.name)) {
+      return fail(`${context}.name: expected string`);
+    }
+    return ok({ kind: 'proxy-hub', name: v.name });
   }
   if (v.kind === 'preset') {
     if (!isString(v.name)) {

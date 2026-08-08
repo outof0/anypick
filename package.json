@@ -1,7 +1,7 @@
 {
-  "name": "hotplug",
+  "name": "anypick",
   "version": "1.0.0",
-  "description": "Plug any AI into any tool. Manage AI accounts, connect any client to any provider.",
+  "description": "Switch accounts, route providers and keep your AI coding tools moving.",
   "keywords": [
     "accounts",
     "auth",
@@ -17,18 +17,17 @@
     "opencode",
     "proxy"
   ],
-  "homepage": "https://hotplug.dev",
+  "homepage": "https://anypick.dev",
   "bugs": {
-    "url": "https://github.com/hotplug-dev/hotplug/issues"
+    "url": "https://github.com/outof0/anypick/issues"
   },
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/hotplug-dev/hotplug.git"
+    "url": "git+https://github.com/outof0/anypick.git"
   },
   "bin": {
-    "hotplug": "./dist/cli.js",
-    "rotate": "./dist/cli.js"
+    "anypick": "./dist/cli.js"
   },
   "files": [
     "dist"
@@ -61,20 +60,34 @@
     "./internal/*": null
   },
   "scripts": {
-    "build": "pnpm clean && tsc -p tsconfig.json --emitDeclarationOnly && node scripts/rewrite-declaration-specifiers.mjs && vite build",
-    "check": "oxfmt --check && pnpm lint && pnpm typecheck && pnpm test",
+    "dev": "node scripts/dev.mjs",
+    "start": "node dist/cli.js",
+    "build": "pnpm clean && tsc -p tsconfig.json --emitDeclarationOnly && node scripts/rewrite-declaration-specifiers.mjs && vite build && node scripts/copy-native-assets.mjs && node scripts/check-native-tray.mjs",
     "clean": "node scripts/clean-dist.mjs",
-    "dev": "tsx src/cli.ts",
+    "check": "oxfmt --check && pnpm lint && pnpm typecheck && pnpm release:check && pnpm test",
     "format": "oxfmt",
     "lint": "oxlint --type-aware",
     "lint:fix": "oxlint --type-aware --fix",
-    "package": "pnpm build && pnpm pack --pack-destination dist",
-    "package:smoke": "pnpm package && node scripts/pack-smoke.mjs",
-    "release": "pnpm check && bumpp",
-    "start": "node dist/cli.js",
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.test.json --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit && tsc -p tsconfig.test.json --noEmit"
+    "package": "pnpm build && pnpm pack --pack-destination dist",
+    "package:smoke": "pnpm package && node scripts/pack-smoke.mjs",
+    "prepublishOnly": "pnpm build",
+    "release": "pnpm release:plan",
+    "release:check": "node scripts/release-plan.mjs check",
+    "release:plan": "node scripts/release-plan.mjs plan",
+    "tray:build": "pnpm tray:ui:build && node scripts/build-tauri-tray.mjs",
+    "tray:check": "pnpm tray:ui:check && pnpm tray:ui:build && cargo check --manifest-path src/tray/tauri/src-tauri/Cargo.toml",
+    "tray:demo": "node scripts/demo-tauri-tray.mjs",
+    "tray:macos": "node scripts/demo-macos-tray.mjs",
+    "tray:smoke": "node scripts/smoke-tauri-tray.mjs",
+    "tray:smoke:probe": "node scripts/smoke-tauri-tray.mjs",
+    "tray:smoke:only": "node scripts/smoke-tauri-tray.mjs --smoke-only",
+    "tray:e2e:ui": "node scripts/e2e-tray-ui.mjs",
+    "tray:ui": "vite --config src/tray/tauri/ui/vite.config.ts",
+    "tray:ui:build": "vite build --config src/tray/tauri/ui/vite.config.ts",
+    "tray:ui:check": "tsc -p src/tray/tauri/ui/tsconfig.json --noEmit"
   },
   "dependencies": {
     "@clack/core": "0.4.2",
@@ -86,15 +99,18 @@
     "react-dom": "^19.2.7"
   },
   "devDependencies": {
+    "@tailwindcss/vite": "^4.3.3",
     "@types/node": "^22.15.21",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
-    "bumpp": "^12.0.0",
+    "@vitejs/plugin-react": "^6.0.5",
     "changelogithub": "^14.0.0",
     "ink-testing-library": "^4.0.0",
     "oxfmt": "^0.59.0",
     "oxlint": "^1.74.0",
     "oxlint-tsgolint": "^0.24.0",
+    "playwright": "1.55.0",
+    "tailwindcss": "^4.3.3",
     "tsx": "^4.19.4",
     "typescript": "7.0.2",
     "vite": "8.1.5",

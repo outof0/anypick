@@ -8,7 +8,7 @@ import type { ProviderPoolRow } from '../model';
 
 /**
  * The command a user runs to sign in with each provider's own tool, before
- * Hotplug can snapshot the login. Only include commands we're confident about;
+ * AnyPick can snapshot the login. Only include commands we're confident about;
  * unknown providers fall back to a generic instruction.
  */
 const SIGN_IN_COMMANDS: Record<string, string> = {

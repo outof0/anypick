@@ -1,4 +1,4 @@
-/** Internal `hotplug proxy serve opencode` process entry. */
+/** Internal `anypick proxy serve opencode` process entry. */
 import { appendFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
@@ -22,7 +22,11 @@ export async function runOpenCodeProxyCli(args: string[]): Promise<void> {
       host: { type: 'string', default: '127.0.0.1' },
       'auth-path': { type: 'string', default: '' },
       'auth-paths': { type: 'string', default: '' },
+      'auth-account-names': { type: 'string', default: '' },
       'auth-mode': { type: 'string', default: 'auto' },
+      'quota-guard': { type: 'boolean', default: false },
+      'quota-guard-state': { type: 'string', default: '' },
+      'quota-guard-cooldown-ms': { type: 'string', default: '3600000' },
       upstream: { type: 'string', default: '' },
       'model-metadata-url': { type: 'string', default: '' },
       'proxy-token': { type: 'string', default: '' },
@@ -53,6 +57,14 @@ export async function runOpenCodeProxyCli(args: string[]): Promise<void> {
     .map((path) => path.trim())
     .filter(Boolean)
     .map(expandHome);
+  const authAccountNames = (values['auth-account-names'] || '')
+    .split(',')
+    .map((name) => name.trim())
+    .filter(Boolean);
+  const quotaGuardCooldownMs = Number(values['quota-guard-cooldown-ms']);
+  if (!Number.isFinite(quotaGuardCooldownMs) || quotaGuardCooldownMs < 1_000) {
+    throw new Error(`Invalid quota guard cooldown: ${values['quota-guard-cooldown-ms']}`);
+  }
   const metadataSetting = values['model-metadata-url'] || process.env.OPENCODE_MODEL_METADATA_URL;
   const modelMetadataUrl = metadataSetting === 'none' ? false : metadataSetting || undefined;
   const log = values.quiet ? () => {} : makeLog();
@@ -61,15 +73,23 @@ export async function runOpenCodeProxyCli(args: string[]): Promise<void> {
     port,
     authPath,
     authPaths,
+    authAccountNames: authAccountNames.length ? authAccountNames : undefined,
     authMode,
     upstream: values.upstream || undefined,
-    token: values['proxy-token'] || process.env.HOTPLUG_PROXY_TOKEN || undefined,
+    token: values['proxy-token'] || process.env.ANYPICK_PROXY_TOKEN || undefined,
     modelMetadataUrl,
     quiet: values.quiet,
+    quotaGuard: {
+      enabled: values['quota-guard'] === true,
+      cooldownMs: Math.floor(quotaGuardCooldownMs),
+      statePath: values['quota-guard-state'] ? expandHome(values['quota-guard-state']) : undefined,
+      accountNames: authAccountNames,
+      providerId: 'opencode',
+    },
     log,
   });
 
-  process.stdout.write(`hotplug-opencode-proxy listening on ${endpoint}\n`);
+  process.stdout.write(`anypick-opencode-proxy listening on ${endpoint}\n`);
   log(`listening on ${endpoint}`);
   log(`auth: ${authPath}`);
   if (authPaths.length > 0) {
@@ -90,7 +110,7 @@ function makeLog(): (line: string) => void {
     const clean = line.replace(/^\s+/, '');
     const ts = new Date().toISOString().slice(11, 19);
     process.stderr.write(`${ts} ${tagFor(clean)} ${clean}\n`);
-    const extraLog = process.env.HOTPLUG_PROXY_LOG;
+    const extraLog = process.env.ANYPICK_PROXY_LOG;
     if (extraLog && process.stderr.isTTY) {
       try {
         appendFileSync(extraLog, `${ts} ${tagFor(clean)} ${clean}\n`);
@@ -121,13 +141,15 @@ function tagFor(line: string): string {
 }
 
 function proxyHelp(): string {
-  return `hotplug proxy serve opencode — OpenAI + Anthropic via OpenCode Zen+Go
+  return `anypick proxy serve opencode — OpenAI + Anthropic via OpenCode Zen+Go
 
   --port <n>              Listen port (default 4120)
   --host <host>           Listen host (default 127.0.0.1)
   --auth-path <path>      Path to OpenCode auth.json
   --auth-paths <paths>    Comma-separated auth.json files for pool failover
+  --auth-account-names    Comma-separated saved account labels for pool audit
   --auth-mode <mode>      auto, public, or api (default auto)
+  --quota-guard           Fail over only on confirmed credential quota errors
   --upstream <url>        Force a single upstream (tests)
   --model-metadata-url    Override dynamic model metadata URL
   -q, --quiet             Less logging

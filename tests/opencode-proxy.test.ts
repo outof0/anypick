@@ -17,6 +17,7 @@ import {
 } from '../src/providers/opencode-proxy/models';
 import { modelObject } from '../src/providers/opencode-proxy/types';
 import { anthropicContextWindowMessage } from '../src/providers/opencode-proxy/context-budget';
+import { anthropicToOpenAI } from '../src/providers/protocol/anthropic-convert';
 
 let servers: Server[] = [];
 
@@ -206,6 +207,59 @@ describe('opencode-proxy models', () => {
       // OpenCode reserves min(20k, capped output) below a separate input limit.
       auto_compact_token_limit: 252_000,
     });
+  });
+});
+
+describe('opencode-proxy catalog refresh', () => {
+  it('?refresh=1 bypasses the catalog TTL and refetches upstream', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'oc-catalog-refresh-'));
+    const authPath = await writeAuth(dir, {
+      opencode: { type: 'api', key: 'sk-upstream-key' },
+    });
+    let current = ['model-a'];
+    let fetches = 0;
+    const up = await mockUpstream((url) => {
+      if (url.startsWith('/models')) {
+        fetches += 1;
+        return { status: 200, body: JSON.stringify({ data: current.map((id) => ({ id })) }) };
+      }
+      return { status: 404, body: JSON.stringify({}) };
+    });
+    const { server, endpoint } = await listenOpenCodeProxy({
+      host: '127.0.0.1',
+      port: 0,
+      authPath,
+      upstream: up.url,
+      modelMetadataUrl: false,
+      quiet: true,
+      token: TEST_TOKEN,
+    });
+    servers.push(server);
+
+    const list = async (refresh = false) => {
+      const res = await fetch(`${endpoint}/v1/models${refresh ? '?refresh=1' : ''}`, {
+        headers: AUTH,
+      });
+      const body = (await res.json()) as { data?: Array<{ id?: string }> };
+      return (body.data ?? []).map((m) => m.id);
+    };
+
+    const first = await list();
+    expect(first).toContain('model-a');
+    const afterFirst = fetches;
+
+    // A plain read is served from the cached catalog — no refetch.
+    expect(await list()).toEqual(first);
+    expect(fetches).toBe(afterFirst);
+
+    // Upstream gains a new model; the cached list still hides it.
+    current = ['model-a', 'model-b'];
+    expect(await list()).not.toContain('model-b');
+    expect(fetches).toBe(afterFirst);
+
+    // Refresh bypasses the TTL and surfaces the new model.
+    expect(await list(true)).toContain('model-b');
+    expect(fetches).toBe(afterFirst + 1);
   });
 });
 
@@ -825,7 +879,7 @@ describe('opencode-proxy server', () => {
     expect(sawUrl).toBe('/chat/completions');
   });
 
-  it('fails over a credential whose balance is exhausted and sticks to the healthy key', async () => {
+  it('fails over an opted-in pool credential whose balance is exhausted and sticks to the healthy key', async () => {
     const firstDir = await mkdtemp(join(tmpdir(), 'oc-proxy-pool-'));
     const firstAuth = await writeAuth(firstDir, {
       'opencode-go': { type: 'api', key: 'sk-exhausted' },
@@ -870,6 +924,13 @@ describe('opencode-proxy server', () => {
       port: 0,
       authPath: firstAuth,
       authPaths: [secondAuth],
+      authAccountNames: ['exhausted', 'healthy'],
+      quotaGuard: {
+        enabled: true,
+        cooldownMs: 60_000,
+        statePath: join(firstDir, 'quota-guard.json'),
+        providerId: 'opencode',
+      },
       upstream: up.url,
       quiet: true,
       token: TEST_TOKEN,
@@ -1548,5 +1609,29 @@ describe('opencode-proxy server', () => {
     });
     expect(hy3.status).toBe(200);
     expect(((await hy3.json()) as { content: { text: string }[] }).content[0].text).toBe('from-go');
+  });
+
+  it('preserves Anthropic thinking blocks as reasoning_content on assistant messages', () => {
+    const converted = anthropicToOpenAI({
+      model: 'deepseek-v4-flash-free',
+      max_tokens: 100,
+      messages: [
+        { role: 'user', content: 'hello' },
+        {
+          role: 'assistant',
+          content: [
+            { type: 'thinking', thinking: 'Let me think...', signature: 'sig123' },
+            { type: 'text', text: 'Hello there!' },
+          ],
+        },
+        { role: 'user', content: 'follow up' },
+      ],
+    });
+
+    const assistantMsg = converted.messages.find((m) => m.role === 'assistant');
+    expect(assistantMsg).toBeDefined();
+    expect(assistantMsg?.reasoning_content).toBe('Let me think...');
+    expect(assistantMsg?.reasoning_signature).toBe('sig123');
+    expect(assistantMsg?.content).toBe('Hello there!');
   });
 });

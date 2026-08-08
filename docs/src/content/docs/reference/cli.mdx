@@ -1,10 +1,11 @@
 ---
 title: CLI reference
-description: Every Hotplug command, global flag, exit code, and environment variable.
+description: Every AnyPick command, global flag, exit code, and environment variable.
 ---
 
-The binary is `hotplug`; `rotate` is an alias for the same entry point. Running
-it bare on a TTY opens the [terminal UI](/docs/guides/terminal-ui).
+The binary is `anypick`. The first
+bare interactive run asks whether future bare runs should open the
+[terminal UI](/docs/guides/terminal-ui) or desktop Tray.
 
 ## Global flags
 
@@ -20,17 +21,19 @@ Valid on every command.
 | `--no-input` | Never prompt, even on a TTY |
 | `-y, --yes` | Skip destructive confirmations |
 | `--trace` | Print internal step names, without secrets |
+| `--tui` | Open the Terminal UI for this run |
+| `--tray` | Open the desktop Tray for this run |
 
 ## Bindings
 
 ```bash
-hotplug use [client] [--with <source>] [--current]
+anypick use [client] [--with <source>] [--current]
                      [--model <id>] [--save <name>]
-hotplug run [client] [--with <source>] [--model <id>]
-hotplug current [client]
-hotplug link <client> [--with <source>] [--model <id>]
-hotplug unlink [client]
-hotplug reset [client]
+anypick run [client] [--with <source>] [--model <id>]
+anypick current [client]
+anypick link <client> [--with <source>] [--model <id>]
+anypick unlink [client]
+anypick reset [client]
 ```
 
 | Command | Description |
@@ -41,10 +44,10 @@ hotplug reset [client]
 | `run` | Launch a client with its effective binding |
 | `current` | Show effective bindings |
 | `link` / `unlink` | Project-scoped bindings for the current directory |
-| `reset` | Remove Hotplug-managed configuration for a client |
+| `reset` | Remove AnyPick-managed configuration for a client |
 
 `--with` accepts an account (`grok/work`), a gateway name, a pool
-(`pool:gemini`), or a preset (`@work-stack`).
+(`pool:gemini`), the Proxy Hub (`hub:default`), or a preset (`@work-stack`).
 
 <Aside type="caution" title="Non-interactive use">
 `use <client>` requires `--with` or `--current`. With neither, and no TTY to
@@ -54,9 +57,9 @@ prompt on, it exits `2` instead of guessing.
 ## Inventory
 
 ```bash
-hotplug list [accounts|gateways|clients|presets]
-hotplug providers
-hotplug clients
+anypick list [accounts|gateways|clients|presets]
+anypick providers
+anypick clients
 ```
 
 `list` with no argument prints all four. `ls` is an alias.
@@ -64,10 +67,10 @@ hotplug clients
 ## Adding sources
 
 ```bash
-hotplug add account [provider] [--current] [--new]
+anypick add account [provider] [--current] [--new]
     [--name <name>] [--source <id>]
     [--api-key [key]] [--region <region>]
-hotplug add gateway [name] --provider <id> --endpoint <url>
+anypick add gateway [name] --provider <id> --endpoint <url>
     [--api-key <key> | --api-key-env <var>]
     [--model <id>] [--models <id...>]
 ```
@@ -81,11 +84,11 @@ a login — currently `kiro` only — and prompts for the value when it is omitt
 ## Accounts
 
 ```bash
-hotplug account list [provider]
-hotplug account refresh <provider> [name] [--all]
-hotplug account remove <provider> <name>
-hotplug account export <provider> <name> -o <file>
-hotplug account import <provider> <name> -i <file> [-f]
+anypick account list [provider]
+anypick account refresh <provider> [name] [--all]
+anypick account remove <provider> <name>
+anypick account export <provider> <name> -o <file>
+anypick account import <provider> <name> -i <file> [-f]
 ```
 
 `refresh` with no name refreshes the live login. `rm` is an alias for `remove`,
@@ -94,11 +97,11 @@ hotplug account import <provider> <name> -i <file> [-f]
 ## Gateways
 
 ```bash
-hotplug gateway list
-hotplug gateway show <name>
-hotplug gateway edit <name> [--endpoint <url>] [--api-key <key>]
+anypick gateway list
+anypick gateway show <name>
+anypick gateway edit <name> [--endpoint <url>] [--api-key <key>]
     [-m <id>] [--models <id...>]
-hotplug gateway remove <name>
+anypick gateway remove <name>
 ```
 
 `show` masks the API key unless you pass the global `--reveal`.
@@ -106,9 +109,9 @@ hotplug gateway remove <name>
 ## Presets
 
 ```bash
-hotplug preset list
-hotplug preset show <name>
-hotplug preset remove <name>
+anypick preset list
+anypick preset show <name>
+anypick preset remove <name>
 ```
 
 Preset names are written without the `@` here; the `@` prefix is only how you
@@ -117,17 +120,17 @@ reference one in `--with`.
 ## Proxies
 
 ```bash
-hotplug proxy
-hotplug proxy status [provider] [name]
-hotplug proxy start [provider] [name] [-p <port>] [--host <host>]
-hotplug proxy stop [provider] [name]
-hotplug proxy enable <provider> <name> [-p <port>] [--host <host>]
+anypick proxy
+anypick proxy status [provider] [name]
+anypick proxy start [provider] [name] [-p <port>] [--host <host>]
+anypick proxy stop [provider] [name]
+anypick proxy enable <provider> <name> [-p <port>] [--host <host>]
     [--auth-mode auto|public|api] [--no-start]
     [--oauth-source auto|gemini-cli|antigravity]
-hotplug proxy config <provider> <name> [-p <port>] [--host <host>]
+anypick proxy config <provider> <name> [-p <port>] [--host <host>]
     [--auth-mode …] [--oauth-source …] [--no-restart]
-hotplug proxy disable <provider> <name>
-hotplug proxy logs <provider> [name] [-n <lines>] [-f]
+anypick proxy disable <provider> <name>
+anypick proxy logs <provider> [name] [-n <lines>] [-f]
 ```
 
 `config` has the alias `set`. `--host` defaults to `127.0.0.1`. Omitting `-p` on
@@ -137,43 +140,66 @@ account proxy.
 ### Pools
 
 ```bash
-hotplug proxy pool status <provider>
-hotplug proxy pool enable <provider> [-p <port>] [--host <host>] [--no-start]
-hotplug proxy pool member <provider> <account> <on|off>
-hotplug proxy pool disable <provider>
+anypick proxy pool status <provider>
+anypick proxy pool enable <provider> [-p <port>] [--host <host>] [--no-start]
+anypick proxy pool member <provider> <account> <on|off>
+anypick proxy pool disable <provider>
 ```
+
+### Proxy Hub
+
+```bash
+anypick proxy hub status
+anypick proxy hub enable [-p <port>] [--host <host>] [--start]
+anypick proxy hub source <provider> <account> <on|off>
+anypick proxy hub owner <model> <provider> <account>
+anypick proxy hub preview
+anypick proxy hub start
+anypick proxy hub stop
+```
+
+Bind with `--with hub:default` after at least one source is enabled. `owner`
+picks which account wins when two sources advertise the same model id;
+`preview` refreshes catalogs and prints routes plus conflicts.
 
 ## Plugins
 
 ```bash
-hotplug plugin list
-hotplug plugin add <dir>
-hotplug plugin enable <name>
-hotplug plugin disable <name>
-hotplug plugin trust <name>
-hotplug plugin remove <name>
+anypick plugin list
+anypick plugin add <dir>
+anypick plugin enable <name>
+anypick plugin disable <name>
+anypick plugin trust <name>
+anypick plugin remove <name>
 ```
 
 `add` installs a local directory **disabled**. `enable` is the trust decision and
-prompts; it needs the global `-y` when there is no TTY. `trust` re-pins the entry
-module digest after the plugin's code changes. See
+prompts; it needs the global `-y` when there is no TTY. `trust` re-pins the
+package digest after the plugin's code changes. See
 [Plugins](/docs/guides/plugins).
 
-## Supervisor
+## Surfaces and supervisor
 
 ```bash
-hotplug tray start
-hotplug tray status
-hotplug tray stop
+anypick tui
+anypick tray
+anypick tray start
+anypick tray status
+anypick tray stop
 ```
 
-`stop` quits the supervisor and stops every Hotplug-owned proxy.
+`anypick tui` always opens the [Apps / Terminal UI](/docs/guides/terminal-ui).
+Bare `anypick tray` opens or starts the [Desktop Tray](/docs/guides/tray) on
+macOS (elsewhere it reports that the desktop surface is unavailable — use
+`tray start` for the supervisor alone). `start`, `status`, and `stop` are
+explicit lifecycle commands for automation and diagnostics. `stop` quits the
+supervisor and stops every AnyPick-owned proxy.
 
 ## Health
 
 ```bash
-hotplug doctor [target]
-hotplug doctor --fix [--dry-run] [-y]
+anypick doctor [target]
+anypick doctor --fix [--dry-run] [-y]
 ```
 
 See [Troubleshooting](/docs/reference/troubleshooting) for what `--fix` is allowed to
@@ -182,18 +208,18 @@ touch.
 ## Updating
 
 ```bash
-hotplug update           # install the latest release
-hotplug update --check   # report only; install nothing
+anypick update           # install the latest release
+anypick update --check   # report only; install nothing
 ```
 
 `update` reads the `latest` tag from the npm registry, compares it with the
 running version, and — if there is something newer — runs
-`npm install -g hotplug@<version>` with the exact version it just reported.
+`npm install -g anypick@<version>` with the exact version it just reported.
 npm's own output is passed straight through. With `--check` it prints the
 comparison and exits `0` either way, so a shell script can gate on `--json`:
 
 ```bash
-hotplug update --check --json
+anypick update --check --json
 ```
 
 ```json
@@ -201,7 +227,7 @@ hotplug update --check --json
 ```
 
 <Aside type="caution" title="npm-installed builds only">
-The update runs npm regardless of how Hotplug got onto your machine. If you
+The update runs npm regardless of how AnyPick got onto your machine. If you
 installed with pnpm, bun, or Homebrew, update it the same way you installed it —
 otherwise you end up with two copies on `PATH`.
 </Aside>
@@ -209,13 +235,13 @@ otherwise you end up with two copies on `PATH`.
 ## Shell completion
 
 ```bash
-hotplug completion zsh     # also: bash | fish
+anypick completion zsh     # also: bash | fish
 ```
 
 Add it to your shell startup file, or evaluate it directly:
 
 ```bash
-source <(hotplug completion zsh)
+source <(anypick completion zsh)
 ```
 
 ## Exit codes
@@ -223,22 +249,28 @@ source <(hotplug completion zsh)
 | Code | Meaning |
 | --- | --- |
 | `0` | Success |
+| `1` | Operational failure |
 | `2` | Invalid usage — missing client or source, bare `use` without a TTY |
 | `3` | Not found |
+| `4` | Auth required |
 | `5` | Capability conflict, unsupported transport, or no binding |
+| `6` | Health failure |
 | `7` | Missing required dependency, such as an external proxy binary |
+| `8` | Malformed or untrusted import envelope |
+| `9` | Import exceeds size or file-count limits |
 | `130` | Cancelled with SIGINT |
 
 ## Environment variables
 
-### Hotplug
+### AnyPick
 
 | Variable | Effect |
 | --- | --- |
-| `HOTPLUG_HOME` | Data directory. Default `~/.hotplug` |
-| `HOTPLUG_NO_TRAY=1` | Terminal UI exits without starting a supervisor |
-| `HOTPLUG_NO_PLUGINS=1` | Skip loading plugins entirely |
-| `HOTPLUG_DEBUG=1` | Echo internal events to stderr |
+| `ANYPICK_HOME` | Data directory. Default `~/.anypick` |
+| `ANYPICK_UI=tui\|tray` | Override the saved surface for a bare interactive run |
+| `ANYPICK_NO_PLUGINS=1` | Skip loading plugins entirely |
+
+| `ANYPICK_DEBUG=1` | Echo internal events to stderr |
 | `NO_COLOR` | Drop all color; glyphs still carry state |
 
 ### Provider overrides

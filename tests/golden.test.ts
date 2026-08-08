@@ -10,7 +10,7 @@ import { afterHelpText } from '../src/cli/help';
 import { formatUseSuccess, formatModel } from '../src/cli/errors';
 import { createAppReady } from '../src/core/app';
 import { DOCTOR_FIX_ALLOWLIST, formatForbiddenManual } from '../src/core/doctor';
-import { hotplugError, ExitCode } from '../src/utils/errors';
+import { anypickError, ExitCode } from '../src/utils/errors';
 import { planActivation } from '../src/core/activation-planner';
 import { gatewayRef } from '../src/core/refs';
 
@@ -32,12 +32,12 @@ describe('§28.4 golden snapshots', () => {
   });
 
   it('no-binding error is stable', () => {
-    const err = hotplugError(
-      'No Hotplug binding for claude. `run` will not use unmanaged native config.',
+    const err = anypickError(
+      'No AnyPick binding for claude. `run` will not use unmanaged native config.',
       'NO_ACTIVE_BINDING',
       {
         exitCode: ExitCode.CAPABILITY_CONFLICT,
-        suggestions: ['hotplug use claude --with <source>', 'hotplug run claude --with <source>'],
+        suggestions: ['anypick use claude --with <source>', 'anypick run claude --with <source>'],
         mutated: false,
       },
     );
@@ -46,12 +46,12 @@ describe('§28.4 golden snapshots', () => {
   });
 
   it('missing-dependency error is stable', () => {
-    const err = hotplugError(
+    const err = anypickError(
       'Required external proxy for kiro/work is not installed.',
       'MISSING_DEPENDENCY',
       {
         exitCode: ExitCode.MISSING_DEPENDENCY,
-        suggestions: ['hotplug doctor claude'],
+        suggestions: ['anypick doctor claude'],
         mutated: false,
       },
     );
@@ -59,14 +59,14 @@ describe('§28.4 golden snapshots', () => {
   });
 
   it('deterministic not-found errors are stable', () => {
-    const account = hotplugError('Account `grok/missing` was not found.', 'ACCOUNT_NOT_FOUND', {
+    const account = anypickError('Account `grok/missing` was not found.', 'ACCOUNT_NOT_FOUND', {
       exitCode: ExitCode.NOT_FOUND,
-      suggestions: ['hotplug list accounts'],
+      suggestions: ['anypick list accounts'],
       mutated: false,
     });
-    const gateway = hotplugError('Gateway `nope` was not found.', 'GATEWAY_NOT_FOUND', {
+    const gateway = anypickError('Gateway `nope` was not found.', 'GATEWAY_NOT_FOUND', {
       exitCode: ExitCode.NOT_FOUND,
-      suggestions: ['hotplug list gateways'],
+      suggestions: ['anypick list gateways'],
       mutated: false,
     });
     expect(normalize(account.toHuman())).toMatchSnapshot();
@@ -98,7 +98,7 @@ describe('§28.4 golden snapshots', () => {
 describe('§28.4 dry-run plan + doctor report golden', () => {
   let root: string;
   beforeEach(async () => {
-    root = await mkdtemp(join(tmpdir(), 'hotplug-golden-'));
+    root = await mkdtemp(join(tmpdir(), 'anypick-golden-'));
   });
   afterEach(async () => {
     await rm(root, { recursive: true, force: true });
@@ -144,7 +144,7 @@ describe('§28.4 dry-run plan + doctor report golden', () => {
     const app = await createAppReady({ root, skipMigrate: true });
     const report = await app.doctor.run();
     // Stabilize: overlays are intentionally scanned from the process-wide temp
-    // directory, so sibling tests (or another Hotplug process) may create them.
+    // directory, so sibling tests (or another AnyPick process) may create them.
     // Doctor-specific tests cover the overlay finding itself.
     const stableChecks = report.checks.filter((c) => !c.id.startsWith('overlay:'));
     const checks = stableChecks.map((c) => ({
@@ -164,7 +164,7 @@ describe('§28.4 dry-run plan + doctor report golden', () => {
           id: 'x',
           kind: 'modify_native_auth',
           message: 'Would modify native auth',
-          suggestions: ['hotplug use codex --with codex/personal'],
+          suggestions: ['anypick use codex --with codex/personal'],
         }),
       ),
     ).toMatchSnapshot();

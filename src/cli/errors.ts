@@ -1,9 +1,9 @@
-import { isHotplugError, type HotplugError } from '../utils/errors';
+import { isAnyPickError, type AnyPickError } from '../utils/errors';
 import { MARK, getUxMode, printError } from './ux';
 
 export function handleCliError(err: unknown): never {
   const mode = getUxMode();
-  if (isHotplugError(err)) {
+  if (isAnyPickError(err)) {
     if (mode.json) {
       console.log(JSON.stringify(err.toJson()));
     } else {
@@ -86,4 +86,4 @@ export function formatModel(model: { mode: string; id?: string; reason?: string 
   return model.mode;
 }
 
-export type { HotplugError };
+export type { AnyPickError };

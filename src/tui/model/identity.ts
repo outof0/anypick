@@ -1,5 +1,5 @@
 import type { LiveUsageWindow, ProxyStatus } from '../../types';
-import { layoutForColumns, type LayoutWidth } from '../../cli/render-util';
+import { layoutForColumns, type LayoutWidth } from '../../presentation/layout';
 import { normalizeSlug } from '../../utils/slug';
 import type { AccountRow, LiveAccountRelation, ProviderPoolRow, ProxyStateLabel } from './types';
 import { G } from '../components/chrome/status';
@@ -10,6 +10,18 @@ export function normalizeIdentity(value: string | undefined | null): string | nu
   }
   const t = String(value).trim();
   return t === '' ? null : t.toLowerCase();
+}
+
+/** Keep credential fingerprints useful for matching without exposing them as UI identity. */
+export function identityDisplayText(value: string | undefined | null, fallback = '—'): string {
+  const identity = value?.trim();
+  if (!identity) {
+    return fallback;
+  }
+  if (/^antigravity:[0-9a-f]{12,}$/i.test(identity)) {
+    return 'Antigravity OAuth';
+  }
+  return identity;
 }
 
 export function identitiesMatch(
@@ -316,7 +328,7 @@ export function formatProviderRowLines(
   const mark = selected ? G.focus : ' ';
   const name = row.displayName;
   const active = row.activeName ?? '—';
-  const id = row.identityLabel;
+  const id = identityDisplayText(row.identityLabel);
   const count = row.savedCount === 0 ? 'no saved' : `${row.savedCount} saved`;
   const hint = row.statusHint || row.proxyLabel || '';
   const err = row.error ? 'error' : '';
@@ -354,7 +366,7 @@ export function formatAccountRowLines(
   const sel = selected ? G.focus : ' ';
   const marker = row.isLiveMatch ? G.live : '·';
   const name = row.label || row.name;
-  const id = row.identity ?? '—';
+  const id = identityDisplayText(row.identity);
   const updated = `updated ${row.updatedRelative}`;
 
   if (width === 'narrow') {

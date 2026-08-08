@@ -1,8 +1,8 @@
 import { resolve } from 'node:path';
 import type { PluginRecord } from '../types';
-import { hotplugError, ExitCode } from '../utils/errors';
+import { anypickError, ExitCode } from '../utils/errors';
 import { withMutationLock } from './mutation-lock';
-import { digestEntry, readManifest, resolveEntry } from './plugin-loader';
+import { digestPluginPackage, readManifest } from './plugin-loader';
 import type { PluginStore } from './plugin-store';
 
 /** All plugin mutations serialize on one scope: the set is read as a whole at startup. */
@@ -13,9 +13,9 @@ function nowIso(): string {
 }
 
 function notFound(name: string): never {
-  throw hotplugError(`No plugin named "${name}" is installed.`, 'PLUGIN_NOT_FOUND', {
+  throw anypickError(`No plugin named "${name}" is installed.`, 'PLUGIN_NOT_FOUND', {
     exitCode: ExitCode.NOT_FOUND,
-    suggestions: ['List installed plugins: hotplug plugin list'],
+    suggestions: ['List installed plugins: anypick plugin list'],
   });
 }
 
@@ -40,21 +40,21 @@ export class PluginService {
     return this.store.get(name);
   }
 
-  /** Read the manifest at `dir`, record it disabled, and pin its entry digest. */
+  /** Read the manifest at `dir`, record it disabled, and pin its package digest. */
   async add(dir: string): Promise<PluginRecord> {
     const path = resolve(dir);
     const manifest = await readManifest(path);
-    const digest = await digestEntry(resolveEntry(path, manifest.main));
+    const digest = await digestPluginPackage(path);
     return withMutationLock(this.root, PLUGIN_SCOPE, async () => {
       const existing = this.store.get(manifest.name);
       if (existing && existing.path !== path) {
-        throw hotplugError(
+        throw anypickError(
           `A different plugin directory is already installed as "${manifest.name}".`,
           'PLUGIN_CONFLICT',
           {
             exitCode: ExitCode.OPERATIONAL,
             details: { installedPath: existing.path },
-            suggestions: [`Remove the existing one first: hotplug plugin remove ${manifest.name}`],
+            suggestions: [`Remove the existing one first: anypick plugin remove ${manifest.name}`],
           },
         );
       }
@@ -95,7 +95,7 @@ export class PluginService {
   }
 
   /**
-   * Re-pin the entry digest to the code currently on disk.
+   * Re-pin the package digest to the code currently on disk.
    *
    * This is the acknowledgement step after a plugin's code changes — an upgrade,
    * a `git pull`, or something the user did not expect. It reports the old and
@@ -107,7 +107,7 @@ export class PluginService {
       notFound(name);
     }
     const manifest = await readManifest(existing.path);
-    const digest = await digestEntry(resolveEntry(existing.path, manifest.main));
+    const digest = await digestPluginPackage(existing.path);
     return withMutationLock(this.root, PLUGIN_SCOPE, async () => {
       const record: PluginRecord = {
         ...existing,

@@ -8,7 +8,7 @@ import { describe, expect, it, beforeEach, afterEach } from 'vitest';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { createAppReady, type HotplugApp } from '../src/core/app';
+import { createAppReady, type AnyPickApp } from '../src/core/app';
 import { ProviderRegistry } from '../src/core/registry';
 import { ClientRegistry } from '../src/clients/registry';
 import { CatalogRegistry } from '../src/catalog/providers';
@@ -16,7 +16,7 @@ import { openDatabase } from '../src/core/db';
 import { executeActivation } from '../src/core/activation-executor';
 import { FakeProvider } from './helpers';
 import { accountRef } from '../src/core/refs';
-import { hotplugError } from '../src/utils/errors';
+import { anypickError } from '../src/utils/errors';
 import type {
   ActivationPlan,
   ClientAdapter,
@@ -25,7 +25,7 @@ import type {
   SourceAdapter,
 } from '../src/types';
 
-async function seedAccount(app: HotplugApp, provider: string, name: string): Promise<void> {
+async function seedAccount(app: AnyPickApp, provider: string, name: string): Promise<void> {
   const { snapshotDir } = await app.accountStore.prepareSnapshot(provider, name);
   await writeFile(join(snapshotDir, 'auth.json'), JSON.stringify({ token: 't' }), {
     mode: 0o600,
@@ -54,7 +54,7 @@ function throwingClient(): ClientAdapter {
     },
     async validate() {},
     async apply() {
-      throw hotplugError('simulated client apply failure', 'TEST_APPLY_FAILED', {
+      throw anypickError('simulated client apply failure', 'TEST_APPLY_FAILED', {
         exitCode: 1,
       });
     },
@@ -83,10 +83,10 @@ function accountProxyAdapter(provider: string, name: string): SourceAdapter {
 
 describe('activation rollback', () => {
   let root: string;
-  let app: HotplugApp;
+  let app: AnyPickApp;
 
   beforeEach(async () => {
-    root = await mkdtemp(join(tmpdir(), 'hotplug-rollback-'));
+    root = await mkdtemp(join(tmpdir(), 'anypick-rollback-'));
     const accountRegistry = new ProviderRegistry();
     const clients = new ClientRegistry();
     const catalog = new CatalogRegistry();

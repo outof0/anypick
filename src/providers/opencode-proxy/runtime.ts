@@ -9,9 +9,11 @@ import type { EgressTransport } from '../../network/egress/types';
 import {
   classifyUpstreamFailure,
   CooldownRegistry,
+  isCredentialQuotaFailure,
   isInsufficientBalanceFailure,
   parseRetryAfter,
 } from '../upstream-policy';
+import { QuotaGuard } from '../quota-guard';
 import {
   DEFAULT_MODEL_METADATA_URL,
   FREE_TIER_IP_COOLDOWN_MS,
@@ -32,6 +34,7 @@ export class OpenCodeRuntime {
   private cachedCreds?: OpenCodeCredential[];
   private readonly exhaustedCredentials = new Set<string>();
   private readonly cooldowns = new CooldownRegistry();
+  private readonly quotaGuard: QuotaGuard;
 
   get exhaustedCount(): number {
     return this.exhaustedCredentials.size;
@@ -42,6 +45,9 @@ export class OpenCodeRuntime {
     private readonly log: (line: string) => void,
   ) {
     this.authMode = opts.authMode ?? 'auto';
+    this.quotaGuard = new QuotaGuard(
+      opts.quotaGuard ?? { enabled: false, cooldownMs: 60 * 60_000 },
+    );
     const forced = strip(opts.upstream);
     const zenBase = strip(opts.zenUpstream);
     const goBase = strip(opts.goUpstream);
@@ -73,6 +79,7 @@ export class OpenCodeRuntime {
       this.cachedCreds = await resolveOpenCodeCredentials(
         [this.opts.authPath, ...(this.opts.authPaths ?? [])],
         this.authMode,
+        this.opts.authAccountNames,
       );
     }
     return this.cachedCreds;
@@ -80,7 +87,12 @@ export class OpenCodeRuntime {
 
   async credential(): Promise<OpenCodeCredential> {
     const ring = await this.credentials();
-    return ring.find((candidate) => !this.exhaustedCredentials.has(candidate.apiKey)) ?? ring[0];
+    const ordered = await this.quotaGuard.ordered(ring);
+    return (
+      ordered.find((candidate) => !this.exhaustedCredentials.has(candidate.apiKey)) ??
+      ring.find((candidate) => !this.exhaustedCredentials.has(candidate.apiKey)) ??
+      ring[0]
+    );
   }
 
   baseFor(catalog: OpenCodeCatalogKind): string {
@@ -101,13 +113,13 @@ export class OpenCodeRuntime {
       }
     }
     const ring = await this.credentials();
-    const candidates = [preferredCredential, ...ring].filter(
+    const candidates = (await this.quotaGuard.ordered([preferredCredential, ...ring])).filter(
       (candidate, index, all) =>
         !this.exhaustedCredentials.has(candidate.apiKey) &&
         all.findIndex((entry) => entry.apiKey === candidate.apiKey) === index,
     );
     if (candidates.length === 0) {
-      candidates.push(preferredCredential);
+      return coolingResponse(60_000);
     }
 
     let lastBalanceResponse: Response | undefined;
@@ -154,13 +166,27 @@ export class OpenCodeRuntime {
       }
       if (response.status === 429) {
         const body = await response.arrayBuffer();
-        const failure = classifyUpstreamFailure(
-          response.status,
-          response.headers,
-          new TextDecoder().decode(body),
-        );
+        const bodyText = new TextDecoder().decode(body);
+        const failure = classifyUpstreamFailure(response.status, response.headers, bodyText);
         if (failure.retryAfterMs) {
           this.cooldowns.set(key, failure.retryAfterMs);
+        }
+        if (
+          this.quotaGuard.enabled &&
+          isCredentialQuotaFailure(response.status, response.headers, bodyText)
+        ) {
+          const next = candidates.find((entry) => entry.apiKey !== candidate.apiKey);
+          await this.quotaGuard.exhausted(
+            candidate.accountName,
+            next?.accountName,
+            failure.retryAfterMs,
+          );
+          this.exhaustedCredentials.add(candidate.apiKey);
+          lastBalanceResponse = new Response(body, {
+            status: response.status,
+            headers: response.headers,
+          });
+          continue;
         }
         return new Response(body, { status: response.status, headers: response.headers });
       }
@@ -183,6 +209,11 @@ export class OpenCodeRuntime {
         this.cooldowns.set(freeTierKey, retryAfter);
         return freeTierIpLimitResponse(retryAfter);
       }
+      if (!this.quotaGuard.enabled) {
+        return replayable;
+      }
+      const next = candidates.find((entry) => entry.apiKey !== candidate.apiKey);
+      await this.quotaGuard.exhausted(candidate.accountName, next?.accountName);
       this.exhaustedCredentials.add(candidate.apiKey);
       lastBalanceResponse = replayable;
     }

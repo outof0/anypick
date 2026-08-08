@@ -8,7 +8,7 @@ large patch.
 
 ## 1. Goal
 
-When a user enables OpenCode from the TUI, Hotplug should expose a local OpenAI/Anthropic
+When a user enables OpenCode from the TUI, AnyPick should expose a local OpenAI/Anthropic
 compatible endpoint that:
 
 - starts and stops deterministically;
@@ -44,7 +44,7 @@ test proves one of them impossible.
 1. Keep the provider adapter provider-specific. `src/providers/opencode-proxy` may eventually be
    renamed to `src/providers/opencode/gateway`, but it must not become a cross-provider god
    router. The existing `ProxyService`/`Provider.startProxy()` boundary is already generic.
-2. Keep `hotplug proxy` CLI compatibility for now. UI copy may call it a "Local API" or
+2. Keep `anypick proxy` CLI compatibility for now. UI copy may call it a "Local API" or
    "compatibility gateway" so users do not assume it changes their public IP.
 3. `enabled` means persisted desired state. `running` means observed child-process state.
 4. Enabling from the TUI starts the selected local listener immediately. It remains alive until
@@ -72,7 +72,7 @@ test proves one of them impossible.
 - Stop terminates the process but keeps `enabled=true`.
 - Disable terminates the process and persists `enabled=false`.
 - Exiting the TUI does not kill a healthy detached gateway.
-- `hotplug run` continues to use isolated/ephemeral client configuration.
+- `anypick run` continues to use isolated/ephemeral client configuration.
 
 ### OpenCode auth modes
 
@@ -198,7 +198,7 @@ Tests/acceptance:
 - Opening the TUI or starting an unbound gateway leaves Claude/Codex config byte-identical.
 - Two provider gateways running together never fight over `ANTHROPIC_BASE_URL`.
 - Starting a bound account realigns only the matching client.
-- User-managed Claude settings without a Hotplug marker are untouched.
+- User-managed Claude settings without a AnyPick marker are untouched.
 - Listen + `/health` makes zero upstream calls.
 - First `/models` or inference lazily loads the catalog.
 - Concurrent first requests use catalog singleflight.
@@ -304,8 +304,8 @@ Changes:
 12. Add CLI options:
 
     ```text
-    hotplug proxy enable opencode <account> --auth-mode auto|public|api
-    hotplug proxy config opencode <account> --auth-mode auto|public|api
+    anypick proxy enable opencode <account> --auth-mode auto|public|api
+    anypick proxy config opencode <account> --auth-mode auto|public|api
     ```
 
     Store the value under provider-specific `AccountProxyConfig.options.authMode`.
@@ -495,8 +495,8 @@ If the gate passes, implement an experimental relay transport using built-in fet
 
 - new `src/network/egress/relay.ts`;
 - environment-only initial config:
-  - `HOTPLUG_EGRESS_RELAY_URL`;
-  - `HOTPLUG_EGRESS_RELAY_TOKEN`;
+  - `ANYPICK_EGRESS_RELAY_URL`;
+  - `ANYPICK_EGRESS_RELAY_TOKEN`;
 - pass these only to the selected detached OpenCode child;
 - mark the feature experimental and unverified until an explicit diagnostic succeeds.
 
@@ -540,10 +540,10 @@ Productization after the experiment, not before:
 4. Add CLI:
 
    ```text
-   hotplug egress list
-   hotplug egress add relay <name> --url <https-url> --token-env <VAR>
-   hotplug egress test <name> --provider opencode
-   hotplug proxy config opencode <account> --egress <name|direct>
+   anypick egress list
+   anypick egress add relay <name> --url <https-url> --token-env <VAR>
+   anypick egress test <name> --provider opencode
+   anypick proxy config opencode <account> --egress <name|direct>
    ```
 
 5. TUI displays two independent fields:
@@ -589,7 +589,7 @@ Do not implement these while executing PRs 1–6:
 - system VPN/proxy mutation;
 - LAN listener mode;
 - persistent cooldown database;
-- a shared public relay operated by Hotplug.
+- a shared public relay operated by AnyPick.
 
 Cross-provider fallback requires one stable gateway that owns candidate selection before stream
 commit. It does not belong inside `opencode-proxy/server.ts`.

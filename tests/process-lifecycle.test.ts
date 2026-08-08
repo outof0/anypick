@@ -23,8 +23,27 @@ afterEach(async () => {
 });
 
 async function freshDir(): Promise<string> {
-  root = await mkdtemp(join(tmpdir(), 'hotplug-proc01-'));
+  root = await mkdtemp(join(tmpdir(), 'anypick-proc01-'));
   return root;
+}
+
+/**
+ * Wait for a spawned listener to report its port on stdout.
+ *
+ * Deadline-based rather than a fixed iteration count: under full-suite load the
+ * spawn plus first write can take seconds, and a loop budgeted in iterations
+ * silently shrinks as each await gets slower.
+ */
+async function waitForPort(logPath: string, timeoutMs = 15_000): Promise<string> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const port = (await readFile(logPath, 'utf8')).trim();
+    if (port) {
+      return port;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  return '';
 }
 
 describe('PROC-01 verifiable process + lease ownership', () => {
@@ -174,17 +193,17 @@ describe('PROC-01 verifiable process + lease ownership', () => {
     await writeFile(logPath, '', { mode: 0o600 });
 
     // Stands in for kirolink: a real HTTP listener that knows nothing about
-    // HOTPLUG_INSTANCE_ID. Before expectInstanceId:false these were unstoppable.
+    // ANYPICK_INSTANCE_ID. Before expectInstanceId:false these were unstoppable.
     const script = `const http = require('node:http');
       http.createServer((_q, s) => { s.writeHead(200, {'content-type':'application/json'}); s.end('{"ok":true}'); })
-        .listen(0, '127.0.0.1', function () { console.log(this.address().port); });`;
+        .listen(0, '127.0.0.1', function () {
+          // writeSync: console.log is block-buffered when stdout is a file, and
+          // under full-suite load the port never lands before the poll budget.
+          require('node:fs').writeSync(1, String(this.address().port) + '\\n');
+        });`;
     const { pid } = await spawnDetached(process.execPath, ['-e', script], { logPath, pidPath });
 
-    let port = '';
-    for (let i = 0; i < 100 && !port; i += 1) {
-      await new Promise((resolve) => setTimeout(resolve, 50));
-      port = (await readFile(logPath, 'utf8')).trim();
-    }
+    const port = await waitForPort(logPath);
     expect(port).not.toBe('');
 
     const record = await readPidRecord(pidPath);
@@ -202,14 +221,12 @@ describe('PROC-01 verifiable process + lease ownership', () => {
 
     const script = `const http = require('node:http');
       http.createServer((_q, s) => { s.writeHead(200, {'content-type':'application/json'}); s.end('{"ok":true}'); })
-        .listen(0, '127.0.0.1', function () { console.log(this.address().port); });`;
+        .listen(0, '127.0.0.1', function () {
+          require('node:fs').writeSync(1, String(this.address().port) + '\\n');
+        });`;
     const { pid } = await spawnDetached(process.execPath, ['-e', script], { logPath, pidPath });
 
-    let port = '';
-    for (let i = 0; i < 100 && !port; i += 1) {
-      await new Promise((resolve) => setTimeout(resolve, 50));
-      port = (await readFile(logPath, 'utf8')).trim();
-    }
+    const port = await waitForPort(logPath);
     expect(port).not.toBe('');
 
     // What a recycled PID looks like: alive, serving, but not the process the
@@ -232,6 +249,44 @@ describe('PROC-01 verifiable process + lease ownership', () => {
         } catch {
           // child already exited
         }
+      }
+    }
+  });
+
+  it('escalates to SIGKILL when a slow shutdown has already closed /health', async () => {
+    const dir = await freshDir();
+    const pidPath = join(dir, 'proxy.pid');
+    const logPath = join(dir, 'proxy.log');
+    await writeFile(logPath, '', { mode: 0o600 });
+
+    // Honors SIGTERM by closing its listener, then lingers past graceMs. /health
+    // is therefore unreachable exactly when stopPidFile must re-prove ownership
+    // in order to escalate — the condition that used to leave the process alive
+    // indefinitely, holding its port.
+    const script = `const http = require('node:http');
+      const srv = http.createServer((_q, s) => {
+        s.writeHead(200, {'content-type':'application/json'}); s.end('{"ok":true}');
+      });
+      srv.listen(0, '127.0.0.1', function () {
+        require('node:fs').writeSync(1, String(this.address().port) + '\\n');
+      });
+      process.on('SIGTERM', () => { srv.close(); setInterval(() => {}, 1000); });`;
+    const { pid } = await spawnDetached(process.execPath, ['-e', script], { logPath, pidPath });
+
+    const port = await waitForPort(logPath);
+    expect(port).not.toBe('');
+
+    const record = await readPidRecord(pidPath);
+    writePidRecord(pidPath, { ...record!, endpoint: `http://127.0.0.1:${port}` });
+
+    try {
+      expect(await stopPidFile(pidPath, { graceMs: 300, expectInstanceId: false })).toBe(true);
+      expect(isProcessRunning(pid)).toBe(false);
+    } finally {
+      try {
+        process.kill(-pid, 'SIGKILL');
+      } catch {
+        // already reaped by the assertion above
       }
     }
   });

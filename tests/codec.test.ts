@@ -176,7 +176,11 @@ describe('decoder: globalConfig', () => {
         defaultClient: 'c',
         activeProfile: 'p',
         defaults: { proxyHost: 'h' },
-        ui: { color: true },
+        ui: {
+          color: true,
+          defaultSurface: 'tray',
+          tray: { startEnabledProxies: false, showQuota: true, guideSeen: true },
+        },
       },
       'k',
     );
@@ -185,6 +189,12 @@ describe('decoder: globalConfig', () => {
       expect(r.value.schemaVersion).toBe(2);
       expect(r.value.defaults?.proxyHost).toBe('h');
       expect(r.value.ui?.color).toBe(true);
+      expect(r.value.ui?.defaultSurface).toBe('tray');
+      expect(r.value.ui?.tray).toEqual({
+        startEnabledProxies: false,
+        showQuota: true,
+        guideSeen: true,
+      });
     }
   });
 

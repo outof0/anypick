@@ -1,4 +1,4 @@
-import type { HotplugApp } from '../../core/app';
+import type { AnyPickApp } from '../../core/app';
 import type { SwitchResult } from '../../core/service';
 import type { ProxyStatus } from '../../types';
 import { providerCapabilities } from '../../core/capabilities';
@@ -7,7 +7,7 @@ import type {
   OperationReceipt,
   OperationReceiptLine,
   ProviderPoolModel,
-  HotplugPreviewModel,
+  AnyPickPreviewModel,
 } from './types';
 import {
   accountDisplayName,
@@ -18,7 +18,7 @@ import {
 import { safeCurrent, safeList, liveSummary } from './root';
 
 export async function loadProviderPool(
-  app: HotplugApp,
+  app: AnyPickApp,
   providerId: string,
   nowMs = Date.now(),
 ): Promise<ProviderPoolModel> {
@@ -98,11 +98,11 @@ export async function loadProviderPool(
   };
 }
 
-export async function buildHotplugPreview(
-  app: HotplugApp,
+export async function buildAnyPickPreview(
+  app: AnyPickApp,
   providerId: string,
   targetName: string,
-): Promise<HotplugPreviewModel> {
+): Promise<AnyPickPreviewModel> {
   const provider = app.accounts.provider(providerId);
   const caps = providerCapabilities(provider);
   const cur = await app.accounts.current(providerId);
@@ -120,8 +120,18 @@ export async function buildHotplugPreview(
   const willRefreshPrevious =
     !alreadyActive && cur.live.present && fromName != null && fromName !== toName;
 
-  let previousProxy: HotplugPreviewModel['previousProxy'];
-  let targetProxy: HotplugPreviewModel['targetProxy'];
+  let previousProxy: AnyPickPreviewModel['previousProxy'];
+  let targetProxy: AnyPickPreviewModel['targetProxy'];
+  let restoreOwner: AnyPickPreviewModel['restoreOwner'];
+
+  if (provider.restoreOwnerStatus) {
+    try {
+      restoreOwner = (await provider.restoreOwnerStatus(target.snapshotDir)) ?? undefined;
+    } catch {
+      // Preview remains usable if process discovery is unavailable. The
+      // provider's mutation-free preflight still protects the actual switch.
+    }
+  }
 
   if (caps.canProxy) {
     if (fromName && fromName !== toName) {
@@ -171,7 +181,7 @@ export async function buildHotplugPreview(
 
   const switchSteps = [
     `Restore ${providerId}/${toName} into native ${provider.name} auth files`,
-    `Update Hotplug's active account record`,
+    `Update AnyPick's active account record`,
   ];
 
   const after = ['Verify the live identity'];
@@ -207,6 +217,7 @@ export async function buildHotplugPreview(
     canProxy: caps.canProxy,
     previousProxy,
     targetProxy,
+    restoreOwner,
     steps: { before, switch: switchSteps, after, notes },
   };
 }

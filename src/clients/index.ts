@@ -19,8 +19,10 @@ export { createGeminiClient } from './gemini';
 export { createKiroClient } from './kiro';
 export {
   CLAUDE_MODEL_ROLES,
+  CODEX_DESKTOP_MODEL_ROLES,
   DEFAULT_MODEL_ROLE,
   defaultModelRolesForProxy,
+  modelDefaultsForSuggestions,
   modelRolesForClient,
   modelRolesFromClientOptions,
   normalizeModelRoles,

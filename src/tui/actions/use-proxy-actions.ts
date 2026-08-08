@@ -1,10 +1,18 @@
-import type { HotplugApp } from '../../core/app';
-import { appsUsingProxy, compatibleAppsForProxy, loadAppBindings, type ProxyRow } from '../model';
+import type { AnyPickApp } from '../../core/app';
+import {
+  appsUsingProxy,
+  compatibleAppsForProxy,
+  loadAppBindings,
+  loadProxyHubView,
+  type ProxyHubSourceRow,
+  type ProxyRow,
+} from '../model';
 import { proxyRef } from '../app-ui-helpers';
 import type { TuiShell } from '../use-tui-shell';
 import type { TuiNav } from '../use-tui-nav';
 import type { AppBindingActions } from './use-app-bindings';
 import { ensureProxyUp } from './ensure-proxy-up';
+import { serializeRef } from '../../core/refs';
 
 /**
  * Proxy board row actions.
@@ -23,10 +31,16 @@ export interface ProxyActions {
   doManageApps: (row: ProxyRow) => Promise<void>;
   doTogglePoolMulti: (row: ProxyRow) => Promise<void>;
   doTogglePoolMember: (row: ProxyRow) => Promise<void>;
+  doToggleQuotaGuard: (row: ProxyRow) => Promise<void>;
+  openHub: () => Promise<void>;
+  doToggleHubSource: (source: ProxyHubSourceRow) => Promise<void>;
+  doStartHub: () => Promise<void>;
+  doStopHub: () => Promise<void>;
+  doRefreshHub: () => Promise<void>;
 }
 
 export function useProxyActions(
-  app: HotplugApp,
+  app: AnyPickApp,
   shell: TuiShell,
   nav: TuiNav,
   bindings: AppBindingActions,
@@ -35,6 +49,86 @@ export function useProxyActions(
   const { apps, setApps, openProxy } = nav;
   const { openModelsForAttach, latestSourceResumeFor, offerSourceResume, openAppChangesConfirm } =
     bindings;
+
+  const reloadHub = async () => {
+    const view = await loadProxyHubView(app);
+    go({ kind: 'proxy-hub', view });
+    setSelectedIndex(0);
+  };
+
+  const openHub = async () => {
+    await withBusy('Loading Proxy Hub', reloadHub);
+  };
+
+  const doToggleHubSource = async (source: ProxyHubSourceRow) => {
+    await withBusy(`Updating ${source.label}`, async () => {
+      try {
+        const config = await app.hub.get();
+        const existing = config.sources.find(
+          (entry) => serializeRef(entry.ref) === serializeRef(source.ref),
+        );
+        const sources = existing
+          ? config.sources.map((entry) =>
+              entry === existing ? { ...entry, enabled: !entry.enabled } : entry,
+            )
+          : [...config.sources, { ref: source.ref, enabled: true }];
+        await app.hub.setSources(config.name, sources);
+        await reloadHub();
+      } catch (err) {
+        reportFail(err);
+      }
+    });
+  };
+
+  const doStartHub = async () => {
+    await withBusy('Starting Proxy Hub', async () => {
+      try {
+        const config = await app.hub.get();
+        if (!config.sources.some((source) => source.enabled)) {
+          setReceipt({
+            title: '',
+            lines: [
+              {
+                kind: 'warn',
+                text: 'Enable at least one saved account before starting Proxy Hub.',
+              },
+            ],
+          });
+          return;
+        }
+        if (!config.enabled) {
+          await app.hub.save({ ...config, enabled: true });
+        }
+        const started = await app.hub.ensureRunning(config.name);
+        reportOk(`Proxy Hub running at ${started.endpoint}`);
+        await reloadHub();
+      } catch (err) {
+        reportFail(err);
+      }
+    });
+  };
+
+  const doStopHub = async () => {
+    await withBusy('Stopping Proxy Hub', async () => {
+      try {
+        await app.hub.stop();
+        reportOk('Proxy Hub stopped. App routes remain saved.');
+        await reloadHub();
+      } catch (err) {
+        reportFail(err);
+      }
+    });
+  };
+
+  const doRefreshHub = async () => {
+    await withBusy('Refreshing Proxy Hub models', async () => {
+      try {
+        await reloadHub();
+      } catch (err) {
+        reportFail(err);
+      }
+    });
+  };
 
   const doProxyPrimary = async (row: ProxyRow) => {
     if (row.status.running) {
@@ -460,6 +554,25 @@ export function useProxyActions(
     }
   };
 
+  const doToggleQuotaGuard = async (row: ProxyRow) => {
+    if (row.rowKind !== 'pool') {
+      return;
+    }
+    try {
+      const enabled = !row.quotaGuardEnabled;
+      await app.config.setQuotaGuardEnabled(enabled);
+      await app.proxy.restartRunningPools();
+      reportOk(
+        enabled
+          ? 'Quota Guard on · only confirmed account quota errors can fail over.'
+          : 'Quota Guard off · native logins were not changed.',
+      );
+      await openProxy(`pool:${row.providerId}`);
+    } catch (err) {
+      reportFail(err);
+    }
+  };
+
   return {
     doProxyPrimary,
     doProxyRestart,
@@ -470,5 +583,11 @@ export function useProxyActions(
     doManageApps,
     doTogglePoolMulti,
     doTogglePoolMember,
+    doToggleQuotaGuard,
+    openHub,
+    doToggleHubSource,
+    doStartHub,
+    doStopHub,
+    doRefreshHub,
   };
 }

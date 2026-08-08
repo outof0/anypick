@@ -18,7 +18,7 @@ import type { ProviderProxyPool, PoolMember } from '../types';
 import { pathExists, readJsonFile, removePath } from '../utils/fs';
 import { decodeWithFallback, decoders } from './codec';
 import { providerDir } from './paths';
-import type { HotplugDatabase } from './db';
+import type { AnyPickDatabase } from './db';
 
 export function poolConfigPath(root: string, providerId: string): string {
   return join(providerDir(root, providerId), 'pool.json');
@@ -37,7 +37,7 @@ export const DEFAULT_POOL: Omit<ProviderProxyPool, 'provider' | 'updatedAt' | 'm
 export class PoolStore {
   constructor(
     private readonly root: string,
-    private readonly db: HotplugDatabase,
+    private readonly db: AnyPickDatabase,
   ) {}
 
   async get(providerId: string): Promise<ProviderProxyPool | null> {

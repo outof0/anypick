@@ -1,6 +1,6 @@
-# Working on Hotplug
+# Working on AnyPick
 
-Hotplug is a Node CLI + Ink terminal UI that points AI coding clients at AI
+AnyPick is a Node CLI + Ink terminal UI that points AI coding clients at AI
 accounts you already have. It rewrites other tools' credential and config files
 and spawns local proxies, so a careless change corrupts a developer's real
 logins. Bias toward verifying over assuming.
@@ -13,19 +13,24 @@ different rules; `docs/AGENT.md` is the nimbus template's own authoring guide.
 
 ```bash
 pnpm install
-pnpm check      # oxfmt --check + oxlint --type-aware + tsc (src & tests) + vitest
-pnpm dev --help # runs the CLI from source via tsx
-pnpm test       # vitest run
+pnpm dev --help   # single app entry from source (tsx); long-running cmds auto-watch
+pnpm check        # oxfmt --check + oxlint --type-aware + tsc (src & tests) + vitest
+pnpm test         # vitest run
 pnpm vitest run tests/<file>.test.ts   # one file
-pnpm format     # rewrite with oxfmt
+pnpm format       # rewrite with oxfmt
 ```
+
+`pnpm dev …` is the only local app command — CLI, TUI, tray, proxies. It runs
+source via tsx (no rebuild). `tui` / `tray` / `proxy serve` enable file watch
+restart; force with `--watch` / disable with `--no-watch`.
 
 `pnpm check` is exactly what CI runs. Run it before you claim a change is done.
 
 The docs site is a **separate** pnpm project with its own lockfile:
 
 ```bash
-cd docs && pnpm install && pnpm build
+cd docs && pnpm install && pnpm dev    # site only
+cd docs && pnpm build
 ```
 
 Your shell's working directory does not persist between tool calls. A bare
@@ -76,8 +81,7 @@ Breaking one of these is a correctness or security regression, not a style nit.
 6. **Never prompt without a TTY**, never guess a source, and keep `--json`
    machine-readable on every command. Exit codes come from `ExitCode` in
    `src/utils/errors.ts`.
-7. **The data directory is `~/.hotplug`** (`HOTPLUG_HOME` overrides). There is
-   deliberately no migration from the old `~/.rotate`.
+7. **The data directory is `~/.anypick`** (`ANYPICK_HOME` overrides).
 
 ## Traps that have cost real time
 
@@ -89,7 +93,7 @@ Breaking one of these is a correctness or security regression, not a style nit.
   identity, used for journal `affectedResources`) look interchangeable and are
   not. Using `serializeRef` for a lock silently splits one scope into many and
   reintroduces the interleaving ADR 0011 closed.
-- **Error suggestions must live on the `HotplugError` instance.**
+- **Error suggestions must live on the `AnyPickError` instance.**
   `handleCliError` prints `err.toHuman()`, a *string*, so the `ERROR_HINTS` map
   in `src/cli/ux.ts` is only consulted by the call sites that pass the error
   object itself. Adding a key there does nothing for a thrown error.
@@ -101,7 +105,7 @@ Breaking one of these is a correctness or security regression, not a style nit.
 - Node ≥22.5 is required for `node:sqlite`. `src/cli.ts` silences that
   `ExperimentalWarning` *before* any import that touches sqlite — keep it first.
 - The Codex desktop app keeps its own signed-in ChatGPT account and does **not**
-  follow a switch of `~/.codex/auth.json`. Hotplug only detects the mismatch in
+  follow a switch of `~/.codex/auth.json`. AnyPick only detects the mismatch in
   order to suppress the quota readout (`src/providers/codex.ts`).
 
 ## Conventions

@@ -3,6 +3,7 @@ import {
   classifyUpstreamFailure,
   CooldownRegistry,
   isInsufficientBalanceFailure,
+  isCredentialQuotaFailure,
   parseRetryAfter,
 } from '../src/providers/upstream-policy';
 
@@ -27,6 +28,22 @@ describe('upstream policy', () => {
     ).toBe(true);
     expect(isInsufficientBalanceFailure(403, 'model is not allowed for this account')).toBe(false);
     expect(isInsufficientBalanceFailure(429, 'account balance is insufficient')).toBe(false);
+  });
+  it('allows account failover only for an explicit credential quota signal', () => {
+    expect(
+      isCredentialQuotaFailure(
+        429,
+        new Headers(),
+        '{"error":{"status":"RESOURCE_EXHAUSTED","message":"API key quota exceeded"}}',
+      ),
+    ).toBe(true);
+    expect(
+      isCredentialQuotaFailure(403, new Headers(), 'Your account balance is insufficient.'),
+    ).toBe(true);
+    expect(isCredentialQuotaFailure(429, new Headers(), 'Too many requests')).toBe(false);
+    expect(
+      isCredentialQuotaFailure(429, new Headers(), 'FreeUsageLimitError: IP address exceeded'),
+    ).toBe(false);
   });
   it('tracks an injected cooldown clock', () => {
     let now = 100;

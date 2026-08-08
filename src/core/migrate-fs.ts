@@ -1,6 +1,6 @@
 import { readdir, readFile, stat } from 'node:fs/promises';
 import { join } from 'node:path';
-import type { HotplugDatabase } from './db';
+import type { AnyPickDatabase } from './db';
 import { getMeta, setMeta } from './db';
 import { decoders } from './codec';
 import {
@@ -32,7 +32,7 @@ import { normalizeAccountName } from '../utils/slug';
  * Safe to call every open: no-ops if already migrated or nothing to import.
  */
 export async function migrateFilesystemIfNeeded(
-  db: HotplugDatabase,
+  db: AnyPickDatabase,
   root: string,
 ): Promise<{ migrated: boolean; accounts: number; profiles: number }> {
   if (getMeta(db, 'fs_migrated') === '1') {

@@ -33,8 +33,10 @@ code cannot be fetched at the point it needs to register.
    (`hotplug plugin enable`, which prompts, or `--yes`), because that is the
    moment the user grants in-process execution alongside their credentials.
    `HOTPLUG_NO_PLUGINS=1` skips loading entirely, for bisecting a bad plugin.
-2. **The trusted artifact is a SHA-256 digest of the entry module, verified
-   before `import()`.** `add` and `trust` pin it; the loader recomputes and
+2. **The trusted artifact is a SHA-256 digest verified before `import()`.**
+   Originally this was the entry module only; [ADR-0014](0014-plugin-package-digest.md)
+   amends the pin to the whole plugin package so helper modules cannot change
+   under a trusted entry. `add` and `trust` pin it; the loader recomputes and
    compares it, and refuses on mismatch with `PLUGIN_UNTRUSTED`. Verification
    after the import would be theatre — top-level code has already run. A changed
    plugin stops loading until the user reviews it and runs
@@ -95,9 +97,9 @@ code cannot be fetched at the point it needs to register.
 - **A `plugins` array in the config file.** A file a plugin can write is a file a
   plugin can use to enable itself; it also would not be transactional with the
   rest of the data root.
-- **Pinning a digest of the whole plugin tree.** Would make every unrelated file
-  change — a README, a lockfile — an untrusted event, training users to run
-  `trust` reflexively. The entry module is what gets executed.
+- **Pinning a digest of the whole plugin tree.** Originally rejected here for
+  UX friction; superseded by [ADR-0014](0014-plugin-package-digest.md) after a
+  helper-module change was recognized as a trust-boundary hole.
 - **`await import()` lazily at first use, keeping registries unsealed.** Would
   let a long-lived process resolve a different provider graph mid-activation,
   reintroducing exactly what sealing closed.

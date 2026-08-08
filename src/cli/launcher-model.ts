@@ -3,9 +3,12 @@
  * Pure data — no I/O chrome. First paint uses local state only.
  */
 
-import type { HotplugApp } from '../core/app';
+import type { AnyPickApp } from '../core/app';
 import { localAttentionFor } from './local-health';
 import { shortCwd } from './render-util';
+import { shortClientName } from '../presentation/client-name';
+
+export { shortClientName };
 
 export type LauncherSection = 'attention' | 'run' | 'configure' | 'more' | 'get-started' | 'other';
 
@@ -55,24 +58,14 @@ export interface ClientRow {
   shortName: string;
   /** Effective source display, if any. */
   source?: string;
-  status: 'ready' | 'attention' | 'unbound';
+  /** Effective primary model when the binding pins one. */
+  model?: string;
+  /** Binding scope reported by the resolver (normally global on the launcher). */
+  scope?: string | null;
+  status: 'ready' | 'attention' | 'native' | 'unbound';
+  /** Identity reported by the matching native provider when no AnyPick route exists. */
+  nativeIdentity?: string;
   attention?: string;
-}
-
-/** Short, scannable names for the Run column. */
-export function shortClientName(clientId: string, fullName: string): string {
-  switch (clientId) {
-    case 'claude':
-      return 'Claude';
-    case 'codex':
-      return 'Codex';
-    case 'gemini':
-      return 'Gemini';
-    case 'kiro':
-      return 'Kiro';
-    default:
-      return fullName.length > 14 ? fullName.slice(0, 13) + '…' : fullName;
-  }
 }
 
 function sourceDisplay(source: { kind: string; provider?: string; name?: string }): string {
@@ -85,14 +78,20 @@ function sourceDisplay(source: { kind: string; provider?: string; name?: string 
   if (source.kind === 'preset' && source.name) {
     return `@${source.name}`;
   }
+  if (source.kind === 'account-pool' && source.provider) {
+    return `pool:${source.provider}`;
+  }
+  if (source.kind === 'proxy-hub' && source.name) {
+    return `hub:${source.name}`;
+  }
   return '?';
 }
 
-export async function buildClientRows(app: HotplugApp): Promise<ClientRow[]> {
+export async function buildClientRows(app: AnyPickApp): Promise<ClientRow[]> {
   const clients = app.clients.list();
   return Promise.all(
     clients.map(async (c) => {
-      const shortName = shortClientName(c.id, c.name);
+      const shortName = shortClientName(c.id, c.name, c.shortName);
       let effective;
       try {
         effective = app.bindingService.current(c.id)[0];
@@ -101,6 +100,17 @@ export async function buildClientRows(app: HotplugApp): Promise<ClientRow[]> {
       }
       const binding = effective?.binding;
       if (!binding) {
+        const native = await nativeConnectionFor(app, c.id);
+        if (native) {
+          return {
+            clientId: c.id,
+            clientName: c.name,
+            shortName,
+            source: 'native login',
+            status: 'native' as const,
+            nativeIdentity: native.identity,
+          };
+        }
         return {
           clientId: c.id,
           clientName: c.name,
@@ -110,6 +120,15 @@ export async function buildClientRows(app: HotplugApp): Promise<ClientRow[]> {
       }
       const src = binding.spec.source;
       const display = sourceDisplay(src);
+      const model =
+        binding.spec.model.mode === 'explicit'
+          ? binding.spec.model.id
+          : typeof binding.spec.clientOptions.modelRoles === 'object' &&
+              binding.spec.clientOptions.modelRoles &&
+              'default' in binding.spec.clientOptions.modelRoles &&
+              typeof binding.spec.clientOptions.modelRoles.default === 'string'
+            ? binding.spec.clientOptions.modelRoles.default
+            : undefined;
       const attention = await localAttentionFor(app, c.id, src);
       if (attention) {
         return {
@@ -117,6 +136,8 @@ export async function buildClientRows(app: HotplugApp): Promise<ClientRow[]> {
           clientName: c.name,
           shortName,
           source: display,
+          model,
+          scope: effective?.scope,
           status: 'attention' as const,
           attention,
         };
@@ -126,21 +147,43 @@ export async function buildClientRows(app: HotplugApp): Promise<ClientRow[]> {
         clientName: c.name,
         shortName,
         source: display,
+        model,
+        scope: effective?.scope,
         status: 'ready' as const,
       };
     }),
   );
 }
 
+/**
+ * Matching account/client ids identify native auth without a client-specific
+ * branch. Native means "usable outside AnyPick", not "AnyPick route exists".
+ */
+export async function nativeConnectionFor(
+  app: AnyPickApp,
+  clientId: string,
+): Promise<{ identity?: string } | null> {
+  if (!app.accountRegistry.has(clientId)) {
+    return null;
+  }
+  try {
+    const current = await app.accounts.current(clientId);
+    return current.live.present ? { identity: current.live.identity } : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function buildLauncherModel(
-  app: HotplugApp,
+  app: AnyPickApp,
   opts: { cwd?: string } = {},
 ): Promise<LauncherModel> {
   const cwd = opts.cwd ?? process.cwd();
   const clientRows = await buildClientRows(app);
   const ready = clientRows.filter((r) => r.status === 'ready');
   const attention = clientRows.filter((r) => r.status === 'attention');
-  const unbound = clientRows.filter((r) => r.status === 'unbound');
+  const native = clientRows.filter((r) => r.status === 'native');
+  const unbound = clientRows.filter((r) => r.status === 'unbound' || r.status === 'native');
 
   const actions: LauncherAction[] = [];
 
@@ -151,7 +194,9 @@ export async function buildLauncherModel(
         id: `connect:${r.clientId}`,
         kind: 'connect-client',
         section: 'get-started',
-        label: `Connect ${r.shortName}`,
+        label:
+          r.status === 'native' ? `Connect ${r.shortName} to AnyPick` : `Connect ${r.shortName}`,
+        detail: r.status === 'native' ? (r.nativeIdentity ?? 'native login active') : undefined,
         clientId: r.clientId,
         preview: `set ${r.clientId} source`,
       });
@@ -176,8 +221,10 @@ export async function buildLauncherModel(
       cwd,
       cwdShort: shortCwd(cwd),
       mode: 'empty',
-      title: 'hotplug',
-      subtitle: 'No clients connected yet',
+      title: 'anypick',
+      subtitle: native.length
+        ? 'Native clients found · no AnyPick routes yet'
+        : 'No clients connected yet',
       actions,
     };
   }
@@ -204,7 +251,7 @@ export async function buildLauncherModel(
       detail: r.source,
       status: 'ready',
       clientId: r.clientId,
-      preview: `hotplug run ${r.clientId}`,
+      preview: `anypick run ${r.clientId}`,
     });
   }
 
@@ -214,7 +261,7 @@ export async function buildLauncherModel(
       kind: 'change-default',
       section: 'configure',
       label: 'Change a default',
-      preview: 'hotplug use <client> --with …',
+      preview: 'anypick use <client> --with …',
     },
     {
       id: 'configure:add-connection',
@@ -238,14 +285,14 @@ export async function buildLauncherModel(
       kind: 'view-details',
       section: 'more',
       label: 'View details',
-      preview: 'hotplug current',
+      preview: 'anypick current',
     },
     {
       id: 'more:doctor',
       kind: 'doctor',
       section: 'more',
       label: 'Diagnose',
-      preview: 'hotplug doctor',
+      preview: 'anypick doctor',
     },
   );
 
@@ -254,7 +301,7 @@ export async function buildLauncherModel(
     cwd,
     cwdShort: shortCwd(cwd),
     mode,
-    title: 'hotplug',
+    title: 'anypick',
     subtitle: mode === 'degraded' ? 'Needs attention' : 'AI CLI connections',
     actions,
   };

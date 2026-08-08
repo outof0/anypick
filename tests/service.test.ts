@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { pathExists } from '../src/utils/fs';
 import { createTestEnv } from './helpers';
-import { HotplugError } from '../src/utils/errors';
+import { AnyPickError } from '../src/utils/errors';
 
 describe('AccountService', () => {
   it('saves, lists, switches, and deletes accounts in isolation', async () => {
@@ -101,9 +101,53 @@ describe('AccountService', () => {
     });
   });
 
+  it('does not trust the active pointer when a provider cannot identify live auth', async () => {
+    const { service, fakes } = await createTestEnv(['fake']);
+    await fakes.fake.setLive({ token: 'work' });
+    await service.save('fake', 'work');
+    await fakes.fake.setLive({ token: 'personal' });
+    await service.save('fake', 'personal');
+    await fakes.fake.setLive({ token: 'unknown' });
+
+    await expect(service.use('fake', 'personal')).rejects.toMatchObject({
+      code: 'UNSAVED_LIVE_AUTH',
+    });
+    const work = await service.get('fake', 'work');
+    expect(JSON.parse(await readFile(join(work!.snapshotDir, 'auth.json'), 'utf8'))).toEqual({
+      token: 'work',
+    });
+    expect(await service.getActive('fake')).toBe('work');
+  });
+
+  it('uses credential matching for live auth that has no identity', async () => {
+    const { service, fakes } = await createTestEnv(['fake']);
+    const provider = fakes.fake as typeof fakes.fake & {
+      snapshotMatchesLive(snapshotDir: string): Promise<boolean>;
+    };
+    provider.snapshotMatchesLive = async (snapshotDir) => {
+      const snapshot = JSON.parse(await readFile(join(snapshotDir, 'auth.json'), 'utf8')) as Record<
+        string,
+        unknown
+      >;
+      return JSON.stringify(snapshot) === JSON.stringify(await provider.readLive());
+    };
+
+    await provider.setLive({ token: 'work' });
+    await service.save('fake', 'work');
+    await provider.setLive({ token: 'personal' });
+    await service.save('fake', 'personal');
+    await provider.setLive({ token: 'other' });
+    await service.save('fake', 'other');
+    await provider.setLive({ token: 'personal' });
+
+    const result = await service.use('fake', 'other');
+    expect(result.refreshedPrevious).toBe(false);
+    expect(result.refreshedAccount).toBe('personal');
+  });
+
   it('refuses save when no live auth', async () => {
     const { service } = await createTestEnv(['fake']);
-    await expect(service.save('fake', 'x')).rejects.toBeInstanceOf(HotplugError);
+    await expect(service.save('fake', 'x')).rejects.toBeInstanceOf(AnyPickError);
   });
 
   it('restores the previous live auth and active pointer when a switch fails mid-restore', async () => {
@@ -128,12 +172,50 @@ describe('AccountService', () => {
     expect(await service.getActive('fake')).toBe('work');
   });
 
+  it('runs restore preflight before checkpointing so a rejection needs no rollback', async () => {
+    const { service, fakes } = await createTestEnv(['fake']);
+    await fakes.fake.setLive({ email: 'work@example.test', token: 'work' });
+    await service.save('fake', 'work');
+    await fakes.fake.setLive({ email: 'personal@example.test', token: 'personal' });
+    await service.save('fake', 'personal');
+    await fakes.fake.setLive({ email: 'work@example.test', token: 'work' });
+
+    const provider = fakes.fake as typeof fakes.fake & {
+      preflightRestore(snapshotDir: string): Promise<void>;
+    };
+    provider.preflightRestore = async () => {
+      throw new Error('Quit the external app first.');
+    };
+    // A checkpoint would call backup and replace the useful preflight error.
+    provider.backupShouldFail = true;
+
+    await expect(service.use('fake', 'personal')).rejects.toThrow('Quit the external app first.');
+    expect(await provider.readLive()).toEqual({ email: 'work@example.test', token: 'work' });
+    expect(await service.getActive('fake')).toBe('work');
+  });
+
+  it('edits account display metadata without rewriting credential bytes', async () => {
+    const { service, fakes } = await createTestEnv(['fake']);
+    await fakes.fake.setLive({ email: 'work@example.test', token: 'keep-me' });
+    await service.save('fake', 'work', { label: 'Old label' });
+    const before = await service.get('fake', 'work');
+    const beforeAuth = await readFile(join(before!.snapshotDir, 'auth.json'));
+
+    const edited = await service.edit('fake', 'work', { label: 'Work account' });
+    const after = await service.get('fake', 'work');
+    const afterAuth = await readFile(join(after!.snapshotDir, 'auth.json'));
+
+    expect(edited.label).toBe('Work account');
+    expect(after?.meta.label).toBe('Work account');
+    expect(afterAuth).toEqual(beforeAuth);
+  });
+
   it('exports and imports accounts', async () => {
     const { service, fakes, root } = await createTestEnv(['fake']);
     await fakes.fake.setLive({ email: 'export@me', token: 'secret' });
     await service.save('fake', 'main');
 
-    const out = join(root, 'main.hotplug.json');
+    const out = join(root, 'main.anypick.json');
     await service.exportAccount('fake', 'main', out);
     expect(await pathExists(out)).toBe(true);
 
@@ -151,7 +233,7 @@ describe('AccountService', () => {
     const { service, fakes, root } = await createTestEnv(['fake']);
     await fakes.fake.setLive({ email: 'a@x', token: '1' });
     await service.save('fake', 'main');
-    const out = join(root, 'e.hotplug.json');
+    const out = join(root, 'e.anypick.json');
     await service.exportAccount('fake', 'main', out);
 
     await expect(service.importAccount('fake', 'main', out)).rejects.toMatchObject({
@@ -163,7 +245,7 @@ describe('AccountService', () => {
 
   it('rejects unknown providers', async () => {
     const { service } = await createTestEnv();
-    expect(() => service.provider('nope')).toThrow(HotplugError);
+    expect(() => service.provider('nope')).toThrow(AnyPickError);
   });
 
   it('keeps provider accounts fully isolated', async () => {

@@ -3,7 +3,7 @@
  * Exact-evidence only. Never invent bindings from activeProfile alone.
  */
 
-import type { HotplugApp } from './app';
+import type { AnyPickApp } from './app';
 import type { BindingSpec, GlobalBinding, ModelSelection } from '../types';
 import { gatewayRef, accountRef } from './refs';
 import { getMeta, setMeta } from './db';
@@ -11,7 +11,7 @@ import { ClientStateStore } from './client-state-store';
 
 const MIGRATION_KEY = 'bindings_migrated_v1';
 
-export async function migrateBindingsIfNeeded(app: HotplugApp): Promise<{
+export async function migrateBindingsIfNeeded(app: AnyPickApp): Promise<{
   migrated: boolean;
   bindingsCreated: number;
 }> {

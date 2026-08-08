@@ -16,7 +16,7 @@ describe('mutation coordinator serialization', () => {
   let root: string;
 
   beforeEach(async () => {
-    root = await mkdtemp(join(tmpdir(), 'hotplug-conc-'));
+    root = await mkdtemp(join(tmpdir(), 'anypick-conc-'));
   });
 
   afterEach(async () => {

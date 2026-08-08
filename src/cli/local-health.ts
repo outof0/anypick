@@ -2,16 +2,18 @@
  * Local-only health hints (no network). Shared by launcher model and TUI.
  */
 
-import type { HotplugApp } from '../core/app';
+import type { AnyPickApp } from '../core/app';
 import { pathExists } from '../utils/fs';
-import { whichExecutable } from '../utils/process';
 
 /**
  * Detect degraded binding state without network I/O.
  * Returns a short reason string, or undefined when healthy.
+ *
+ * Transport-dependent probes (e.g. external proxy missing) come from the
+ * provider's SourceAdapter via transportFor — never from provider-id switches.
  */
 export async function localAttentionFor(
-  app: HotplugApp,
+  app: AnyPickApp,
   clientId: string,
   source: { kind: string; provider?: string; name?: string },
 ): Promise<string | undefined> {
@@ -20,17 +22,20 @@ export async function localAttentionFor(
     if (!acc) {
       return 'account missing';
     }
-    if (source.provider === 'kiro' && (clientId === 'claude' || clientId === 'codex')) {
-      const has =
-        whichExecutable('kirolink') ??
-        whichExecutable('kiro-link') ??
-        whichExecutable('kiro-proxy');
-      if (!has) {
-        return 'proxy not installed';
-      }
-    }
     if (acc.snapshotDir && !(await pathExists(acc.snapshotDir))) {
       return 'snapshot missing';
+    }
+    try {
+      const provider = app.accounts.provider(source.provider);
+      const adapter = provider.sourceAdapter?.(acc);
+      if (adapter) {
+        const transport = adapter.transportFor(clientId);
+        if (transport === 'external_manual_proxy') {
+          return 'proxy not installed';
+        }
+      }
+    } catch {
+      // Unknown provider is not a health signal here.
     }
   }
   if (source.kind === 'gateway' && source.name) {

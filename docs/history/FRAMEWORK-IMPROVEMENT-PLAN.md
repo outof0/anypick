@@ -1,10 +1,10 @@
-# Hotplug Framework Improvement and Release-Readiness Plan
+# AnyPick Framework Improvement and Release-Readiness Plan
 
 Status: proposed — release blocked  
-Review baseline: repository snapshot reviewed on 2026-07-20  
+Review baseline: repository snapshot reviewed on 08-08-2026
 Audience: coding agents, maintainers, and reviewers
 
-This document is the implementation handoff for turning Hotplug from a promising local CLI into a
+This document is the implementation handoff for turning AnyPick from a promising local CLI into a
 production-safe, long-lived open-source framework. Implement it as a sequence of small,
 independently reviewable changes. Do not implement the entire plan in one patch.
 
@@ -75,7 +75,7 @@ Reach two explicit approval states:
 Release rules:
 
 - Do not publish a production release until P0, P1, and the package-verification portion of R0 pass.
-- Do not describe Hotplug as a stable framework until P0, P1, F0, and R0 all pass.
+- Do not describe AnyPick as a stable framework until P0, P1, F0, and R0 all pass.
 - A prerelease may be published only after P0, and must be labeled experimental with unstable API
   and data-format warnings.
 - A green unit-test suite alone is not a release gate. The packed artifact and cross-process
@@ -109,7 +109,7 @@ These decisions should not be reopened during implementation unless a test prove
 9. **Mutation safety belongs to services.** Callers do not opt into correctness. Application
    services acquire resource locks and coordinate database, filesystem, adapter, and process work.
 10. **Process identity is more than a PID.** A managed child has a random instance ID and authenticated
-   health identity. Hotplug does not signal a process when ownership cannot be verified.
+   health identity. AnyPick does not signal a process when ownership cannot be verified.
 11. **Local credentialed proxies authenticate clients.** Loopback is necessary but insufficient.
     Every inference/catalog route that uses upstream authority validates a per-instance secret.
 12. **Capabilities carry implementations.** An adapter cannot claim isolated-home, environment,
@@ -204,7 +204,7 @@ Required changes:
 3. Add `clean`, clean `build`, and a package smoke script.
 4. Build and pack from a clean directory; install the tarball into fresh NodeNext and Bundler
    consumers.
-5. Smoke-test `hotplug --version`, `hotplug --help`, root ESM import, declarations, and blocked deep
+5. Smoke-test `anypick --version`, `anypick --help`, root ESM import, declarations, and blocked deep
    imports.
 6. Make `pnpm check` include the complete type contract. The final publish flow is completed in
    `REL-01`.
@@ -224,7 +224,7 @@ Out of scope:
 
 ### SEC-01 — Close the account import/export trust boundary
 
-**Status:** Done (2026-07-20) — codec + validation + tests complete; `pnpm check` green (283 tests)
+**Status:** Done (08-08-2026) — codec + validation + tests complete; `pnpm check` green (283 tests)
 **Depends on:** none  
 **Release gate:** P0
 
@@ -349,7 +349,7 @@ Acceptance criteria:
 
 ### PROXY-01 — Authenticate every local credentialed proxy request
 
-**Status:** Done (2026-07-20) — per-instance secret, constant-time compare, fail-closed 401 at every credential-authority route; `/health` unauthenticated but secret-free; loopback enforced inside all three server boundaries; `pnpm check` green (308 tests)  
+**Status:** Done (08-08-2026) — per-instance secret, constant-time compare, fail-closed 401 at every credential-authority route; `/health` unauthenticated but secret-free; loopback enforced inside all three server boundaries; `pnpm check` green (308 tests)
 **Depends on:** `PROC-01`  
 **Release gate:** P0
 
@@ -362,8 +362,8 @@ Primary files:
 
 Required changes:
 
-1. Generate a high-entropy secret for each proxy instance; never use a fixed `hotplug-proxy` key.
-2. Persist or transmit the secret only through owner-only Hotplug state and the explicitly bound
+1. Generate a high-entropy secret for each proxy instance; never use a fixed `anypick-proxy` key.
+2. Persist or transmit the secret only through owner-only AnyPick state and the explicitly bound
    client configuration.
 3. Accept the client protocols' normal credential headers, normalize them to local authentication,
    and compare secrets in constant time.
@@ -428,7 +428,7 @@ Acceptance criteria:
 
 ### SCOPE-01 — Separate project bindings from global client state
 
-**Status:** Done (2026-07-20) — `project` mode emits only `CommitProjectBinding`; global client config / proxy / account selection untouched at link time; `pnpm check` green (311 tests)  
+**Status:** Done (08-08-2026) — `project` mode emits only `CommitProjectBinding`; global client config / proxy / account selection untouched at link time; `pnpm check` green (311 tests)
 **Depends on:** `RUN-01`  
 **Release gate:** P1
 
@@ -459,7 +459,7 @@ Acceptance criteria:
 
 ### TXN-01 — Replace callback rollback with durable write-ahead recovery
 
-**Status:** Done (2026-07-20) — owner-only recovery dir + hashed collision-free backups + persisted manifest + crash restore; `pnpm check` green (314 tests)  
+**Status:** Done (08-08-2026) — owner-only recovery dir + hashed collision-free backups + persisted manifest + crash restore; `pnpm check` green (314 tests)
 **Depends on:** `RUN-01`, `SCOPE-01`  
 **Release gate:** P1
 
@@ -478,7 +478,7 @@ Required changes:
    compensation, and affected resources.
 2. Before each external mutation, durably write its compensation and backup manifest. After the
    mutation, durably mark the step complete.
-3. Store backups under an owner-only Hotplug recovery directory with collision-free paths and hashes,
+3. Store backups under an owner-only AnyPick recovery directory with collision-free paths and hashes,
    not basename-only files in the system temp directory.
 4. Restore exact previous files, bindings, state records, leases, and account selection. Reset/delete
    is not an acceptable substitute for restoring an overwritten value.
@@ -499,7 +499,7 @@ Acceptance criteria:
 
 ### CONC-01 — Put every mutation behind an internal coordinator
 
-**Status:** Done (2026-07-20) — sorted scoped locks, migration lock before open/migrate, single service mutation path, owner-PID lock identity; `pnpm check` green (318 tests)  
+**Status:** Done (08-08-2026) — sorted scoped locks, migration lock before open/migrate, single service mutation path, owner-PID lock identity; `pnpm check` green (318 tests)
 **Depends on:** `DATA-01`, `TXN-01`  
 **Release gate:** P1
 
@@ -532,7 +532,7 @@ Acceptance criteria:
 
 ### OBS-01 — Make degraded state and lifecycle events observable
 
-**Status:** Done (2026-07-20)  
+**Status:** Done (08-08-2026)
 **Depends on:** `TXN-01`, `CONC-01`  
 **Release gate:** P1
 
@@ -651,15 +651,15 @@ Primary files:
 
 Required changes:
 
-1. Introduce one supported async factory, such as `createHotplugApp()`, that completes migration,
+1. Introduce one supported async factory, such as `createAnyPickApp()`, that completes migration,
    recovery, plugin setup, and configuration validation before returning.
 2. Return a narrow facade of stable application use cases and read models.
 3. Keep the database, stores, journal, leases, migrations, and internal mutation controls private.
 4. Add `close()`/`dispose()` and reverse-order plugin/resource disposal. Define ownership for injected
    resources.
 5. Export every named parameter, result, error, adapter, and plugin type used by public signatures.
-6. Provide deliberate subpaths such as `hotplug/types`, `hotplug/adapters`, and stability-qualified
-   `hotplug/testing`; continue blocking unsupported deep imports.
+6. Provide deliberate subpaths such as `anypick/types`, `anypick/adapters`, and stability-qualified
+   `anypick/testing`; continue blocking unsupported deep imports.
 7. Make root import side-effect-free. Load `node:sqlite` only when opening an application.
 8. Make database transaction typing explicitly synchronous or implement a truly awaited serialized
    transaction API.
@@ -704,7 +704,7 @@ Required changes:
 Acceptance criteria:
 
 - Tarball checksum tested in CI equals the artifact selected for publication.
-- CLI help/version and an isolated `HOTPLUG_HOME` workflow pass from the tarball on supported OSes.
+- CLI help/version and an isolated `ANYPICK_HOME` workflow pass from the tarball on supported OSes.
 - Supported exports resolve and internal imports fail.
 - Declarations and maps resolve from the installed package.
 - Node/platform support documentation matches the matrix exactly.
@@ -783,7 +783,7 @@ Acceptance criteria:
 
 ## 8. Required end-to-end release scenarios
 
-All scenarios must run against a clean temporary Hotplug root. Security-sensitive scenarios should
+All scenarios must run against a clean temporary AnyPick root. Security-sensitive scenarios should
 also run from the installed tarball.
 
 1. Import a valid account, then attempt traversal, absolute-path, collision, oversized, corrupt, and
@@ -835,13 +835,13 @@ Maintainers or agents update this table after merge, not when work merely starts
 | `BASE-01` | **Done** | agent (Claude) | local | `pnpm check` green; `pnpm package` → clean tarball; `pnpm package:smoke` verifies that exact artifact; both consumer fixtures (`tests/consumer/{nodenext,bundler}`) typecheck against tarball; tarball excludes src/tests/internal |
 | `SEC-01` | **Done** | agent (Claude) | local | `pnpm check` green (283 tests at completion; 322 now); new `src/core/account-codec.ts` versioned decoder validates whole envelope (provider ownership, file keys, base64, size/count limits) before mutation; pure `validateImportFileKey` rejects empty/NUL/absolute-POSIX/absolute-Windows/mixed-sep/traversal keys inside `decodeFiles` (before `prepareSnapshot`) and again in `stagedFilePath` (defense-in-depth); `importAccount` parses `unknown`→`decodeAccountEnvelope` BEFORE `prepareSnapshot`; `exportAccount` uses owner-only temp + atomic rename + `chmod 0o600` + credential warning; `IMPORT_FORMAT`/`IMPORT_LIMIT` exit codes added; 10 new SEC-01 regression tests (`tests/account-import-security.test.ts`) all pass |
 | `DATA-01` | **Done** | agent (Claude) | local | `pnpm check` green (291 tests at completion; 322 now); `prepareSnapshot` no longer deletes prior snapshot DB rows (the old defect that destroyed the previous snapshot on backup failure); `writeMeta` now deletes+re-ingests snapshot files inside one SQLite transaction so any fault before `writeMeta` leaves the prior rows intact; `save`/`importAccount` back up/import into the prepared dir BEFORE `writeMeta`; 3 new DATA-01 atomicity tests (`tests/snapshot-atomicity.test.ts`) prove failed-backup preserves prior snapshot and successful overwrite fully replaces |
-| `PROC-01` | **Done** | agent (Claude) | local | `pnpm check` green (288 tests at completion; 322 now); `src/utils/process.ts` `spawnDetached` now writes an owner-only (0o600) structured `PidRecord` (instanceId + pid + endpoint + provider); `readPidRecord`/`readPidFile` fail closed on absent/corrupt/legacy-numeric records (no PID reuse / ABA); `stopPidFile` signals nothing when record unverifiable; `waitForHttp`/`verifyProcessHealth` gate on instance-id echoed at `/health`; instance id injected as `HOTPLUG_INSTANCE_ID` env; proxy servers echo it; `ProxyHandle`/`ProxyLease` carry `instanceId` (schema + `LeaseStore` updated); 5 new PROC-01 regression tests (`tests/process-lifecycle.test.ts`) pass |
-| `PROXY-01` | **Done** | agent (Claude) | local | `pnpm check` green (308 tests); each proxy server (`gemini`/`grok`/`opencode`) now generates a per-instance 32-byte hex secret (`randomBytes`), persists it in owner-only `proxy_state`, transmits it to the child only via `HOTPLUG_PROXY_TOKEN` env, and enforces it at every credential-authority route via `requireProxyAuth` (constant-time compare, fail-closed 401 when unset/wrong/missing); `Authorization: Bearer` and `x-api-key` both accepted; `requireProxyAuth` reuses the same call site the proxy token gates; `/health` stays unauthenticated but returns only the `instanceId` (no secret); loopback is now enforced inside the OpenCode `createOpenCodeProxyServer` boundary too; the `opencode-proxy`/`gemini-proxy`/`grok-proxy` test suites were updated to construct servers with a token and send `Authorization: Bearer <token>`; new `tests/proxy-auth.test.ts` regression suite (15 tests across all three proxies) proves missing/incorrect token → 401 without contacting upstream, valid token → upstream reached, no-Origin still authenticated, and `/health` never leaks the secret |
+| `PROC-01` | **Done** | agent (Claude) | local | `pnpm check` green (288 tests at completion; 322 now); `src/utils/process.ts` `spawnDetached` now writes an owner-only (0o600) structured `PidRecord` (instanceId + pid + endpoint + provider); `readPidRecord`/`readPidFile` fail closed on absent/corrupt/legacy-numeric records (no PID reuse / ABA); `stopPidFile` signals nothing when record unverifiable; `waitForHttp`/`verifyProcessHealth` gate on instance-id echoed at `/health`; instance id injected as `ANYPICK_INSTANCE_ID` env; proxy servers echo it; `ProxyHandle`/`ProxyLease` carry `instanceId` (schema + `LeaseStore` updated); 5 new PROC-01 regression tests (`tests/process-lifecycle.test.ts`) pass |
+| `PROXY-01` | **Done** | agent (Claude) | local | `pnpm check` green (308 tests); each proxy server (`gemini`/`grok`/`opencode`) now generates a per-instance 32-byte hex secret (`randomBytes`), persists it in owner-only `proxy_state`, transmits it to the child only via `ANYPICK_PROXY_TOKEN` env, and enforces it at every credential-authority route via `requireProxyAuth` (constant-time compare, fail-closed 401 when unset/wrong/missing); `Authorization: Bearer` and `x-api-key` both accepted; `requireProxyAuth` reuses the same call site the proxy token gates; `/health` stays unauthenticated but returns only the `instanceId` (no secret); loopback is now enforced inside the OpenCode `createOpenCodeProxyServer` boundary too; the `opencode-proxy`/`gemini-proxy`/`grok-proxy` test suites were updated to construct servers with a token and send `Authorization: Bearer <token>`; new `tests/proxy-auth.test.ts` regression suite (15 tests across all three proxies) proves missing/incorrect token → 401 without contacting upstream, valid token → upstream reached, no-Origin still authenticated, and `/health` never leaks the secret |
 | `RUN-01` | **Done** | agent (Claude) | local | `pnpm check` green (293 tests); `activation-executor.ts` split the combined `CreateTemporaryClientHome`/`SpawnChild` case: `CreateTemporaryClientHome` builds the isolated runtime exactly once (stores full session + pushes idempotent `cleanup` onto rollback stack) and `SpawnChild` is a no-op marker (child spawn stays in `src/cli/launch-client.ts`); success return surfaces `ctx.isolated` in `ExecuteResult.isolated` so the launcher gets `environment`/`directory`/`cleanup`; 2 new RUN-01 regression tests (`tests/run-ephemeral.test.ts`) prove `createEphemeralRuntime` is called exactly once for a plan with both step kinds, result carries the session, cleanup removes the temp dir, and live auth checksum is unchanged |
 | `SCOPE-01` | **Done** | agent (Claude) | local | `pnpm check` green (311 tests); `activation-planner.ts` no longer emits `WriteClientConfig`/`VerifyEffectiveState`/proxy-lease/`WriteNativeAuth` for `project` mode — a `link` now emits only `CommitProjectBinding`, so it records project-scoped metadata and never writes the global live client config (`~/.claude/settings.json`), never records `client_state`, never starts a proxy, and never mutates live account selection (fixed decision #7); `persistent` (`use`) and `ephemeral` (`run`) retain prior behavior; `run` inside a linked project resolves binding precedence into the isolated session (RUN-01); new `tests/scope-project-binding.test.ts` (3 cases) proves `link` leaves the global config byte-for-byte intact, `link` from a global binding preserves it, and `run` in a linked project produces exactly one isolated ephemeral home with no global write |
-| `TXN-01` | **Done** | agent (Claude) | local | `pnpm check` green (314 tests); crash backups now stored in owner-only `<hotplugRoot>/recovery/clients/<clientId>/` (mode 0o700) via `paths.recoveryDir`/`clientRecoveryDir` instead of the system temp dir; filenames are `sha1(<abs target>)[0:16]-<basename>` so two targets sharing a basename (or concurrent activations) never collide; the `src=>dest` backup manifest is unchanged so the existing `recoverIncompleteOperations` engine restores the exact prior file unchanged; `runtime-service.backupManagedPaths` rewritten accordingly; new `tests/txn-recovery.test.ts` (3 cases) proves owner-only storage + hashed collision-free names, exact-prior restore after a simulated crash+restart, and no clobber for same-basename targets |
+| `TXN-01` | **Done** | agent (Claude) | local | `pnpm check` green (314 tests); crash backups now stored in owner-only `<anypickRoot>/recovery/clients/<clientId>/` (mode 0o700) via `paths.recoveryDir`/`clientRecoveryDir` instead of the system temp dir; filenames are `sha1(<abs target>)[0:16]-<basename>` so two targets sharing a basename (or concurrent activations) never collide; the `src=>dest` backup manifest is unchanged so the existing `recoverIncompleteOperations` engine restores the exact prior file unchanged; `runtime-service.backupManagedPaths` rewritten accordingly; new `tests/txn-recovery.test.ts` (3 cases) proves owner-only storage + hashed collision-free names, exact-prior restore after a simulated crash+restart, and no clobber for same-basename targets |
 | `CONC-01` | **Done** | agent (Claude) | local | `pnpm check` green (318 tests); coordinator contract locked by `tests/conc-coordinator.test.ts` (4 cases): overlapping scopes serialize (non-interleaving critical sections), disjoint scopes run in parallel, scopes acquired in sorted order with owner PID recorded (no secrets) in lock files, and the migration lock (`.migrate.lock`) serializes DB open+migrate so a second process cannot race schema/FS migration; all persisted mutations route through the services (`app.profiles`/`bindings`/`proxy`), which acquire sorted scoped locks (`withMutationLocks`) — call-sites (CLI/TUI/tray/facade) never lock directly |
-| `OBS-01` | **Done** | agent (Claude) | local | `pnpm check` green (322 tests); new `src/core/events.ts` defines an injectable `HotplugEventSink` port + `HotplugEvent` (opId, resourceIds, step, severity, code, message, sanitized context, ISO timestamp), a `makeEmitter(sink)` boundary that sanitizes every context via `sanitizeContext` (redacts known secret keys — key/token/secret/password/apiKey/authorization/auth/bearer/… — and any value that looks like a long ≥24-char bearer/token even under an unknown key), an `InMemoryEventSink` ring buffer (default), and a `DebugStderrEventSink` (gated on `HOTPLUG_DEBUG`); `createApp` exposes `app.events = { sink, emit }` and accepts an injectable `events` sink so library consumers supply their own without CLI formatting; `createAppReady` emits `startup_recovery_failed`/`startup_lease_reap_failed` on the two startup degraded paths; `recoverIncompleteOperations` now takes an `events` sink and emits `recovery_refused` (warn) with the op id when a source cannot be re-resolved exactly — a previously-swallowed high-risk condition; new `tests/obs-events.test.ts` (4 cases) proves recovery-refusal delivery to an injected sink, secret redaction of known keys, redaction of a long bearer under an unknown key, and null-sink opt-out |
+| `OBS-01` | **Done** | agent (Claude) | local | `pnpm check` green (322 tests); new `src/core/events.ts` defines an injectable `AnyPickEventSink` port + `AnyPickEvent` (opId, resourceIds, step, severity, code, message, sanitized context, ISO timestamp), a `makeEmitter(sink)` boundary that sanitizes every context via `sanitizeContext` (redacts known secret keys — key/token/secret/password/apiKey/authorization/auth/bearer/… — and any value that looks like a long ≥24-char bearer/token even under an unknown key), an `InMemoryEventSink` ring buffer (default), and a `DebugStderrEventSink` (gated on `ANYPICK_DEBUG`); `createApp` exposes `app.events = { sink, emit }` and accepts an injectable `events` sink so library consumers supply their own without CLI formatting; `createAppReady` emits `startup_recovery_failed`/`startup_lease_reap_failed` on the two startup degraded paths; `recoverIncompleteOperations` now takes an `events` sink and emits `recovery_refused` (warn) with the op id when a source cannot be re-resolved exactly — a previously-swallowed high-risk condition; new `tests/obs-events.test.ts` (4 cases) proves recovery-refusal delivery to an injected sink, secret redaction of known keys, redaction of a long bearer under an unknown key, and null-sink opt-out |
 | `DATA-02` | Not started | — | — | — |
 | `EXT-01` | Not started | — | — | — |
 | `API-01` | Not started | — | — | — |

@@ -1,6 +1,6 @@
 import * as clack from '@clack/prompts';
 import pc from 'picocolors';
-import { isHotplugError } from '../utils/errors';
+import { isAnyPickError } from '../utils/errors';
 
 const DUMB = process.env.TERM === 'dumb';
 
@@ -57,57 +57,57 @@ export function getUxMode(): UxMode {
 const ERROR_HINTS: Record<string, string[]> = {
   NO_LIVE_AUTH: [
     'Log in with the tool first (e.g. codex login / grok login)',
-    'Then: hotplug add account <provider> --current --name <name>',
+    'Then: anypick add account <provider> --current --name <name>',
   ],
   ACCOUNT_NOT_FOUND: [
-    'List accounts: hotplug list accounts',
-    'Or save current: hotplug add account <provider> --current --name <name>',
+    'List accounts: anypick list accounts',
+    'Or save current: anypick add account <provider> --current --name <name>',
   ],
   PROFILE_NOT_FOUND: [
-    'List gateways: hotplug list gateways',
-    'Or create: hotplug add gateway <name> --provider custom --endpoint …',
+    'List gateways: anypick list gateways',
+    'Or create: anypick add gateway <name> --provider custom --endpoint …',
   ],
   GATEWAY_NOT_FOUND: [
-    'List gateways: hotplug list gateways',
-    'Or create: hotplug add gateway <name> --provider openrouter --endpoint …',
+    'List gateways: anypick list gateways',
+    'Or create: anypick add gateway <name> --provider openrouter --endpoint …',
   ],
   PROFILE_EXISTS: ['Use --force to overwrite, or pick another name'],
-  STASH_BACKUP_FAILED: ['Fix the backup error, or: hotplug add account <provider> --new'],
+  STASH_BACKUP_FAILED: ['Fix the backup error, or: anypick add account <provider> --new'],
   STASH_UNSUPPORTED: ['This provider cannot clear live auth for a new login'],
   REFRESH_UNSUPPORTED: [
     'Only codex/grok/opencode support refresh today',
-    'Re-login if tokens expired: hotplug add account <provider> --new',
+    'Re-login if tokens expired: anypick add account <provider> --new',
   ],
   REFRESH_EMPTY: [
-    'Save an account first: hotplug add account <provider> --current --name <name>',
-    'Or refresh live: hotplug account refresh <provider>',
+    'Save an account first: anypick add account <provider> --current --name <name>',
+    'Or refresh live: anypick account refresh <provider>',
   ],
-  UNKNOWN_PROVIDER: ['See: hotplug providers'],
-  UNKNOWN_CLIENT: ['See: hotplug clients'],
-  UNKNOWN_CATALOG_PROVIDER: ['See: hotplug providers'],
+  UNKNOWN_PROVIDER: ['See: anypick providers'],
+  UNKNOWN_CLIENT: ['See: anypick clients'],
+  UNKNOWN_CATALOG_PROVIDER: ['See: anypick providers'],
   PROXY_UNSUPPORTED: [
     'This tool has no compatibility proxy',
     'Proxy is available for grok / kiro / opencode today',
   ],
   PROXY_DISABLED: [
-    'Enable first: hotplug proxy enable <provider> <name> -p <port>',
-    'Then: hotplug proxy start',
+    'Enable first: anypick proxy enable <provider> <name> -p <port>',
+    'Then: anypick proxy start',
   ],
   PROXY_PORT_IN_USE: [
-    'Pick another port: hotplug proxy config <provider> <name> -p <port>',
-    'Or: hotplug proxy enable <provider> <name> -p <port>',
+    'Pick another port: anypick proxy config <provider> <name> -p <port>',
+    'Or: anypick proxy enable <provider> <name> -p <port>',
   ],
   PROXY_PORT_INVALID: ['Port must be an integer between 1 and 65535'],
-  PROXY_CONFIG_EMPTY: ['Example: hotplug proxy config grok work -p 8081'],
-  NO_ACTIVE_ACCOUNT: ['Pass an account name, or: hotplug use <client> --with <provider>/<name>'],
+  PROXY_CONFIG_EMPTY: ['Example: anypick proxy config grok work -p 8081'],
+  NO_ACTIVE_ACCOUNT: ['Pass an account name, or: anypick use <client> --with <provider>/<name>'],
   CLIENT_CONFIG_INVALID: [
-    'Edit gateway: hotplug gateway edit <name> --endpoint … --model …',
-    'Or reset: hotplug reset <client>',
+    'Edit gateway: anypick gateway edit <name> --endpoint … --model …',
+    'Or reset: anypick reset <client>',
   ],
 };
 
 export function hintsForError(err: unknown): string[] {
-  if (isHotplugError(err) && err.code && ERROR_HINTS[err.code]) {
+  if (isAnyPickError(err) && err.code && ERROR_HINTS[err.code]) {
     return ERROR_HINTS[err.code];
   }
   return [];

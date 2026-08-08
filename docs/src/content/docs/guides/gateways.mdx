@@ -10,22 +10,22 @@ remote endpoint directly.
 ## Add one
 
 ```bash
-hotplug add gateway openrouter-work \
+anypick add gateway openrouter-work \
   --provider openrouter \
   --endpoint https://openrouter.ai/api/v1 \
   --api-key "$OPENROUTER_API_KEY" \
   --model anthropic/claude-sonnet-4 \
   --models anthropic/claude-sonnet-4 openai/gpt-5.6-sol google/gemini-3.1-pro
 
-hotplug use claude --with openrouter-work
-hotplug run claude
+anypick use claude --with openrouter-work
+anypick run claude
 ```
 
 | Flag | Meaning |
 | --- | --- |
 | `--provider <id>` | Which catalog shape the endpoint follows |
 | `--endpoint <url>` | Base URL |
-| `--api-key <key>` | Key stored in the Hotplug database |
+| `--api-key <key>` | Key stored in the AnyPick database |
 | `--api-key-env <var>` | Read the key from an environment variable at activation instead of storing it |
 | `--model <id>` | Default model for this gateway |
 | `--models <id...>` | Models to expose in the client's own model picker |
@@ -35,7 +35,7 @@ Catalog providers: `anthropic`, `openai`, `openrouter`, `grok-api`, `litellm`,
 
 <Aside type="tip" title="Keys you would rather not store">
 `--api-key-env OPENROUTER_API_KEY` records the variable name, not the secret.
-Hotplug reads it when it activates the binding, so the key stays in your
+AnyPick reads it when it activates the binding, so the key stays in your
 environment or secret manager.
 </Aside>
 
@@ -46,7 +46,7 @@ They differ in what stands behind them.
 
 | | Proxy (account) | Gateway (API profile) |
 | --- | --- | --- |
-| Auth | Native login snapshot, plus a local process | Endpoint + key held by Hotplug |
+| Auth | Native login snapshot, plus a local process | Endpoint + key held by AnyPick |
 | Setup | Log in with the provider CLI, then snapshot | Paste an endpoint and a key |
 | Models | Discovered from the running proxy | Gateway defaults, or per binding |
 | Where requests go | `127.0.0.1:<port>` → upstream | Straight to the endpoint |
@@ -60,17 +60,17 @@ For Codex, `--models` writes a managed model catalog so exactly those ids show
 up under `/model`. Set the default with `--model`; it becomes the model the
 client starts on.
 
-Account proxies do not need this — Hotplug reads their live `/v1/models` catalog
+Account proxies do not need this — AnyPick reads their live `/v1/models` catalog
 whenever it activates the client.
 
 ## Managing gateways
 
 ```bash
-hotplug gateway list
-hotplug gateway show openrouter-work
-hotplug gateway edit openrouter-work -m anthropic/claude-sonnet-4
-hotplug gateway edit openrouter-work --endpoint https://…  --api-key "$NEW_KEY"
-hotplug gateway remove old-gateway -y
+anypick gateway list
+anypick gateway show openrouter-work
+anypick gateway edit openrouter-work -m anthropic/claude-sonnet-4
+anypick gateway edit openrouter-work --endpoint https://…  --api-key "$NEW_KEY"
+anypick gateway remove old-gateway -y
 ```
 
 `show` masks the key. Pass the global `--reveal` flag to print it, which is

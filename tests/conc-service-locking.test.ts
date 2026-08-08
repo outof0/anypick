@@ -24,7 +24,7 @@ import {
   CatalogRegistry,
   ClientRegistry,
   registerBuiltinClients,
-  type HotplugApp,
+  type AnyPickApp,
 } from '../src/testing';
 import type { Account, AccountMeta, LiveAuthStatus, Provider, SourceAdapter } from '../src/types';
 import {
@@ -106,11 +106,11 @@ class SlowProvider implements Provider {
 describe('service-owned mutation locks (ADR 0009)', () => {
   let root: string;
   let liveDir: string;
-  let app: HotplugApp;
+  let app: AnyPickApp;
   let provider: SlowProvider;
 
   beforeEach(async () => {
-    root = await mkdtemp(join(tmpdir(), 'hotplug-conc-svc-'));
+    root = await mkdtemp(join(tmpdir(), 'anypick-conc-svc-'));
     liveDir = join(root, 'slow-live');
     await mkdir(liveDir, { recursive: true });
     await writeFile(join(liveDir, 'auth.json'), JSON.stringify({ email: 'dev@slow.test' }), {

@@ -37,7 +37,7 @@ describe('doctor --fix behavior', () => {
   let root: string;
 
   beforeEach(async () => {
-    root = await mkdtemp(join(tmpdir(), 'hotplug-doctor-'));
+    root = await mkdtemp(join(tmpdir(), 'anypick-doctor-'));
   });
 
   afterEach(async () => {
@@ -194,8 +194,8 @@ describe('use --save decoupled from idempotency', () => {
   let home: string;
 
   beforeEach(async () => {
-    root = await mkdtemp(join(tmpdir(), 'hotplug-save-'));
-    home = await mkdtemp(join(tmpdir(), 'hotplug-save-home-'));
+    root = await mkdtemp(join(tmpdir(), 'anypick-save-'));
+    home = await mkdtemp(join(tmpdir(), 'anypick-save-home-'));
   });
 
   afterEach(async () => {

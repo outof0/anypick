@@ -5,7 +5,7 @@ import { pathExists } from '../utils/fs';
 import { isProcessRunning, readPidFile } from '../utils/process';
 import { isLockStale, readLockInfo } from '../utils/lock';
 import type { DoctorCheck, DoctorServiceDeps } from './doctor-types';
-import { walkHotplugOwned } from './doctor-utils';
+import { walkAnyPickOwned } from './doctor-utils';
 
 export type DoctorPush = (c: DoctorCheck) => void;
 
@@ -51,7 +51,7 @@ export async function scanProxyPids(
 }
 
 export async function scanStaleLocks(root: string, push: DoctorPush): Promise<void> {
-  await walkHotplugOwned(root, async (path, isDir) => {
+  await walkAnyPickOwned(root, async (path, isDir) => {
     if (isDir || !path.endsWith('.lock')) {
       return;
     }
@@ -63,8 +63,8 @@ export async function scanStaleLocks(root: string, push: DoctorPush): Promise<vo
       id: `stale-lock:${relative(root, path)}`,
       ok: false,
       message: info
-        ? `Stale Hotplug lock (dead pid ${info.pid}): ${relative(root, path)}`
-        : `Stale or corrupt Hotplug lock: ${relative(root, path)}`,
+        ? `Stale AnyPick lock (dead pid ${info.pid}): ${relative(root, path)}`
+        : `Stale or corrupt AnyPick lock: ${relative(root, path)}`,
       detail: path,
       fixable: 'delete_stale_lock',
     });
@@ -76,7 +76,7 @@ export async function scanTempOverlays(push: DoctorPush): Promise<void> {
   try {
     const entries = await readdir(tmp);
     for (const name of entries) {
-      if (!/^hotplug-(claude|codex|kiro|client)-/.test(name)) {
+      if (!/^anypick-(claude|codex|kiro|client)-/.test(name)) {
         continue;
       }
       const full = join(tmp, name);
@@ -108,7 +108,7 @@ export async function scanTempOverlays(push: DoctorPush): Promise<void> {
 export async function scanPermissions(root: string, push: DoctorPush): Promise<void> {
   let bad = 0;
   try {
-    await walkHotplugOwned(root, async (path, isDir) => {
+    await walkAnyPickOwned(root, async (path, isDir) => {
       try {
         const st = await stat(path);
         const mode = st.mode & 0o777;
@@ -130,7 +130,7 @@ export async function scanPermissions(root: string, push: DoctorPush): Promise<v
     push({
       id: 'permissions',
       ok: false,
-      message: `${bad} Hotplug-owned path(s) have overly permissive mode`,
+      message: `${bad} AnyPick-owned path(s) have overly permissive mode`,
       detail: root,
       fixable: 'repair_permissions',
     });
@@ -138,7 +138,7 @@ export async function scanPermissions(root: string, push: DoctorPush): Promise<v
     push({
       id: 'permissions',
       ok: true,
-      message: 'Hotplug-owned permissions look restrictive',
+      message: 'AnyPick-owned permissions look restrictive',
     });
   }
 }

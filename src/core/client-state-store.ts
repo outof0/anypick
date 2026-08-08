@@ -1,7 +1,7 @@
 import type { ClientState } from '../types';
 import { decode, decoders } from './codec';
-import type { HotplugDatabase } from './db';
-import { clientBackupDir, getHotplugRoot } from './paths';
+import type { AnyPickDatabase } from './db';
+import { clientBackupDir, getAnyPickRoot } from './paths';
 
 /**
  * SQLite-backed client runtime state.
@@ -9,10 +9,10 @@ import { clientBackupDir, getHotplugRoot } from './paths';
  */
 export class ClientStateStore {
   readonly root: string;
-  readonly db: HotplugDatabase;
+  readonly db: AnyPickDatabase;
 
-  constructor(root: string, db: HotplugDatabase) {
-    this.root = getHotplugRoot(root);
+  constructor(root: string, db: AnyPickDatabase) {
+    this.root = getAnyPickRoot(root);
     this.db = db;
   }
 

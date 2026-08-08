@@ -15,14 +15,14 @@
  * The proxy picks the endpoint per model id (not a user "plan" switch).
  */
 import { readJsonFile, pathExists } from '../../utils/fs';
-import { HotplugError } from '../../utils/errors';
+import { AnyPickError } from '../../utils/errors';
 
 export type OpenCodeCatalog = 'zen' | 'go';
 export type OpenCodeAuthMode = 'auto' | 'public' | 'api';
 
 export type OpenCodeCredential =
-  | { mode: 'public'; service: 'public'; apiKey: 'public' }
-  | { mode: 'api'; service: string; apiKey: string };
+  | { mode: 'public'; service: 'public'; apiKey: 'public'; accountName?: string }
+  | { mode: 'api'; service: string; apiKey: string; accountName?: string };
 
 export interface LegacyOpenCodeCredential {
   /** Which auth.json entry supplied the key (label only). */
@@ -65,6 +65,7 @@ export async function resolveOpenCodeCredential(
 export async function resolveOpenCodeCredentials(
   authPaths: string[],
   mode: OpenCodeAuthMode = 'auto',
+  accountNames?: string[],
 ): Promise<OpenCodeCredential[]> {
   if (mode === 'public') {
     return [{ mode: 'public', service: 'public', apiKey: 'public' }];
@@ -76,6 +77,8 @@ export async function resolveOpenCodeCredentials(
   const loaded: OpenCodeCredential[] = [];
   const unreadablePaths = new Set<string>();
   for (const authPath of paths) {
+    const sourceIndex = authPaths.indexOf(authPath);
+    const accountName = accountNames?.[sourceIndex];
     if (!(await pathExists(authPath))) {
       continue;
     }
@@ -84,10 +87,15 @@ export async function resolveOpenCodeCredentials(
       const platform = listPlatformCredentials(data);
       const preferred = pickPreferredKey(platform);
       if (preferred) {
-        loaded.push({ mode: 'api', service: preferred.service, apiKey: preferred.apiKey });
+        loaded.push({
+          mode: 'api',
+          service: preferred.service,
+          apiKey: preferred.apiKey,
+          accountName,
+        });
         for (const entry of platform) {
           if (entry.apiKey !== preferred.apiKey) {
-            loaded.push({ mode: 'api', service: entry.service, apiKey: entry.apiKey });
+            loaded.push({ mode: 'api', service: entry.service, apiKey: entry.apiKey, accountName });
           }
         }
       }
@@ -111,15 +119,15 @@ export async function resolveOpenCodeCredentials(
 
   const firstPath = authPaths[0] ?? '(none)';
   if (!(await pathExists(firstPath))) {
-    throw new HotplugError(
+    throw new AnyPickError(
       `OpenCode auth not found at ${firstPath}. Run: opencode auth login`,
       'NO_LIVE_AUTH',
     );
   }
   if (unreadablePaths.has(firstPath)) {
-    throw new HotplugError(`Unreadable OpenCode auth: ${firstPath}`, 'NO_LIVE_AUTH');
+    throw new AnyPickError(`Unreadable OpenCode auth: ${firstPath}`, 'NO_LIVE_AUTH');
   }
-  throw new HotplugError(
+  throw new AnyPickError(
     'No OpenCode Zen/Go key in auth.json. Run: opencode auth login  (select OpenCode Zen or Go)',
     'NO_LIVE_AUTH',
   );

@@ -1,5 +1,5 @@
 import React from 'react';
-import { filterHotplugHomeRows, type HotplugHomeModel } from '../model';
+import { filterAnyPickHomeRows, type AnyPickHomeModel } from '../model';
 import type { TuiShell } from '../use-tui-shell';
 
 /**
@@ -13,7 +13,7 @@ export interface HomeFilter {
   draft: string;
   active: boolean;
   /** The model narrowed to matching rows, plus the query the footer should show. */
-  view: (home: HotplugHomeModel) => { model: HotplugHomeModel; committed?: string };
+  view: (home: AnyPickHomeModel) => { model: AnyPickHomeModel; committed?: string };
   start: () => void;
   change: (value: string) => void;
   submit: () => void;
@@ -24,8 +24,8 @@ export function useHomeFilter(shell: TuiShell): HomeFilter {
   const { screen, go, setSelectedIndex } = shell;
   const [draft, setDraft] = React.useState('');
 
-  const committed = screen.kind === 'hotplug' ? screen.filter : undefined;
-  const active = screen.kind === 'hotplug' && Boolean(screen.filterActive);
+  const committed = screen.kind === 'anypick' ? screen.filter : undefined;
+  const active = screen.kind === 'anypick' && Boolean(screen.filterActive);
 
   return {
     draft,
@@ -33,22 +33,22 @@ export function useHomeFilter(shell: TuiShell): HomeFilter {
     view: (home) => {
       const query = active ? draft : committed;
       return {
-        model: query ? { ...home, rows: filterHotplugHomeRows(home.rows, query) } : home,
+        model: query ? { ...home, rows: filterAnyPickHomeRows(home.rows, query) } : home,
         committed,
       };
     },
     start: () => {
       setDraft(committed ?? '');
-      go({ kind: 'hotplug', filterActive: true, filter: committed });
+      go({ kind: 'anypick', filterActive: true, filter: committed });
     },
     change: setDraft,
     submit: () => {
-      go({ kind: 'hotplug', filter: draft || undefined });
+      go({ kind: 'anypick', filter: draft || undefined });
       setSelectedIndex(0);
     },
     clear: () => {
       setDraft('');
-      go({ kind: 'hotplug' });
+      go({ kind: 'anypick' });
     },
   };
 }

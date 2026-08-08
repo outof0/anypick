@@ -26,6 +26,34 @@ export function isInsufficientBalanceFailure(status: number, bodyPreview = ''): 
   );
 }
 
+/**
+ * A 429 is normally shared by an IP, endpoint, or model. This deliberately
+ * returns true only for vendor responses that explicitly attribute exhaustion
+ * to an API key, project, account, billing balance, or quota allocation.
+ * Generic 429s must remain on the current account.
+ */
+export function isCredentialQuotaFailure(
+  status: number,
+  headers: Headers,
+  bodyPreview = '',
+): boolean {
+  if (status !== 429 && !isInsufficientBalanceFailure(status, bodyPreview)) {
+    return false;
+  }
+  const text =
+    `${headers.get('x-goog-api-client') ?? ''} ${bodyPreview.slice(0, 2000)}`.toLowerCase();
+  if (/freeusagelimit|free usage|\bip(?: address)?\b|per[-\s]?minute|rate limit/.test(text)) {
+    return false;
+  }
+  return (
+    /resource[_\s-]*exhausted/.test(text) ||
+    /(?:api[_\s-]*key|credential|project|account|billing)[^.]{0,100}(?:quota|balance|exhausted|limit)/.test(
+      text,
+    ) ||
+    /(?:quota|balance)[^.]{0,100}(?:exhausted|depleted|exceeded|insufficient)/.test(text)
+  );
+}
+
 export function parseRetryAfter(
   value: string | null | undefined,
   now = Date.now(),

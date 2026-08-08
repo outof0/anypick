@@ -10,6 +10,7 @@ export interface HealthScreenProps {
   model: HealthModel;
   selectedIndex: number;
   busy?: boolean;
+  error?: string;
   message?: string;
   onMove: (delta: number) => void;
   onApplyFixes: () => void;
@@ -17,7 +18,7 @@ export interface HealthScreenProps {
 }
 
 export function HealthScreen(props: HealthScreenProps) {
-  const { model, selectedIndex, busy, message, onMove, onApplyFixes, onBack } = props;
+  const { model, selectedIndex, busy, error, message, onMove, onApplyFixes, onBack } = props;
   const checks = model.prioritized;
   const fixCount = model.plan?.actions.length ?? 0;
   const manualCount = model.plan?.manual.length ?? 0;
@@ -69,6 +70,7 @@ export function HealthScreen(props: HealthScreenProps) {
     <ScreenShell
       path="health"
       busy={busy}
+      error={error}
       busyLabel="Working"
       outcome={outcome}
       support={support}

@@ -1,3 +1,14 @@
+import { DOCTOR_FIX_ALLOWLIST } from './doctor-types';
+import { getAnyPickRoot } from './paths';
+import { runDoctorReport } from './doctor-report';
+import { executeDoctorFix } from './doctor-fixes';
+import type {
+  DoctorFixPlan,
+  DoctorFixResult,
+  DoctorServiceDeps,
+  DoctorReport,
+} from './doctor-types';
+
 export {
   DOCTOR_FIX_ALLOWLIST,
   DOCTOR_FIX_FORBIDDEN,
@@ -11,16 +22,6 @@ export {
   type DoctorServiceDeps,
 } from './doctor-types';
 export { enrichFixPlan, formatForbiddenManual } from './doctor-format';
-import { DOCTOR_FIX_ALLOWLIST } from './doctor-types';
-import { getHotplugRoot } from './paths';
-import { runDoctorReport } from './doctor-report';
-import { executeDoctorFix } from './doctor-fixes';
-import type {
-  DoctorFixPlan,
-  DoctorFixResult,
-  DoctorServiceDeps,
-  DoctorReport,
-} from './doctor-types';
 
 export class DoctorService {
   constructor(private readonly deps: DoctorServiceDeps) {}
@@ -86,7 +87,7 @@ export class DoctorService {
       actions.push({
         id: 'repair_permissions:root',
         kind: 'repair_permissions',
-        description: 'Repair permissions on Hotplug-owned files',
+        description: 'Repair permissions on AnyPick-owned files',
         target: report.root,
       });
     }
@@ -100,7 +101,7 @@ export class DoctorService {
   ): Promise<DoctorFixResult> {
     const dryRun = Boolean(opts.dryRun);
     const applied: DoctorFixResult['applied'] = [];
-    const root = getHotplugRoot(this.deps.root);
+    const root = getAnyPickRoot(this.deps.root);
 
     for (const action of plan.actions) {
       if (!DOCTOR_FIX_ALLOWLIST.includes(action.kind)) {

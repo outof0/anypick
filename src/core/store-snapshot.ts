@@ -2,11 +2,11 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync
 import { dirname, join } from 'node:path';
 import type { Account, AccountMeta } from '../types';
 import { DEFAULT_PROXY_CONFIG } from '../types';
-import { HotplugError } from '../utils/errors';
+import { AnyPickError } from '../utils/errors';
 import { normalizeAccountName } from '../utils/slug';
 import { stagedFilePath } from './account-codec';
 import { decode, decodeWithFallback, decoders } from './codec';
-import type { HotplugDatabase } from './db';
+import type { AnyPickDatabase } from './db';
 import { accountDir, accountSnapshotDir } from './paths';
 
 export function rowToAccount(
@@ -41,7 +41,7 @@ export function rowToAccount(
 }
 
 export function ingestSnapshotDir(
-  db: HotplugDatabase,
+  db: AnyPickDatabase,
   providerId: string,
   name: string,
   snapDir: string,
@@ -76,7 +76,7 @@ export function ingestSnapshotDir(
 
 export function materializeSnapshot(
   root: string,
-  db: HotplugDatabase,
+  db: AnyPickDatabase,
   providerId: string,
   name: string,
 ): void {
@@ -92,12 +92,12 @@ export function materializeSnapshot(
 
   const destinations = rows.map((row) => {
     if (typeof row.path !== 'string') {
-      throw new HotplugError('Snapshot contains an invalid file path.', 'SNAPSHOT_INVALID');
+      throw new AnyPickError('Snapshot contains an invalid file path.', 'SNAPSHOT_INVALID');
     }
     try {
       return { row, dest: stagedFilePath(snap, row.path) };
     } catch {
-      throw new HotplugError(
+      throw new AnyPickError(
         `Snapshot contains an unsafe file path: ${JSON.stringify(row.path)}.`,
         'SNAPSHOT_INVALID',
       );
@@ -112,7 +112,7 @@ export function materializeSnapshot(
           rel === existing || rel.startsWith(`${existing}/`) || existing.startsWith(`${rel}/`),
       )
     ) {
-      throw new HotplugError('Snapshot contains colliding file paths.', 'SNAPSHOT_INVALID');
+      throw new AnyPickError('Snapshot contains colliding file paths.', 'SNAPSHOT_INVALID');
     }
     seen.add(rel);
   }
