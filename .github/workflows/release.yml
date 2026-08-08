@@ -122,7 +122,30 @@ jobs:
 
       - name: Plan version from Conventional Commits
         id: plan
-        run: node scripts/release-plan.mjs prepare
+        run: |
+          current_version="$(node -p "require('./package.json').version")"
+          current_tag="v${current_version}"
+
+          if git rev-parse --verify --quiet "refs/tags/${current_tag}" >/dev/null; then
+            tag_commit="$(git rev-list -n 1 "${current_tag}")"
+            head_commit="$(git rev-parse HEAD)"
+            if [[ "$tag_commit" != "$head_commit" ]] && \
+              git diff --quiet "$tag_commit" "$head_commit" -- . \
+                ':(exclude).github/workflows/release.yml'; then
+              node scripts/release-plan.mjs check
+              {
+                echo 'mode=resume'
+                echo "previous_tag=${current_tag}"
+                echo 'bump=current'
+                echo "version=${current_version}"
+                echo "tag=${current_tag}"
+              } >> "$GITHUB_OUTPUT"
+              echo "Resuming code-equivalent ${current_tag} after release workflow repairs."
+              exit 0
+            fi
+          fi
+
+          node scripts/release-plan.mjs prepare
 
       - name: Reject unexpected version edits
         run: |
