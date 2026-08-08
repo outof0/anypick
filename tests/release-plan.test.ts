@@ -112,6 +112,7 @@ describe('release plan', () => {
     expect(publish).toBeGreaterThan(-1);
     expect(deploy).toBeGreaterThan(publish);
     expect(githubRelease).toBeGreaterThan(deploy);
+    expect(releaseWorkflow).toContain('--to "$RELEASE_TAG" --assets');
   });
 
   it('builds the Tauri frontend before compiling generate_context in CI and release', () => {

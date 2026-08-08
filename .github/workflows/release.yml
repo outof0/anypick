@@ -286,9 +286,10 @@ jobs:
       - name: Create or update GitHub Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ steps.plan.outputs.tag }}
           RELEASE_VERSION: ${{ steps.plan.outputs.version }}
         run: |
-          pnpm exec changelogithub --assets \
+          pnpm exec changelogithub --github "$GITHUB_REPOSITORY" --to "$RELEASE_TAG" --assets \
             "dist/anypick-${RELEASE_VERSION}.tgz" \
             "dist/tray/bin/anypick-tray-linux-x64"
 
