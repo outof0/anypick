@@ -112,7 +112,10 @@ describe('release plan', () => {
     expect(publish).toBeGreaterThan(-1);
     expect(deploy).toBeGreaterThan(publish);
     expect(githubRelease).toBeGreaterThan(deploy);
-    expect(releaseWorkflow).toContain('--to "$RELEASE_TAG" --assets');
+    expect(releaseWorkflow).toContain('--to "$RELEASE_TAG"');
+    expect(releaseWorkflow).toContain('"dist/anypick-${RELEASE_VERSION}.tgz"');
+    expect(releaseWorkflow).toContain('"dist/tray/bin/anypick-tray-linux-x64"');
+    expect(releaseWorkflow).toContain('GitHub Release asset verification failed');
   });
 
   it('builds the Tauri frontend before compiling generate_context in CI and release', () => {
