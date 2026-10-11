@@ -59,6 +59,11 @@ export default defineConfig({
     ],
     defaultLocale: "en",
   },
+  // Old README/marketing links pointed at /getting-started/, which used to fall
+  // through to the homepage. Send them to the real docs page.
+  redirects: {
+    "/getting-started": "/docs/getting-started/",
+  },
   // Tailwind v4 via its Vite plugin (the integration Astro recommends for
   // Tailwind v4 — replaces the PostCSS plugin, which doesn't build under
   // Astro 7's Vite 8 bundler).

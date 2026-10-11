@@ -16,6 +16,8 @@ type Props = BasePageProps & {
   socialTitle?: string;
   /** Search index used when the page's translated chrome wraps fallback content. */
   pagefindLanguage?: string;
+  /** Alt text for this page's social image; defaults to the site-wide alt. */
+  socialImageAlt?: string;
 };
 
 const {
@@ -30,6 +32,7 @@ const {
   entryId,
   socialTitle,
   pagefindLanguage,
+  socialImageAlt = config.socialImageAlt,
 } = Astro.props;
 
 const lang = localeForPath(Astro.url.pathname);
@@ -128,14 +131,14 @@ const socialStructuredData = socialTitle && canonicalUrl
         {description && <meta property="og:description" content={description} />}
         {canonicalUrl && <meta property="og:url" content={canonicalUrl} />}
         {socialImageUrl && <meta property="og:image" content={socialImageUrl} />}
-        {socialImageUrl && config.socialImageAlt && <meta property="og:image:alt" content={config.socialImageAlt} />}
+        {socialImageUrl && socialImageAlt && <meta property="og:image:alt" content={socialImageAlt} />}
         {socialImageUrl && <meta property="og:image:width" content="1200" />}
         {socialImageUrl && <meta property="og:image:height" content="630" />}
         <meta name="twitter:card" content={socialImageUrl ? "summary_large_image" : "summary"} />
         <meta name="twitter:title" content={socialTitle} />
         {description && <meta name="twitter:description" content={description} />}
         {socialImageUrl && <meta name="twitter:image" content={socialImageUrl} />}
-        {socialImageUrl && config.socialImageAlt && <meta name="twitter:image:alt" content={config.socialImageAlt} />}
+        {socialImageUrl && socialImageAlt && <meta name="twitter:image:alt" content={socialImageAlt} />}
         {socialStructuredData && <script is:inline type="application/ld+json" set:html={socialStructuredData} />}
         {pageHead.map(({ tag: Tag, attrs = {}, content }) => <Tag {...attrs}>{content}</Tag>)}
       </>

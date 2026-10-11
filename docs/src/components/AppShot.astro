@@ -1,0 +1,37 @@
+---
+/**
+ * Real desktop-app screenshot served as AVIF, then WebP, then PNG fallback.
+ * Each format has 1x and 2x (retina) sources in /public/shots/<name>[@2x].<ext>.
+ */
+interface Props {
+  name: "overview" | "accounts" | "settings" | "tray";
+  alt: string;
+  /** Intrinsic 1x size in CSS pixels. */
+  width: number;
+  height: number;
+  sizes: string;
+  /** Hero image: eager + high fetch priority. Everything else lazy-loads. */
+  priority?: boolean;
+  class?: string;
+}
+
+const { name, alt, width, height, sizes, priority = false, class: className } = Astro.props;
+const srcset = (ext: string) =>
+  `/shots/${name}.${ext} ${width}w, /shots/${name}@2x.${ext} ${width * 2}w`;
+---
+
+<picture class={className}>
+  <source type="image/avif" srcset={srcset("avif")} sizes={sizes} />
+  <source type="image/webp" srcset={srcset("webp")} sizes={sizes} />
+  <img
+    src={`/shots/${name}.png`}
+    srcset={srcset("png")}
+    sizes={sizes}
+    alt={alt}
+    width={width}
+    height={height}
+    loading={priority ? "eager" : "lazy"}
+    decoding={priority ? "sync" : "async"}
+    fetchpriority={priority ? "high" : "auto"}
+  />
+</picture>

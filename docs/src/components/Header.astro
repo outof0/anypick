@@ -43,7 +43,6 @@ const sections = sourceSections.map((section) => ({
   href: localizedPath(locale, section.href),
 }));
 const showSections = sections.length >= 2;
-const starBadgeUrl = "https://img.shields.io/github/stars/outof0/anypick?style=flat&logo=github&label=stars";
 
 // The docs live under /docs, so the landing page needs a way in. When the
 // sidebar has enough top-level sections to derive its own nav, that wins.
@@ -76,12 +75,10 @@ const docsIsActive = currentSlug === docsHref || currentSlug.startsWith(`${docsH
             href={config.github}
             target="_blank"
             rel="noopener"
-            aria-label={`★ ${t("header.starOnGitHub")}`}
-            class="header-star rounded-lg px-2 py-1.5 text-[#D6D9E0] no-underline transition-colors hover:bg-white/5 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#A78BFA]"
+            aria-label="AnyPick on GitHub"
+            class="rounded-lg p-2 text-[#98A2B3] no-underline transition-colors hover:bg-white/5 hover:text-[#F8FAFC] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#A78BFA]"
           >
-            <span class="header-star-short">★ {t("header.starShort")}</span>
-            <span class="header-star-long">★ {t("header.starOnGitHub")}</span>
-            <img src={starBadgeUrl} alt="GitHub stars" width="72" height="20" />
+            <Icon name="ph:github-logo" class="h-5 w-5" />
           </a>
         )}
         <a
@@ -176,39 +173,3 @@ const docsIsActive = currentSlug === docsHref || currentSlug.startsWith(`${docsH
     </div>
   </header>
 )}
-
-<style>
-  .header-star {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-    font-size: 0.73rem;
-    font-weight: 650;
-    white-space: nowrap;
-  }
-
-  .header-star img {
-    display: block;
-    width: 72px;
-    height: 20px;
-  }
-
-  .header-star-short {
-    display: none;
-  }
-
-  @media (max-width: 40rem) {
-    .header-star {
-      gap: 0.25rem;
-      padding-inline: 0.35rem;
-    }
-
-    .header-star-long {
-      display: none;
-    }
-
-    .header-star-short {
-      display: inline;
-    }
-  }
-</style>

@@ -1,6 +1,6 @@
 ---
 title: Getting started
-description: Run AnyPick from source, open Apps, and connect Claude or Codex to a login you already have.
+description: Install an AnyPick release, open Apps, and connect Claude or Codex to a login you already have.
 ---
 
 AnyPick answers one everyday question:
@@ -12,7 +12,32 @@ those logins, starts a local translator when the tools speak different
 protocols, and writes the client config — so you pick once in **Apps** instead
 of editing files by hand.
 
-## Run the development preview
+## Install a release
+
+Install the CLI from the latest
+[GitHub Release](https://github.com/outof0/anypick/releases/latest) with the
+package manager for your platform:
+
+```bash
+# macOS
+brew install outof0/tap/anypick
+
+# Linux, or any OS with Node 18+ (downloads the matching native CLI on first run)
+npm install -g anypick
+```
+
+```powershell
+# Windows
+scoop bucket add outof0 https://github.com/outof0/scoop-bucket
+scoop install anypick
+```
+
+Desktop apps (`.dmg`, `.deb`, `.rpm`, AppImage, `.msi`, `.exe`) and
+checksum-listed CLI tarballs are attached to every
+[release](https://github.com/outof0/anypick/releases/latest). Check the install
+with `anypick --version`, then run `anypick doctor`.
+
+## Release channels and source builds
 
 <Render file="install" />
 
@@ -22,10 +47,10 @@ The native macOS target opens its regular main window automatically. Its
 menu-bar quick panel is part of the same app and remains available when the main
 window is closed.
 
-For the terminal workflow from a source checkout:
+For the terminal workflow:
 
 ```bash
-make run ARGS="tui"
+anypick tui
 ```
 
 You land on **Apps**:

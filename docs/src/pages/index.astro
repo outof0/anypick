@@ -1,105 +1,98 @@
 ---
 import { Icon } from "astro-icon/components";
 import { config } from "virtual:nimbus/config";
+import AppShot from "../components/AppShot.astro";
 import Header from "../components/Header.astro";
-import RoutingConcept from "../components/RoutingConcept.astro";
 import BaseLayout from "../layouts/BaseLayout.astro";
 
-const releasesUrl = "https://github.com/outof0/anypick/releases/latest";
+const githubUrl = config.github ?? "https://github.com/outof0/anypick";
+const releasesUrl = `${githubUrl}/releases/latest`;
+const changelogUrl = `${githubUrl}/blob/main/CHANGELOG.md`;
+const securityUrl = `${githubUrl}/blob/main/SECURITY.md`;
+const licenseUrl = `${githubUrl}/blob/main/LICENSE`;
+const gettingStartedUrl = "/docs/getting-started/";
 const npmCommand = "npm install -g anypick";
-const starBadgeUrl = "https://img.shields.io/github/stars/outof0/anypick?style=social";
-const heroDescription = "Switch accounts, route through Grok, Gemini or OpenRouter, and preview every config change. CLI + desktop app, open source.";
-const socialTitle = "AnyPick — Run Claude Code & Codex on any provider";
+const socialTitle = "AnyPick: switch AI coding agents between accounts & API keys";
+const metaDescription =
+  "Pick which login or API key Claude Code, Codex, Gemini CLI and 8 more use: globally, per project, or per terminal. Open source. One command to undo.";
 
-const capabilities = [
+const scopes = [
   {
-    label: "Cross-provider routes",
-    value: "Claude Code · Codex",
-    detail: "Compatible accounts, proxies, and gateways",
+    label: "Everywhere",
+    command: "anypick use claude --with claude/work",
+    body: "Sets the default for that app.",
   },
   {
-    label: "Native account switching",
-    value: "Gemini · Kiro",
-    detail: "Switches the provider's own live credential",
+    label: "This project",
+    command: "anypick link claude --with claude/personal",
+    body: "Applies only inside this directory.",
+    href: "/docs/guides/projects",
   },
   {
-    label: "Bring your own gateway",
-    value: "OpenRouter · LiteLLM",
-    detail: "Or another compatible endpoint",
+    label: "This terminal only",
+    command: "anypick run claude --with openrouter-work",
+    body: "Launches one isolated session. Your global config isn't touched.",
   },
 ];
 
-const workflow = [
-  {
-    number: "01",
-    title: "See what powers each app",
-    body: "Claude Code and Codex show their current source, model, usage when available, and whether the route needs attention.",
-  },
-  {
-    number: "02",
-    title: "Choose a compatible source",
-    body: "Pick a native account, gateway, managed proxy, Proxy Hub, or saved setup. Incompatible pairings never appear.",
-  },
-  {
-    number: "03",
-    title: "Review every change",
-    body: "AnyPick previews the binding, model roles, proxy start, and client configuration before it writes anything.",
-  },
-  {
-    number: "04",
-    title: "Activate, then keep coding",
-    body: "The approved plan drives both execution and rollback, so the route shown in Apps stays the source of truth.",
-  },
-];
+const agents = ["Claude Code", "OpenAI Codex", "Gemini CLI", "OpenCode", "Kiro", "Pi", "Omp", "Command Code", "DeepSeek Harness", "WorkBuddy AI", "ZCode"];
+const logins = ["Claude Code", "OpenAI Codex", "Google Gemini", "xAI Grok", "Kiro", "Cline", "OpenCode", "WorkBuddy", "Z.ai (GLM)"];
+const apiKeys = ["OpenRouter", "DeepSeek", "Moonshot Kimi", "Qwen", "MiniMax", "Mistral", "Groq", "Cerebras", "Fireworks", "Together", "NVIDIA NIM", "SiliconFlow", "Cloudflare AI Gateway", "Volcengine Ark", "Xiaomi MiMo"];
 
-const appBenefits = [
-  {
-    icon: "ph:cursor-click",
-    title: "Switch from the menu bar",
-    body: "Change an app's source without reopening config files or leaving the tool you are using.",
-  },
-  {
-    icon: "ph:gauge",
-    title: "See usage where supported",
-    body: "Keep the active identity, model, and provider quota in the same compact view.",
-  },
+const safety = [
   {
     icon: "ph:shield-check",
-    title: "Keep secrets out of the UI",
-    body: "The native UI sends typed actions to its bundled Go service; credentials and proxy bearer tokens stay behind that boundary.",
+    title: "Only touches what it owns.",
+    body: "AnyPick marks the exact keys it writes (_anypickManaged in Claude's settings, a fenced # BEGIN anypick-managed block in Codex's config.toml). Your theme, MCP servers and other settings stay put.",
+  },
+  {
+    icon: "ph:hand",
+    title: "Asks before taking over.",
+    body: "If a file already has settings AnyPick didn't write, it stops: “Nothing was changed; confirm the takeover.” When you confirm, it backs up the original first.",
+  },
+  {
+    icon: "ph:arrow-counter-clockwise",
+    title: "One command to undo.",
+    body: "anypick reset claude restores the settings you had before.",
   },
 ];
 
-const proof = [
-  {
-    icon: "ph:identification-card",
-    title: "Reuse provider-owned logins",
-    body: "AnyPick snapshots credentials created by the provider's own sign-in flow. It never impersonates that flow or asks for your password.",
-    href: "/docs/guides/accounts",
-    link: "Accounts guide",
-  },
-  {
-    icon: "ph:folders",
-    title: "Route one project differently",
-    body: "Bindings resolve per launch, then per directory, then globally. Change one repository without disturbing the rest.",
-    href: "/docs/guides/projects",
-    link: "Project bindings",
-  },
-  {
-    icon: "ph:arrows-left-right",
-    title: "Supervise local translation",
-    body: "When protocols differ, the bundled Go service owns the required loopback proxy instead of making the UI reimplement it.",
-    href: "/docs/guides/proxies",
-    link: "Proxy guide",
-  },
+const trust = [
+  { icon: "ph:code", title: "Open source, MIT.", body: "Read every line on GitHub." },
+  { icon: "ph:path", title: "No middleman.", body: "AnyPick never relays your traffic through anyone's servers. Requests go straight to the provider you chose, through a local translator when needed." },
+  { icon: "ph:handshake", title: "Plays by provider rules.", body: "Claude logins only ever power Claude Code. AnyPick reuses logins created by each provider's own sign-in. It never asks for your password." },
+  { icon: "ph:lock-key", title: "Secrets stay behind one boundary.", body: "Credentials and proxy tokens live in the Go core, never in the UI." },
+  { icon: "ph:seal-check", title: "Verifiable builds.", body: "Release checksums, an SPDX SBOM, and npm provenance attestations." },
+  { icon: "ph:cube", title: "One native binary.", body: "No background daemon you didn't ask for, and the CLI needs no Node runtime (npm is just a launcher)." },
 ];
+
+const byHand = [
+  { task: "Switch Claude Code to another account", manual: "Log out, clear the keychain, re-login", anypick: "anypick use claude --with claude/personal" },
+  { task: "Try a provider without losing your setup", manual: "Export env vars and hope ANTHROPIC_API_KEY=\"\" is right", anypick: "anypick run claude --with openrouter-work" },
+  { task: "Different account per repo", manual: "CLAUDE_CONFIG_DIR aliases that leak", anypick: "anypick link …" },
+  { task: "Codex on a non-OpenAI provider", manual: "Hand-write model_providers TOML", anypick: "anypick use codex --with <gateway>" },
+  { task: "Undo", manual: "Remember what you changed", anypick: "anypick reset <app>" },
+];
+
+const faq = [
+  { q: "Is it free?", a: "Yes. AnyPick is MIT-licensed." },
+  { q: "Does AnyPick see or relay my prompts?", a: "No. AnyPick has no servers. When a translator is needed, it runs on 127.0.0.1 on your machine." },
+  { q: "Where are my credentials stored?", a: "Locally in ~/.anypick. Remove everything with npm uninstall -g anypick and by deleting ~/.anypick." },
+  { q: "Is this allowed by the providers?", a: "AnyPick reuses logins created by each provider's own sign-in and keeps Claude logins inside Claude Code. API keys are used under your own agreement with each provider. Check your provider's terms for subscription use in third-party tools." },
+  { q: "What happens to my existing config?", a: "AnyPick won't overwrite settings it didn't write without asking, backs them up when you confirm, and anypick reset restores them." },
+  { q: "Which apps and providers work together?", a: "See the CLI reference and guides. AnyPick only offers the pairings that work." },
+  { id: "faq-macos", q: "Why does macOS warn me?", a: "The app isn't notarized yet. Right-click AnyPick.app → Open, or go to System Settings → Privacy & Security → Open Anyway. The CLI via Homebrew is unaffected." },
+  { q: "I used anypick 1.0.0 from npm. What changed?", a: "1.1.0 replaced the JavaScript CLI with the native one, which doesn't run third-party plugins. Pin anypick@1.0.0 if you need the old one." },
+];
+
 ---
 
 <BaseLayout
   title={socialTitle}
   socialTitle={socialTitle}
-  description={heroDescription}
-  socialImage="/og-image.png"
+  description={metaDescription}
+  socialImage="/og-landing.png"
+  socialImageAlt="AnyPick: Pick which account every AI coding agent uses. Shown next to the AnyPick desktop app's Overview page in dark mode."
 >
   <div class="landing min-h-screen bg-[#080A11] text-[#F8FAFC]">
     <Header showSidebar={false} appearance="landing" />
@@ -109,260 +102,401 @@ const proof = [
         <div class="hero-grid pointer-events-none absolute inset-0 -z-20" aria-hidden="true"></div>
         <div class="hero-light pointer-events-none absolute -z-10" aria-hidden="true"></div>
 
-        <div class="mx-auto grid w-full max-w-7xl items-center gap-14 px-5 pt-16 pb-20 sm:px-8 sm:pt-20 lg:grid-cols-[0.88fr_1.12fr] lg:gap-16 lg:pt-24 lg:pb-28">
-          <div class="hero-copy max-w-2xl">
+        <div class="mx-auto w-full max-w-7xl px-5 pt-14 pb-16 sm:px-8 sm:pt-20 lg:pt-24 lg:pb-24">
+          <div class="hero-copy mx-auto max-w-4xl text-center">
             <p class="eyebrow">
               <span></span>
               Pick any. Code on.
             </p>
-
-            <h1 class="mt-5 text-balance text-[clamp(2.6rem,8vw,5.4rem)] font-semibold leading-[0.98] tracking-[-0.055em]">
-              Run Claude Code &amp; Codex<br />
-              <span>on any login you already pay for.</span>
+            <h1 class="mt-5 text-balance text-[clamp(2.4rem,6.4vw,4.6rem)] font-semibold leading-[1.02] tracking-[-0.05em]">
+              Pick which account <span>every AI coding agent uses.</span>
             </h1>
-
-            <p class="mt-7 max-w-xl text-pretty text-lg leading-8 text-[#98A2B3] sm:text-xl">
-              {heroDescription}
+            <p class="mx-auto mt-6 max-w-3xl text-pretty text-lg leading-8 text-[#98A2B3] sm:text-xl">
+              Point Claude Code, Codex, Gemini CLI and 8 more at any login or API key you have: globally, per project, or for one terminal. AnyPick writes the config, translates protocols when needed, and puts everything back with one command.
             </p>
-
-            <div class="mt-9 flex flex-wrap items-center gap-3">
-              <a class="primary-cta" href="/docs/getting-started">
-                Get started
-                <Icon name="ph:arrow-right" class="h-4 w-4" />
-              </a>
-              <a class="star-link" href={config.github ?? "https://github.com/outof0/anypick"} target="_blank" rel="noopener" aria-label="★ Star on GitHub">
-                <span class="star-link-full">★ Star on GitHub</span>
-                <span class="star-link-short">★ Star</span>
-                <img src={starBadgeUrl} alt="GitHub stars" width="104" height="20" />
-              </a>
-              <a class="secondary-cta" href="#workflow">See the workflow</a>
-            </div>
-
-            <div class="install-card mt-8 max-w-lg" data-install-tabs>
-              <div class="install-tabs" role="tablist" aria-label="Choose an install method">
-                <button id="install-tab-macos" class="install-tab" type="button" role="tab" aria-selected="true" aria-controls="install-panel-macos" data-install-tab="macos">macOS</button>
-                <button id="install-tab-windows" class="install-tab" type="button" role="tab" aria-selected="false" aria-controls="install-panel-windows" tabindex="-1" data-install-tab="windows">Windows</button>
-                <button id="install-tab-linux" class="install-tab" type="button" role="tab" aria-selected="false" aria-controls="install-panel-linux" tabindex="-1" data-install-tab="linux">Linux</button>
-                <button id="install-tab-npm" class="install-tab" type="button" role="tab" aria-selected="false" aria-controls="install-panel-npm" tabindex="-1" data-install-tab="npm">npm</button>
-              </div>
-
-              <div class="install-panel" id="install-panel-macos" role="tabpanel" aria-labelledby="install-tab-macos" data-install-panel="macos">
-                <p class="install-label">CLI</p>
-                <div class="install-shell">
-                  <span class="prompt" aria-hidden="true">$</span>
-                  <code>brew install outof0/tap/anypick</code>
-                  <button type="button" data-copy="brew install outof0/tap/anypick" aria-label="Copy Homebrew CLI install command">
-                    <Icon name="ph:copy" class="copy-icon h-4 w-4" />
-                    <Icon name="ph:check" class="check-icon hidden h-4 w-4" />
-                    <span>Copy</span>
-                  </button>
-                </div>
-                <p class="install-label install-label-spaced">Desktop app</p>
-                <div class="install-shell">
-                  <span class="prompt" aria-hidden="true">$</span>
-                  <code>brew install --cask outof0/tap/anypick</code>
-                  <button type="button" data-copy="brew install --cask outof0/tap/anypick" aria-label="Copy Homebrew app install command">
-                    <Icon name="ph:copy" class="copy-icon h-4 w-4" />
-                    <Icon name="ph:check" class="check-icon hidden h-4 w-4" />
-                    <span>Copy</span>
-                  </button>
-                </div>
-              </div>
-
-              <div class="install-panel" id="install-panel-windows" role="tabpanel" aria-labelledby="install-tab-windows" data-install-panel="windows" hidden>
-                <p class="install-label">CLI · Scoop</p>
-                <div class="install-shell">
-                  <span class="prompt" aria-hidden="true">$</span>
-                  <code>scoop bucket add outof0 https://github.com/outof0/scoop-bucket</code>
-                  <button type="button" data-copy="scoop bucket add outof0 https://github.com/outof0/scoop-bucket" aria-label="Copy Scoop bucket command">
-                    <Icon name="ph:copy" class="copy-icon h-4 w-4" />
-                    <Icon name="ph:check" class="check-icon hidden h-4 w-4" />
-                    <span>Copy</span>
-                  </button>
-                </div>
-                <div class="install-shell mt-2">
-                  <span class="prompt" aria-hidden="true">$</span>
-                  <code>scoop install anypick</code>
-                  <button type="button" data-copy="scoop install anypick" aria-label="Copy Scoop install command">
-                    <Icon name="ph:copy" class="copy-icon h-4 w-4" />
-                    <Icon name="ph:check" class="check-icon hidden h-4 w-4" />
-                    <span>Copy</span>
-                  </button>
-                </div>
-              </div>
-
-              <div class="install-panel" id="install-panel-linux" role="tabpanel" aria-labelledby="install-tab-linux" data-install-panel="linux" hidden>
-                <p class="install-label">CLI · Homebrew</p>
-                <div class="install-shell">
-                  <span class="prompt" aria-hidden="true">$</span>
-                  <code>brew install outof0/tap/anypick</code>
-                  <button type="button" data-copy="brew install outof0/tap/anypick" aria-label="Copy Homebrew CLI install command">
-                    <Icon name="ph:copy" class="copy-icon h-4 w-4" />
-                    <Icon name="ph:check" class="check-icon hidden h-4 w-4" />
-                    <span>Copy</span>
-                  </button>
-                </div>
-                <p class="install-hint">Desktop packages: `.deb`, `.rpm`, or AppImage.</p>
-              </div>
-
-              <div class="install-panel" id="install-panel-npm" role="tabpanel" aria-labelledby="install-tab-npm" data-install-panel="npm" hidden>
-                <p class="install-label">Node 18+</p>
-                <div class="install-shell">
-                  <span class="prompt" aria-hidden="true">$</span>
-                  <code>{npmCommand}</code>
-                  <button type="button" data-copy={npmCommand} aria-label="Copy npm install command">
-                    <Icon name="ph:copy" class="copy-icon h-4 w-4" />
-                    <Icon name="ph:check" class="check-icon hidden h-4 w-4" />
-                    <span>Copy</span>
-                  </button>
-                </div>
-                <p class="install-hint">Downloads the matching native CLI on first run.</p>
-              </div>
-
-              <a class="desktop-release-link" href={releasesUrl}>
-                Desktop apps → GitHub Releases
-                <Icon name="ph:arrow-up-right" class="h-4 w-4" aria-hidden="true" />
-              </a>
-            </div>
-            <p class="install-meta mt-3">v1.1 · MIT</p>
-            <p class="macos-warning mt-3 max-w-lg">The macOS app is not notarized. On first launch, right-click AnyPick.app and choose <strong>Open</strong>, or go to System Settings → Privacy &amp; Security → <strong>Open Anyway</strong>. You can also run <code>xattr -dr com.apple.quarantine /Applications/AnyPick.app</code>.</p>
-            <p class="sr-only" aria-live="polite" data-copy-status></p>
-          </div>
-
-          <div class="hero-product relative mx-auto w-full max-w-[38rem] lg:mr-0">
-            <RoutingConcept variant="hero" />
-          </div>
-        </div>
-      </section>
-
-      <section aria-label="Compatibility overview" class="border-y border-white/8 bg-white/[0.018]">
-        <div class="mx-auto grid w-full max-w-7xl divide-y divide-white/8 px-5 sm:px-8 lg:grid-cols-3 lg:divide-x lg:divide-y-0">
-          {capabilities.map((item) => (
-            <div class="py-7 lg:px-8 lg:first:pl-0 lg:last:pr-0">
-              <p class="font-mono text-[0.68rem] uppercase tracking-[0.16em] text-[#8b93a7]">{item.label}</p>
-              <p class="mt-2 text-base font-semibold text-[#F8FAFC]">{item.value}</p>
-              <p class="mt-1 text-sm text-[#98A2B3]">{item.detail}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section id="workflow" class="section-shell">
-        <div class="mx-auto w-full max-w-7xl px-5 sm:px-8">
-          <div class="section-heading max-w-3xl">
-            <p class="section-kicker">Apps route builder</p>
-            <h2>Know what will change before it changes.</h2>
-            <p>Apps turns routing into one deliberate flow instead of a collection of credential files, environment variables, and background processes.</p>
-          </div>
-
-          <div class="mt-14 grid gap-5 md:grid-cols-2">
-            {workflow.map((step) => (
-              <article class="workflow-card">
-                <div class="flex items-start gap-5">
-                  <span class="step-number">{step.number}</span>
-                  <div>
-                    <h3>{step.title}</h3>
-                    <p>{step.body}</p>
-                  </div>
-                </div>
-              </article>
-            ))}
-          </div>
-
-          <div class="plan-panel mt-8 grid overflow-hidden lg:grid-cols-[0.78fr_1.22fr]">
-            <div class="border-b border-white/8 p-7 sm:p-9 lg:border-r lg:border-b-0">
-              <p class="section-kicker">Activation preview</p>
-              <h3 class="mt-4 text-2xl font-semibold tracking-[-0.03em]">A plan you can inspect.</h3>
-              <p class="mt-4 leading-7 text-[#98A2B3]">Nothing is written until you confirm. The same planned steps drive execution and rollback.</p>
-              <a class="text-link mt-6" href="/docs/guides/terminal-ui">
-                Explore the terminal UI
+            <div class="mt-8 flex flex-wrap items-center justify-center gap-3">
+              <a class="primary-cta" href={releasesUrl}>
+                Download the desktop app
                 <Icon name="ph:arrow-up-right" class="h-4 w-4" />
               </a>
+              <a class="secondary-cta" href="#install">
+                Install the CLI
+                <Icon name="ph:arrow-down" class="h-4 w-4" />
+              </a>
             </div>
-            <div class="plan-code p-5 sm:p-7">
-              <div class="plan-titlebar">
-                <span></span><span></span><span></span>
-                <p>Claude Code → grok/work</p>
-              </div>
-              <ol>
-                <li><span>01</span><div><strong>Bind app</strong><small>Claude Code uses grok/work</small></div><b>ready</b></li>
-                <li><span>02</span><div><strong>Start owned proxy</strong><small>Loopback only · secret stays private</small></div><b>planned</b></li>
-                <li><span>03</span><div><strong>Set model</strong><small>grok-code-fast-1</small></div><b>planned</b></li>
-                <li><span>04</span><div><strong>Write client config</strong><small>After confirmation</small></div><b>planned</b></li>
-              </ol>
-            </div>
+            <p class="install-meta mt-4">Free and open source (MIT) · macOS · Linux · Windows · One native binary, checksummed</p>
+            <p class="install-meta mt-1">macOS: first launch? See <a class="text-link" href="#faq-macos">how to open an unsigned app</a>.</p>
           </div>
+
+          <figure class="app-frame hero-shot mx-auto mt-12 max-w-5xl">
+            <AppShot
+              name="overview"
+              width={1040}
+              height={760}
+              sizes="(min-width: 1088px) 1024px, calc(100vw - 2.5rem)"
+              priority
+              alt="AnyPick desktop app for macOS, dark mode, on the Overview page. Installation Health has a Run Doctor button. Active Apps lists Claude Code and OpenAI Codex using the Work account and OpenCode using demo-team, each through an AnyPick proxy. Services shows 3 of 3 proxies running, and Recent Activity logs each app's latest account switch."
+            />
+          </figure>
         </div>
       </section>
 
       <section class="section-shell border-y border-white/8 bg-[#0B0D15]">
-        <div class="mx-auto grid w-full max-w-7xl gap-12 px-5 sm:px-8 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:items-start lg:gap-24">
-          <RoutingConcept variant="desktop" class="order-2 lg:order-1" />
-
-          <div class="order-1 lg:order-2">
-            <p class="section-kicker">Desktop control</p>
-            <h2 class="mt-4 text-balance text-[clamp(2.25rem,5vw,3.8rem)] font-semibold leading-[1.04] tracking-[-0.045em]">The route switcher lives where you work.</h2>
-            <p class="mt-5 max-w-xl text-lg leading-8 text-[#98A2B3]">The regular macOS app owns its bundled Go service. Use the menu bar for quick changes and the full System Settings-style window for deeper management.</p>
-
-            <div class="mt-9 space-y-7">
-              {appBenefits.map((benefit) => (
-                <div class="benefit-row">
-                  <span><Icon name={benefit.icon} class="h-5 w-5" /></span>
-                  <div>
-                    <h3>{benefit.title}</h3>
-                    <p>{benefit.body}</p>
-                  </div>
-                </div>
-              ))}
+        <div class="mx-auto max-w-7xl px-5 sm:px-8">
+          <div class="feature-row">
+            <div class="section-heading">
+              <p class="section-kicker">Accounts &amp; APIs</p>
+              <h2>Every login and API key, in one list.</h2>
+              <p>Claude, Codex, Gemini, Kiro, Cline and OpenRouter accounts sit side by side with your API gateways. A check mark shows which one each app is using right now.</p>
             </div>
-
-            <a class="text-link mt-9" href="/docs/guides/tray">
-              See the macOS app guide
-              <Icon name="ph:arrow-up-right" class="h-4 w-4" />
-            </a>
+            <figure class="app-frame">
+              <AppShot
+                name="accounts"
+                width={1040}
+                height={760}
+                sizes="(min-width: 1024px) 50vw, calc(100vw - 2.5rem)"
+                alt="The Accounts & APIs page in AnyPick's dark-mode desktop app. It lists nine saved accounts: three Claude (Personal, Team, Work), two Codex (Client, Work), one each for Gemini, Kiro and Cline, and an OpenRouter key named demo-team. The Claude and Codex Work accounts have green check marks. Below is one API gateway, Staging Gateway, with Add Login and Add API Gateway buttons. All emails are example.com demo data."
+              />
+            </figure>
           </div>
         </div>
       </section>
 
       <section class="section-shell">
-        <div class="mx-auto w-full max-w-7xl px-5 sm:px-8">
-          <div class="section-heading max-w-3xl">
-            <p class="section-kicker">Built for the real workflow</p>
-            <h2>Less credential choreography. More coding.</h2>
-          </div>
-
-          <div class="mt-14 grid gap-5 md:grid-cols-3">
-            {proof.map((item) => (
-              <article class="proof-card">
-                <span class="proof-icon"><Icon name={item.icon} class="h-5 w-5" /></span>
-                <h3>{item.title}</h3>
-                <p>{item.body}</p>
-                <a href={item.href}>
-                  {item.link}
-                  <Icon name="ph:arrow-right" class="h-4 w-4" />
-                </a>
-              </article>
-            ))}
-          </div>
-
-          <div class="boundary-note mt-8">
-            <Icon name="ph:info" class="h-5 w-5 shrink-0 text-[#A78BFA]" />
-            <p><strong>Clear compatibility boundaries:</strong> Claude Code and Codex can use foreign-provider sources. Gemini and Kiro switch only among their own provider accounts. The Codex desktop app keeps its own signed-in account and does not follow a CLI credential switch.</p>
+        <div class="mx-auto max-w-7xl px-5 sm:px-8">
+          <div class="feature-row feature-row-reverse">
+            <div class="section-heading">
+              <p class="section-kicker">Menu bar</p>
+              <h2>Switch without leaving your editor.</h2>
+              <p>Open the menu bar panel, see how much usage each account has left, and pick a different one for Claude Code or Codex in one click.</p>
+            </div>
+            <figure class="app-frame app-frame-tray">
+              <AppShot
+                name="tray"
+                width={336}
+                height={430}
+                sizes="336px"
+                alt="AnyPick's macOS menu bar panel in dark mode. A search field reads 'Search 9 saved accounts'. Claude Code is using Work with 68% usage left, and OpenAI Codex is using Work with 81% left. Each has chips for switching accounts and a Switch link. Below are Other Apps (Gemini, Kiro), a proxies row showing 3 running, and Quit and Open AnyPick buttons."
+              />
+            </figure>
           </div>
         </div>
       </section>
 
-      <section class="px-5 pb-20 sm:px-8 sm:pb-28">
+      <section class="section-shell border-y border-white/8 bg-[#0B0D15]">
+        <div class="mx-auto max-w-7xl px-5 sm:px-8">
+          <div class="feature-row">
+            <div class="section-heading">
+              <p class="section-kicker">Settings</p>
+              <h2>Runs quietly. Steps aside at the limit.</h2>
+              <p>Open at login, start your proxies when the app launches, show remaining usage, and skip accounts that have hit their usage limit.</p>
+              <a class="secondary-cta mt-6" href={releasesUrl}>Download for macOS · Windows · Linux <Icon name="ph:arrow-up-right" class="h-4 w-4" /></a>
+              <p class="note mt-3">Screenshots show the macOS app with demo data. The Windows and Linux apps use the same engine and accounts.</p>
+            </div>
+            <figure class="app-frame">
+              <AppShot
+                name="settings"
+                width={1040}
+                height={760}
+                sizes="(min-width: 1024px) 50vw, calc(100vw - 2.5rem)"
+                alt="The Settings page in AnyPick's dark-mode desktop app. Under Startup, Open at Login and Start Enabled Proxies at Launch are on. Under Getting Started, a Show button brings back the setup checklist. Under Usage, Show Usage Remaining and Skip Accounts That Reach Their Usage Limit are on."
+              />
+            </figure>
+          </div>
+        </div>
+      </section>
+
+      <section class="section-shell" id="cli">
+        <div class="mx-auto max-w-5xl px-5 sm:px-8">
+          <div class="section-heading mx-auto max-w-3xl text-center">
+            <p class="section-kicker">Prefer the terminal?</p>
+            <h2>The same picker, as a CLI.</h2>
+            <p>Everything in this recording is real output from <code>anypick</code> 1.1.0, run in a sandbox with demo accounts.</p>
+          </div>
+          <div class="mt-10">
+              <figure class="demo-frame">
+                <div class="demo-titlebar" aria-hidden="true">
+                  <span></span><span></span><span></span>
+                  <p>anypick 1.1.0 · real CLI output, sandboxed demo accounts</p>
+                </div>
+                <video
+                  class="demo-video"
+                  autoplay
+                  muted
+                  loop
+                  playsinline
+                  preload="metadata"
+                  width="1280"
+                  height="720"
+                  poster="/demo/anypick-hero-poster.png"
+                  aria-label="Terminal demo: list saved accounts, add an OpenRouter gateway, point Claude Code at it, then reset back to the original settings."
+                  data-demo-video
+                >
+                  <source src="/demo/anypick-hero.webm" type="video/webm" />
+                  <source src="/demo/anypick-hero.mp4" type="video/mp4" />
+                  <img src="/demo/anypick-hero.gif" alt="AnyPick terminal demo" width="1280" height="720" />
+                </video>
+                <figcaption>Save the logins you have, bring any API key, pick one, undo with one command.</figcaption>
+              </figure>
+
+              <div id="install" class="install-card mt-8 scroll-mt-24" data-install-tabs>
+                <p class="install-label">Install the CLI</p>
+                <div class="install-tabs mt-3" role="tablist" aria-label="Choose an install method">
+                  <button id="install-tab-macos" class="install-tab" type="button" role="tab" aria-selected="true" aria-controls="install-panel-macos" data-install-tab="macos">macOS</button>
+                  <button id="install-tab-linux" class="install-tab" type="button" role="tab" aria-selected="false" aria-controls="install-panel-linux" tabindex="-1" data-install-tab="linux">Linux</button>
+                  <button id="install-tab-windows" class="install-tab" type="button" role="tab" aria-selected="false" aria-controls="install-panel-windows" tabindex="-1" data-install-tab="windows">Windows</button>
+                  <button id="install-tab-npm" class="install-tab" type="button" role="tab" aria-selected="false" aria-controls="install-panel-npm" tabindex="-1" data-install-tab="npm">Any OS</button>
+                </div>
+
+                <div class="install-panel" id="install-panel-macos" role="tabpanel" aria-labelledby="install-tab-macos" data-install-panel="macos">
+                  <div class="install-shell">
+                    <span class="prompt" aria-hidden="true">$</span>
+                    <code>brew install outof0/tap/anypick</code>
+                    <button type="button" data-copy="brew install outof0/tap/anypick" aria-label="Copy Homebrew install command">
+                      <Icon name="ph:copy" class="copy-icon h-4 w-4" />
+                      <Icon name="ph:check" class="check-icon hidden h-4 w-4" />
+                      <span>Copy</span>
+                    </button>
+                  </div>
+                  <p class="install-hint">Desktop app: <code>brew install --cask outof0/tap/anypick</code> or the <a class="text-link" href={releasesUrl}>.dmg on GitHub Releases</a>.</p>
+                </div>
+
+                <div class="install-panel" id="install-panel-linux" role="tabpanel" aria-labelledby="install-tab-linux" data-install-panel="linux" hidden>
+                  <div class="install-shell">
+                    <span class="prompt" aria-hidden="true">$</span>
+                    <code>{npmCommand}</code>
+                    <button type="button" data-copy={npmCommand} aria-label="Copy npm install command">
+                      <Icon name="ph:copy" class="copy-icon h-4 w-4" />
+                      <Icon name="ph:check" class="check-icon hidden h-4 w-4" />
+                      <span>Copy</span>
+                    </button>
+                  </div>
+                  <p class="install-hint">Or grab a package from <a class="text-link" href={releasesUrl}>GitHub Releases</a>: .deb · .rpm · AppImage · tarball.</p>
+                </div>
+
+                <div class="install-panel" id="install-panel-windows" role="tabpanel" aria-labelledby="install-tab-windows" data-install-panel="windows" hidden>
+                  <div class="install-shell">
+                    <span class="prompt" aria-hidden="true">&gt;</span>
+                    <code>scoop bucket add outof0 https://github.com/outof0/scoop-bucket</code>
+                    <button type="button" data-copy="scoop bucket add outof0 https://github.com/outof0/scoop-bucket" aria-label="Copy Scoop bucket command">
+                      <Icon name="ph:copy" class="copy-icon h-4 w-4" />
+                      <Icon name="ph:check" class="check-icon hidden h-4 w-4" />
+                      <span>Copy</span>
+                    </button>
+                  </div>
+                  <div class="install-shell mt-2">
+                    <span class="prompt" aria-hidden="true">&gt;</span>
+                    <code>scoop install anypick</code>
+                    <button type="button" data-copy="scoop install anypick" aria-label="Copy Scoop install command">
+                      <Icon name="ph:copy" class="copy-icon h-4 w-4" />
+                      <Icon name="ph:check" class="check-icon hidden h-4 w-4" />
+                      <span>Copy</span>
+                    </button>
+                  </div>
+                  <p class="install-hint">Desktop app: .msi · .exe installer on <a class="text-link" href={releasesUrl}>GitHub Releases</a>.</p>
+                </div>
+
+                <div class="install-panel" id="install-panel-npm" role="tabpanel" aria-labelledby="install-tab-npm" data-install-panel="npm" hidden>
+                  <div class="install-shell">
+                    <span class="prompt" aria-hidden="true">$</span>
+                    <code>{npmCommand}</code>
+                    <button type="button" data-copy={npmCommand} aria-label="Copy npm install command">
+                      <Icon name="ph:copy" class="copy-icon h-4 w-4" />
+                      <Icon name="ph:check" class="check-icon hidden h-4 w-4" />
+                      <span>Copy</span>
+                    </button>
+                  </div>
+                  <p class="install-hint">Node 18+. Downloads the matching native CLI on first run.</p>
+                </div>
+
+                <a class="desktop-release-link" href={gettingStartedUrl}>
+                  Read the 5-minute guide
+                  <Icon name="ph:arrow-right" class="h-4 w-4" aria-hidden="true" />
+                </a>
+                <p class="sr-only" aria-live="polite" data-copy-status></p>
+              </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section-shell border-y border-white/8 bg-[#0B0D15]">
+        <div class="mx-auto max-w-7xl px-5 sm:px-8">
+          <div class="section-heading max-w-3xl">
+            <p class="section-kicker">Scope</p>
+            <h2>Work account in this repo. Personal in that one. OpenRouter in the next terminal.</h2>
+            <p>Most switchers flip one global setting, and every open session flips with it. AnyPick lets you choose how far a change reaches.</p>
+          </div>
+          <div class="mt-10 grid gap-4 lg:grid-cols-3">
+            {scopes.map((s) => (
+              <article class="proof-card">
+                <h3>{s.label}</h3>
+                <pre class="cmd"><code>{s.command}</code></pre>
+                <p>{s.body}</p>
+                {s.href && <a href={s.href}>Project bindings <Icon name="ph:arrow-right" class="h-4 w-4" /></a>}
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section class="section-shell">
+        <div class="mx-auto max-w-7xl px-5 sm:px-8">
+          <div class="section-heading max-w-3xl">
+            <p class="section-kicker">Works with what you already use</p>
+            <h2>11 coding agents. 32 sources. One picker.</h2>
+          </div>
+          <div class="mt-10 grid gap-8 lg:grid-cols-3">
+            <div>
+              <h3 class="list-title">Coding agents</h3>
+              <ul class="chip-list">{agents.map((a) => <li>{a}</li>)}</ul>
+            </div>
+            <div>
+              <h3 class="list-title">Sign in, or reuse the login you already have</h3>
+              <ul class="chip-list">{logins.map((a) => <li>{a}</li>)}</ul>
+            </div>
+            <div>
+              <h3 class="list-title">Bring an API key</h3>
+              <ul class="chip-list">{apiKeys.map((a) => <li>{a}</li>)}<li>and more</li></ul>
+            </div>
+          </div>
+          <p class="boundary-note mt-8">Not every pairing makes sense, and AnyPick only offers the ones that work. <strong>Claude logins power Claude Code only.</strong> The Gemini CLI and Kiro apps only switch between their own provider's accounts. <a class="text-link" href="/docs/reference/cli">CLI reference</a></p>
+        </div>
+      </section>
+
+      <section class="section-shell border-y border-white/8 bg-[#0B0D15]">
+        <div class="mx-auto grid max-w-7xl gap-12 px-5 sm:px-8 lg:grid-cols-[1fr_1fr] lg:items-start">
+          <div>
+            <div class="section-heading">
+              <p class="section-kicker">Safe by default</p>
+              <h2>It won't clobber your config. And it can always put it back.</h2>
+            </div>
+            <div class="mt-8 space-y-6">
+              {safety.map((s) => (
+                <div class="benefit-row">
+                  <span><Icon name={s.icon} class="h-5 w-5" /></span>
+                  <div><h3>{s.title}</h3><p>{s.body}</p></div>
+                </div>
+              ))}
+            </div>
+            <p class="note mt-6">In the desktop app, every change is shown as a plan you approve before anything is written.</p>
+          </div>
+          <div class="diff-stack" aria-label="settings.json before, after use, and after reset (real output from the demo recording; token redacted)">
+            <div class="plan-panel">
+              <div class="diff-head"><p>~/.claude/settings.json · before</p></div>
+              <pre class="diff"><code>{`{"theme":"dark"}`}</code></pre>
+            </div>
+            <div class="plan-panel">
+              <div class="diff-head"><p>after <code>anypick use claude --with openrouter-work</code></p></div>
+              <pre class="diff"><code><span class="add">{`+ "_anypickManaged": { "keys": ["ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_BASE_URL", "ANTHROPIC_API_KEY"] },
++ "env": {
++   "ANTHROPIC_AUTH_TOKEN": "<redacted>",
++   "ANTHROPIC_BASE_URL": "https://openrouter.ai/api"
++ },`}</span>{`
+  "theme": "dark"`}</code></pre>
+            </div>
+            <div class="plan-panel">
+              <div class="diff-head"><p>after <code>anypick reset claude --yes</code></p></div>
+              <pre class="diff"><code>{`{"theme":"dark"}`}</code></pre>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section-shell">
+        <div class="mx-auto grid max-w-7xl gap-12 px-5 sm:px-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
+          <div class="section-heading">
+            <p class="section-kicker">Different protocols? Handled.</p>
+            <h2>Codex on OpenRouter. Claude Code on Kimi. No glue scripts.</h2>
+            <p>Coding agents speak different APIs: Anthropic Messages, OpenAI Responses. When the agent and the provider don't match, AnyPick starts a small translator on your machine (loopback only) and points the agent at it. AnyPick's core starts and owns the translator.</p>
+            <p class="note mt-4">When a translator is used, the agent's config gets a local, per-proxy token, not your provider key. No server to run, no YAML, no <code>ANTHROPIC_API_KEY=""</code> tricks to remember.</p>
+          </div>
+          <pre class="code-block"><code><span class="c"># see what this connection can serve</span>
+anypick add gateway openrouter-work --provider openrouter --api-key "$OPENROUTER_API_KEY"
+anypick models codex --with openrouter-work
+anypick use codex --with openrouter-work
+
+<span class="c"># Claude Code via a local translator</span>
+anypick add account kimi --name main --api-key "$MOONSHOT_API_KEY"
+anypick use claude --with kimi/main --model &lt;kimi-model-id&gt;</code></pre>
+        </div>
+      </section>
+
+      <section class="section-shell border-y border-white/8 bg-[#0B0D15]">
+        <div class="mx-auto grid max-w-7xl gap-12 px-5 sm:px-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
+          <div class="section-heading">
+            <p class="section-kicker">Your first 60 seconds</p>
+            <h2>From install to coding in three commands.</h2>
+            <p>Then: <code>anypick list accounts</code> · <code>anypick tui</code> (an interactive picker) · <code>anypick doctor</code></p>
+            <a class="primary-cta mt-6" href={gettingStartedUrl}>Read the 5-minute guide <Icon name="ph:arrow-right" class="h-4 w-4" /></a>
+          </div>
+          <pre class="code-block"><code>brew install outof0/tap/anypick                    <span class="c"># or: npm i -g anypick</span>
+anypick add account claude --current --name work   <span class="c"># save the login you're signed in to</span>
+anypick use claude --with claude/work              <span class="c"># pick it</span></code></pre>
+        </div>
+      </section>
+
+
+      <section class="section-shell border-y border-white/8 bg-[#0B0D15]">
+        <div class="mx-auto max-w-7xl px-5 sm:px-8">
+          <div class="section-heading max-w-3xl">
+            <p class="section-kicker">Why you can trust it with your keys</p>
+            <h2>Your keys stay on your machine and go straight to your provider.</h2>
+          </div>
+          <div class="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {trust.map((t) => (
+              <article class="proof-card">
+                <span class="proof-icon"><Icon name={t.icon} class="h-5 w-5" /></span>
+                <h3>{t.title}</h3>
+                <p>{t.body}</p>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section class="section-shell">
+        <div class="mx-auto max-w-7xl px-5 sm:px-8">
+          <div class="section-heading max-w-3xl">
+            <p class="section-kicker">Comparison</p>
+            <h2>AnyPick vs. doing it by hand</h2>
+          </div>
+          <div class="table-wrap mt-10">
+            <table class="compare">
+              <thead><tr><th scope="col"><span class="sr-only">Task</span></th><th scope="col">By hand</th><th scope="col">AnyPick</th></tr></thead>
+              <tbody>
+                {byHand.map((r) => (
+                  <tr><th scope="row">{r.task}</th><td data-label="By hand">{r.manual}</td><td data-label="AnyPick"><code>{r.anypick}</code></td></tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section class="section-shell border-t border-white/8 bg-[#0B0D15]">
+        <div class="mx-auto max-w-4xl px-5 sm:px-8">
+          <div class="section-heading">
+            <p class="section-kicker">FAQ</p>
+            <h2>Questions</h2>
+          </div>
+          <div class="mt-8 divide-y divide-white/8 border-y border-white/8">
+            {faq.map((f) => (
+              <details class="faq" id={f.id}>
+                <summary>{f.q}</summary>
+                <p>{f.a}</p>
+              </details>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section class="px-5 py-20 sm:px-8 sm:py-28">
         <div class="closing mx-auto max-w-7xl overflow-hidden px-6 py-14 text-center sm:px-10 sm:py-20">
           <div class="closing-light" aria-hidden="true"></div>
-          <p class="section-kicker relative">Ready when your tools are</p>
-          <h2 class="relative mx-auto mt-4 max-w-3xl text-balance text-[clamp(2.4rem,6vw,4.5rem)] font-semibold leading-[1] tracking-[-0.05em]">Pick the route once.<br />Keep coding.</h2>
+          <h2 class="relative mx-auto max-w-3xl text-balance text-[clamp(2.4rem,6vw,4.5rem)] font-semibold leading-[1] tracking-[-0.05em]">Pick once. Keep coding.</h2>
           <div class="relative mt-8 flex flex-wrap justify-center gap-3">
-            <a class="primary-cta" href={releasesUrl}>
-              Get the release
-              <Icon name="ph:arrow-right" class="h-4 w-4" />
-            </a>
-            <a class="secondary-cta" href="/docs/reference/cli">Read the CLI reference</a>
+            <a class="primary-cta" href="#install">Install the CLI <Icon name="ph:arrow-up" class="h-4 w-4" /></a>
+            <a class="secondary-cta" href={releasesUrl}>Download the app <Icon name="ph:arrow-up-right" class="h-4 w-4" /></a>
           </div>
         </div>
       </section>
@@ -370,11 +504,17 @@ const proof = [
 
     <footer class="border-t border-white/8 px-5 py-8 sm:px-8">
       <div class="mx-auto flex max-w-7xl flex-col items-center justify-between gap-5 sm:flex-row">
-        <img src="/logo-dark.svg" alt={config.title} width="98" height="20" />
-        <p class="text-center text-sm text-[#8b93a7]">Route compatible sources. Keep every change explicit.</p>
-        <div class="flex gap-5 text-sm">
+        <div class="flex items-center gap-4">
+          <img src="/logo-dark.svg" alt={config.title} width="98" height="20" />
+          <p class="text-sm font-semibold text-[#c4b5fd]">Pick any. Code on.</p>
+        </div>
+        <div class="flex flex-wrap justify-center gap-5 text-sm">
           <a href="/docs">Docs</a>
-          {config.github && <a href={config.github} target="_blank" rel="noopener">GitHub</a>}
+          <a href={githubUrl} target="_blank" rel="noopener">GitHub</a>
+          <a href={changelogUrl} target="_blank" rel="noopener">Changelog</a>
+          <a href={securityUrl} target="_blank" rel="noopener">Security</a>
+          <a href={licenseUrl} target="_blank" rel="noopener">MIT License</a>
+          <span class="text-[#8b93a7]">© OutOf0</span>
         </div>
       </div>
     </footer>
@@ -423,6 +563,14 @@ const proof = [
           ? "linux"
           : null;
     if (detectedOS) activateTab(detectedOS);
+
+    // Respect reduced motion: keep the poster frame and let the user press play.
+    const demo = document.querySelector<HTMLVideoElement>("[data-demo-video]");
+    if (demo && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      demo.removeAttribute("autoplay");
+      demo.pause();
+      demo.controls = true;
+    }
 
     document.querySelectorAll<HTMLButtonElement>("[data-copy]").forEach((button) => {
       button.addEventListener("click", async () => {
@@ -542,38 +690,9 @@ const proof = [
     transform: translateY(-1px);
   }
 
-  .star-link {
-    display: inline-flex;
-    min-height: 2.8rem;
-    align-items: center;
-    justify-content: center;
-    gap: 0.55rem;
-    border: 1px solid rgb(255 255 255 / 0.13);
-    border-radius: 0.75rem;
-    padding: 0.55rem 0.8rem;
-    background: rgb(255 255 255 / 0.035);
-    color: #d6d9e0;
-    font-size: 0.82rem;
-    font-weight: 650;
-    text-decoration: none;
-    transition: 160ms ease;
-  }
 
-  .star-link:hover {
-    border-color: rgb(255 255 255 / 0.22);
-    background: rgb(255 255 255 / 0.07);
-    color: white;
-  }
 
-  .star-link img {
-    display: block;
-    width: 104px;
-    height: 20px;
-  }
 
-  .star-link-short {
-    display: none;
-  }
 
   .secondary-cta {
     border: 1px solid rgb(255 255 255 / 0.13);
@@ -588,15 +707,6 @@ const proof = [
   }
 
   .primary-cta:focus-visible,
-  .star-link:focus-visible,
-  .secondary-cta:focus-visible,
-  .text-link:focus-visible,
-  .proof-card a:focus-visible,
-  footer a:focus-visible {
-    border-radius: 0.5rem;
-    outline: 2px solid #c4b5fd;
-    outline-offset: 3px;
-  }
 
   .install-card {
     border: 1px solid rgb(255 255 255 / 0.12);
@@ -1034,24 +1144,9 @@ const proof = [
       display: none;
     }
 
-    .star-link {
-      gap: 0.35rem;
-      padding-inline: 0.55rem;
-      font-size: 0.75rem;
-      white-space: nowrap;
-    }
 
-    .star-link-full {
-      display: none;
-    }
 
-    .star-link-short {
-      display: inline;
-    }
 
-    .star-link img {
-      width: 88px;
-    }
 
     .install-shell code {
       overflow: visible;
@@ -1101,6 +1196,288 @@ const proof = [
     from {
       opacity: 0;
       transform: translateY(18px) scale(0.985);
+    }
+  }
+
+  .demo-frame {
+    overflow: hidden;
+    border: 1px solid rgb(255 255 255 / 0.1);
+    border-radius: 1rem;
+    background: #0b0b12;
+    box-shadow: 0 40px 120px rgb(124 58 237 / 0.18), 0 0 0 1px rgb(124 58 237 / 0.08);
+  }
+  .demo-titlebar {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    border-bottom: 1px solid rgb(255 255 255 / 0.08);
+    padding: 0.7rem 1rem;
+  }
+  .demo-titlebar span {
+    width: 0.7rem;
+    height: 0.7rem;
+    border-radius: 999px;
+    background: rgb(255 255 255 / 0.14);
+  }
+  .demo-titlebar p {
+    margin: 0 0 0 0.6rem;
+    overflow: hidden;
+    color: #8b93a7;
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .demo-video {
+    display: block;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 16 / 9;
+  }
+  .demo-frame figcaption {
+    border-top: 1px solid rgb(255 255 255 / 0.08);
+    padding: 0.75rem 1rem;
+    color: #98a2b3;
+    font-size: 0.85rem;
+    text-align: center;
+  }
+  .cmd,
+  .code-block,
+  .diff {
+    margin: 0.9rem 0;
+    overflow-x: auto;
+    border: 1px solid rgb(255 255 255 / 0.08);
+    border-radius: 0.6rem;
+    background: #07080d;
+    padding: 0.8rem 1rem;
+    color: #e6e6f0;
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    line-height: 1.6;
+  }
+  .code-block {
+    margin: 0;
+    padding: 1.2rem 1.3rem;
+    font-size: 0.82rem;
+  }
+  .code-block .c {
+    color: #7d8597;
+  }
+  .diff {
+    margin: 0;
+    border: 0;
+    border-radius: 0;
+  }
+  .diff .add {
+    color: #3ddc97;
+  }
+  .diff-stack {
+    display: grid;
+    gap: 0.9rem;
+  }
+  .plan-titlebar code,
+  .section-heading code,
+  .install-meta code,
+  .install-hint code,
+  .compare code {
+    font-family: var(--font-mono);
+    font-size: 0.85em;
+    color: #c4b5fd;
+  }
+  .list-title {
+    margin: 0 0 0.9rem;
+    color: #f8fafc;
+    font-size: 0.95rem;
+    font-weight: 650;
+  }
+  .chip-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .chip-list li {
+    border: 1px solid rgb(255 255 255 / 0.1);
+    border-radius: 999px;
+    background: rgb(255 255 255 / 0.03);
+    padding: 0.3rem 0.7rem;
+    color: #d6d9e0;
+    font-size: 0.82rem;
+  }
+  .app-frame {
+    margin: 0;
+    overflow: hidden;
+    border-radius: 0.9rem;
+    box-shadow: 0 40px 120px rgb(124 58 237 / 0.16), 0 20px 60px rgb(0 0 0 / 0.45);
+  }
+  .app-frame img {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+  .hero-shot {
+    box-shadow: 0 50px 140px rgb(124 58 237 / 0.25), 0 24px 70px rgb(0 0 0 / 0.5);
+  }
+  .app-frame-tray {
+    justify-self: center;
+    width: min(100%, 336px);
+    border-radius: 1rem;
+  }
+  .feature-row {
+    display: grid;
+    gap: 2.5rem;
+    align-items: center;
+  }
+  @media (min-width: 64rem) {
+    .feature-row {
+      grid-template-columns: 0.8fr 1.2fr;
+      gap: 4rem;
+    }
+    .feature-row-reverse {
+      grid-template-columns: 1.2fr 0.8fr;
+    }
+    .feature-row-reverse > .section-heading {
+      order: 2;
+    }
+  }
+  .table-wrap {
+    overflow-x: auto;
+    border: 1px solid rgb(255 255 255 / 0.08);
+    border-radius: 0.9rem;
+  }
+  .compare {
+    width: 100%;
+    min-width: 40rem;
+    border-collapse: collapse;
+    font-size: 0.88rem;
+  }
+  .compare th,
+  .compare td {
+    border-bottom: 1px solid rgb(255 255 255 / 0.07);
+    padding: 0.9rem 1.1rem;
+    text-align: left;
+    vertical-align: top;
+  }
+  .compare thead th {
+    color: #a78bfa;
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+  .compare tbody th {
+    color: #f8fafc;
+    font-weight: 600;
+  }
+  .compare td {
+    color: #98a2b3;
+  }
+  .compare tr:last-child > * {
+    border-bottom: 0;
+  }
+  .faq summary {
+    cursor: pointer;
+    padding: 1.1rem 0;
+    color: #f8fafc;
+    font-weight: 600;
+  }
+  .faq p {
+    margin: 0 0 1.2rem;
+    color: #98a2b3;
+    line-height: 1.7;
+  }
+  .text-link {
+    color: #c4b5fd;
+  }
+  .section-heading h2 {
+    font-size: clamp(2rem, 3.6vw, 3.1rem);
+  }
+  .boundary-note {
+    display: block;
+  }
+  .grid > *,
+  .flex > * {
+    min-width: 0;
+  }
+  .note {
+    color: #8b93a7;
+    font-size: 0.9rem;
+    line-height: 1.7;
+  }
+  .diff-head {
+    border-bottom: 1px solid rgb(255 255 255 / 0.08);
+    padding: 0.6rem 1rem;
+  }
+  .diff-head p {
+    margin: 0;
+    color: #8b93a7;
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+  }
+  .plan-panel {
+    overflow: hidden;
+  }
+  .hero-copy .install-meta {
+    line-height: 1.7;
+  }
+  .install-card .install-label {
+    margin: 0;
+  }
+  .section-heading > p:not(.section-kicker) {
+    margin-top: 1.2rem;
+  }
+  .proof-card {
+    min-height: 0;
+  }
+  .proof-card > a {
+    margin-top: auto;
+  }
+  .diff {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+  .cmd {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+  @media (max-width: 40rem) {
+    .code-block {
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+    .compare {
+      min-width: 0;
+    }
+    .compare thead {
+      display: none;
+    }
+    .compare tr,
+    .compare th,
+    .compare td {
+      display: block;
+    }
+    .compare tr {
+      border-bottom: 1px solid rgb(255 255 255 / 0.07);
+      padding: 0.6rem 0;
+    }
+    .compare th,
+    .compare td {
+      border: 0;
+      padding: 0.25rem 1rem;
+    }
+    .compare td::before {
+      content: attr(data-label) ": ";
+      color: #a78bfa;
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      text-transform: uppercase;
+    }
+    .code-block,
+    .cmd,
+    .diff {
+      font-size: 0.74rem;
     }
   }
 </style>
