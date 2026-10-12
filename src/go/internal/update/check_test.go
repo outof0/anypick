@@ -398,3 +398,24 @@ func TestCheckHostBlockedRewordedStillMaps(t *testing.T) {
 		t.Fatalf("Message=%q", res.State.Message)
 	}
 }
+
+func TestCheckDevCurrentDoesNotOfferUpgrade(t *testing.T) {
+	f := &stubFetcher{rel: Release{Tag: "v1.2.0", Version: "1.2.0", Assets: []Asset{
+		{Name: "AnyPick-macos-universal.zip", URL: "https://github.com/x", Size: 10},
+	}}}
+	c := &Checker{Fetcher: f, Clock: FixedClock{T: time.Now()}, GOOS: "darwin", GOARCH: "arm64"}
+	for _, current := range []string{"(devel)", "devel", "tip", "not.a.version"} {
+		res := c.Check(context.Background(), CheckInput{
+			Current: current, Settings: DefaultSettings(), Channel: ChannelDirect, Manual: true,
+		})
+		if res.State.Kind != StateUpToDate {
+			t.Fatalf("current %q: kind=%s, want upToDate (no bogus upgrade)", current, res.State.Kind)
+		}
+		if res.State.Kind == StateAvailableDirect || res.State.Kind == StateAvailablePackageManager {
+			t.Fatalf("current %q offered an update: %+v", current, res.State)
+		}
+		if res.State.Latest != current {
+			t.Fatalf("current %q: latest=%q, want current (no release version as upgrade target)", current, res.State.Latest)
+		}
+	}
+}

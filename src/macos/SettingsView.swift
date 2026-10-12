@@ -5,11 +5,13 @@ import SwiftUI
 /// rhythm used by every other destination.
 struct SettingsView: View {
   @ObservedObject var model: MacOSDesignModel
+  @StateObject private var updates = UpdatesModel()
 
   var body: some View {
     Form {
       SettingsGeneralPane(model: model)
       SettingsUsagePane(model: model)
+      SettingsUpdatesPane(updates: updates)
     }
     .formStyle(.grouped)
     .accessibilityIdentifier("settings.pane")

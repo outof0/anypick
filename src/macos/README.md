@@ -74,6 +74,7 @@ Environment Variables**), then Run:
 | `ANYPICK_MACOS_FLOW` | `add-account`, `add-gateway`, `remove-account`, `published-models`, `hub-overlap`, `create-backup`, `restore-backup`, `import-backup`, `getting-started`, `tray`, `tray-attention`, `tray-use-with`, `tray-switching`, `tray-recovery`, `tray-first-run` | — |
 | `ANYPICK_MACOS_APPEARANCE` | `system`, `light`, `dark` | `system` |
 | `ANYPICK_MACOS_ACTIVITY_MODE` | `events`, `logs` | `events` |
+| `ANYPICK_MACOS_UPDATE_FIXTURE` | `checking`, `upToDate`, `availableDirect`, `availablePackageManager`, `downloading`, `verifying`, `ready`, `offline`, `badChecksum`, `hostBlocked`, `rateLimited`, `notWritable` — pins Settings > Updates to that state (buttons do nothing) | — |
 | `ANYPICK_MACOS_RENDER_PATH` | path — renders the window to a PNG and exits | — |
 | `ANYPICK_MACOS_RENDER_SIZE` | `WIDTHxHEIGHT` in points, for renders | saved window size |
 

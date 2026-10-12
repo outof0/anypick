@@ -134,6 +134,14 @@ func (c *Checker) evaluate(settings UpdateSettings, current string, ch InstallCh
 
 	newer, err := IsNewer(release.Version, current)
 	if err != nil {
+		// Non-semver current (e.g. "--current (devel)" / tip-of-tree) cannot be
+		// compared. Treat it as a dev/unknown build: never crash and never
+		// offer a bogus upgrade or downgrade against a release.
+		if _, cerr := ParseVersion(current); cerr != nil {
+			st.Kind = StateUpToDate
+			st.Latest = current
+			return CheckResult{State: st, Settings: settings, Release: release}
+		}
 		st.Kind = StateGitHubDown
 		st.Err = err
 		return CheckResult{State: st, Settings: settings, Release: release}
