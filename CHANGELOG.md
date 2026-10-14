@@ -6,9 +6,9 @@ Conventional Commits by `changelogithub`, are on
 
 This project follows [Semantic Versioning](https://semver.org/).
 
-## 1.2.0
+## 1.1.1
 
-Add in-app update checks and grouped Antigravity quota; harden backup imports and paths, improve the macOS UI, and prepare multi-platform publishing.
+Fix backup import compatibility and path safety; add update checks, improve quota reporting and macOS settings, and stabilize cross-platform releases.
 
 ## 1.1.0
 
