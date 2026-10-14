@@ -86,3 +86,13 @@ func HookFeedURL(env Env) string {
 func HookFault(env Env) string {
 	return HookValue(env, EnvFault)
 }
+
+// EnvFixture forces `anypick update check|download --json` to print a canned
+// state without touching the network (QA screenshots of every pane state).
+// Gated like every other hook.
+const EnvFixture = "ANYPICK_UPDATE_FIXTURE"
+
+// HookFixture returns the gated fixture state name, or "".
+func HookFixture(env Env) string {
+	return HookValue(env, EnvFixture)
+}

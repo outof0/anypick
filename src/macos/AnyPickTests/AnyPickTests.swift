@@ -3378,3 +3378,121 @@ final class FooterV5Tests: XCTestCase {
     }
   }
 }
+
+final class UpdatesPaneTests: XCTestCase {
+  private func fixture(_ kind: String) -> UpdateStatusDTO {
+    guard let status = UpdateStatusFixtures.status(kind) else {
+      XCTFail("missing fixture \(kind)")
+      return .bridgeFailure(current: "1.1.0")
+    }
+    return status
+  }
+
+  func testEveryFixtureDecodes() {
+    for kind in UpdateStatusFixtures.lines.keys {
+      XCTAssertEqual(UpdateStatusFixtures.status(kind)?.kind, kind)
+    }
+    XCTAssertEqual(UpdateStatusFixtures.lines.count, 12)
+  }
+
+  func testDirectInstallShowsUpdateNowAndChangelog() {
+    let p = UpdatePanePresentation(fixture("availableDirect"))
+    XCTAssertTrue(p.showsUpdateNow)
+    XCTAssertTrue(p.showsChangelog)
+    XCTAssertFalse(p.showsCommand)
+  }
+
+  func testPackageManagerShowsCommandNotUpdateNow() {
+    let status = fixture("availablePackageManager")
+    let p = UpdatePanePresentation(status)
+    XCTAssertFalse(p.showsUpdateNow)
+    XCTAssertTrue(p.showsCommand)
+    XCTAssertEqual(status.command, "brew upgrade --cask anypick")
+  }
+
+  func testHostBlockedHasViewOnGitHubAndNoRetry() {
+    let status = fixture("hostBlocked")
+    let p = UpdatePanePresentation(status)
+    XCTAssertTrue(p.showsViewOnGitHub)
+    XCTAssertFalse(p.showsRetry)
+    XCTAssertFalse(p.showsUpdateNow)
+    XCTAssertTrue(status.message?.hasPrefix(
+      "Update didn't finish. The download came from an address AnyPick doesn't trust") ?? false)
+  }
+
+  func testOfflineAndBadChecksumOfferRetry() {
+    XCTAssertTrue(UpdatePanePresentation(fixture("offline")).showsRetry)
+    XCTAssertTrue(UpdatePanePresentation(fixture("badChecksum")).showsRetry)
+  }
+
+  func testProgressStates() {
+    let downloading = UpdatePanePresentation(fixture("downloading"))
+    XCTAssertTrue(downloading.showsProgress)
+    XCTAssertFalse(downloading.isIndeterminate)
+    XCTAssertTrue(UpdatePanePresentation(fixture("checking")).isIndeterminate)
+    XCTAssertTrue(UpdatePanePresentation(fixture("verifying")).isIndeterminate)
+  }
+
+  func testReadyHasFootnoteAndNoVerifiedWord() {
+    let status = fixture("ready")
+    XCTAssertNotNil(status.footnote)
+    XCTAssertFalse(status.message?.lowercased().contains("verified") ?? true)
+    XCTAssertTrue(UpdatePanePresentation(status).showsRevealDownload)
+  }
+
+  func testRejectsUnknownSchema() {
+    XCTAssertNil(UpdateStatusDTO.decode(line: #"{"schema":2,"kind":"upToDate","current":"1","channel":"direct","progress":0,"retry":false}"#))
+    XCTAssertNil(UpdateStatusDTO.decode(line: "not json"))
+  }
+
+  func testReleaseNotesRenderHeadingsAndListsNotRawMarkdown() {
+    let notes = fixture("availableDirect").notes ?? ""
+    let blocks = ReleaseNotesMarkdown.blocks(notes)
+    XCTAssertEqual(blocks.first, .heading(level: 2, text: "What's new"))
+    XCTAssertTrue(blocks.contains(.bullet(text: "Settings > Updates checks GitHub Releases for you.")))
+    for block in blocks {
+      switch block {
+      case .heading(_, let text), .bullet(let text), .paragraph(let text):
+        XCTAssertFalse(text.hasPrefix("#"), "raw heading marker leaked: \(text)")
+        XCTAssertFalse(text.hasPrefix("- "), "raw list marker leaked: \(text)")
+      }
+    }
+  }
+
+  func testReleaseNotesBlocksParagraphsAndComments() {
+    let blocks = ReleaseNotesMarkdown.blocks(
+      "Intro line one\nline two\n\n<!-- anypick-release-scope=all -->\n### Fixed\n* **Bold** item\n#hashtag")
+    XCTAssertEqual(blocks, [
+      .paragraph(text: "Intro line one line two"),
+      .heading(level: 3, text: "Fixed"),
+      .bullet(text: "**Bold** item"),
+      .paragraph(text: "#hashtag"),
+    ])
+  }
+
+  func testReleaseNotesInlineMarkdownAndFallback() {
+    XCTAssertEqual(String(ReleaseNotesMarkdown.inline("**Bold** `code`").characters), "Bold code")
+    // Unparseable or odd input still shows its text instead of nothing.
+    let odd = "[unclosed link(https://x"
+    XCTAssertFalse(String(ReleaseNotesMarkdown.inline(odd).characters).isEmpty)
+    XCTAssertTrue(ReleaseNotesMarkdown.blocks("").isEmpty)
+  }
+
+  @MainActor
+  func testReleaseNotesViewRendersRealReleaseBody() {
+    let body = "## What's Changed\n* feat: x by @outof0 in https://github.com/outof0/anypick/pull/1\n\n<!-- c -->\n\n### Added\n- Linux\n  installers"
+    let host = NSHostingView(rootView: ReleaseNotesView(notes: body).frame(width: 600))
+    host.layoutSubtreeIfNeeded()
+    XCTAssertGreaterThan(host.fittingSize.height, 0)
+  }
+
+  @MainActor
+  func testPaneRendersEveryFixture() {
+    for kind in UpdateStatusFixtures.lines.keys {
+      let model = UpdatesModel(environment: ["ANYPICK_MACOS_UPDATE_FIXTURE": kind])
+      let host = NSHostingView(rootView: Form { SettingsUpdatesPane(updates: model) }.formStyle(.grouped))
+      host.frame = NSRect(x: 0, y: 0, width: 720, height: 640)
+      host.layoutSubtreeIfNeeded()
+    }
+  }
+}

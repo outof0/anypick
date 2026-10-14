@@ -360,7 +360,7 @@ actor GoServiceProcess {
     await onState(state)
   }
 
-  nonisolated private static func helperURL() throws -> URL {
+  nonisolated static func helperURL() throws -> URL {
 #if DEBUG
     if let override = ProcessInfo.processInfo.environment["ANYPICK_CORE_HELPER"],
        !override.isEmpty {

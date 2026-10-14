@@ -375,14 +375,23 @@ func currentDoctorEnvironment() doctor.EnvironmentReport {
 // only). The canonical channels are the GitHub Release assets and a source
 // checkout; the thin npm launcher is an optional channel when it is published,
 // so the guidance names all three.
-func cmdUpdate(_ context.Context, a *appView, args []string) int {
+func cmdUpdate(ctx context.Context, a *appView, args []string) int {
 	const releasesAPI = "https://api.github.com/repos/outof0/anypick/releases/latest"
 	const releasesPage = "https://github.com/outof0/anypick/releases/latest"
+	if len(args) > 0 && (args[0] == "check" || args[0] == "download") {
+		return cmdUpdateCore(ctx, args[0], args[1:])
+	}
 	if cli.WantsHelp(args) {
-		fmt.Print("usage: anypick update [--json]\n\n" +
+		fmt.Print("usage: anypick update [--json]\n" +
+			"       anypick update check [--json] [--current <version>]\n" +
+			"       anypick update download [--json] [--current <version>]\n\n" +
 			"Checks GitHub for a newer release and says how to upgrade. Never\n" +
 			"downgrades: a published release older than this build is reported,\n" +
-			"not advertised.\n")
+			"not advertised.\n\n" +
+			"check/download print one JSON state per line with --json (the last\n" +
+			"line is the final state); the macOS Settings > Updates pane reads it.\n" +
+			"download only fetches and checks a direct-install asset into the\n" +
+			"user cache; it never replaces the installed app.\n")
 		return int(anyerr.Success)
 	}
 	current := packageVersion()

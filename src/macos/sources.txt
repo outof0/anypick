@@ -50,6 +50,7 @@ ActivityView.swift
 BackupsView.swift
 SettingsView.swift
 SettingsPanes.swift
+UpdatesPane.swift
 MenuBarChrome.swift
 MenuBarSearch.swift
 MenuBarMenu.swift
