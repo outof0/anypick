@@ -3278,3 +3278,69 @@ final class AnyPickTests: XCTestCase {
 private final class CommandBox {
   var lines: [String] = []
 }
+
+final class FooterAlignmentTests: XCTestCase {
+  func testScrollerReserveMatchesLegacyScrollBarGap() {
+    XCTAssertEqual(designScrollerReserve(viewport: 480, content: 480), 0)
+    XCTAssertEqual(designScrollerReserve(viewport: 480, content: 479.6), 0)
+    // The reported Export Accounts sheet: 33px @2x ≈ 16pt of scroll bar.
+    XCTAssertEqual(designScrollerReserve(viewport: 480, content: 463.5), 17)
+    XCTAssertEqual(designScrollerReserve(viewport: 480, content: 464), 16)
+    XCTAssertEqual(designScrollerReserve(viewport: 480, content: 300), 24, "capped")
+    XCTAssertEqual(designScrollerReserve(viewport: 0, content: 464), 0)
+  }
+
+  @MainActor
+  func testBackupStartupFlowsPickASheet() {
+    let model = MacOSDesignModel.fromEnvironment(["ANYPICK_MACOS_FIXTURE": "ready"])
+    XCTAssertFalse(model.backups.isEmpty, "fixture needs backups")
+    let restore = backupStartupPresentation(flow: "restore-backup", backups: model.backups)
+    XCTAssertEqual(restore, BackupPresentation(id: model.backups[0].id, importedPackage: false))
+    let imported = backupStartupPresentation(flow: "import-backup", backups: model.backups)
+    XCTAssertEqual(imported?.importedPackage, true)
+    XCTAssertNil(backupStartupPresentation(flow: "create-backup", backups: model.backups))
+    XCTAssertNil(backupStartupPresentation(flow: "import-backup", backups: []))
+  }
+}
+
+final class FooterV5Tests: XCTestCase {
+  @MainActor
+  func testBackupStartupFlowsShareOneSheetSlot() {
+    let model = MacOSDesignModel.fromEnvironment(["ANYPICK_MACOS_FIXTURE": "ready"])
+    XCTAssertTrue(model.backups.contains { $0.id == "backup-import" }, "ready fixture needs the import backup")
+    XCTAssertEqual(backupStartupSheet(flow: "create-backup", backups: model.backups), .create)
+    XCTAssertEqual(
+      backupStartupSheet(flow: "restore-backup", backups: model.backups),
+      .review(BackupPresentation(id: model.backups[0].id, importedPackage: false)))
+    XCTAssertEqual(
+      backupStartupSheet(flow: "import-backup", backups: model.backups),
+      .review(BackupPresentation(id: "backup-import", importedPackage: true)))
+    XCTAssertNil(backupStartupSheet(flow: nil, backups: model.backups))
+    // The flow reaches BackupsView: destination and pending flow are set.
+    for flow in ["create-backup", "restore-backup", "import-backup"] {
+      let m = MacOSDesignModel.fromEnvironment(["ANYPICK_MACOS_FIXTURE": "ready", "ANYPICK_MACOS_FLOW": flow])
+      XCTAssertEqual(m.destination, .backups, flow)
+      XCTAssertEqual(m.pendingStartupFlow, flow)
+    }
+  }
+
+  func testSheetScrollCapFitsTheWindow() {
+    XCTAssertEqual(designSheetMaxScrollHeight(windowHeight: 0), 560)
+    XCTAssertEqual(designSheetMaxScrollHeight(windowHeight: 900), 560)
+    XCTAssertEqual(designSheetMaxScrollHeight(windowHeight: 680), 460)
+    XCTAssertEqual(designSheetMaxScrollHeight(windowHeight: 300), 160)
+  }
+
+  @MainActor
+  func testBackupsAndAccountsStartupFlowsUseTheSameMechanism() {
+    // Same delay constant, disjoint flow sets, and every Backups flow maps to
+    // a sheet in the ready fixture exactly like the Accounts flows do.
+    XCTAssertEqual(DesignStartupFlow.presentationDelay, 0.25)
+    XCTAssertTrue(DesignStartupFlow.accountsFlows.isDisjoint(with: DesignStartupFlow.backupsFlows))
+    XCTAssertTrue(DesignStartupFlow.accountsFlows.contains("add-account"))
+    let model = MacOSDesignModel.fromEnvironment(["ANYPICK_MACOS_FIXTURE": "ready"])
+    for flow in DesignStartupFlow.backupsFlows {
+      XCTAssertNotNil(backupStartupSheet(flow: flow, backups: model.backups), flow)
+    }
+  }
+}

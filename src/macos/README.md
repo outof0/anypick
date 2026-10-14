@@ -402,7 +402,7 @@ Main window sidebar (pane destinations, System Settings style):
 | Proxy Hub | One local endpoint, its sources, published models, and service lifecycle. |
 | Proxies | Per-account translation processes and their service lifecycle. |
 | Activity | Searchable events and live logs in a bounded, independently scrolling region. |
-| Account Backups | Export / import saved accounts. |
+| Backups | Export / import saved accounts. |
 | Settings | App-wide startup and usage preferences. |
 
 Settings groups related controls into Startup and Usage. It contains only

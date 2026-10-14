@@ -308,7 +308,7 @@ The macOS app’s main window must look like an app Apple could ship:
   both macOS and Tauri. It is one screen with separate grouped sections, not a
   popup or tabs. On macOS, keep its content in a native grouped `Form` and route
   the app-menu command to the same pane. Main destinations: Overview, Apps,
-  Accounts & APIs, Proxy Hub, Proxies, Activity, Account Backups, Settings.
+  Accounts & APIs, Proxy Hub, Proxies, Activity, Backups, Settings.
 - **Preview the fixture, never a stale screenshot.** There is no
   `pnpm macos:design` — the root `package.json` was deleted with the JavaScript
   toolchain. Launch the app from Xcode with `ANYPICK_MACOS_FIXTURE` set in the

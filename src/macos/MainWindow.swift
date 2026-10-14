@@ -6,6 +6,8 @@ struct MainWindow: View {
   @ObservedObject var model: MacOSDesignModel
   @Environment(\.openWindow) private var openWindow
   @State private var path = NavigationPath()
+  /// Window content height, so sheets cap their scroll area to what fits.
+  @State private var windowHeight: CGFloat = 0
 
   var body: some View {
     NavigationSplitView {
@@ -46,6 +48,14 @@ struct MainWindow: View {
     }
     .followingDesignAppearance(model.appearance)
     .frame(minWidth: 920, minHeight: 640)
+    .background(
+      GeometryReader { proxy in
+        Color.clear
+          .onAppear { windowHeight = proxy.size.height }
+          .onChange(of: proxy.size.height) { _, height in windowHeight = height }
+      })
+    .environment(
+      \.designSheetMaxScrollHeight, designSheetMaxScrollHeight(windowHeight: windowHeight))
     .sheet(
       isPresented: Binding(
         get: { model.showFirstRunWelcome },

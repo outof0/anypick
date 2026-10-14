@@ -1,35 +1,62 @@
 import SwiftUI
 
-private struct BackupPresentation: Identifiable {
+struct BackupPresentation: Identifiable, Equatable {
   let id: String
   let importedPackage: Bool
 }
 
-struct BackupsView: View {
-  @ObservedObject var model: MacOSDesignModel
-  @State private var showingCreate = false
-  @State private var backupPresentation: BackupPresentation?
-  @State private var confirmation: DesignConfirmation?
-  /// Deep-link flow captured at entry and consumed once on appear.
-  @State private var initialFlow: String?
-  @State private var consumedInitialFlow = false
+/// Startup-flow (ANYPICK_MACOS_FLOW) sheet presentation shared by Accounts
+/// and Backups, so both panes present the same way.
+enum DesignStartupFlow {
+  /// Wait for the NavigationSplitView/NavigationStack host's first layout
+  /// pass; a sheet set during construction is ignored by AppKit.
+  static let presentationDelay: TimeInterval = 0.25
+  static let accountsFlows: Set<String> = [
+    "add-account", "add-account-error", "add-gateway", "add-gateway-error", "remove-account",
+  ]
+  static let backupsFlows: Set<String> = ["create-backup", "restore-backup", "import-backup"]
+}
 
-  init(model: MacOSDesignModel) {
-    self.model = model
-    _showingCreate = State(initialValue: model.pendingStartupFlow == "create-backup")
-    _initialFlow = State(initialValue: model.pendingStartupFlow)
-    if model.pendingStartupFlow == "import-backup" {
-      let id = model.backups.first(where: { $0.id == "backup-import" })?.id
-        ?? model.backups.last?.id
-      _backupPresentation = State(
-        initialValue: id.map { BackupPresentation(id: $0, importedPackage: true) }
-      )
-    } else if model.pendingStartupFlow == "restore-backup", let id = model.backups.first?.id {
-      _backupPresentation = State(initialValue: BackupPresentation(id: id, importedPackage: false))
-    } else {
-      _backupPresentation = State(initialValue: nil)
+/// The pane's single sheet slot.
+enum BackupSheet: Identifiable, Equatable {
+  case create
+  case review(BackupPresentation)
+
+  var id: String {
+    switch self {
+    case .create: "create"
+    case .review(let p): "review-\(p.id)-\(p.importedPackage)"
     }
   }
+}
+
+/// The sheet a startup flow opens: create-backup, restore-backup, or
+/// import-backup (`ANYPICK_MACOS_FLOW`).
+func backupStartupSheet(flow: String?, backups: [DesignBackup]) -> BackupSheet? {
+  if flow == "create-backup" { return .create }
+  return backupStartupPresentation(flow: flow, backups: backups).map { .review($0) }
+}
+
+/// The Restore/Import sheet a startup flow (`ANYPICK_MACOS_FLOW=restore-backup`
+/// or `import-backup`) should open, or nil. Pure so it is unit-tested.
+func backupStartupPresentation(flow: String?, backups: [DesignBackup]) -> BackupPresentation? {
+  switch flow {
+  case "import-backup":
+    let id = backups.first(where: { $0.id == "backup-import" })?.id ?? backups.last?.id
+    return id.map { BackupPresentation(id: $0, importedPackage: true) }
+  case "restore-backup":
+    return backups.first.map { BackupPresentation(id: $0.id, importedPackage: false) }
+  default:
+    return nil
+  }
+}
+
+struct BackupsView: View {
+  @ObservedObject var model: MacOSDesignModel
+  /// One sheet slot for the pane (create, restore, import).
+  @State private var activeSheet: BackupSheet?
+  @State private var confirmation: DesignConfirmation?
+  @State private var consumedInitialFlow = false
 
   var body: some View {
     DesignGroupedPane(actions: { paneActions }) {
@@ -62,7 +89,7 @@ struct BackupsView: View {
                   // Backups born in this list are restored, not imported:
                   // only a package picked via Choose/pendingImport carries
                   // importedPackage: true (presentImportedBackup).
-                  backupPresentation = BackupPresentation(id: backup.id, importedPackage: false)
+                  activeSheet = .review(BackupPresentation(id: backup.id, importedPackage: false))
                 }
                 .controlSize(.small)
                 .buttonStyle(.bordered)
@@ -73,7 +100,7 @@ struct BackupsView: View {
                   identifier: "backups.more.\(backup.id)"
                 ) {
                   Button("Review Backup…") {
-                    backupPresentation = BackupPresentation(id: backup.id, importedPackage: false)
+                    activeSheet = .review(BackupPresentation(id: backup.id, importedPackage: false))
                   }
                   .help("Review the accounts in this backup before importing.")
                   Button("Copy File Path") {
@@ -111,7 +138,7 @@ struct BackupsView: View {
             }
             .contextMenu {
               Button("Review Backup…") {
-                backupPresentation = BackupPresentation(id: backup.id, importedPackage: false)
+                activeSheet = .review(BackupPresentation(id: backup.id, importedPackage: false))
               }
               .help("Review the accounts in this backup before importing.")
               Button("Copy File Path") {
@@ -137,30 +164,47 @@ struct BackupsView: View {
         )
       }
     }
-    .sheet(isPresented: $showingCreate) {
-      CreateBackupSheet(model: model)
-    }
-    .sheet(item: $backupPresentation) { presentation in
-      RestoreBackupSheet(
-        model: model,
-        backupID: presentation.id,
-        importedPackage: presentation.importedPackage
-      )
+    .sheet(item: $activeSheet, onDismiss: consumeStartupFlow) { sheet in
+      switch sheet {
+      case .create:
+        CreateBackupSheet(model: model)
+      case .review(let presentation):
+        RestoreBackupSheet(
+          model: model,
+          backupID: presentation.id,
+          importedPackage: presentation.importedPackage
+        )
+      }
     }
     .onChange(of: model.pendingImportBackupID) { _, id in
       if id != nil { presentImportedBackup() }
     }
     .designConfirmation($confirmation)
     .onAppear {
-      guard !consumedInitialFlow else { return }
+      // Same mechanism as AccountsView's startup sheets (add-account,
+      // add-gateway): read the flow from the model on appear, present after
+      // DesignStartupFlow.presentationDelay while the flow is still pending,
+      // and clear it only when the sheet is dismissed. The old code captured
+      // the flow in init-time @State and cleared model.pendingStartupFlow
+      // synchronously here, so any re-created BackupsView (or the publish
+      // that clearing triggers) saw no flow and the sheet never appeared.
+      guard !consumedInitialFlow, let flow = model.pendingStartupFlow else { return }
       consumedInitialFlow = true
-      let flow = initialFlow
-      // Honor a cold-start import request by opening the file picker.
-      if flow == "import-backup", backupPresentation == nil {
-        chooseBackup()
-      } else if flow == "restore-backup", backupPresentation == nil, let id = model.backups.first?.id {
-        backupPresentation = BackupPresentation(id: id, importedPackage: false)
+      DispatchQueue.main.asyncAfter(deadline: .now() + DesignStartupFlow.presentationDelay) {
+        guard model.pendingStartupFlow == flow else { return }
+        if let target = backupStartupSheet(flow: flow, backups: model.backups) {
+          if activeSheet == nil { activeSheet = target }
+        } else if flow == "import-backup" {
+          // No staged backup to show: honor the request with the file picker
+          // (importBackupPackage consumes the pending flow itself).
+          chooseBackup()
+        }
       }
+    }
+  }
+
+  private func consumeStartupFlow() {
+    if DesignStartupFlow.backupsFlows.contains(model.pendingStartupFlow ?? "") {
       model.pendingStartupFlow = nil
     }
   }
@@ -197,7 +241,7 @@ struct BackupsView: View {
 
   private func presentImportedBackup() {
     guard let id = model.pendingImportBackupID else { return }
-    backupPresentation = BackupPresentation(id: id, importedPackage: true)
+    activeSheet = .review(BackupPresentation(id: id, importedPackage: true))
     model.pendingImportBackupID = nil
   }
 
@@ -207,7 +251,7 @@ struct BackupsView: View {
         title: "Export Accounts…",
         enabled: !model.isBusy && model.accounts.contains { $0.kind == .saved },
         identifier: "backups.choose-accounts"
-      ) { showingCreate = true }
+      ) { activeSheet = .create }
       DesignSheetButton(
         title: "Review Backup…",
         enabled: !model.isBusy,

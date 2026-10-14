@@ -430,6 +430,72 @@ struct DesignLoadingState: View {
   }
 }
 
+/// Pane action row alignment against the grouped Form's cards.
+enum DesignPaneLayout {
+  /// Added on top of the default `.padding(.horizontal)` on the trailing side.
+  static let actionRowExtraTrailingInset: CGFloat = 4
+}
+
+/// Cap for a sheet's scroll area. A fixed 560pt cap made sheets with long
+/// content (Export Accounts with 9 accounts) taller than a 680pt window, and
+/// macOS did not show them at all. MainWindow sets this from its height.
+private struct DesignSheetMaxScrollHeightKey: EnvironmentKey {
+  static let defaultValue: CGFloat = 560
+}
+
+extension EnvironmentValues {
+  var designSheetMaxScrollHeight: CGFloat {
+    get { self[DesignSheetMaxScrollHeightKey.self] }
+    set { self[DesignSheetMaxScrollHeightKey.self] = newValue }
+  }
+}
+
+/// Window height minus the sheet's own chrome (title, paddings, button bar)
+/// and the window's title bar, between 160 and the old 560 cap.
+func designSheetMaxScrollHeight(windowHeight: CGFloat) -> CGFloat {
+  guard windowHeight > 0 else { return 560 }
+  return min(560, max(160, (windowHeight - 220).rounded(.down)))
+}
+
+/// Widths measured inside and around DesignSheetHost's ScrollView.
+struct DesignSheetContentWidthKey: PreferenceKey {
+  static let defaultValue: CGFloat = 0
+  static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+    value = max(value, nextValue())
+  }
+}
+
+struct DesignSheetViewportWidthKey: PreferenceKey {
+  static let defaultValue: CGFloat = 0
+  static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+    value = max(value, nextValue())
+  }
+}
+
+/// How much narrower the scrolled content is than its scroll view: the width
+/// a legacy scroll bar reserves. Rounded to whole points, ignoring sub-point
+/// noise, and capped so a bad measurement can't push the buttons far in.
+func designScrollerReserve(viewport: CGFloat, content: CGFloat) -> CGFloat {
+  guard viewport > 0, content > 0 else { return 0 }
+  let gap = (viewport - content).rounded()
+  guard gap >= 1 else { return 0 }
+  return min(gap, 24)
+}
+
+extension View {
+  /// Horizontal insets for a bottom action-button row that sits below a
+  /// grouped Form (pane action rows, sheet button bars). The grouped Form
+  /// insets its cards 4pt more than the default horizontal padding (measured
+  /// on Apps @2x: cards end at x=1919, the old row ended at 1927), so the
+  /// trailing side gets the extra 4pt and the buttons' trailing edge lands on
+  /// the cards' trailing edge. The Form keeps its system margins; only the
+  /// row moves. Use this for every such row instead of a bare padding.
+  func designActionRowInsets() -> some View {
+    padding(.horizontal)
+      .padding(.trailing, DesignPaneLayout.actionRowExtraTrailingInset)
+  }
+}
+
 /// Grouped Form shared by every pane. Pane actions are rendered in a plain
 /// action row below the Form, like the action rows in System Settings —
 /// never in a second inset container, section footer, or toolbar.
@@ -503,7 +569,7 @@ struct DesignGroupedPane<Content: View>: View {
     if let actions {
       actions
         .frame(maxWidth: .infinity, alignment: .trailing)
-        .padding(.horizontal)
+        .designActionRowInsets()
         .padding(.vertical, 8)
     }
   }
@@ -663,6 +729,18 @@ struct DesignSheetHost<Content: View>: View {
   var onCancel: () -> Void
   var onPrimary: () -> Void
   @ViewBuilder var content: () -> Content
+  /// Width a legacy (always-shown) scroll bar takes from the content. The
+  /// button bar adds it to its trailing inset so it keeps ending on the
+  /// cards' trailing edge; 0 with overlay scroll bars or no overflow.
+  @State private var scrollerReserve: CGFloat = 0
+  @Environment(\.designSheetMaxScrollHeight) private var maxScrollHeight
+  @State private var contentWidth: CGFloat = 0
+  @State private var viewportWidth: CGFloat = 0
+
+  private func updateScrollerReserve() {
+    let next = designScrollerReserve(viewport: viewportWidth, content: contentWidth)
+    if next != scrollerReserve { scrollerReserve = next }
+  }
 
   var body: some View {
     VStack(spacing: 0) {
@@ -680,13 +758,27 @@ struct DesignSheetHost<Content: View>: View {
             .frame(maxWidth: .infinity)
             .frame(maxWidth: .infinity, alignment: .topLeading)
             .fixedSize(horizontal: false, vertical: true)
+            .background(
+              GeometryReader { proxy in
+                Color.clear.preference(
+                  key: DesignSheetContentWidthKey.self, value: proxy.size.width)
+              })
         }
+        .background(
+          GeometryReader { proxy in
+            Color.clear.preference(
+              key: DesignSheetViewportWidthKey.self, value: proxy.size.width)
+          })
+        .onPreferenceChange(DesignSheetContentWidthKey.self) { contentWidth = $0 }
+        .onPreferenceChange(DesignSheetViewportWidthKey.self) { viewportWidth = $0 }
+        .onChange(of: contentWidth) { _, _ in updateScrollerReserve() }
+        .onChange(of: viewportWidth) { _, _ in updateScrollerReserve() }
         // Keep short states content-sized while retaining a cap for long
         // provider feedback. The outer scroll view owns overflow; content
         // must not force the sheet past this cap or overlap the action bar.
         .background(Color.clear)
         .scrollIndicators(.automatic)
-        .frame(maxWidth: .infinity, minHeight: 80, maxHeight: 560, alignment: .top)
+        .frame(maxWidth: .infinity, minHeight: 80, maxHeight: maxScrollHeight, alignment: .top)
       }
       .padding(.vertical)
 
@@ -715,7 +807,9 @@ struct DesignSheetHost<Content: View>: View {
         )
         .fixedSize()
       }
-      .padding()
+      .padding(.vertical)
+      .designActionRowInsets()
+      .padding(.trailing, scrollerReserve)
     }
     .background(Color(nsColor: .windowBackgroundColor))
     .frame(minWidth: 320, idealWidth: width, maxWidth: 600)

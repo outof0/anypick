@@ -47,7 +47,12 @@ struct ActivityView: View {
 
   var body: some View {
     GeometryReader { geometry in
-      let contentHeight = max(420, geometry.size.height - 180)
+      // 230 = pane header, mode control, the Form's top/bottom margins and
+      // the pane action row, which now sits below the Form (it used to be in
+      // the section footer, inside the Form). With the old 180 the Form was
+      // ~50pt taller than its viewport and drew a scroll bar with nothing to
+      // scroll. Shared by Events and Live Logs.
+      let contentHeight = max(320, geometry.size.height - 230)
       activityPane(contentHeight: contentHeight)
         .frame(width: geometry.size.width, height: geometry.size.height)
     }
@@ -144,7 +149,10 @@ struct ActivityView: View {
 
   @ViewBuilder
   private func activityPane(contentHeight: CGFloat) -> some View {
-    DesignGroupedPane(fillHeight: true) {
+    // Clear sits in the pane action row, not in the section footer: a footer
+    // is inset ~10pt inside the card column, so the button ended short of
+    // the cards' trailing edge (-19px @2x).
+    DesignGroupedPane(fillHeight: true, actions: { activityActions }) {
       Section {
         paneHeader
         modeControl
@@ -164,28 +172,29 @@ struct ActivityView: View {
           eventsWell(height: contentHeight)
         }
       } footer: {
-        VStack(alignment: .leading, spacing: 8) {
-          if model.activityShowsLogs {
-            Text("Sensitive values are redacted before logs reach this window.")
-          }
-          DesignPaneActions {
-            if model.activityShowsLogs {
-              DesignSheetButton(
-                title: "Clear Log…",
-                enabled: !filteredLogLines.isEmpty,
-                destructive: true,
-                identifier: "activity.clear-log"
-              ) { requestClear() }
-            } else {
-              DesignSheetButton(
-                title: "Clear Events…",
-                enabled: !filteredActivity.isEmpty,
-                destructive: true,
-                identifier: "activity.clear-events"
-              ) { requestClear() }
-            }
-          }
+        if model.activityShowsLogs {
+          Text("Sensitive values are redacted before logs reach this window.")
         }
+      }
+    }
+  }
+
+  private var activityActions: some View {
+    DesignPaneActions {
+      if model.activityShowsLogs {
+        DesignSheetButton(
+          title: "Clear Log…",
+          enabled: !filteredLogLines.isEmpty,
+          destructive: true,
+          identifier: "activity.clear-log"
+        ) { requestClear() }
+      } else {
+        DesignSheetButton(
+          title: "Clear Events…",
+          enabled: !filteredActivity.isEmpty,
+          destructive: true,
+          identifier: "activity.clear-events"
+        ) { requestClear() }
       }
     }
   }
@@ -237,6 +246,8 @@ struct ActivityView: View {
       }
       .padding(8)
     }
+    // Fills the space the window leaves for it (see contentHeight in body);
+    // it scrolls only when the history really overflows.
     .frame(maxWidth: .infinity, minHeight: height, maxHeight: .infinity)
     .accessibilityIdentifier("activity.events.well")
   }
@@ -520,3 +531,4 @@ private struct ActivityLogViewer: NSViewRepresentable {
     }
   }
 }
+

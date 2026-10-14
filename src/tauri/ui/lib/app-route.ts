@@ -215,7 +215,7 @@ export function modelScopeProviderName(
 
 /** What the Apply review promises. Same three promises macOS shows. */
 export const APPLY_PROMISES: ReadonlyArray<{ title: string; detail: string }> = [
-  { title: 'Back up the app’s current settings', detail: 'The backup is kept in Account Backups.' },
+  { title: 'Back up the app’s current settings', detail: 'The backup is kept in Backups.' },
   { title: 'Start a required local proxy', detail: 'Only when the new connection needs one.' },
   { title: 'Write the new app settings atomically', detail: 'A failure leaves the previous settings in place.' },
 ];

@@ -22,7 +22,7 @@ enum DesignDestination: String, CaseIterable, Identifiable, Hashable {
     case .proxyHub: "Proxy Hub"
     case .proxies: "Proxies"
     case .activity: "Activity"
-    case .backups: "Account Backups"
+    case .backups: "Backups"
     case .settings: "Settings"
     }
   }

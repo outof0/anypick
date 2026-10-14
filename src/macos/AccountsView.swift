@@ -125,7 +125,7 @@ struct AccountsView: View {
       // Defer the first sheet presentation until that host has completed its
       // first layout pass; setting a sheet item during construction is ignored
       // by AppKit and leaves the fixture looking as if the flow did nothing.
-      DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+      DispatchQueue.main.asyncAfter(deadline: .now() + DesignStartupFlow.presentationDelay) {
         guard model.pendingStartupFlow == flow else { return }
         switch flow {
         case "add-account", "add-account-error": activeSheet = .addAccount
@@ -175,10 +175,8 @@ struct AccountsView: View {
   }
 
   private func consumeStartupFlow() {
-    switch model.pendingStartupFlow {
-    case "add-account", "add-account-error", "add-gateway", "add-gateway-error", "remove-account":
+    if DesignStartupFlow.accountsFlows.contains(model.pendingStartupFlow ?? "") {
       model.pendingStartupFlow = nil
-    default: break
     }
   }
 
