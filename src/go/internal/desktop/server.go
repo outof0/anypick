@@ -1577,12 +1577,7 @@ func (s *Server) handle(ctx context.Context, cmd *Command) error {
 		}
 		preview, err := s.inspections.Inspect(p.RequestID, p.Path)
 		if err != nil {
-			reason := inspectionFailureReason(err)
-			s.write(FrameBackupPreview(BackupPreviewResult{
-				Version: ProtocolVersion, RequestID: p.RequestID, Status: "error",
-				Error: "inspection-failed", Code: "BACKUP_INSPECT_FAILED", Reason: reason,
-				Message: inspectionFailureMessage(reason),
-			}))
+			s.write(FrameBackupPreview(inspectionFailure(p.RequestID, err)))
 			return nil
 		}
 		// The native app drops previews whose requestId does not match the

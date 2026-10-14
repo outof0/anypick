@@ -65,10 +65,12 @@ func TestCommandCodeClientCapabilities(t *testing.T) {
 		!caps.SupportsPersistentConfig || !caps.SupportsIsolatedHome || !caps.RequiresDefaultModel {
 		t.Fatalf("capabilities = %#v", caps)
 	}
-	if got := CommandCodeConfigPaths("/tmp/home"); len(got) != 3 ||
-		got[0] != filepath.Join("/tmp/home", ".commandcode", "providers.json") ||
-		got[1] != filepath.Join("/tmp/home", ".commandcode", "auth.json") ||
-		got[2] != filepath.Join("/tmp/home", ".commandcode", "config.json") {
+	home := filepath.Join(os.TempDir(), "home")
+	dir := filepath.Join(home, ".commandcode")
+	if got := CommandCodeConfigPaths(home); len(got) != 3 ||
+		got[0] != filepath.Join(dir, "providers.json") ||
+		got[1] != filepath.Join(dir, "auth.json") ||
+		got[2] != filepath.Join(dir, "config.json") {
 		t.Fatalf("config paths = %v", got)
 	}
 }

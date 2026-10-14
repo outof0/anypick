@@ -142,6 +142,7 @@ func TestCodexLiveUsageErrorBranches(t *testing.T) {
 
 func TestExpandHomeVariants(t *testing.T) {
 	home := t.TempDir()
+	// os.UserHomeDir reads USERPROFILE on Windows and HOME elsewhere.
 	t.Setenv("HOME", home)
 	t.Setenv("USERPROFILE", home)
 
@@ -151,7 +152,7 @@ func TestExpandHomeVariants(t *testing.T) {
 	if got := expandHome("~/x/y"); got != filepath.Join(home, "x", "y") {
 		t.Fatalf("~/x/y => %q", got)
 	}
-	for _, unchanged := range []string{"", "/abs/path", "rel/path", "~user/x"} {
+	for _, unchanged := range []string{"", filepath.Join(home, "abs", "path"), "rel/path", "~user/x"} {
 		if got := expandHome(unchanged); got != unchanged {
 			t.Fatalf("%q changed to %q", unchanged, got)
 		}
