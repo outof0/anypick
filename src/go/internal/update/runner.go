@@ -63,19 +63,49 @@ func (r *Runner) check(ctx context.Context, current string, ch InstallChannel) C
 		current = hook
 	}
 	r.emit(UpdateState{Kind: StateChecking, Current: current, Channel: ch})
-	return r.Checker.Check(ctx, CheckInput{
+	if r.CacheDir == "" {
+		return unavailableSettings(current, ch, errors.New("update cache directory is unavailable"))
+	}
+	path := settingsPath(r.CacheDir)
+	settings, err := loadSettings(path)
+	if err != nil {
+		return unavailableSettings(current, ch, err)
+	}
+	res := r.Checker.Check(ctx, CheckInput{
 		Current:  current,
-		Settings: DefaultSettings(),
+		Settings: settings,
 		Channel:  ch,
 		Manual:   true,
 	})
+	persisted, err := saveSettings(path, res.Settings)
+	if err != nil {
+		return unavailableSettings(current, ch, err)
+	}
+	res.Settings = persisted
+	if res.Release != nil {
+		// Re-evaluate against the merged rollback floor in case another process
+		// observed a newer release while this fetch was in flight.
+		res = r.Checker.evaluate(persisted, current, ch, true, res.Release, HookClock(r.Checker.Env, r.Checker.Clock).Now())
+	}
+	return res
+}
+
+func unavailableSettings(current string, ch InstallChannel, err error) CheckResult {
+	return CheckResult{State: UpdateState{
+		Kind:    StateStorageUnavailable,
+		Current: current,
+		Channel: ch,
+		Err:     err,
+		Message: "AnyPick couldn't read or save the update safety state. No update was downloaded. Check folder permissions, then retry.",
+		Retry:   true,
+	}}
 }
 
 // Download checks, then (only for availableDirect) downloads the asset into
 // CacheDir/<version>/, enforcing the size cap, and verifies its SHA-256
 // against SHA256SUMS.txt from the same release. A mismatch deletes the file
-// and ends in badChecksum. Nothing outside CacheDir is touched: staging,
-// bundle swap, and relaunch are slice 4.
+// and ends in badChecksum. Installation is manual; nothing outside CacheDir is
+// touched by this operation.
 func (r *Runner) Download(ctx context.Context, current string, ch InstallChannel) StatusDTO {
 	if name := HookFixture(r.env()); name != "" {
 		return r.fixture(name, current, ch, true)
@@ -223,7 +253,7 @@ func FixtureNames() []string {
 	return []string{
 		"checking", "upToDate", "availableDirect", "availablePackageManager",
 		"downloading", "verifying", "ready", "offline", "badChecksum", "hostBlocked",
-		"rateLimited", "notWritable",
+		"rateLimited", "notWritable", "storageUnavailable",
 	}
 }
 
@@ -281,6 +311,11 @@ func FixtureState(name, current string, ch InstallChannel) (UpdateState, bool) {
 	case "notWritable":
 		st.Kind = StateNotWritable
 		st.Channel = ChannelDirect
+	case "storageUnavailable":
+		st.Kind = StateStorageUnavailable
+		st.Channel = ChannelDirect
+		st.Retry = true
+		st.Message = "AnyPick couldn't read or save the update safety state. No update was downloaded. Check folder permissions, then retry."
 	default:
 		return UpdateState{}, false
 	}

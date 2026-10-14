@@ -51,7 +51,7 @@ struct UpdateStatusDTO: Codable, Equatable, Sendable {
 
 /// What the pane shows for one status. Pure, so it is unit-tested without UI.
 struct UpdatePanePresentation: Equatable {
-  var showsUpdateNow = false
+  var showsDownloadUpdate = false
   var showsCommand = false
   var showsRetry = false
   var showsViewOnGitHub = false
@@ -68,7 +68,7 @@ struct UpdatePanePresentation: Equatable {
       showsProgress = true
       isIndeterminate = true
     case "availableDirect":
-      showsUpdateNow = true
+      showsDownloadUpdate = true
       showsChangelog = true
     case "availablePackageManager":
       // Package-manager installs never self-update: show the command instead.
@@ -86,6 +86,9 @@ struct UpdatePanePresentation: Equatable {
     case "ready":
       showsRevealDownload = status.filePath != nil
       showsChangelog = true
+    case "storageUnavailable":
+      isError = true
+      showsViewOnGitHub = true
     case "hostBlocked":
       // Locked by Design: View on GitHub, never Retry.
       isError = true
@@ -159,7 +162,7 @@ final class UpdatesModel: ObservableObject {
   var presentation: UpdatePanePresentation { UpdatePanePresentation(status) }
 
   func checkForUpdates() { run("check") }
-  func updateNow() { run("download") }
+  func downloadUpdate() { run("download") }
   func retry() { run(status?.kind == "badChecksum" ? "download" : lastVerb) }
 
   private func run(_ verb: String) {
@@ -272,11 +275,11 @@ struct SettingsUpdatesPane: View {
         Button("Check for Updates", action: updates.checkForUpdates)
           .disabled(updates.isRunning)
           .accessibilityIdentifier("settings.updates.check")
-        if p.showsUpdateNow {
-          Button("Update Now", action: updates.updateNow)
+        if p.showsDownloadUpdate {
+          Button("Download Update", action: updates.downloadUpdate)
             .buttonStyle(.borderedProminent)
             .disabled(updates.isRunning)
-            .accessibilityIdentifier("settings.updates.update-now")
+            .accessibilityIdentifier("settings.updates.download")
         }
       }
     } header: {
@@ -411,13 +414,14 @@ struct ReleaseNotesView: View {
 /// on darwin. Go test TestSwiftUpdateFixturesMatchGo fails if they drift.
 enum UpdateStatusFixtures {
   static let lines: [String: String] = [
+    "storageUnavailable": ###"{"schema":1,"kind":"storageUnavailable","current":"1.1.0","latest":"1.1.1","notes":"## What's new\n- Settings \u003e Updates checks GitHub Releases for you.\n- Fixed the Add App… button lining up with the cards.\n","channel":"direct","releaseURL":"https://github.com/outof0/anypick/releases/tag/v1.1.1","progress":0,"message":"AnyPick couldn't read or save the update safety state. No update was downloaded. Check folder permissions, then retry.","retry":true}"###,
     "checking": ###"{"schema":1,"kind":"checking","current":"1.1.0","channel":"direct","releaseURL":"https://github.com/outof0/anypick/releases","progress":0,"message":"Checking for updates…","retry":false}"###,
     "upToDate": ###"{"schema":1,"kind":"upToDate","current":"1.1.0","latest":"1.1.0","channel":"direct","releaseURL":"https://github.com/outof0/anypick/releases","progress":0,"message":"AnyPick 1.1.0 is the latest version.","retry":false}"###,
     "availableDirect": ###"{"schema":1,"kind":"availableDirect","current":"1.1.0","latest":"1.1.1","notes":"## What's new\n- Settings \u003e Updates checks GitHub Releases for you.\n- Fixed the Add App… button lining up with the cards.\n","channel":"direct","actionKind":"selfUpdate","releaseURL":"https://github.com/outof0/anypick/releases/tag/v1.1.1","progress":0,"retry":false}"###,
     "availablePackageManager": ###"{"schema":1,"kind":"availablePackageManager","current":"1.1.0","latest":"1.1.1","notes":"## What's new\n- Settings \u003e Updates checks GitHub Releases for you.\n- Fixed the Add App… button lining up with the cards.\n","channel":"brew","actionKind":"command","command":"brew upgrade --cask anypick","lead":"Installed with Homebrew, so update it there:","releaseURL":"https://github.com/outof0/anypick/releases/tag/v1.1.1","progress":0,"retry":false}"###,
     "downloading": ###"{"schema":1,"kind":"downloading","current":"1.1.0","latest":"1.1.1","notes":"## What's new\n- Settings \u003e Updates checks GitHub Releases for you.\n- Fixed the Add App… button lining up with the cards.\n","channel":"direct","releaseURL":"https://github.com/outof0/anypick/releases/tag/v1.1.1","progress":0.42,"message":"Downloading the update…","retry":false}"###,
     "verifying": ###"{"schema":1,"kind":"verifying","current":"1.1.0","latest":"1.1.1","notes":"## What's new\n- Settings \u003e Updates checks GitHub Releases for you.\n- Fixed the Add App… button lining up with the cards.\n","channel":"direct","releaseURL":"https://github.com/outof0/anypick/releases/tag/v1.1.1","progress":1,"message":"Checking the download against the release checksum…","retry":false}"###,
-    "ready": ###"{"schema":1,"kind":"ready","current":"1.1.0","latest":"1.1.1","notes":"## What's new\n- Settings \u003e Updates checks GitHub Releases for you.\n- Fixed the Add App… button lining up with the cards.\n","channel":"direct","releaseURL":"https://github.com/outof0/anypick/releases/tag/v1.1.1","progress":1,"message":"Downloaded from GitHub Releases. The file matches the release checksum.","footnote":"macOS may ask again for access AnyPick already had, such as Keychain or Automation, because this build isn't notarized. Allow it to keep things working.","retry":false,"filePath":"/Users/qa/Library/Caches/AnyPick/update/1.1.1/AnyPick-macos-universal.zip"}"###,
+    "ready": ###"{"schema":1,"kind":"ready","current":"1.1.0","latest":"1.1.1","notes":"## What's new\n- Settings \u003e Updates checks GitHub Releases for you.\n- Fixed the Add App… button lining up with the cards.\n","channel":"direct","releaseURL":"https://github.com/outof0/anypick/releases/tag/v1.1.1","progress":1,"message":"Downloaded from GitHub Releases. The file matches the release checksum. Install it manually from Finder; AnyPick stays on this version.","footnote":"macOS may ask again for access AnyPick already had, such as Keychain or Automation, because this build isn't notarized. Allow it to keep things working.","retry":false,"filePath":"/Users/qa/Library/Caches/AnyPick/update/1.1.1/AnyPick-macos-universal.zip"}"###,
     "offline": ###"{"schema":1,"kind":"offline","current":"1.1.0","channel":"direct","releaseURL":"https://github.com/outof0/anypick/releases","progress":0,"message":"Couldn't reach GitHub. Check your connection and try again.","retry":true}"###,
     "badChecksum": ###"{"schema":1,"kind":"badChecksum","current":"1.1.0","latest":"1.1.1","notes":"## What's new\n- Settings \u003e Updates checks GitHub Releases for you.\n- Fixed the Add App… button lining up with the cards.\n","channel":"direct","releaseURL":"https://github.com/outof0/anypick/releases/tag/v1.1.1","progress":0,"message":"Update didn't finish. The download didn't match the release checksum, so it was deleted and nothing was changed. You're still on 1.1.0.","retry":true}"###,
     "hostBlocked": ###"{"schema":1,"kind":"hostBlocked","current":"1.1.0","latest":"1.1.1","notes":"## What's new\n- Settings \u003e Updates checks GitHub Releases for you.\n- Fixed the Add App… button lining up with the cards.\n","channel":"direct","actionKind":"manual","lead":"View on GitHub","releaseURL":"https://github.com/outof0/anypick/releases/tag/v1.1.1","progress":0,"message":"Update didn't finish. The download came from an address AnyPick doesn't trust, so nothing was changed. You're still on 1.1.0.","retry":false}"###,

@@ -264,11 +264,8 @@ jobs:
           esac
           src/macos/scripts/check-node-free-app.sh "$app"
 
-  # Non-blocking while it proves itself: the XCUITest flows (onboarding, tray
-  # first-run, add account) have only run on a developer Mac. Hosted macOS
-  # runners allow UI automation once Developer Mode and automation mode are
-  # enabled, which needs sudo and no prompt. Once this is green on main for a
-  # week, drop continue-on-error and make it a required check (v1.1.1).
+  # PR feedback remains non-blocking. The `all` release path runs this same
+  # lifecycle/UI suite as a blocking step in `build-macos` before publishing.
   macos-ui:
     name: macOS app / UI tests (non-blocking)
     runs-on: macos-latest

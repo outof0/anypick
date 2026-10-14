@@ -6,7 +6,7 @@ import "fmt"
 type ActionKind string
 
 const (
-	// ActionSelfUpdate: shell downloads+verifies and offers Update Now / Relaunch.
+	// ActionSelfUpdate: shell can download and verify; installation is manual for now.
 	ActionSelfUpdate ActionKind = "selfUpdate"
 	// ActionCommand: show Lead + a pasteable Command (no prose inside Command).
 	ActionCommand ActionKind = "command"
@@ -104,9 +104,9 @@ func SkipVersionCopy(version string) string {
 	return fmt.Sprintf("You skipped %s. You'll hear about the next version.", version)
 }
 
-// ReadyAuthenticityLine is the Ready-state line. Avoid the bare word "verified"
-// until minisign lands.
-const ReadyAuthenticityLine = "Downloaded from GitHub Releases. The file matches the release checksum."
+// ReadyAuthenticityLine states that the checksum passed and that installation
+// remains a manual step until the signed bundle replacement flow ships.
+const ReadyAuthenticityLine = "Downloaded from GitHub Releases. The file matches the release checksum. Install it manually from Finder; AnyPick stays on this version."
 
 // MacOSReadyFootnote is shown under Ready on macOS direct installs.
 const MacOSReadyFootnote = "macOS may ask again for access AnyPick already had, such as Keychain or Automation, because this build isn't notarized. Allow it to keep things working."

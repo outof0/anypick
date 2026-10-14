@@ -6,9 +6,9 @@ Conventional Commits by `changelogithub`, are on
 
 This project follows [Semantic Versioning](https://semver.org/).
 
-## 1.1.1
+## 1.2.0
 
-Fix backup imports across CLI, TUI and desktop clients; make Windows CI and package-manager publishing reliable.
+Add in-app update checks and grouped Antigravity quota; harden backup imports and paths, improve the macOS UI, and prepare multi-platform publishing.
 
 ## 1.1.0
 

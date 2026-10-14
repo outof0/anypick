@@ -131,7 +131,16 @@ func (c *Checker) evaluate(settings UpdateSettings, current string, ch InstallCh
 		Latest:      release.Version,
 	}
 	settings.HighestSeen = MaxVersion(settings.HighestSeen, release.Version)
+	if result, done := evaluateReleaseVersion(settings, current, release, st); done {
+		return result
+	}
+	if skipRelease(settings, release, manual, &st) {
+		return CheckResult{State: st, Settings: settings, Release: release}
+	}
+	return c.evaluateAvailable(settings, ch, release, st)
+}
 
+func evaluateReleaseVersion(settings UpdateSettings, current string, release *Release, st UpdateState) (CheckResult, bool) {
 	newer, err := IsNewer(release.Version, current)
 	if err != nil {
 		// Non-semver current (e.g. "--current (devel)" / tip-of-tree) cannot be
@@ -140,17 +149,17 @@ func (c *Checker) evaluate(settings UpdateSettings, current string, ch InstallCh
 		if _, cerr := ParseVersion(current); cerr != nil {
 			st.Kind = StateUpToDate
 			st.Latest = current
-			return CheckResult{State: st, Settings: settings, Release: release}
+			return CheckResult{State: st, Settings: settings, Release: release}, true
 		}
 		st.Kind = StateGitHubDown
 		st.Err = err
-		return CheckResult{State: st, Settings: settings, Release: release}
+		return CheckResult{State: st, Settings: settings, Release: release}, true
 	}
 	if !newer {
 		// Refuse downgrades / equal — including when HighestSeen is ahead of feed.
 		st.Kind = StateUpToDate
 		st.Latest = current
-		return CheckResult{State: st, Settings: settings, Release: release}
+		return CheckResult{State: st, Settings: settings, Release: release}, true
 	}
 
 	// HighestSeen resistance: if we previously saw something newer than this
@@ -159,28 +168,30 @@ func (c *Checker) evaluate(settings UpdateSettings, current string, ch InstallCh
 		if ahead, err := IsNewer(settings.HighestSeen, release.Version); err == nil && ahead {
 			st.Kind = StateUpToDate
 			st.Latest = settings.HighestSeen
-			return CheckResult{State: st, Settings: settings, Release: release}
+			return CheckResult{State: st, Settings: settings, Release: release}, true
 		}
 	}
+	return CheckResult{}, false
+}
 
-	// Skip: hide for background/auto; manual check still shows it.
-	if !manual && settings.SkippedVersion != "" {
-		skipped, err := ParseVersion(settings.SkippedVersion)
-		latest, err2 := ParseVersion(release.Version)
-		if err == nil && err2 == nil && Compare(skipped, latest) == 0 {
-			st.Kind = StateUpToDate
-			st.SkippedHint = SkipVersionCopy(release.Version)
-			return CheckResult{State: st, Settings: settings, Release: release}
-		}
+func skipRelease(settings UpdateSettings, release *Release, manual bool, st *UpdateState) bool {
+	if settings.SkippedVersion == "" {
+		return false
 	}
-	if manual && settings.SkippedVersion != "" {
-		skipped, err := ParseVersion(settings.SkippedVersion)
-		latest, err2 := ParseVersion(release.Version)
-		if err == nil && err2 == nil && Compare(skipped, latest) == 0 {
-			st.SkippedHint = SkipVersionCopy(release.Version)
-		}
+	skipped, err := ParseVersion(settings.SkippedVersion)
+	latest, err2 := ParseVersion(release.Version)
+	if err != nil || err2 != nil || Compare(skipped, latest) != 0 {
+		return false
 	}
+	st.SkippedHint = SkipVersionCopy(release.Version)
+	if !manual {
+		st.Kind = StateUpToDate
+		return true
+	}
+	return false
+}
 
+func (c *Checker) evaluateAvailable(settings UpdateSettings, ch InstallChannel, release *Release, st UpdateState) CheckResult {
 	action := ChannelUpdateAction(ch, release.Version)
 	asset, assetErr := PickAsset(*release, c.GOOS, c.GOARCH, ch)
 	if IsPackageManager(ch) || IsCLIOnly(ch) {

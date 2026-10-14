@@ -3392,12 +3392,12 @@ final class UpdatesPaneTests: XCTestCase {
     for kind in UpdateStatusFixtures.lines.keys {
       XCTAssertEqual(UpdateStatusFixtures.status(kind)?.kind, kind)
     }
-    XCTAssertEqual(UpdateStatusFixtures.lines.count, 12)
+    XCTAssertEqual(UpdateStatusFixtures.lines.count, 13)
   }
 
-  func testDirectInstallShowsUpdateNowAndChangelog() {
+  func testDirectInstallShowsDownloadUpdateAndChangelog() {
     let p = UpdatePanePresentation(fixture("availableDirect"))
-    XCTAssertTrue(p.showsUpdateNow)
+    XCTAssertTrue(p.showsDownloadUpdate)
     XCTAssertTrue(p.showsChangelog)
     XCTAssertFalse(p.showsCommand)
   }
@@ -3405,7 +3405,7 @@ final class UpdatesPaneTests: XCTestCase {
   func testPackageManagerShowsCommandNotUpdateNow() {
     let status = fixture("availablePackageManager")
     let p = UpdatePanePresentation(status)
-    XCTAssertFalse(p.showsUpdateNow)
+    XCTAssertFalse(p.showsDownloadUpdate)
     XCTAssertTrue(p.showsCommand)
     XCTAssertEqual(status.command, "brew upgrade --cask anypick")
   }
@@ -3415,7 +3415,7 @@ final class UpdatesPaneTests: XCTestCase {
     let p = UpdatePanePresentation(status)
     XCTAssertTrue(p.showsViewOnGitHub)
     XCTAssertFalse(p.showsRetry)
-    XCTAssertFalse(p.showsUpdateNow)
+    XCTAssertFalse(p.showsDownloadUpdate)
     XCTAssertTrue(status.message?.hasPrefix(
       "Update didn't finish. The download came from an address AnyPick doesn't trust") ?? false)
   }
@@ -3423,6 +3423,17 @@ final class UpdatesPaneTests: XCTestCase {
   func testOfflineAndBadChecksumOfferRetry() {
     XCTAssertTrue(UpdatePanePresentation(fixture("offline")).showsRetry)
     XCTAssertTrue(UpdatePanePresentation(fixture("badChecksum")).showsRetry)
+  }
+
+  func testStorageUnavailableShowsErrorWithGitHubAndRetryActions() {
+    let status = fixture("storageUnavailable")
+    let presentation = UpdatePanePresentation(status)
+    XCTAssertTrue(presentation.isError)
+    XCTAssertTrue(presentation.showsViewOnGitHub)
+    XCTAssertTrue(presentation.showsRetry)
+    XCTAssertFalse(presentation.showsDownloadUpdate)
+    XCTAssertEqual(status.message,
+      "AnyPick couldn't read or save the update safety state. No update was downloaded. Check folder permissions, then retry.")
   }
 
   func testProgressStates() {

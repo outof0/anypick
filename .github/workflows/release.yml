@@ -467,6 +467,14 @@ jobs:
           make check-release
           test "$(tr -d '\r\n' < VERSION)" = "$RELEASE_VERSION"
 
+      - name: Allow UI automation without a prompt
+        run: |
+          sudo DevToolsSecurity -enable
+          sudo automationmodetool enable-automationmode-without-authentication
+
+      - name: Gate the release on macOS lifecycle and UI automation (ADR 0020)
+        run: make test-macos-ui
+
       - name: Build and apply an ad-hoc code signature
         env:
           RELEASE_VERSION: ${{ needs.plan.outputs.version }}

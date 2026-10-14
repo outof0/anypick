@@ -9,7 +9,7 @@ import {
   removalMessage,
 } from '../lib/account-row';
 import type { AccountRow, GatewayRow } from '../lib/contract';
-import { quotaResetFormatted, quotaWindowLabel } from '../lib/model';
+import { groupUsageWindows, quotaResetFormatted, quotaWindowLabel } from '../lib/model';
 import type { ServicePort } from '../lib/service';
 import { ConfirmDialog } from './ProxiesPane';
 import { Dialog } from '../ui/Dialog';
@@ -49,6 +49,7 @@ export function AccountDetailSheet({
 }) {
   const row = 'ready' in account ? gatewayView(account) : accountView(account);
   const [confirming, setConfirming] = useState(false);
+  const usageGroups = groupUsageWindows(usage);
 
   return (
     <Dialog
@@ -142,18 +143,25 @@ export function AccountDetailSheet({
           non-current saved login for quota would report the live login's. */}
       {usage.length > 0 ? (
         <Group title="Remaining Quota" testId="accounts-inspector.usage">
-          {usage.map((window, index) => (
-            <Row
-              key={quotaWindowLabel(window) + index}
-              testId={`accounts-inspector.usage.${quotaWindowLabel(window)}`}
-            >
-              <RowText title={quotaWindowLabel(window)} />
-              <RowActions>
-                <span className="text-[12px] whitespace-nowrap text-secondary">
-                  {window.remainingPercent}% · {quotaResetFormatted(window)}
-                </span>
-              </RowActions>
-            </Row>
+          {usageGroups.map((group) => (
+            <div key={group.id}>
+              {group.title ? (
+                <h3 className="mb-1 ml-1 mt-2 text-[11px] font-semibold text-secondary">{group.title}</h3>
+              ) : null}
+              {group.windows.map((window, index) => (
+                <Row
+                  key={quotaWindowLabel(window) + index}
+                  testId={`accounts-inspector.usage.${quotaWindowLabel(window)}`}
+                >
+                  <RowText title={quotaWindowLabel(window)} />
+                  <RowActions>
+                    <span className="text-[12px] whitespace-nowrap text-secondary">
+                      {window.remainingPercent}% · {quotaResetFormatted(window)}
+                    </span>
+                  </RowActions>
+                </Row>
+              ))}
+            </div>
           ))}
         </Group>
       ) : row.kind === 'account' && !row.active ? (

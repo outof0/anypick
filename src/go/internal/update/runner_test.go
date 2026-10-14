@@ -158,8 +158,8 @@ func TestRunnerDownloadSkipsPackageManager(t *testing.T) {
 	if d.Kind != "availablePackageManager" {
 		t.Fatalf("brew install must never self-download: %+v", d)
 	}
-	if entries, _ := os.ReadDir(r.CacheDir); len(entries) != 0 {
-		t.Fatalf("cache dir written for brew: %v", entries)
+	if _, err := os.Stat(filepath.Join(r.CacheDir, "1.2.0")); err == nil || !os.IsNotExist(err) {
+		t.Fatalf("download cache written for brew: %v", err)
 	}
 }
 

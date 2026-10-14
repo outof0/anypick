@@ -8,6 +8,7 @@ import (
 )
 
 var pvReject = []string{
+	".", "./x", "a/./b",
 	`\x`,
 	`C:\x`,
 	`C:x`,

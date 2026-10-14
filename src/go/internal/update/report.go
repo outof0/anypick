@@ -48,6 +48,7 @@ const (
 	copyRateLimited = "GitHub is limiting update checks right now. Try again in a little while."
 	copyGitHubDown  = "GitHub didn't return a usable release. Try again later."
 	copyNotWritable = "AnyPick can't save the download to its cache folder. Download the update in your browser instead."
+	copyStateStore  = "AnyPick couldn't read or save the update safety state. No update was downloaded. Check folder permissions, then retry."
 	copyInstallFail = "Update didn't finish, so nothing was changed."
 	copyDownloading = "Downloading the update…"
 	copyVerifying   = "Checking the download against the release checksum…"
@@ -106,6 +107,8 @@ func NewStatusDTO(st UpdateState, goos string) StatusDTO {
 			d.Message = copyGitHubDown
 		case StateNotWritable:
 			d.Message = copyNotWritable
+		case StateStorageUnavailable:
+			d.Message = copyStateStore
 		case StateInstallFailed:
 			d.Message = copyInstallFail
 		case StateDownloading:
@@ -126,6 +129,9 @@ func NewStatusDTO(st UpdateState, goos string) StatusDTO {
 		d.Lead = "View on GitHub"
 	}
 	if st.Kind == StateBadChecksum {
+		d.Retry = true
+	}
+	if st.Kind == StateStorageUnavailable {
 		d.Retry = true
 	}
 	if st.Kind == StateReady && goos == "darwin" && st.Channel == ChannelDirect {

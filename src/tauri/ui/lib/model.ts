@@ -210,6 +210,34 @@ export function quotaWindowLabel(window: UsageWindow): string {
   return label || 'Quota';
 }
 
+export type UsageWindowGroup = {
+  id: string;
+  title?: string;
+  windows: UsageWindow[];
+};
+
+/** Preserve vendor group order and keep ungrouped quota rows together at the end. */
+export function groupUsageWindows(windows: readonly UsageWindow[]): UsageWindowGroup[] {
+  const titles: string[] = [];
+  const grouped = new Map<string, UsageWindow[]>();
+  const ungrouped: UsageWindow[] = [];
+  for (const window of windows) {
+    const title = (window.group ?? '').trim();
+    if (!title) {
+      ungrouped.push(window);
+      continue;
+    }
+    if (!grouped.has(title)) {
+      titles.push(title);
+      grouped.set(title, []);
+    }
+    grouped.get(title)?.push(window);
+  }
+  const result: UsageWindowGroup[] = titles.map((title) => ({ id: title, title, windows: grouped.get(title) ?? [] }));
+  if (ungrouped.length > 0) result.push({ id: '_ungrouped', windows: ungrouped });
+  return result;
+}
+
 /**
  * `Store.usage(for:)`. Match a usage card to an app by its id, its display
  * name, or the account the card names.

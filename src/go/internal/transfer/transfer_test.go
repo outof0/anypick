@@ -177,6 +177,9 @@ func TestDecodeEnvelopeValidationMatrix(t *testing.T) {
 		{"traversal key", func(m map[string]interface{}) {
 			m["files"] = map[string]interface{}{"../escape.txt": "QUJD"}
 		}},
+		{"root key", func(m map[string]interface{}) {
+			m["files"] = map[string]interface{}{".": "QUJD"}
+		}},
 		{"absolute key", func(m map[string]interface{}) {
 			m["files"] = map[string]interface{}{"/etc/passwd": "QUJD"}
 		}},
@@ -210,6 +213,35 @@ func TestDecodeEnvelopeValidationMatrix(t *testing.T) {
 				t.Fatalf("%s: wrong code %s", tc.name, err.Code)
 			}
 		})
+	}
+}
+
+func TestBackupPreviewRefusesRootFileKeyAsUnsafePath(t *testing.T) {
+	st, reg := newTransferEnv(t)
+	meta := store.Meta{
+		Name: "work", Provider: "codex",
+		CreatedAt: "2026-01-01T00:00:00.000Z", UpdatedAt: "2026-01-01T00:00:00.000Z",
+	}
+	pkg := backupPackageJSON{
+		Version: BackupVersion, Kind: BackupKind, CreatedAt: "2026-01-01T00:00:00.000Z",
+		Accounts: []backupPackageAccount{{
+			Provider: "codex", Name: "work",
+			Envelope: &EnvelopeJSON{
+				Version: EnvelopeVersion, Kind: EnvelopeKind, Meta: meta,
+				Files: map[string]string{".": "QUJD"},
+			},
+		}},
+	}
+	raw, err := json.Marshal(pkg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(t.TempDir(), "backup.json")
+	if err := os.WriteFile(path, raw, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := InspectBackup(st, reg, path); err == nil || !IsUnsafePath(err) {
+		t.Fatalf("InspectBackup error = %v, want unsafe-path refusal", err)
 	}
 }
 

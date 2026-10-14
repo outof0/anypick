@@ -382,16 +382,7 @@ func cmdUpdate(ctx context.Context, a *appView, args []string) int {
 		return cmdUpdateCore(ctx, args[0], args[1:])
 	}
 	if cli.WantsHelp(args) {
-		fmt.Print("usage: anypick update [--json]\n" +
-			"       anypick update check [--json] [--current <version>]\n" +
-			"       anypick update download [--json] [--current <version>]\n\n" +
-			"Checks GitHub for a newer release and says how to upgrade. Never\n" +
-			"downgrades: a published release older than this build is reported,\n" +
-			"not advertised.\n\n" +
-			"check/download print one JSON state per line with --json (the last\n" +
-			"line is the final state); the macOS Settings > Updates pane reads it.\n" +
-			"download only fetches and checks a direct-install asset into the\n" +
-			"user cache; it never replaces the installed app.\n")
+		printUpdateHelp()
 		return int(anyerr.Success)
 	}
 	current := packageVersion()
@@ -458,6 +449,19 @@ func cmdUpdate(ctx context.Context, a *appView, args []string) int {
 	fmt.Println("upgrade: npm install --global anypick (when published), download " + releasesPage +
 		", or update a source checkout with: git pull && make build")
 	return int(anyerr.Success)
+}
+
+func printUpdateHelp() {
+	fmt.Print("usage: anypick update [--json]\n" +
+		"       anypick update check [--json] [--current <version>]\n" +
+		"       anypick update download [--json] [--current <version>]\n\n" +
+		"Checks GitHub for a newer release and says how to upgrade. Never\n" +
+		"downgrades: a published release older than this build is reported,\n" +
+		"not advertised.\n\n" +
+		"check/download print one JSON state per line with --json (the last\n" +
+		"line is the final state); the macOS Settings > Updates pane reads it.\n" +
+		"download only fetches and checks a direct-install asset into the\n" +
+		"user cache; it never replaces the installed app.\n")
 }
 
 // compareVersions orders dotted numeric versions: -1 when a < b, 0 when

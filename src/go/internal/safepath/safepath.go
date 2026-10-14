@@ -65,7 +65,7 @@ func ValidateKey(key string) error {
 	}
 	segs := strings.FieldsFunc(key, isSep)
 	for _, seg := range segs {
-		if seg == ".." {
+		if seg == ".." || seg == "." {
 			return ErrNotLocal
 		}
 		if runtime.GOOS == "windows" && isWindowsReserved(seg) {

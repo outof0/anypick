@@ -321,23 +321,24 @@ anypick doctor --fix [--dry-run] [-y]
 See [Troubleshooting](/docs/reference/troubleshooting) for what `--fix` is allowed to
 touch.
 
-## Update command during the preview
+## Update checks
 
 ```bash
 anypick update
+anypick update --json
 ```
 
-The command is advisory only: it queries the GitHub releases API for the
-newest published tag and compares it with the running version. It does not
-replace the package manager or native-app updater. The printed guidance points
-at the npm launcher, the release page, or a source checkout:
+This advisory check compares the running version with the latest GitHub
+release. It prints the available install route; it does not change the
+installation. The guidance points to the release page, an available package
+manager, or a source checkout:
 
 ```bash
 git pull && make build
 ```
 
-Until a release is published, the check reports `no published release yet`
-and points at the source workflow. JSON output is supported:
+Until a release is published, the check reports `no published release yet` and
+points at the source workflow. `--json` returns the current and latest versions:
 
 ```bash
 anypick update --json
@@ -347,9 +348,28 @@ anypick update --json
 { "current": "1.0.0", "latest": "1.1.0" }
 ```
 
-<Aside type="caution" title="Not a native app updater">
-Do not use `anypick update` for an installed native app. Use the release
-page or the package manager that installed that app.
+The update engine also has explicit check and download commands. The macOS
+**Settings → Updates** pane uses the same commands:
+
+```bash
+anypick update check --json
+anypick update download --json
+```
+
+`check` reports the update state and the install action for the detected
+channel. `download` fetches a direct-install asset into AnyPick's user cache
+and checks its SHA-256 against the checksum file from that release. It does
+not replace or restart the installed app. In Settings, **Show in Finder** opens
+the downloaded file so you can install it using the usual steps for that
+channel. Package-manager installs show the corresponding upgrade command.
+
+The macOS app is not notarized; first-launch approval steps are in
+[Desktop apps](/docs/guides/tray).
+
+<Aside type="caution" title="Downloads do not install themselves">
+For a direct install, the update check downloads and checks the release asset.
+You still install that download manually. Use the command shown by AnyPick for
+package-managed installs or for reinstalling a local `.deb` or `.rpm` file.
 </Aside>
 
 ## Shell completion

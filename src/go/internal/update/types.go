@@ -37,6 +37,7 @@ const (
 	StateAvailableDirect         StateKind = "availableDirect"
 	StateAvailablePackageManager StateKind = "availablePackageManager"
 	StateNotWritable             StateKind = "notWritable"
+	StateStorageUnavailable      StateKind = "storageUnavailable"
 	StateDownloading             StateKind = "downloading"
 	StateVerifying               StateKind = "verifying"
 	StateReady                   StateKind = "ready"

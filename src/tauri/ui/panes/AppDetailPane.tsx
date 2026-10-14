@@ -21,6 +21,7 @@ import {
 import {
   cleanModelDisplayName,
   friendlyRouteKindLabel,
+  groupUsageWindows,
   isAppRouteConfigured,
   nativeProviderName,
   quotaResetFormatted,
@@ -106,6 +107,10 @@ export function AppDetailPane({
       : undefined;
 
   const usageWindows = usageForClient(snapshot.usage, app.clientId)?.windows ?? [];
+  const usageGroups = groupUsageWindows(usageWindows).map((group) => ({
+    ...group,
+    rows: group.windows.map((window) => ({ window, index: usageWindows.indexOf(window) })),
+  }));
 
   return (
     <Pane
@@ -231,43 +236,50 @@ export function AppDetailPane({
       {/* Usage Section */}
       {snapshot.settings.showQuota ? (
         <Group title="Usage">
-          {usageWindows.length > 0 ? (
-            usageWindows.map((window, index) => {
-              const percent = Math.max(0, Math.min(100, window.remainingPercent));
-              const tint =
-                percent <= 5
-                  ? 'bg-red'
-                  : percent <= 20
-                    ? 'bg-orange'
-                    : 'bg-accent';
-              const reset = quotaResetFormatted(window);
-              return (
-                <Row
-                  key={`${app.clientId}-quota-${index}`}
-                  testId={`apps-quota-${app.clientId}-${index}`}
-                >
-                  <RowText title={quotaWindowLabel(window)} />
-                  <RowActions>
-                    <div className="flex items-center gap-3">
-                      <div className="h-1.5 w-24 overflow-hidden rounded-full bg-separator-soft">
-                        <div
-                          className={`h-full rounded-full ${tint}`}
-                          style={{ width: `${percent}%` }}
-                        />
-                      </div>
-                      <span className="w-24 text-right text-[12px] font-mono text-secondary">
-                        {window.remainingPercent}% remaining
-                      </span>
-                      {reset ? (
-                        <span className="w-16 text-right text-[12px] text-secondary">
-                          {reset}
-                        </span>
-                      ) : null}
-                    </div>
-                  </RowActions>
-                </Row>
-              );
-            })
+          {usageGroups.length > 0 ? (
+            usageGroups.map((group) => (
+              <div key={group.id}>
+                {group.title ? (
+                  <h3 className="mb-1 ml-1 mt-2 text-[11px] font-semibold text-secondary">{group.title}</h3>
+                ) : null}
+                {group.rows.map(({ window, index }) => {
+                  const percent = Math.max(0, Math.min(100, window.remainingPercent));
+                  const tint =
+                    percent <= 5
+                      ? 'bg-red'
+                      : percent <= 20
+                        ? 'bg-orange'
+                        : 'bg-accent';
+                  const reset = quotaResetFormatted(window);
+                  return (
+                    <Row
+                      key={`${app.clientId}-quota-${index}`}
+                      testId={`apps-quota-${app.clientId}-${index}`}
+                    >
+                      <RowText title={quotaWindowLabel(window)} />
+                      <RowActions>
+                        <div className="flex items-center gap-3">
+                          <div className="h-1.5 w-24 overflow-hidden rounded-full bg-separator-soft">
+                            <div
+                              className={`h-full rounded-full ${tint}`}
+                              style={{ width: `${percent}%` }}
+                            />
+                          </div>
+                          <span className="w-24 text-right text-[12px] font-mono text-secondary">
+                            {window.remainingPercent}% remaining
+                          </span>
+                          {reset ? (
+                            <span className="w-16 text-right text-[12px] text-secondary">
+                              {reset}
+                            </span>
+                          ) : null}
+                        </div>
+                      </RowActions>
+                    </Row>
+                  );
+                })}
+              </div>
+            ))
           ) : (
             <Row>
               <RowText detail="This login doesn’t report usage." />

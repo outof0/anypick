@@ -8,7 +8,7 @@ import (
 
 // Path normalization cases that must be refused the same way on every OS.
 var pvAllPlatforms = []string{
-	`\x`, `C:\x`, "C:/x", "C:x", `..\x`, `\\server\share\x`, `x\..\..\y`, "x/../..", "/x",
+	".", "./x", "a/./b", `\x`, `C:\x`, "C:/x", "C:x", `..\x`, `\\server\share\x`, `x\..\..\y`, "x/../..", "/x",
 	"a\x00b", "a\x1fb", "a\x7fb",
 }
 

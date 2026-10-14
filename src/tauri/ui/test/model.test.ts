@@ -14,6 +14,7 @@ import {
   displaySafeIdentity,
   friendlyProxyName,
   friendlyProxyStatusSubtitle,
+  groupUsageWindows,
   friendlyRouteDetail,
   isAppRouteConfigured,
   isAppManagedByAnyPick,
@@ -60,6 +61,33 @@ describe('accountIdentityLine', () => {
     ]) {
       expect(accountIdentityLine(provider, detail).endsWith('·')).toBe(false);
     }
+  });
+});
+
+describe('groupUsageWindows', () => {
+  it('preserves reported group order and puts ungrouped windows last', () => {
+    const groups = groupUsageWindows([
+      { label: 'Weekly', remainingPercent: 45, group: 'Gemini Models' },
+      { label: '5h', remainingPercent: 80, group: 'Gemini Models' },
+      { label: 'Weekly', remainingPercent: 30, group: 'Claude and GPT models' },
+      { label: 'Session', remainingPercent: 65 },
+    ]);
+    expect(groups).toEqual([
+      {
+        id: 'Gemini Models',
+        title: 'Gemini Models',
+        windows: [
+          { label: 'Weekly', remainingPercent: 45, group: 'Gemini Models' },
+          { label: '5h', remainingPercent: 80, group: 'Gemini Models' },
+        ],
+      },
+      {
+        id: 'Claude and GPT models',
+        title: 'Claude and GPT models',
+        windows: [{ label: 'Weekly', remainingPercent: 30, group: 'Claude and GPT models' }],
+      },
+      { id: '_ungrouped', windows: [{ label: 'Session', remainingPercent: 65 }] },
+    ]);
   });
 });
 

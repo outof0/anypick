@@ -11,7 +11,7 @@ import (
 func TestPathValidationKeyRejects(t *testing.T) {
 	for _, in := range []string{
 		"/x", `\x`, `C:\x`, "C:/x", "C:x", "c:", "a:b", `\\server\share\x`, "//server/share/x",
-		"..", "../x", `..\x`, "x/..", `x\..`, `x\..\..\y`, "x/../..", "a/../b",
+		"..", ".", "./x", "a/./b", `a\.\b`, "../x", `..\x`, "x/..", `x\..`, `x\..\..\y`, "x/../..", "a/../b",
 	} {
 		if err := ValidateKey(in); !errors.Is(err, ErrNotLocal) {
 			t.Errorf("ValidateKey(%q) = %v, want ErrNotLocal", in, err)
@@ -39,7 +39,7 @@ func TestPathValidationKeyBadNames(t *testing.T) {
 func TestPathValidationKeyAccepts(t *testing.T) {
 	for _, in := range []string{
 		"a", "a/b.txt", `a\b.txt`, "..foo.mjs", "dist/..foo.mjs", "a..b", ".hidden",
-		"console.txt", "nullable.json", "COM10", "COM0", "LPT", "auxiliary", "con-fig", "a/./b",
+		"console.txt", "nullable.json", "COM10", "COM0", "LPT", "auxiliary", "con-fig",
 	} {
 		if err := ValidateKey(in); err != nil {
 			t.Errorf("ValidateKey(%q) rejected: %v", in, err)

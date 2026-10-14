@@ -330,6 +330,28 @@ describe('Apps pane', () => {
     expect(screen.queryByTestId('apps-quota-claude-0')).not.toBeInTheDocument();
   });
 
+  it('keeps vendor quota group headings in the app detail pane', async () => {
+    const snapshot = snapshotFixture({
+      usage: [
+        {
+          client: 'Claude',
+          account: 'Work',
+          windows: [
+            { label: 'Weekly', remainingPercent: 64, limitWindowSeconds: 604800, group: 'Gemini Models' },
+            { label: '5h', remainingPercent: 91, limitWindowSeconds: 18000, group: 'Gemini Models' },
+            { label: 'Weekly', remainingPercent: 37, limitWindowSeconds: 604800, group: 'Claude and GPT models' },
+          ],
+        },
+      ],
+    });
+    const { user } = mount(({ service, snapshot: s }) => <AppsPane service={service} snapshot={s} />, snapshot);
+    await user.click(screen.getByTestId('apps-row-claude'));
+    expect(screen.getByRole('heading', { name: 'Gemini Models' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Claude and GPT models' })).toBeInTheDocument();
+    expect(screen.getByTestId('apps-quota-claude-0')).toHaveTextContent('64% remaining');
+    expect(screen.getByTestId('apps-quota-claude-2')).toHaveTextContent('37% remaining');
+  });
+
   it('shows why a model cannot be chosen rather than an empty picker', async () => {
     const snapshot = snapshotFixture({
       clientModelConfigs: [

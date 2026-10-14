@@ -1,5 +1,5 @@
-# AnyPick v1.1.1 — In-App Update: Architecture Design Note
-Status: LOCKED decisions for slice 1 · Base: origin/main @ ac8ce2b (v1.1.0) · Slice 1 implements Go `internal/update` only.
+# AnyPick v1.2.0 — In-App Update: Architecture Design Note
+Status: Initial architecture decisions and current v1.2.0 shipping scope · Base: origin/main @ ac8ce2b (v1.1.0).
 
 ## 0. Repo facts this design rests on
 - Version: single `VERSION` file; release.yml requires stable x.y.z newer than latest tag; Go gets `-X .../buildinfo.Version`; `buildinfo.IsRelease()` already distinguishes `(devel)`. Swift reads `CFBundleShortVersionString` (AppEntry.swift `AppVersion`); Tauri `tauri.conf.json` "version": "1.1.0".
@@ -33,7 +33,7 @@ type UpdateState struct {
   Kind StateKind; Current, Latest string; Notes string
   Command string; Action UpdateAction; Progress float64; Err error; LastChecked time.Time
 }
-// StateKind: idle checking upToDate availableDirect availablePackageManager notWritable
+// StateKind: idle checking upToDate availableDirect availablePackageManager notWritable storageUnavailable
 //   downloading verifying ready offline rateLimited githubDown hostBlocked badChecksum installFailed
 type ActionKind string // "selfUpdate"|"command"|"downloadAsset"|"manual"
 type UpdateAction struct {
@@ -72,21 +72,21 @@ type Clock   interface{ Now() time.Time }
 | appimage / direct | self-update path |
 
 ## 3. Flows
-State machine: `idle→checking→{upToDate|availableDirect|availablePackageManager|offline|rateLimited|githubDown|hostBlocked}`; `availableDirect→(Update Now)→notWritable | downloading→verifying→{badChecksum|ready}`; `ready→Relaunch→(success: new version up) | installFailed`. Check runs at launch + timer if `AutoCheck && now-LastChecked ≥ 24h`; manual check ignores throttle but still sends ETag. 304 → keep cached Release. A 304 with no cached release triggers a second GitHub fetch without If-None-Match so the body can be evaluated (see `Checker.Check`). Network errors/403/429 never panic: inline status row + backoff (respect `Retry-After`/`X-RateLimit-Reset`). Allowlist refusals (`ErrHostNotAllowed`) map to `hostBlocked` (never `offline`): Retry=false, **View on GitHub**, copy `Update didn't finish. The download came from an address AnyPick doesn't trust, so nothing was changed. You're still on <current>.`
+The v1.2.0 implementation checks manually and downloads plus checks the selected asset. Its state machine is `idle→checking→{upToDate|availableDirect|availablePackageManager|offline|rateLimited|githubDown|hostBlocked|storageUnavailable}`; `availableDirect→Download Update→notWritable | downloading→verifying→{badChecksum|ready}`. `ready` means the ZIP is in the cache and can be opened in Finder for manual installation; AnyPick remains on the current version. Bundle replacement, relaunch, startup checks and background downloads are planned follow-up work, not part of this release. HighestSeen is stored atomically across helper runs to resist a rolled-back feed. Manual check ignores throttle and sends ETag. 304 without a cached Release triggers a second GitHub fetch without If-None-Match so the body can be evaluated (see `Checker.Check`). Network errors/403/429 never panic: inline status row + backoff (respect `Retry-After`/`X-RateLimit-Reset`). Allowlist refusals (`ErrHostNotAllowed`) map to `hostBlocked` (never `offline`): Retry=false, **View on GitHub**, copy `Update didn't finish. The download came from an address AnyPick doesn't trust, so nothing was changed. You're still on <current>.`
 
-**Skip This Version (in scope):** hides menu item + background badge until a newer version; manual check still shows it. UI copy: `You skipped 1.2.0. You'll hear about the next version.`
+**Planned follow-up — Skip This Version:** hides the menu item + background badge until a newer version; a manual check still shows it. UI copy: `You skipped 1.2.0. You'll hear about the next version.`
 
-**Toggle renamed "Download updates automatically":** downloads+verifies in background, installs on next **QUIT**, never relaunch when idle. Menu bar item `Restart to Update to <v>`. Relaunch confirms if proxies serving (n>0 only; n==0 → no confirm): n=1 uses singular `proxy`; n>1 keeps `proxies`. Copy: `Restarting stops N running proxy|proxies. Connected apps reconnect when AnyPick starts again.`
+**Planned follow-up — "Download updates automatically":** download+verify in background, install on next **QUIT**, never relaunch when idle. Menu bar item `Restart to Update to <v>`. Relaunch confirms if proxies are serving (n>0 only; n==0 → no confirm): n=1 uses singular `proxy`; n>1 keeps `proxies`. Copy: `Restarting stops N running proxy|proxies. Connected apps reconnect when AnyPick starts again.`
 
-**macOS (direct):** 1) download `AnyPick-macos-universal.zip` to `~/Library/Caches/AnyPick/update/<ver>/`; 2) SHA256 vs SHA256SUMS → mismatch = delete, badChecksum, nothing changed; 3) `ditto -x -k` to staging, `codesign --verify --deep --strict` + check `CFBundleShortVersionString == ver` and bundle id; 4) preflight writability — if not writable → notWritable with "Download in browser" + "Reveal in Finder", **never an admin prompt**; 5) ready → user clicks Relaunch (or AutoDownload waits for quit); 6) helper swap + rollback as previously designed.
+**Planned follow-up — macOS install (direct):** after the current download+checksum step, 1) `ditto -x -k` to staging, `codesign --verify --deep --strict` + check `CFBundleShortVersionString == ver` and bundle id; 2) preflight writability — if not writable → notWritable with "Download in browser" + "Reveal in Finder", **never an admin prompt**; 3) ready → user clicks Relaunch (or AutoDownload waits for quit); 4) helper swap + rollback as previously designed.
 
-**Ready authenticity line (UI):** `Downloaded from GitHub Releases. The file matches the release checksum.` Do **not** use the bare word "verified" in UI copy until minisign lands.
+**Ready line (UI):** `Downloaded from GitHub Releases. The file matches the release checksum. Install it manually from Finder; AnyPick stays on this version.` Do **not** use the bare word "verified" in UI copy until minisign lands.
 
 **macOS direct Ready footnote:** `macOS may ask again for access AnyPick already had, such as Keychain or Automation, because this build isn't notarized. Allow it to keep things working.`
 
 **Windows:** self-update ONLY for NSIS setup.exe (per-user). MSI + winget = package manager path.
 **Linux AppImage:** self-update when path writable; else notWritable.
-**brew/scoop/npm/deb/rpm/winget/msi/unknown:** availablePackageManager (or download fallback); Update Now hidden for PM channels.
+**brew/scoop/npm/deb/rpm/winget/msi/unknown:** availablePackageManager (or download fallback); Download Update hidden for package-manager channels.
 
 ## 4. Tauri updater
 Plugin needs: `plugins.updater.pubkey` (minisign) in tauri.conf.json, `bundle.createUpdaterArtifacts: true`, CI secrets `TAURI_SIGNING_PRIVATE_KEY` (+ `_PASSWORD`), `.sig` files, endpoint `latest.json`. **Blocked on OutOf0 key approval** — nothing generated in slice 1. Recommend Go SHA256SUMS as second gate before `downloadAndInstall`.
@@ -97,7 +97,7 @@ Plugin needs: `plugins.updater.pubkey` (minisign) in tauri.conf.json, `bundle.cr
   - **Download client** (`NewDownloadTransport`): exact hosts `github.com`, `objects.githubusercontent.com`, and `release-assets.githubusercontent.com` (https only, no wildcards). `release-assets.githubusercontent.com` is required because GitHub 302-redirects real `browser_download_url` downloads there. Validates the initial URL and every redirect hop (https→http downgrades refused; redirect cap 5). Used for `AttachChecksums`, `DownloadAsset`, and other asset bytes.
 - A caller-supplied `Transport` (its proxy, dialer, and TLS settings) is trusted; AnyPick still enforces the host allowlist and https-only checks on every hop.
 - Asset names containing `..`, `/`, or `\` are rejected (no basename trimming). Missing/duplicate/empty SHA256SUMS entries for the asset being installed fail closed; unrelated release assets without a checksum do not block the update.
-- **Same-release SHA-256 is integrity, not authenticity**: it verifies the file matches the release checksum, not who signed it. Accepted for macOS v1.1.1. Tauri minisign pending OutOf0 key approval.
+- **Same-release SHA-256 is integrity, not authenticity**: it verifies the file matches the release checksum, not who signed it. Accepted for macOS v1.2.0. Tauri minisign pending OutOf0 key approval.
 - Downgrade: refuse `latest ≤ current`; refuse tag/asset version mismatch; ignore drafts/prereleases; persist `HighestSeen` to resist rollback feeds.
 - Path safety on unzip; size cap vs `Asset.Size`; temp dirs 0700.
 - Helper runs as user; no privilege escalation path exists by design.
@@ -123,7 +123,7 @@ Allowlists: production API = `api.github.com`; production download = the three h
 
 ## 8. Locked decisions (were open questions)
 1. Tauri minisign keypair: **awaits OutOf0 approval** (open).
-2. Quarantine strip on own verified download: accepted with SHA256-from-same-release for v1.1.1; docs state plainly it matches the release, not who signed it.
+2. Quarantine strip on own verified download: accepted with SHA256-from-same-release for v1.2.0; docs state plainly it matches the release, not who signed it.
 3. deb/rpm: **manual reinstall** — Download + exact apt/dnf install of local file. Never say "repo".
 4. scoop/npm: **CLI only** (no desktop rows); CLI `anypick update check --json`.
 5. Windows: **NSIS self-update only**; MSI + winget = package manager.

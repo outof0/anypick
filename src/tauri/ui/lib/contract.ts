@@ -191,6 +191,7 @@ export type UsageWindow = {
   remainingPercent: number;
   resetsAtMs?: number;
   limitWindowSeconds?: number;
+  group?: string;
 };
 
 export type UsageSnapshotRow = {
