@@ -60,6 +60,7 @@ struct AccountsView: View {
           message: "Add the login already on this Mac, sign in, or add an API gateway.",
           symbol: "person.badge.plus",
           actionTitle: "Add Login…",
+          actionIdentifier: "accounts.empty.add-login",
           action: { activeSheet = .addAccount }
         )
       } else if savedAccounts.isEmpty && gateways.isEmpty {

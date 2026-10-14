@@ -252,6 +252,7 @@ struct DesignEmptyState: View {
   let message: String
   let symbol: String
   var actionTitle: String?
+  var actionIdentifier: String?
   var action: (() -> Void)?
 
   var body: some View {
@@ -263,6 +264,7 @@ struct DesignEmptyState: View {
       if let actionTitle, let action {
         Button(actionTitle, action: action)
           .help(message)
+          .modifier(DesignOptionalAccessibilityIdentifier(identifier: actionIdentifier))
       }
     }
     .frame(maxWidth: .infinity, maxHeight: .infinity)

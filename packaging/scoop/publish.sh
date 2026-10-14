@@ -16,8 +16,11 @@ sums="$3"
 checkout="$(mktemp -d "${RUNNER_TEMP:-/tmp}/anypick-scoop.XXXXXX")"
 trap 'rm -rf "$checkout"' EXIT
 
-auth_header="AUTHORIZATION: basic $(printf 'x-access-token:%s' "${SCOOP_BUCKET_TOKEN}" | base64 | tr -d '\n')"
-git -c http.extraheader="$auth_header" clone --depth=1 "https://github.com/${bucket_repository}.git" "$checkout/bucket"
+# The bucket is public, so clone it without credentials. Keeping authentication
+# off the read path avoids turning a bad write token into an anonymous-clone
+# failure; only the push needs the scoped token.
+auth_header="AUTHORIZATION: basic $(printf 'x-access-token:%s' "${SCOOP_BUCKET_TOKEN}" | base64 | tr -d '\r\n')"
+git clone --depth=1 "https://github.com/${bucket_repository}.git" "$checkout/bucket"
 bash "$(dirname "$0")/render.sh" "$version" "$release_base" "$sums" "$checkout/bucket"
 
 cd "$checkout/bucket"

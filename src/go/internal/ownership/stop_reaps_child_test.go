@@ -42,7 +42,19 @@ func TestStopRefusesRecycledPidWithMatchingArgv(t *testing.T) {
 	dir := t.TempDir()
 	pidPath := filepath.Join(dir, "service.pid")
 	rec := spawnHelper(t, pidPath)
-	t.Cleanup(func() { _ = Stop(pidPath, StopOptions{}) })
+	t.Cleanup(func() {
+		// The test replaces the trusted start stamp with a forged one so Stop
+		// must refuse it. Restore the real record for cleanup or the helper is
+		// intentionally un-stoppable and keeps its executable open on Windows.
+		if err := writeAtomic(pidPath, rec); err != nil {
+			t.Errorf("restore helper ownership record: %v", err)
+			return
+		}
+		_ = Stop(pidPath, StopOptions{})
+		if rec.Alive() {
+			t.Error("could not stop the owned helper after restoring its record")
+		}
+	})
 
 	waitFor(t, rec.Alive)
 

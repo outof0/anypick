@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"syscall"
 	"testing"
@@ -25,6 +26,15 @@ func TestOwnershipHelperChild(t *testing.T) {
 	signal.Notify(sig, syscall.SIGTERM, syscall.SIGINT)
 	<-sig
 	os.Exit(0)
+}
+
+func TestOwnershipForeignHelperChild(t *testing.T) {
+	if os.Getenv("OWNERSHIP_FOREIGN_HELPER") != "1" {
+		t.Skip("helper only")
+	}
+	for {
+		time.Sleep(time.Hour)
+	}
 }
 
 func spawnHelper(t *testing.T, pidPath string) *Record {
@@ -75,7 +85,13 @@ func TestSpawnRecordsInstanceAndVerifiesIdentity(t *testing.T) {
 
 	// Tampering with recorded command tokens must break identity proof.
 	forged := *loaded
-	forged.Command = []string{"totally", "different", "argv"}
+	if runtime.GOOS == "windows" {
+		// Windows verifies executable + process start and job membership; the
+		// command line is not part of its native process identity query.
+		forged.ProcessStart++
+	} else {
+		forged.Command = []string{"totally", "different", "argv"}
+	}
 	if forged.VerifyLive() {
 		t.Fatal("forged command tokens passed identity verification")
 	}
@@ -118,11 +134,15 @@ func TestLoadFailsClosedOnLegacyAndCorruptFiles(t *testing.T) {
 
 func TestStopFailsClosedWithoutTrustedRecord(t *testing.T) {
 	dir := t.TempDir()
-	victim := exec.Command("sleep", "30")
+	victim := exec.Command(os.Args[0], "-test.run=^TestOwnershipForeignHelperChild$")
+	victim.Env = append(os.Environ(), "OWNERSHIP_FOREIGN_HELPER=1")
 	if err := victim.Start(); err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { _ = victim.Process.Kill() })
+	t.Cleanup(func() {
+		_ = victim.Process.Kill()
+		_ = victim.Wait()
+	})
 
 	// Numeric-only file naming a LIVE foreign process: stop must not signal it.
 	foreign := filepath.Join(dir, "foreign.pid")
@@ -132,7 +152,7 @@ func TestStopFailsClosedWithoutTrustedRecord(t *testing.T) {
 	if Stop(foreign, StopOptions{}) {
 		t.Fatal("stop signalled a process with no trusted ownership record")
 	}
-	waitFor(t, func() bool { return victim.Process.Signal(syscall.Signal(0)) == nil })
+	waitFor(t, func() bool { return processAlive(victim.Process.Pid) })
 }
 
 func TestStopHealthVetoIsFailClosed(t *testing.T) {

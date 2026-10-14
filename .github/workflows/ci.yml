@@ -346,6 +346,8 @@ jobs:
           bash -n packaging/homebrew/render.sh packaging/homebrew/render-cask.sh packaging/homebrew/publish.sh
           bash -n packaging/winget/render.sh
           bash -n packaging/scoop/render.sh packaging/scoop/publish.sh
+          bash -n packaging/release/validate-scope.sh packaging/release/validate-scope_test.sh
+          bash packaging/release/validate-scope_test.sh
 
       - name: Check the release payload smoke scripts
         run: |

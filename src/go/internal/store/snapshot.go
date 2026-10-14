@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"unicode"
@@ -39,7 +40,8 @@ func validateImportFileKey(key string) error {
 	if key == "" || strings.ContainsRune(key, 0) {
 		return anyerr.Newf("Invalid import file path: "+quote(key)+".", "IMPORT_FORMAT")
 	}
-	if filepath.IsAbs(key) {
+	slashKey := strings.ReplaceAll(key, `\`, "/")
+	if path.IsAbs(slashKey) || filepath.IsAbs(key) {
 		return anyerr.Newf("Import file path must be relative: "+key+".", "IMPORT_FORMAT")
 	}
 	if isWindowsAbsolute(key) {

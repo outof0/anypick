@@ -110,8 +110,10 @@ func TestValidateImportFileKeyAndWindows(t *testing.T) {
 	if err := validateImportFileKey(string([]byte{0})); err == nil {
 		t.Fatal("nul byte should error")
 	}
-	if err := validateImportFileKey("/abs"); err == nil {
-		t.Fatal("abs should error")
+	for _, absolute := range []string{"/abs", `\abs`} {
+		if err := validateImportFileKey(absolute); err == nil {
+			t.Fatalf("absolute path %q should error", absolute)
+		}
 	}
 	if err := validateImportFileKey("C:\\windows\\path"); err == nil {
 		t.Fatal("windows drive should error")

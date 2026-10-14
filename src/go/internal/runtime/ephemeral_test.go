@@ -308,7 +308,7 @@ func TestHelpersSanitizeAndSplit(t *testing.T) {
 	// clientHome fallback and codexConfigPath env override
 	s := testService(t)
 	t.Setenv("CODEX_HOME", "/tmp/custom-codex")
-	if got := codexConfigPath(s); got != "/tmp/custom-codex/config.toml" {
+	if got := codexConfigPath(s); got != filepath.Join("/tmp/custom-codex", "config.toml") {
 		t.Fatalf("codexConfigPath env = %q", got)
 	}
 	t.Setenv("CODEX_HOME", "")

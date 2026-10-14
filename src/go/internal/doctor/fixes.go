@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -761,6 +762,9 @@ func fixDeleteTempOverlay(action FixAction, deps FixDeps) (string, error) {
 // are skipped rather than followed, because following one is how a walk inside
 // the root reaches a file outside it.
 func fixRepairPermissions(action FixAction, deps FixDeps) (string, error) {
+	if runtime.GOOS == "windows" {
+		return "", anyerr.Newf("permission repair by POSIX mode is unavailable on Windows; files use inherited ACLs", "FIX_UNSUPPORTED")
+	}
 	if deps.Root == "" {
 		return "", anyerr.Newf("no data root to repair", "FIX_OUTSIDE_ROOT")
 	}

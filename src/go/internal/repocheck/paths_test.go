@@ -395,7 +395,7 @@ func TestCheckPathsFindsBrokenReferences(t *testing.T) {
 				joined.WriteString(strings.Join(finding.Advice, " "))
 				joined.WriteString("\n")
 			}
-			report := joined.String()
+			report := strings.ReplaceAll(joined.String(), `\`, "/")
 			if !strings.Contains(report, tc.expect) {
 				t.Fatalf("findings do not mention %q:\n%s", tc.expect, report)
 			}

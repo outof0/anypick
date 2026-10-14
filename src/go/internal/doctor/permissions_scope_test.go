@@ -3,6 +3,7 @@ package doctor
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -14,6 +15,9 @@ import (
 // the root get rewritten too, so the user was told a scope that was not the
 // scope applied.
 func TestRepairPermissionsTouchesOnlyTheFlaggedPaths(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Windows ACLs are not represented by POSIX mode bits")
+	}
 	root := t.TempDir()
 	// One flagged file (0644), one flagged dir (0755), and one CLEAN dir with
 	// its own file. The 0640 file IS flagged — group read is group access, the
@@ -118,6 +122,9 @@ func TestRepairPermissionsTouchesOnlyTheFlaggedPaths(t *testing.T) {
 // world-readable), which is what makes the reported set and the fixed set the
 // same list.
 func TestPermissivePathsFlagsDirectoriesOnAnyGroupAccess(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Windows ACLs are not represented by POSIX mode bits")
+	}
 	root := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(root, "d"), 0o755); err != nil {
 		t.Fatal(err)

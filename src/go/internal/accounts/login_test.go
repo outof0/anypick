@@ -13,19 +13,9 @@ import (
 	"github.com/outof0/anypick/go/internal/db"
 	"github.com/outof0/anypick/go/internal/provider"
 	"github.com/outof0/anypick/go/internal/store"
+	"github.com/outof0/anypick/go/internal/testexec"
 	"github.com/outof0/anypick/go/internal/transport"
 )
-
-// fakeLauncher writes an executable script and returns its absolute path
-// (absolute names short-circuit PATH resolution in browserlogin).
-func loginLauncher(t *testing.T, body string) string {
-	t.Helper()
-	path := filepath.Join(t.TempDir(), "fake-grok-login.sh")
-	if err := os.WriteFile(path, []byte("#!/bin/sh\n"+body+"\n"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	return path
-}
 
 func wantCode(t *testing.T, err error) string {
 	t.Helper()
@@ -83,6 +73,7 @@ func TestLoginMethodsForGeminiSubscriptionSources(t *testing.T) {
 func TestLoginMethodsAvailabilityFollowsLauncher(t *testing.T) {
 	// Scrub PATH so host-installed launchers cannot flip availability.
 	emptyPath := t.TempDir()
+	launcher := testexec.Build(t)
 	svc, _, _ := newLoginService(t)
 
 	// No launcher on PATH and no extra path present → unavailable with reason.
@@ -100,7 +91,7 @@ func TestLoginMethodsAvailabilityFollowsLauncher(t *testing.T) {
 
 	// With the launcher present the same method becomes available.
 	svc2, _, _ := newLoginService(t)
-	t.Setenv("GROK_BINARY", loginLauncher(t, "exit 0"))
+	t.Setenv("GROK_BINARY", launcher)
 	methods, err = svc2.LoginMethods(context.Background(), "grok", "")
 	if err != nil {
 		t.Fatalf("LoginMethods: %v", err)
@@ -115,8 +106,9 @@ func TestLoginMethodsAvailabilityFollowsLauncher(t *testing.T) {
 
 func TestLoginEndToEndCreatesAccountAndActivates(t *testing.T) {
 	svc, st, authPath := newLoginService(t)
-	script := loginLauncher(t, "mkdir -p \"$(dirname \""+authPath+"\")\" && printf '%s' '"+grokAuthBody("user@example.com")+"' > "+authPath)
-	t.Setenv("GROK_BINARY", script)
+	launcher := testexec.Build(t)
+	testexec.SetWrite(t, authPath, grokAuthBody("user@example.com"))
+	t.Setenv("GROK_BINARY", launcher)
 
 	res, err := svc.Login(context.Background(), "grok", LoginOptions{Name: "work"})
 	if err != nil {
@@ -143,7 +135,8 @@ func TestLoginEndToEndCreatesAccountAndActivates(t *testing.T) {
 
 func TestLoginReusesIdentitySnapshotName(t *testing.T) {
 	svc, st, authPath := newLoginService(t)
-	writeAuth := loginLauncher(t, "mkdir -p \"$(dirname \""+authPath+"\")\" && printf '%s' '"+grokAuthBody("same@example.com")+"' > "+authPath)
+	writeAuth := testexec.Build(t)
+	testexec.SetWrite(t, authPath, grokAuthBody("same@example.com"))
 
 	// First login creates an identity-named account.
 	t.Setenv("GROK_BINARY", writeAuth)
@@ -177,8 +170,9 @@ func TestLoginStashesPriorLiveLoginAndSetsBackedUpTo(t *testing.T) {
 		t.Fatal(err)
 	}
 	newAuth := grokAuthBody("new@example.com")
-	script := loginLauncher(t, "printf '%s' '"+newAuth+"' > "+authPath)
-	t.Setenv("GROK_BINARY", script)
+	launcher := testexec.Build(t)
+	testexec.SetWrite(t, authPath, newAuth)
+	t.Setenv("GROK_BINARY", launcher)
 
 	res, err := svc.Login(context.Background(), "grok", LoginOptions{Name: "brand-new"})
 	if err != nil {
@@ -210,27 +204,53 @@ func TestLoginFailureRollsBackLiveAuth(t *testing.T) {
 	// The provider launcher refuses to proceed if the old auth is still in
 	// place. This pins the checkpoint → clear → login ordering: a fresh login
 	// must not silently reuse the current subscription account.
-	failing := loginLauncher(t, "if [ -f \""+authPath+"\" ]; then exit 9; fi; exit 7")
+	failing := testexec.Build(t)
+	t.Setenv("ANYPICK_TESTEXEC_FAIL_IF_PRESENT", authPath)
+	marker := filepath.Join(t.TempDir(), "auth-presence")
+	t.Setenv("ANYPICK_TESTEXEC_PRESENCE_MARKER", marker)
 	t.Setenv("GROK_BINARY", failing)
 
-	before, _ := svc.Store.ListAccounts(context.Background(), "grok")
 	_, err := svc.Login(context.Background(), "grok", LoginOptions{})
 	if err == nil || wantCode(t, err) != "PROVIDER_LOGIN_FAILED" {
 		t.Fatalf("want PROVIDER_LOGIN_FAILED, got %v", err)
+	}
+	if state, err := os.ReadFile(marker); err != nil || string(state) != "absent" {
+		t.Fatalf("login launcher observed auth state %q before failing; want absent (%v)", state, err)
 	}
 	data, rerr := os.ReadFile(authPath)
 	if rerr != nil || string(data) != old {
 		t.Fatalf("live auth not restored: %v %q", rerr, data)
 	}
-	after, _ := svc.Store.ListAccounts(context.Background(), "grok")
-	if len(after) < len(before) {
-		t.Fatal("stash snapshot was deleted on rollback")
+	after, err := svc.Store.ListAccounts(context.Background(), "grok")
+	if err != nil {
+		t.Fatalf("list stashed accounts: %v", err)
+	}
+	if len(after) == 0 {
+		t.Fatal("rollback deleted the stashed account")
+	}
+	foundOldSnapshot := false
+	for _, row := range after {
+		account, err := svc.Store.Get(context.Background(), "grok", row.Meta.Name)
+		if err != nil {
+			t.Fatalf("read stashed account %q: %v", row.Meta.Name, err)
+		}
+		if account == nil {
+			continue
+		}
+		data, err := os.ReadFile(filepath.Join(account.SnapshotDir, "auth.json"))
+		if err == nil && string(data) == old {
+			foundOldSnapshot = true
+			break
+		}
+	}
+	if !foundOldSnapshot {
+		t.Fatal("rollback lost or changed the prior credential snapshot")
 	}
 }
 
 func TestLoginUnknownMethodRejected(t *testing.T) {
 	svc, _, _ := newLoginService(t)
-	t.Setenv("GROK_BINARY", loginLauncher(t, "exit 0"))
+	t.Setenv("GROK_BINARY", testexec.Build(t))
 	_, err := svc.Login(context.Background(), "grok", LoginOptions{MethodID: "nope"})
 	if err == nil || wantCode(t, err) != "PROVIDER_LOGIN_METHOD_UNKNOWN" {
 		t.Fatalf("unknown method: %v", err)
@@ -288,8 +308,8 @@ func TestLoginCancelAfterSnapshotCommitRestoresPrevious(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	launcher := loginLauncher(t,
-		"mkdir -p \"$(dirname "+authPath+")\" && printf '%s' '"+grokAuthBody("new@example.com")+"' > "+authPath)
+	launcher := testexec.Build(t)
+	testexec.SetWrite(t, authPath, grokAuthBody("new@example.com"))
 	t.Setenv("GROK_BINARY", launcher)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -339,8 +359,8 @@ func snapshotBlob(t *testing.T, st *store.AccountStore, providerID, name string)
 
 func TestLoginCancelAfterCreatingAccountDeletesIt(t *testing.T) {
 	svc, st, authPath := newLoginService(t)
-	launcher := loginLauncher(t,
-		"mkdir -p \"$(dirname "+authPath+")\" && printf '%s' '"+grokAuthBody("new@example.com")+"' > "+authPath)
+	launcher := testexec.Build(t)
+	testexec.SetWrite(t, authPath, grokAuthBody("new@example.com"))
 	t.Setenv("GROK_BINARY", launcher)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -369,9 +389,9 @@ func TestLoginCancelInCommitWindowRollsBack(t *testing.T) {
 	// Wrap the real grok provider so that when its launcher finishes, the
 	// request context is already cancelled: the launcher writes auth.json and
 	// THEN we cancel — exactly the late-cancel race.
-	launcher := loginLauncher(t,
-		"mkdir -p \"$(dirname "+authPath+")\" && printf '%s' '"+grokAuthBody("race@example.com")+"' > "+authPath+
-			" && sleep 0.2")
+	launcher := testexec.Build(t)
+	testexec.SetWrite(t, authPath, grokAuthBody("race@example.com"))
+	t.Setenv("ANYPICK_TESTEXEC_WAIT_MS", "200")
 	t.Setenv("GROK_BINARY", launcher)
 
 	ctx, cancel := context.WithCancel(context.Background())

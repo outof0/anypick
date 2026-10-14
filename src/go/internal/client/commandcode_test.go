@@ -66,9 +66,9 @@ func TestCommandCodeClientCapabilities(t *testing.T) {
 		t.Fatalf("capabilities = %#v", caps)
 	}
 	if got := CommandCodeConfigPaths("/tmp/home"); len(got) != 3 ||
-		got[0] != "/tmp/home/.commandcode/providers.json" ||
-		got[1] != "/tmp/home/.commandcode/auth.json" ||
-		got[2] != "/tmp/home/.commandcode/config.json" {
+		got[0] != filepath.Join("/tmp/home", ".commandcode", "providers.json") ||
+		got[1] != filepath.Join("/tmp/home", ".commandcode", "auth.json") ||
+		got[2] != filepath.Join("/tmp/home", ".commandcode", "config.json") {
 		t.Fatalf("config paths = %v", got)
 	}
 }

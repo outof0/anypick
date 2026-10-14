@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/outof0/anypick/go/internal/accounts"
+	"github.com/outof0/anypick/go/internal/testexec"
 )
 
 // syncedBuffer lets tests poll protocol output while server goroutines write;
@@ -71,10 +72,9 @@ func TestDesktopAccountLoginCancelBeforeStart(t *testing.T) {
 	authPath := filepath.Join(env.Home, ".grok", "auth.json")
 	t.Setenv("GROK_AUTH_PATH", authPath)
 	marker := filepath.Join(t.TempDir(), "launched")
-	launcher := filepath.Join(t.TempDir(), "grok-slow.sh")
-	if err := os.WriteFile(launcher, []byte("#!/bin/sh\ntouch "+marker+"\nsleep 30\n"), 0o755); err != nil {
-		t.Fatal(err)
-	}
+	launcher := testexec.Build(t)
+	t.Setenv("ANYPICK_TESTEXEC_MARKER", marker)
+	t.Setenv("ANYPICK_TESTEXEC_WAIT_MS", "30000")
 	t.Setenv("GROK_BINARY", launcher)
 
 	in, inWrite, err := os.Pipe()
@@ -110,12 +110,8 @@ func TestDesktopAccountLoginEndToEnd(t *testing.T) {
 	env := newTrayEnv(t)
 	authPath := filepath.Join(env.Home, ".grok", "auth.json")
 	t.Setenv("GROK_AUTH_PATH", authPath)
-	launcher := filepath.Join(t.TempDir(), "grok.sh")
-	body := "#!/bin/sh\nmkdir -p \"$(dirname " + authPath + ")\"\n" +
-		`printf '%s' '{"sessions":{"s1":{"email":"tray@example.com","access_token":"tok"}}}' > ` + authPath + "\n"
-	if err := os.WriteFile(launcher, []byte(body), 0o755); err != nil {
-		t.Fatal(err)
-	}
+	launcher := testexec.Build(t)
+	testexec.SetWrite(t, authPath, `{"sessions":{"s1":{"email":"tray@example.com","access_token":"tok"}}}`)
 	t.Setenv("GROK_BINARY", launcher)
 
 	var out syncedBuffer
@@ -158,10 +154,8 @@ func TestDesktopAccountLoginCancelled(t *testing.T) {
 	env := newTrayEnv(t)
 	authPath := filepath.Join(env.Home, ".grok", "auth.json")
 	t.Setenv("GROK_AUTH_PATH", authPath)
-	launcher := filepath.Join(t.TempDir(), "grok-slow.sh")
-	if err := os.WriteFile(launcher, []byte("#!/bin/sh\nsleep 30\n"), 0o755); err != nil {
-		t.Fatal(err)
-	}
+	launcher := testexec.Build(t)
+	t.Setenv("ANYPICK_TESTEXEC_WAIT_MS", "30000")
 	t.Setenv("GROK_BINARY", launcher)
 
 	in, inWrite, err := os.Pipe()

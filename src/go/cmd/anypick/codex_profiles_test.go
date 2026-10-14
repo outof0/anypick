@@ -9,6 +9,7 @@ import (
 
 	"github.com/outof0/anypick/go/internal/bindings"
 	"github.com/outof0/anypick/go/internal/refs"
+	"github.com/outof0/anypick/go/internal/testexec"
 )
 
 func TestCodexProfileLoginIsolatesNativeAuth(t *testing.T) {
@@ -25,13 +26,8 @@ func TestCodexProfileLoginIsolatesNativeAuth(t *testing.T) {
 	if err := os.WriteFile(mainAuth, []byte(accountA), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	launcher := filepath.Join(base, "fake-codex")
-	body := "#!/bin/sh\n" +
-		"/bin/mkdir -p \"$CODEX_HOME\"\n" +
-		"/usr/bin/printf '%s' '{\"OPENAI_API_KEY\":\"sk-account-b\"}' > \"$CODEX_HOME/auth.json\"\n"
-	if err := os.WriteFile(launcher, []byte(body), 0o755); err != nil {
-		t.Fatal(err)
-	}
+	launcher := testexec.Build(t)
+	testexec.SetWriteInEnvDir(t, "CODEX_HOME", "auth.json", `{"OPENAI_API_KEY":"sk-account-b"}`)
 	t.Setenv("CODEX_BINARY", launcher)
 
 	var code int
@@ -101,13 +97,8 @@ func TestCodexProfileLoginRefusesExistingAccountName(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	launcher := filepath.Join(base, "fake-codex")
-	body := "#!/bin/sh\n" +
-		"/bin/mkdir -p \"$CODEX_HOME\"\n" +
-		"/usr/bin/printf '%s' '{\"OPENAI_API_KEY\":\"sk-account-b\"}' > \"$CODEX_HOME/auth.json\"\n"
-	if err := os.WriteFile(launcher, []byte(body), 0o755); err != nil {
-		t.Fatal(err)
-	}
+	launcher := testexec.Build(t)
+	testexec.SetWriteInEnvDir(t, "CODEX_HOME", "auth.json", `{"OPENAI_API_KEY":"sk-account-b"}`)
 	t.Setenv("CODEX_BINARY", launcher)
 	defer resetGlobals()()
 

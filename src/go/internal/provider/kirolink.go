@@ -3,7 +3,10 @@ package provider
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
+
+	"github.com/outof0/anypick/go/internal/browserlogin"
 )
 
 // discoverKiroProxyCommand mirrors resolveKiroProxyCommand: classification and
@@ -11,8 +14,8 @@ import (
 // on a binary name or env override.
 func discoverKiroProxyCommand() string {
 	if bin := os.Getenv("KIROLINK_BIN"); bin != "" {
-		if isExecutableFile(bin) {
-			return bin
+		if resolved := browserlogin.ResolveBinary([]string{bin}, nil); resolved != "" {
+			return resolved
 		}
 	}
 	// KIROLINK_JS points at a node entry; a node runtime plus that file counts
@@ -22,16 +25,17 @@ func discoverKiroProxyCommand() string {
 	}
 
 	names := []string{"kirolink", "kiro-proxy", "kiro-link"}
-	dirs := PATHDirectories()
-	for _, dir := range dirs {
+	var candidates []string
+	for _, dir := range PATHDirectories() {
 		for _, name := range names {
 			candidate := filepath.Join(dir, name)
-			if isExecutableFile(candidate) {
-				return candidate
+			if runtime.GOOS == "windows" {
+				candidate += ".exe"
 			}
+			candidates = append(candidates, candidate)
 		}
 	}
-	return ""
+	return browserlogin.ResolveBinary(names, candidates)
 }
 
 func PATHDirectories() []string {
@@ -52,6 +56,10 @@ func isExecutableFile(path string) bool {
 	info, err := os.Stat(path)
 	if err != nil || info.IsDir() {
 		return false
+	}
+	if runtime.GOOS == "windows" {
+		ext := strings.ToLower(filepath.Ext(path))
+		return ext == ".exe" || ext == ".com" || ext == ".js"
 	}
 	return info.Mode().Perm()&0o111 != 0
 }

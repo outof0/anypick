@@ -3,6 +3,7 @@ package client
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -476,7 +477,7 @@ func TestDshMergePreservesPermissionsAndUserContent(t *testing.T) {
 	if !strings.Contains(string(raw), user) || !strings.Contains(string(raw), "http://127.0.0.1:9000/v1") {
 		t.Fatalf("merge lost user content or endpoint: %q", raw)
 	}
-	if fi, err := os.Stat(path); err != nil || fi.Mode().Perm() != 0o644 {
+	if fi, err := os.Stat(path); err != nil || (runtime.GOOS != "windows" && fi.Mode().Perm() != 0o644) {
 		t.Fatalf("merge changed file permissions: %v", fi.Mode())
 	}
 	// Reset on an unbalanced file refuses instead of truncating it.

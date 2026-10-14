@@ -49,6 +49,7 @@ SHELL := /bin/bash
 GO_FALLBACKS := $(HOME)/sdk/go*/bin/go /usr/local/go/bin/go /opt/homebrew/bin/go $(HOME)/go/bin/go
 
 GO ?= $(or $(shell command -v go 2>/dev/null),$(firstword $(wildcard $(GO_FALLBACKS))),go)
+export GO
 
 # gofmt ships beside go. Derive it from whatever GO resolved to, so a machine
 # where the probe found the toolchain still gets a working `make fmt-check`

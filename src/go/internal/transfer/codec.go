@@ -12,6 +12,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"path"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -62,7 +63,11 @@ func ValidateImportFileKey(key string) error {
 	if key == "" || strings.ContainsRune(key, '\x00') {
 		return importFormat("Invalid import file path: %q.", key)
 	}
-	if filepath.IsAbs(key) {
+	// Import keys use slash-separated archive paths. path.IsAbs keeps this
+	// validation platform-independent, while filepath.IsAbs also catches the
+	// current host's native form.
+	slashKey := strings.ReplaceAll(key, `\`, "/")
+	if path.IsAbs(slashKey) || filepath.IsAbs(key) {
 		return importFormat("Import file path must be relative: %s.", key)
 	}
 	// Windows-style absolute paths on every host; IsAbs only knows this platform.

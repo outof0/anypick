@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -158,8 +159,5 @@ func TestProxyLogSurfacesWithholdPersistedToken(t *testing.T) {
 }
 
 func pathDir(p string) string {
-	if i := strings.LastIndex(p, "/"); i > 0 {
-		return p[:i]
-	}
-	return "."
+	return filepath.Dir(p)
 }

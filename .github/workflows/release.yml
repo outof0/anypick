@@ -114,6 +114,8 @@ jobs:
                 fi
               else
                 state=published
+                gh release view "$tag" --json body --jq .body \
+                  | bash packaging/release/validate-scope.sh "$RELEASE_SCOPE"
               fi
             else
               state=tagged
@@ -519,6 +521,7 @@ jobs:
         if: needs.plan.outputs.state == 'published'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
           RELEASE_TAG: ${{ needs.plan.outputs.tag }}
         run: |
           set -euo pipefail

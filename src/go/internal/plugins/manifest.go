@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -178,7 +179,11 @@ func ReadManifest(root string) (Manifest, error) {
 // deliberately the same lexical containment boundary as Node's path.resolve /
 // path.relative check; the package digest separately pins symlink targets.
 func ResolveEntry(root, main string) (string, error) {
-	if filepath.IsAbs(main) {
+	slashMain := strings.ReplaceAll(main, `\`, "/")
+	driveAbsolute := len(main) >= 3 && ((main[0] >= 'a' && main[0] <= 'z') ||
+		(main[0] >= 'A' && main[0] <= 'Z')) && main[1] == ':' &&
+		(main[2] == '/' || main[2] == '\\')
+	if filepath.IsAbs(main) || path.IsAbs(slashMain) || strings.HasPrefix(main, `\\`) || driveAbsolute {
 		return "", invalid(fmt.Sprintf(
 			`Plugin entry %q must be a path relative to the plugin directory.`, main,
 		))

@@ -143,6 +143,7 @@ func TestCodexLiveUsageErrorBranches(t *testing.T) {
 func TestExpandHomeVariants(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
 
 	if got := expandHome("~"); got != home {
 		t.Fatalf("~ => %q want %q", got, home)

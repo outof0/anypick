@@ -7,7 +7,6 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -17,7 +16,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"reflect"
-	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
@@ -165,25 +163,13 @@ func TestAccountExportDefaultPathCanonicalizesAccountName(t *testing.T) {
 	}
 }
 
-// leakedChildren reports detached children launched from this test's own temp
-// binary. Scoping by the test's temp root keeps leak assertions honest: a bare
-// `pgrep -f _serve-hub` also matches children left behind by other tests, other
-// packages, or earlier runs, so one real leak turns the whole suite red forever
-// and no run can say which test leaked.
+// leakedChildren reports detached children whose ownership records live under
+// this test's isolated AnyPick data root. It works on Windows too, where pgrep
+// is unavailable, and verifies each recorded process identity before calling
+// it a leak.
 func leakedChildren(t *testing.T) []string {
 	t.Helper()
-	out, err := exec.Command("pgrep", "-f", regexp.QuoteMeta(t.TempDir())).Output()
-	if err != nil {
-		var exitErr *exec.ExitError
-		if errors.As(err, &exitErr) && exitErr.ExitCode() == 1 {
-			return nil // exit 1 is pgrep's "no process matched"
-		}
-		// A blocked or missing pgrep must never read as "nothing leaked":
-		// silently returning an empty list turns every leak assertion green in
-		// a sandbox while the children keep running.
-		t.Fatalf("leak detection unavailable (pgrep failed: %v); cannot assert %s", err, t.TempDir())
-	}
-	return strings.Fields(string(out))
+	return liveOwnedRecords(t, "detached child scan")
 }
 
 // liveOwnedRecords lists detached-child ownership records under ANYPICK_HOME
@@ -195,20 +181,68 @@ func liveOwnedRecords(t *testing.T, phase string) []string {
 	if root == "" {
 		return nil
 	}
-	var found []string
-	_ = filepath.WalkDir(filepath.Join(root, "runtime"), func(path string, d fs.DirEntry, err error) error {
-		if err != nil || d.IsDir() || d.Name() != "service.pid" {
-			return nil
-		}
-		if rec := ownership.Load(path); rec != nil && rec.VerifyLive() {
-			found = append(found, path+" pid="+strconv.Itoa(rec.PID))
-		}
-		return nil
-	})
+	found, err := scanLiveOwnedRecords(filepath.Join(root, "runtime"))
+	if err != nil {
+		t.Fatalf("%s: inspect detached child ownership records: %v", phase, err)
+	}
 	if len(found) > 0 {
 		t.Logf("%s: %d live ownership record(s) remain: %v", phase, len(found), found)
 	}
 	return found
+}
+
+func scanLiveOwnedRecords(runtimeRoot string) ([]string, error) {
+	info, err := os.Lstat(runtimeRoot)
+	if os.IsNotExist(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("stat runtime directory %s: %w", runtimeRoot, err)
+	}
+	if !info.IsDir() {
+		return nil, fmt.Errorf("runtime path %s is not a directory", runtimeRoot)
+	}
+	var found []string
+	err = filepath.WalkDir(runtimeRoot, func(path string, d fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			if os.IsNotExist(walkErr) {
+				return nil
+			}
+			return fmt.Errorf("walk %s: %w", path, walkErr)
+		}
+		if d.IsDir() || d.Name() != "service.pid" {
+			return nil
+		}
+		rec, inspectErr := ownership.Inspect(path)
+		if os.IsNotExist(inspectErr) {
+			return nil
+		}
+		if inspectErr != nil {
+			return fmt.Errorf("inspect ownership record %s: %w", path, inspectErr)
+		}
+		if rec != nil && rec.VerifyLive() {
+			found = append(found, path+" pid="+strconv.Itoa(rec.PID))
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return found, nil
+}
+
+func TestScanLiveOwnedRecordsReportsMalformedRecord(t *testing.T) {
+	runtimeRoot := filepath.Join(t.TempDir(), "runtime")
+	recordPath := filepath.Join(runtimeRoot, "proxy", "service.pid")
+	if err := os.MkdirAll(filepath.Dir(recordPath), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(recordPath, []byte("not a record"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := scanLiveOwnedRecords(runtimeRoot); err == nil || !strings.Contains(err.Error(), recordPath) {
+		t.Fatalf("scanLiveOwnedRecords error = %v, want malformed record path %q", err, recordPath)
+	}
 }
 
 // waitBudget is the single upper bound for every "wait for it to happen" and
@@ -639,6 +673,9 @@ func buildCLI() {
 	}
 	builtCLIDir = dir
 	bin := filepath.Join(dir, "anypick-cli")
+	if runtime.GOOS == "windows" {
+		bin += ".exe"
+	}
 	cmd := exec.Command("go", "build", "-o", bin, "./cmd/anypick")
 	cmd.Dir = filepath.Join(thisFileDir(), "..", "..")
 	// Tests replace HOME with a TempDir. The child Go command then places its
@@ -750,10 +787,8 @@ func TestLinkWithoutWithPreservesGlobalSpec(t *testing.T) {
 	// children (review finding: orphaned processes across runs).
 	//
 	// proxy stop waits until the child pid has exited, not only until /health
-	// stops. The detached argv is `_serve-proxy <provider> <account>`, so the
-	// temp root is only in the environment and pgrep -f cannot see the child.
-	// assertNoLeakedChildren still names any leftover whose command line does
-	// carry this temp root.
+	// stops. The leak assertion checks verified ownership records under this
+	// test's isolated AnyPick data root.
 	t.Cleanup(func() {
 		if code := run([]string{"proxy", "stop", "deepseek", "ds"}); code != 0 {
 			t.Errorf("cleanup proxy stop exited %d", code)

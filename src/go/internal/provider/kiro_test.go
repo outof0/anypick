@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	_ "modernc.org/sqlite"
@@ -169,8 +170,12 @@ func TestKiroAdapterPairingMatrix(t *testing.T) {
 
 func TestKiroProxyCommandDiscoverySeam(t *testing.T) {
 	binDir := t.TempDir()
-	fake := filepath.Join(binDir, "kirolink")
-	if err := os.WriteFile(fake, []byte("#!/bin/sh\n"), 0o755); err != nil {
+	name := "kirolink"
+	if runtime.GOOS == "windows" {
+		name += ".exe"
+	}
+	fake := filepath.Join(binDir, name)
+	if err := os.WriteFile(fake, []byte("fake executable"), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	t.Setenv("PATH", binDir)
