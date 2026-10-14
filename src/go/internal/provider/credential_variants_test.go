@@ -163,7 +163,10 @@ func TestNumberValueAndResetAtMs(t *testing.T) {
 	if numberValue(float64(2.5)) != 2.5 || numberValue(7) != 7 {
 		t.Fatal("numeric conversions")
 	}
-	if !math.IsNaN(numberValue("5")) || !math.IsNaN(numberValue(nil)) {
+	if numberValue("5") != 5 || numberValue("0.48") != 0.48 {
+		t.Fatal("numeric strings must parse")
+	}
+	if !math.IsNaN(numberValue("half")) || !math.IsNaN(numberValue(nil)) {
 		t.Fatal("non-numbers must be NaN")
 	}
 

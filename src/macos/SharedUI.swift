@@ -77,13 +77,24 @@ struct DesignQuotaView: View {
   let window: DesignUsageWindow
   var isCompact: Bool = false
   var showsLabel: Bool = true
+  /// Antigravity-style limit row: title, "fully refresh in …" caption, % + ring.
+  var showsLimitCard: Bool = false
 
   private var remainingPercent: Int { max(0, min(100, window.remainingPercent)) }
+  private var label: String { quotaWindowLabel(window) }
 
   var body: some View {
+    if showsLimitCard {
+      limitCard
+    } else {
+      compactRow
+    }
+  }
+
+  private var compactRow: some View {
     HStack(spacing: 8) {
       if showsLabel {
-        Text(quotaWindowLabel(window))
+        Text(label)
           .foregroundStyle(.secondary)
           .lineLimit(1)
       }
@@ -109,7 +120,47 @@ struct DesignQuotaView: View {
       .frame(width: 72, alignment: .trailing)
     }
     .accessibilityElement(children: .combine)
-    .accessibilityLabel("\(quotaWindowLabel(window)): \(remainingPercent)% remaining")
+    .accessibilityLabel("\(label): \(remainingPercent)% remaining")
+  }
+
+  private var limitCard: some View {
+    HStack(alignment: .center, spacing: 12) {
+      VStack(alignment: .leading, spacing: 4) {
+        Text(label)
+          .font(.body.weight(.medium))
+          .fixedSize(horizontal: false, vertical: true)
+        if let refresh = quotaFullyRefreshFormatted(resetsAtMs: window.resetsAtMs) {
+          Text(limitCaption(refresh: refresh))
+            .font(.subheadline)
+            .foregroundStyle(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
+        }
+      }
+      Spacer(minLength: 8)
+      Text("\(remainingPercent)%")
+        .font(.title3.monospacedDigit())
+        .foregroundStyle(.primary)
+      Gauge(value: Double(remainingPercent), in: 0...100) {
+        EmptyView()
+      }
+      .gaugeStyle(.accessoryCircularCapacity)
+      .tint(attentionTint ?? Color.accentColor)
+      .frame(width: 36, height: 36)
+      .accessibilityHidden(true)
+    }
+    .accessibilityElement(children: .combine)
+    .accessibilityLabel("\(label): \(remainingPercent)% remaining")
+  }
+
+  private func limitCaption(refresh: String) -> String {
+    let period = quotaLimitAdjective(limitWindowSeconds: window.limitWindowSeconds)
+    if let period {
+      if remainingPercent >= 100 {
+        return "Your \(period) limit is unused; it will \(refresh)."
+      }
+      return "You have used some of your \(period) limit, it will \(refresh)."
+    }
+    return "It will \(refresh)."
   }
 
   private var attentionTint: Color? {

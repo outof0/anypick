@@ -1,6 +1,11 @@
 import Foundation
 
 enum DesignFixture {
+  /// Stable future reset for Antigravity fixture rows (days/hours from now).
+  static func antigravityResetMs(days: Int, hours: Int) -> Double {
+    (Date().timeIntervalSince1970 + Double(days * 86_400 + hours * 3_600)) * 1000
+  }
+
   static func populated() -> (
     apps: [DesignApp],
     accounts: [DesignAccount],
@@ -158,7 +163,25 @@ enum DesignFixture {
         ],
         fastModel: "gemini-2.5-flash",
         reasoningModel: "Direct account",
-        useCompatibleFallback: false
+        useCompatibleFallback: false,
+        // Antigravity retrieveUserQuotaSummary shape: groups × weekly/5h.
+        usageWindows: [
+          DesignUsageWindow(
+            label: "Weekly Limit Remaining", remainingPercent: 95,
+            resetsAtMs: DesignFixture.antigravityResetMs(days: 3, hours: 19),
+            limitWindowSeconds: 604800, group: "Gemini Models"),
+          DesignUsageWindow(
+            label: "Five Hour Limit Remaining", remainingPercent: 100,
+            limitWindowSeconds: 18000, group: "Gemini Models"),
+          DesignUsageWindow(
+            label: "Weekly Limit Remaining", remainingPercent: 48,
+            resetsAtMs: DesignFixture.antigravityResetMs(days: 4, hours: 1),
+            limitWindowSeconds: 604800, group: "Claude and GPT models"),
+          DesignUsageWindow(
+            label: "Five Hour Limit Remaining", remainingPercent: 100,
+            limitWindowSeconds: 18000, group: "Claude and GPT models"),
+        ],
+        usageRemaining: "95% remaining"
       ),
       DesignApp(
         id: "kiro",

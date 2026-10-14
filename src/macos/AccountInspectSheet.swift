@@ -11,6 +11,7 @@ struct AccountInspectSheet: View {
     guard let account else { return [] }
     return model.usageWindows(for: account)
   }
+  private var usageGroups: [DesignUsageGroup] { groupUsageWindows(usageWindows) }
 
   var body: some View {
     DesignSheetHost(
@@ -58,19 +59,29 @@ struct AccountInspectSheet: View {
           }
 
           if !usageWindows.isEmpty {
-            Section {
-              ForEach(usageWindows) { window in
-                LabeledContent(quotaWindowLabel(window)) {
-                  DesignQuotaView(window: window, isCompact: false, showsLabel: false)
+            ForEach(usageGroups) { group in
+              Section {
+                ForEach(group.windows) { window in
+                  Group {
+                    if group.title != nil {
+                      DesignQuotaView(window: window, showsLimitCard: true)
+                    } else {
+                      LabeledContent(quotaWindowLabel(window)) {
+                        DesignQuotaView(window: window, isCompact: false, showsLabel: false)
+                      }
+                    }
+                  }
+                  .accessibilityIdentifier("account.usage.\(window.id)")
                 }
-                .accessibilityIdentifier("account.usage.\(window.id)")
+              } header: {
+                Text(group.title ?? "Remaining Quotas")
+              } footer: {
+                if group.id == usageGroups.last?.id {
+                  Text(
+                    "Reported by \(account.provider) for the account currently active on this Mac."
+                  )
+                }
               }
-            } header: {
-              Text("Remaining Quotas")
-            } footer: {
-              Text(
-                "Reported by \(account.provider) for the account currently active on this Mac."
-              )
             }
           }
         }

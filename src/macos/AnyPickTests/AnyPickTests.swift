@@ -1453,6 +1453,40 @@ final class AnyPickTests: XCTestCase {
     XCTAssertEqual(quotaResetFormatted(resetsAtMs: nil, limitWindowSeconds: 18000), "every 5 hours")
   }
 
+  func testQuotaFullyRefreshAndGroupUsageWindows() {
+    let baseNow = Date(timeIntervalSince1970: 1_700_000_000)
+    let resetMs = (baseNow.timeIntervalSince1970 + Double(3 * 86_400 + 19 * 3_600)) * 1000
+    XCTAssertEqual(
+      quotaFullyRefreshFormatted(resetsAtMs: resetMs, now: baseNow),
+      "fully refresh in 3 days, 19 hours")
+    XCTAssertEqual(quotaLimitAdjective(limitWindowSeconds: 604800), "weekly")
+    XCTAssertEqual(quotaLimitAdjective(limitWindowSeconds: 18000), "five hour")
+
+    let weekly = DesignUsageWindow(
+      label: "Weekly Limit Remaining", remainingPercent: 95,
+      limitWindowSeconds: 604800, group: "Gemini Models")
+    XCTAssertEqual(quotaWindowLabel(weekly), "Weekly Limit Remaining")
+
+    let windows = [
+      DesignUsageWindow(
+        label: "Weekly Limit Remaining", remainingPercent: 95,
+        limitWindowSeconds: 604800, group: "Gemini Models"),
+      DesignUsageWindow(
+        label: "Five Hour Limit Remaining", remainingPercent: 100,
+        limitWindowSeconds: 18000, group: "Gemini Models"),
+      DesignUsageWindow(
+        label: "Weekly Limit Remaining", remainingPercent: 48,
+        limitWindowSeconds: 604800, group: "Claude and GPT models"),
+      DesignUsageWindow(label: "Session", remainingPercent: 72),
+    ]
+    let groups = groupUsageWindows(windows)
+    XCTAssertEqual(groups.map(\.title), ["Gemini Models", "Claude and GPT models", nil])
+    XCTAssertEqual(groups[0].windows.map(\.remainingPercent), [95, 100])
+    XCTAssertEqual(groups[1].windows.map(\.remainingPercent), [48])
+    XCTAssertEqual(groups[2].windows.map(\.label), ["Session"])
+  }
+
+
   // The account row's provider is a display name ("OpenAI"), while quota is
   // keyed by engine provider ("codex"). Matching on the display name dropped
   // every Codex account's remaining quota.

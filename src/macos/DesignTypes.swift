@@ -405,8 +405,10 @@ struct DesignUsageWindow: Identifiable, Hashable {
   var remainingPercent: Int
   var resetsAtMs: Double? = nil
   var limitWindowSeconds: Int? = nil
+  /// Vendor section title from retrieveUserQuotaSummary (e.g. "Gemini Models").
+  var group: String? = nil
 
-  var id: String { "\(label):\(resetsAtMs ?? -1)" }
+  var id: String { "\(group ?? ""):\(label):\(resetsAtMs ?? -1)" }
 }
 
 enum DesignAccountKind: String, CaseIterable {

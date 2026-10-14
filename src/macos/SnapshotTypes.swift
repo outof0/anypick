@@ -295,6 +295,8 @@ struct UsageWindow: Decodable {
   /// Vendor window cadence in seconds (e.g. 18000 for a 5-hour Codex
   /// window). Answers "which limit" from data, never inferred.
   let limitWindowSeconds: Int?
+  /// Optional vendor section title (Antigravity quota summary group).
+  let group: String?
 }
 
 struct UsageSnapshot: Decodable, Identifiable {

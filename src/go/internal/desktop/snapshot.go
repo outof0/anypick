@@ -1194,6 +1194,9 @@ func (s *Server) buildUsage(ctx context.Context) []UsageSnapshotRow {
 			if w.LimitWindowSeconds != nil {
 				entry["limitWindowSeconds"] = *w.LimitWindowSeconds
 			}
+			if g := strings.TrimSpace(w.Group); g != "" {
+				entry["group"] = g
+			}
 			windows = append(windows, entry)
 		}
 		rows = append(rows, UsageSnapshotRow{

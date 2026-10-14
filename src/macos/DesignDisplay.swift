@@ -278,8 +278,24 @@ func usageWindowPeriod(limitWindowSeconds: Int?) -> String? {
   return "\(days) days"
 }
 
+/// Adjective for Antigravity limit captions: 604800 → "weekly", 18000 → "five hour".
+func quotaLimitAdjective(limitWindowSeconds: Int?) -> String? {
+  guard let seconds = limitWindowSeconds, seconds > 0 else { return nil }
+  if seconds == 18000 { return "five hour" }
+  if seconds == 604800 { return "weekly" }
+  if seconds == 86400 { return "daily" }
+  if seconds == 3600 { return "hourly" }
+  return usageWindowPeriod(limitWindowSeconds: seconds)
+}
+
 /// Compact badge for a quota window: e.g. "5h", "Weekly", "Monthly", "Session".
+/// Antigravity summary titles ("Weekly Limit Remaining") stay verbatim so the
+/// detail rows match the vendor UI; Codex Primary/Secondary still collapse.
 func quotaWindowLabel(_ window: DesignUsageWindow) -> String {
+  let clean = window.label.trimmingCharacters(in: .whitespacesAndNewlines)
+  if clean.localizedCaseInsensitiveContains("limit remaining") {
+    return clean.isEmpty ? "Quota" : clean
+  }
   if let seconds = window.limitWindowSeconds, seconds > 0 {
     if seconds == 18000 { return "5h" }
     if seconds == 3600 { return "1h" }
@@ -291,7 +307,6 @@ func quotaWindowLabel(_ window: DesignUsageWindow) -> String {
     let days = seconds / 86400
     if days > 0 && days < 7 { return "\(days)d" }
   }
-  let clean = window.label.trimmingCharacters(in: .whitespacesAndNewlines)
   if clean.localizedCaseInsensitiveCompare("primary") == .orderedSame {
     return "5h"
   }
@@ -331,6 +346,65 @@ func quotaResetFormatted(
   let sameYear = calendar.component(.year, from: targetDate) == calendar.component(.year, from: now)
   formatter.dateFormat = sameYear ? "MMM d" : "MMM d, yyyy"
   return formatter.string(from: targetDate)
+}
+
+/// Antigravity-style reset copy: "fully refresh in 3 days, 19 hours".
+/// Nil when there is no future reset instant.
+func quotaFullyRefreshFormatted(resetsAtMs: Double?, now: Date = Date()) -> String? {
+  guard let ms = resetsAtMs, ms > 0 else { return nil }
+  let target = Date(timeIntervalSince1970: ms / 1000)
+  let diff = target.timeIntervalSince(now)
+  if diff <= 0 { return "fully refresh soon" }
+  let totalHours = Int(diff / 3600)
+  let days = totalHours / 24
+  let hours = totalHours % 24
+  if days > 0 && hours > 0 {
+    let dayUnit = days == 1 ? "day" : "days"
+    let hourUnit = hours == 1 ? "hour" : "hours"
+    return "fully refresh in \(days) \(dayUnit), \(hours) \(hourUnit)"
+  }
+  if days > 0 {
+    let dayUnit = days == 1 ? "day" : "days"
+    return "fully refresh in \(days) \(dayUnit)"
+  }
+  if hours > 0 {
+    let hourUnit = hours == 1 ? "hour" : "hours"
+    return "fully refresh in \(hours) \(hourUnit)"
+  }
+  let mins = max(1, Int((diff / 60).rounded()))
+  let minUnit = mins == 1 ? "minute" : "minutes"
+  return "fully refresh in \(mins) \(minUnit)"
+}
+
+/// One vendor quota section (Antigravity group) or a flat ungrouped list.
+struct DesignUsageGroup: Identifiable, Hashable {
+  var id: String { title ?? "_ungrouped" }
+  let title: String?
+  let windows: [DesignUsageWindow]
+}
+
+/// Group usage windows by optional `group`, preserving first-seen order.
+func groupUsageWindows(_ windows: [DesignUsageWindow]) -> [DesignUsageGroup] {
+  var order: [String] = []
+  var buckets: [String: [DesignUsageWindow]] = [:]
+  var ungrouped: [DesignUsageWindow] = []
+  for window in windows {
+    let key = window.group?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    if key.isEmpty {
+      ungrouped.append(window)
+      continue
+    }
+    if buckets[key] == nil {
+      order.append(key)
+      buckets[key] = []
+    }
+    buckets[key]?.append(window)
+  }
+  var groups = order.map { DesignUsageGroup(title: $0, windows: buckets[$0] ?? []) }
+  if !ungrouped.isEmpty {
+    groups.append(DesignUsageGroup(title: nil, windows: ungrouped))
+  }
+  return groups
 }
 
 /// Lines surviving a log Clear. The clear hides by count, which a file

@@ -97,7 +97,8 @@ extension ProductionDesignModel {
           label: $0.label,
           remainingPercent: $0.remainingPercent,
           resetsAtMs: $0.resetsAtMs,
-          limitWindowSeconds: $0.limitWindowSeconds
+          limitWindowSeconds: $0.limitWindowSeconds,
+          group: $0.group
         )
       } ?? []
     return DesignApp(

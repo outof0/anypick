@@ -13,6 +13,7 @@ struct AccountDetailView: View {
     guard let account else { return [] }
     return model.usageWindows(for: account)
   }
+  private var usageGroups: [DesignUsageGroup] { groupUsageWindows(usageWindows) }
 
   var body: some View {
     DesignGroupedPane(
@@ -78,8 +79,8 @@ struct AccountDetailView: View {
         }
 
         if model.showUsage {
-          Section {
-            if usageWindows.isEmpty {
+          if usageWindows.isEmpty {
+            Section {
               VStack(alignment: .leading, spacing: 8) {
                 Text(
                   model.isCurrentAccount(account)
@@ -99,19 +100,33 @@ struct AccountDetailView: View {
                   .disabled(model.isBusy)
                 }
               }
-            } else {
-              ForEach(usageWindows) { window in
-                usageRow(window)
+            } header: {
+              Text("Remaining Quota")
+            } footer: {
+              Text(
+                model.isCurrentAccount(account)
+                  ? "Reported by \(account.provider) for the account currently active on this Mac."
+                  : "Usage is available for the account currently active on this Mac."
+              )
+            }
+          } else {
+            ForEach(usageGroups) { group in
+              Section {
+                ForEach(group.windows) { window in
+                  usageRow(window, grouped: group.title != nil)
+                }
+              } header: {
+                Text(group.title ?? "Remaining Quota")
+              } footer: {
+                if group.id == usageGroups.last?.id {
+                  Text(
+                    model.isCurrentAccount(account)
+                      ? "Reported by \(account.provider) for the account currently active on this Mac."
+                      : "Usage is available for the account currently active on this Mac."
+                  )
+                }
               }
             }
-          } header: {
-            Text("Remaining Quota")
-          } footer: {
-            Text(
-              model.isCurrentAccount(account)
-                ? "Reported by \(account.provider) for the account currently active on this Mac."
-                : "Usage is available for the account currently active on this Mac."
-            )
           }
         }
       }
@@ -188,9 +203,15 @@ struct AccountDetailView: View {
     )
   }
 
-  private func usageRow(_ window: DesignUsageWindow) -> some View {
-    LabeledContent(quotaWindowLabel(window)) {
-      DesignQuotaView(window: window, isCompact: false, showsLabel: false)
+  private func usageRow(_ window: DesignUsageWindow, grouped: Bool) -> some View {
+    Group {
+      if grouped {
+        DesignQuotaView(window: window, showsLimitCard: true)
+      } else {
+        LabeledContent(quotaWindowLabel(window)) {
+          DesignQuotaView(window: window, isCompact: false, showsLabel: false)
+        }
+      }
     }
     .accessibilityIdentifier("accounts.inspector.usage.\(window.id)")
   }

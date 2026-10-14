@@ -241,12 +241,14 @@ struct AppDetailView: View {
         }
 
         if model.showUsage, !app.usageWindows.isEmpty {
-          Section {
-            ForEach(app.usageWindows) { window in
-              usageRow(window)
+          ForEach(groupUsageWindows(app.usageWindows)) { group in
+            Section {
+              ForEach(group.windows) { window in
+                usageRow(window, grouped: group.title != nil)
+              }
+            } header: {
+              Text(group.title ?? "Usage")
             }
-          } header: {
-            Text("Usage")
           }
         } else if model.showUsage, isAppRouteConfigured(app) {
           Section {
@@ -443,9 +445,15 @@ struct AppDetailView: View {
     )
   }
 
-  private func usageRow(_ window: DesignUsageWindow) -> some View {
-    LabeledContent(quotaWindowLabel(window)) {
-      DesignQuotaView(window: window, isCompact: false, showsLabel: false)
+  private func usageRow(_ window: DesignUsageWindow, grouped: Bool) -> some View {
+    Group {
+      if grouped {
+        DesignQuotaView(window: window, showsLimitCard: true)
+      } else {
+        LabeledContent(quotaWindowLabel(window)) {
+          DesignQuotaView(window: window, isCompact: false, showsLabel: false)
+        }
+      }
     }
     .accessibilityIdentifier("app.usage.\(window.id)")
   }

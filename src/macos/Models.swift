@@ -443,6 +443,10 @@ class MacOSDesignModel: ObservableObject {
       ]
     }
     model.applyTrayScene(from: environment)
+    if let accountID = environment["ANYPICK_MACOS_ACCOUNT"], !accountID.isEmpty {
+      model.destination = .accounts
+      model.pendingAccountDetailID = accountID
+    }
     return model
   }
 
