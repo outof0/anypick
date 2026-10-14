@@ -2,6 +2,7 @@ package update
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -27,6 +28,18 @@ func TestSwiftUpdateFixturesMatchGo(t *testing.T) {
 		}
 		r.Check(context.Background(), "1.1.0", ChannelDirect)
 		line := strings.TrimSuffix(b.String(), "\n")
+		// The fixture models macOS output, so compare its Darwin path form even
+		// when this test runs on Windows, where filepath.Join uses backslashes.
+		var status StatusDTO
+		if err := json.Unmarshal([]byte(line), &status); err != nil {
+			t.Fatalf("decode Go fixture %q: %v", name, err)
+		}
+		status.FilePath = filepath.ToSlash(status.FilePath)
+		b.Reset()
+		if err := WriteStatusLine(&b, status); err != nil {
+			t.Fatalf("encode normalized Go fixture %q: %v", name, err)
+		}
+		line = strings.TrimSuffix(b.String(), "\n")
 		if !strings.Contains(swift, `"`+name+`": ###"`+line+`"###`) {
 			t.Errorf("UpdatesPane.swift fixture %q drifted from Go; regenerate it.\nwant: %s", name, line)
 		}
