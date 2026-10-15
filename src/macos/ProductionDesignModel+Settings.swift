@@ -33,7 +33,8 @@ extension ProductionDesignModel {
         detail: activityDetail($0.kind, isError: $0.isError),
         symbol: activitySymbol($0.kind),
         status: $0.isError ? .attention : .ready,
-        provider: $0.provider
+        provider: $0.provider,
+        kind: $0.kind
       )
     }
   }
@@ -74,8 +75,7 @@ extension ProductionDesignModel {
     // Every assignment below goes through setLogState so an unchanged
     // state/message pair stays quiet instead of rebuilding the pane.
     guard let source = selectedLogSource else {
-      setLogState(
-        .unavailable, message: "Choose another log source or return to Activity.")
+      setLogState(.unavailable, message: localized("desktop.activity.choose_log_source"))
       return
     }
     // Background polls set loadingLogSourceId on every 1.75s tick. Flipping
@@ -85,7 +85,10 @@ extension ProductionDesignModel {
     if store.loadingLogSourceId == source.id,
       store.logsBySource[source.id]?.isEmpty != false
     {
-      setLogState(.loading, message: "Loading \(source.label) logs…")
+      setLogState(
+        .loading,
+        message: localized("desktop.activity.loading_logs_for_source", replacing: ["source": source.label])
+      )
       return
     }
     let serviceRunning: Bool
@@ -95,25 +98,23 @@ extension ProductionDesignModel {
       serviceRunning = proxy.running
     } else {
       // An orphaned source is unavailable rather than an empty log.
-      setLogState(
-        .unavailable, message: "This service is no longer available. Choose another log source."
-      )
+      setLogState(.unavailable, message: localized("desktop.activity.log_unavailable_detail"))
       return
     }
     if !serviceRunning {
-      let startTarget = store.proxyHub?.id == source.id ? "Proxy Hub" : "the proxy"
+      let startTarget = store.proxyHub?.id == source.id
+        ? localized("desktop.nav.proxy_hub") : localized("desktop.activity.kind_proxy")
       setLogState(
         .stopped,
-        message: "Prior logs may remain visible. Start \(startTarget) to view new entries.")
+        message: localized("desktop.activity.stopped_log_detail", replacing: ["service": startTarget])
+      )
       return
     }
     switch store.logStatesBySource[source.id] {
     case "error":
-      setLogState(
-        .error, message: "Showing the most recent logs that loaded successfully. Try again.")
+      setLogState(.error, message: localized("desktop.activity.showing_loaded_logs"))
     case "empty":
-      setLogState(
-        .empty, message: "The service is running but has not written any log entries.")
+      setLogState(.empty, message: localized("desktop.activity.service_no_logs"))
     case "ready":
       setLogState(.ready, message: nil)
     default:
@@ -135,12 +136,18 @@ extension ProductionDesignModel {
 
   private func activityDetail(_ kind: String, isError: Bool) -> String {
     switch kind {
-    case "account": return isError ? "The saved login was not changed." : "Saved login updated."
-    case "gateway": return isError ? "The saved gateway was not changed." : "Gateway updated."
-    case "proxy": return isError ? "The service needs attention." : "Local service updated."
-    case "quota": return isError ? "Usage could not be refreshed." : "Usage refreshed."
-    case "settings": return isError ? "The setting was not changed." : "Setting updated."
-    default: return isError ? "The previous app configuration was kept." : "App routing updated."
+    case "account":
+      return localized(isError ? "desktop.activity.detail_account_not_changed" : "desktop.activity.detail_account_updated")
+    case "gateway":
+      return localized(isError ? "desktop.activity.detail_gateway_not_changed" : "desktop.activity.detail_gateway_updated")
+    case "proxy":
+      return localized(isError ? "desktop.activity.detail_proxy_attention" : "desktop.activity.detail_proxy_updated")
+    case "quota":
+      return localized(isError ? "desktop.activity.detail_usage_failed" : "desktop.activity.detail_usage_refreshed")
+    case "settings":
+      return localized(isError ? "desktop.activity.detail_setting_not_changed" : "desktop.activity.detail_setting_updated")
+    default:
+      return localized(isError ? "desktop.activity.detail_routing_kept" : "desktop.activity.detail_routing_updated")
     }
   }
 

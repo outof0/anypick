@@ -2,6 +2,7 @@ import { useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 
 import { Symbol } from '../shell/Symbol';
+import { translate } from '../lib/i18n';
 import { buttonTooltipText, IconButton } from './primitives';
 import { POPOVER_PANEL_CLASS } from './popover';
 import { usePopover } from './usePopover';
@@ -18,6 +19,8 @@ export function RowMenu({
   children,
   align = 'end',
   clipboard,
+  language = 'auto',
+  resolvedLanguage = 'en',
   testId,
 }: {
   /** The accessible name. A menu with no name is a button that says "…". */
@@ -26,15 +29,18 @@ export function RowMenu({
   align?: 'start' | 'end';
   /** Enables menu copy commands and their shared live announcement. */
   clipboard?: (value: string) => Promise<boolean>;
+  language?: string;
+  resolvedLanguage?: string;
   testId?: string;
 }) {
   const pop = usePopover(align);
   const [announcement, setAnnouncement] = useState('');
+  const t = (key: string) => translate(`desktop.common.${key}`, language, resolvedLanguage);
   const copy = (value: string, description: string) => {
     pop.close();
     void Promise.resolve(clipboard?.(value) ?? false).then(
-      (ok) => setAnnouncement(ok ? `Copied ${description}.` : `Couldn’t copy ${description}.`),
-      () => setAnnouncement(`Couldn’t copy ${description}.`),
+      (ok) => setAnnouncement(t(ok ? 'copy_succeeded_for' : 'copy_failed_for').replace('{description}', description)),
+      () => setAnnouncement(t('copy_failed_for').replace('{description}', description)),
     );
   };
 
@@ -43,6 +49,8 @@ export function RowMenu({
       <IconButton
         buttonRef={pop.trigger}
         label={label}
+        language={language}
+        resolvedLanguage={resolvedLanguage}
         ariaHasPopup="menu"
         ariaExpanded={pop.open}
         ariaControls={pop.open ? pop.panelId : undefined}

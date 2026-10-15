@@ -15,6 +15,7 @@ struct TraySearchResult: Identifiable {
 }
 
 struct MenuBarSearchResults: View {
+  @ObservedObject var model: MacOSDesignModel
   let query: String
   let results: [TraySearchResult]
   let activate: (TraySearchResult) -> Void
@@ -22,13 +23,13 @@ struct MenuBarSearchResults: View {
   var body: some View {
     if results.isEmpty {
       ContentUnavailableView(
-        "No Results",
+        model.localized("desktop.menu_bar.no_results"),
         systemImage: "magnifyingglass",
-        description: Text("No app, account, or route matches “\(query)”.")
+        description: Text(model.localized("desktop.menu_bar.no_results_detail", replacing: ["query": query]))
       )
       .frame(maxWidth: .infinity, minHeight: 150)
     } else {
-      traySectionTitle("Search Results")
+      traySectionTitle(model.localized("desktop.menu_bar.search_results"))
       ScrollView {
         LazyVStack(spacing: 0) {
           ForEach(Array(results.enumerated()), id: \.element.id) { index, result in

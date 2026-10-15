@@ -3,6 +3,8 @@ package desktop
 import (
 	"strings"
 	"testing"
+
+	"github.com/outof0/anypick/go/internal/anyerr"
 )
 
 func TestDisplaySafeIdentityKeepsHumanIdentifiers(t *testing.T) {
@@ -34,5 +36,25 @@ func TestDisplaySafeMessageDoesNotExposeOpaqueCredential(t *testing.T) {
 	got := displaySafeMessage(raw)
 	if got == raw || strings.Contains(got, opaque) {
 		t.Fatal("opaque credential crossed the display-message boundary")
+	}
+}
+
+func TestForeignConfigIssueKeepsUsefulWarningForWindowsPaths(t *testing.T) {
+	server := New(Deps{}, strings.NewReader(""), &strings.Builder{})
+	err := anyerr.Newf(
+		`CLIENT_CONFIG_FOREIGN: claude config contains settings not managed by AnyPick (C:\Users\RUNNER~1\AppData\Local\Temp\TestStartupRefusesToOverwriteAUserOwnedConfig1234567890\.claude\settings.json, env.ANTHROPIC_API_KEY). Nothing was changed; confirm the takeover to replace them.`,
+		"CLIENT_CONFIG_FOREIGN",
+	)
+	server.recordClientConfigIssue("claude", err)
+	conditions := server.clientConfigConditions()
+	if len(conditions) != 1 {
+		t.Fatalf("conditions = %+v, want one safe warning", conditions)
+	}
+	detail := conditions[0].Detail
+	if strings.Contains(detail, unsafeDisplayFallback) || !strings.Contains(detail, "AnyPick did not change it") {
+		t.Fatalf("Windows path hid the useful foreign-config warning: %q", detail)
+	}
+	if strings.Contains(detail, "RUNNER") {
+		t.Fatalf("desktop warning exposed the local path: %q", detail)
 	}
 }

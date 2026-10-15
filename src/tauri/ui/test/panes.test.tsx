@@ -138,12 +138,12 @@ describe('Overview pane', () => {
   });
 
   it('renders all four Get Started steps macOS shows', () => {
-    // macOS renders four steps (`OverviewView.swift:112-157`): Save a Login,
+    // macOS renders four steps (`OverviewView.swift:112-157`): Add a Login,
     // Use an App, Point an App, Set Up Proxy Hub. The pane emitted three, and
     // the parity map hid the missing one by pointing both `use-app` and
     // `choose-route` at `onboarding-choose-route`.
     mount(({ snapshot }) => <OverviewPane snapshot={snapshot} />);
-    expect(screen.getByTestId('onboarding-save-login')).toHaveTextContent('Save a Login');
+    expect(screen.getByTestId('onboarding-save-login')).toHaveTextContent('Add a Login');
     expect(screen.getByTestId('onboarding-use-app')).toHaveTextContent('Use an App');
     expect(screen.getByTestId('onboarding-choose-route')).toHaveTextContent('Point an App');
     expect(screen.getByTestId('onboarding-hub')).toHaveTextContent('Set Up Proxy Hub (Optional)');
@@ -328,6 +328,28 @@ describe('Apps pane', () => {
     const { user: user2 } = mount(({ service }) => <AppsPane service={service} snapshot={hidden} />, hidden);
     await user2.click(screen.getByTestId('apps-row-claude'));
     expect(screen.queryByTestId('apps-quota-claude-0')).not.toBeInTheDocument();
+  });
+
+  it('keeps vendor quota group headings in the app detail pane', async () => {
+    const snapshot = snapshotFixture({
+      usage: [
+        {
+          client: 'Claude',
+          account: 'Work',
+          windows: [
+            { label: 'Weekly', remainingPercent: 64, limitWindowSeconds: 604800, group: 'Gemini Models' },
+            { label: '5h', remainingPercent: 91, limitWindowSeconds: 18000, group: 'Gemini Models' },
+            { label: 'Weekly', remainingPercent: 37, limitWindowSeconds: 604800, group: 'Claude and GPT models' },
+          ],
+        },
+      ],
+    });
+    const { user } = mount(({ service, snapshot: s }) => <AppsPane service={service} snapshot={s} />, snapshot);
+    await user.click(screen.getByTestId('apps-row-claude'));
+    expect(screen.getByRole('heading', { name: 'Gemini Models' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Claude and GPT models' })).toBeInTheDocument();
+    expect(screen.getByTestId('apps-quota-claude-0')).toHaveTextContent('64% remaining');
+    expect(screen.getByTestId('apps-quota-claude-2')).toHaveTextContent('37% remaining');
   });
 
   it('shows why a model cannot be chosen rather than an empty picker', async () => {
@@ -553,7 +575,7 @@ describe('Proxies pane', () => {
     });
     mount(({ service, snapshot: s }) => <ProxiesPane service={service} snapshot={s} />, snapshot);
     expect(screen.getByRole('button', { name: 'Stop All…' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Restart Running' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Restart Running Proxies' })).toBeDisabled();
     expect(screen.getByRole('button', { name: /^Start All Proxies$/ })).toBeEnabled();
   });
 

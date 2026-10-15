@@ -48,6 +48,6 @@ extension MacOSDesignModel {
   }
 
   func routeName(_ routeID: String, for app: DesignApp) -> String {
-    app.routeOptions.first(where: { $0.id == routeID })?.name ?? friendlyRouteKindLabel(.native)
+    app.routeOptions.first(where: { $0.id == routeID })?.name ?? friendlyRouteKindLabel(.native, using: self)
   }
 }

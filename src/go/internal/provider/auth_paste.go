@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/outof0/anypick/go/internal/anyerr"
+	"github.com/outof0/anypick/go/internal/safepath"
 )
 
 // WriteTo writes this paste's files into a directory PrepareSnapshot already
@@ -22,7 +23,7 @@ func (p PastedSnapshot) WriteTo(destDir string) error {
 	}
 	for name, body := range p.files {
 		if !singlePasteFile(name) {
-			return authJSONNotValid()
+			return authPasteFileNameRefused()
 		}
 		if err := os.WriteFile(filepath.Join(destDir, name), body, 0o600); err != nil {
 			return err
@@ -32,13 +33,12 @@ func (p PastedSnapshot) WriteTo(destDir string) error {
 }
 
 func singlePasteFile(name string) bool {
-	if name == "" || name == "." || name == ".." {
-		return false
-	}
-	if filepath.IsAbs(name) || strings.Contains(name, "..") || strings.ContainsAny(name, `/\`) {
-		return false
-	}
-	return true
+	return safepath.ValidateName(name) == nil
+}
+
+// authPasteFileNameRefused never echoes the pasted name or value.
+func authPasteFileNameRefused() error {
+	return anyerr.Newf("This login data includes a file name AnyPick can't use, so nothing was saved. Copy it again from the provider.", "AUTH_DOCUMENT_INVALID")
 }
 
 func (p *codex) PlanAuthPaste(raw []byte) ([]PastedSnapshot, error) {

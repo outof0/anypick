@@ -1,0 +1,283 @@
+---
+title: CLI 参考
+description: AnyPick 命令、全局标志、退出码和环境变量一览。
+---
+
+命令名为 `anypick`。从 GitHub Release 下载带校验和的压缩包，或运行 `npm install --global anypick` 安装轻量启动器（需要 Node 18+；首次运行会下载匹配的原生 CLI）。开发时可在源码仓库运行同一组命令，例如 `make run ARGS="list accounts"`。
+
+macOS 原生应用由应用自身启动内置 Go 服务，不需要由 CLI 启动或管理。
+
+## 全局标志
+
+所有命令都支持以下标志：
+
+| 标志 | 作用 |
+| --- | --- |
+| `-V, --version` | 打印版本后退出 |
+| `--json` | 输出机器可读数据；JSON 字段和值保持稳定，不随语言切换 |
+| `-v, --verbose` | 显示详细日志 |
+| `-q, --quiet` | 减少输出 |
+| `--dry-run` | 打印计划，不写入数据 |
+| `--reveal` | 显示密钥，存在风险 |
+| `--no-input` | 即使有 TTY 也不提示输入 |
+| `-y, --yes` | 跳过有破坏性的确认 |
+| `--trace` | 打印内部步骤名称，不打印密钥 |
+| `--tui` | 本次运行打开终端界面 |
+| `--tray` | 本次源码 CLI 运行选择兼容托盘界面 |
+
+设置 `ANYPICK_LANG=zh-CN` 可强制使用简体中文；其他语言会回退到英语。未设置时读取进程区域设置（`LC_ALL`、`LC_MESSAGES` 或 `LANG`；Windows 使用首选界面语言）。
+
+## 绑定
+
+```bash
+anypick use <client> --with <source> [--model <id>] [--transport auto|direct|proxy] [--allow-foreign-config]
+anypick use codex --with <source> --profile <name> [--model <id>] [--transport auto|direct|proxy] [--allow-foreign-config]
+anypick run <client> (--with <source>|--profile <name>) [--model <id>] -- <args…>
+anypick codex profile login <name> [--auth-method <id>] [--source <id>]
+anypick codex profile list
+anypick codex profile show <name>
+anypick codex profile remove <name> [--yes]
+anypick current <provider>
+anypick models <client> [--with <source>]
+anypick link <client> [--with <source>] [--model <id>] [--allow-foreign-config]
+anypick unlink [client]
+anypick reset [client]
+```
+
+| 命令 | 作用 |
+| --- | --- |
+| `use` | 设置客户端默认来源，必须提供 `--with` |
+| `run` | 使用当前生效绑定启动客户端 |
+| `current` | 查看客户端当前实际采用的绑定 |
+| `models` | 列出绑定来源提供的模型 ID |
+| `link` / `unlink` | 为当前目录设置 / 删除项目绑定；不带 `--with` 的 `link` 会重新应用已存全局配置 |
+| `reset` | 删除客户端由 AnyPick 管理的配置 |
+
+`--with` 可接受账户（`grok/work`）、网关名称、账号池（`pool:gemini`）、Proxy Hub（`hub:default`）或预设（`@work-stack`）。`--transport` 可固定路由策略，不让规划器自行选择。
+
+### 不归 AnyPick 管理的客户端配置
+
+AnyPick 会修改其他工具的配置文件。如果无法确认某个值由 AnyPick 写入，就会拒绝覆盖。例如 `~/.claude/settings.json` 或 Codex 配置指向你自己的登录或端点时，`use` 会报 `CLIENT_CONFIG_FOREIGN`，指出文件和相关键，文件内容保持不变。
+
+显式传入 `--allow-foreign-config` 表示同意：AnyPick 会先把当前文件备份到 `$ANYPICK_HOME/recovery/clients/<client>/`，再替换相应值。此授权只对本次运行生效，不会持久保存。桌面应用会用 **Manage with AnyPick** 按钮询问同一决定。已经由 AnyPick 管理的客户端（例如 loopback 代理端点或带管理标记的配置）会直接更新，不会再次询问。
+
+### Codex 命名配置
+
+`--profile` 为 Codex 使用一个稳定的原生配置名称，AnyPick 在其后保存来源。每个配置有自己的 `CODEX_HOME`、`<name>.config.toml` 和 `auth.json`；代理配置另有仅所有者可读写的环境文件。这适合一个 shell 或脚本需要多条路由的情况。
+
+对已保存的 Codex 账户，`auto` 会使用原生配置目录并复制该账户的 `auth.json`，不会触碰桌面应用当前使用的 `CODEX_HOME`。要在不切换桌面登录的情况下创建账户和配置，请运行：
+
+```bash
+anypick codex profile login work
+anypick use codex --with codex/work --profile work --model gpt-5.6
+anypick use codex --with openrouter-work --profile gateway
+anypick use codex --with hub:default --profile hub-work
+```
+
+`profile login` 使用 `CODEX_HOME=$ANYPICK_HOME/clients/codex/profiles/work/codex-home` 启动官方 Codex 登录；浏览器流程会把新账户写到该目录。随后 AnyPick 将同一文件保存为 `codex/work` 快照并更新桌面活动指针。若要使用账户代理，请先启用代理并固定 `--transport proxy`：
+
+```bash
+anypick proxy enable codex work
+anypick use codex --with codex/work --profile work-proxy --transport proxy
+```
+
+默认 Codex CLI 配置也可不带 `--profile` 使用相同来源。可用 `anypick run codex --profile personal -- exec --help` 在隔离进程中运行配置。要直接启动时，使用 `anypick codex profile show <name>` 打印的 `launch` 命令；它会显式设置配置专用 `CODEX_HOME`。代理配置还会读取仅所有者可访问的环境文件，该文件含本地代理凭据，请勿打印或提交。
+
+Hub 配置有独立路由 token，因此启用其中一条配置不会使默认路由或其他配置失效。这些命令配置 Codex CLI；Codex Desktop 使用独立登录，不会跟随 CLI `CODEX_HOME`。
+
+`anypick codex profile remove <name>` 会删除路由和 AnyPick 生成的配置、模型目录及环境文件，但保留私有 `CODEX_HOME`，以便同名登录复用。删除配置所指账户是另一回事：`anypick account remove codex work` 也会删除所有绑定到该账户的命名配置，包括其凭据目录。指向其他网关、Hub、账号池或账户的配置不受影响。AnyPick 会在下次启动时清除之前删除账户留下的孤立配置；清理前 `anypick doctor` 会报告它们。
+
+<Aside type="caution" title="非交互运行">
+`use <client>` 必须提供 `--with`。没有来源可推断时，命令以退出码 `2` 结束，不会猜测。
+</Aside>
+
+## 服务商和客户端列表
+
+```bash
+anypick list [providers|accounts]   # 默认：providers
+anypick providers
+anypick clients
+```
+
+没有 `ls` 别名，也不支持 `list gateways|clients|presets`；网关、预设和插件分别有自己的命令组。
+
+## 添加来源
+
+```bash
+anypick add account <provider> --name <name> [--current|--new] [--source <id>] [--force]
+anypick add account <provider> --new --name <name> [--auth-method <id>] [--source <id>]
+anypick add account <provider> --name <name> --credential <kind> --secret [--option profile=<id>] [--region <region>]
+anypick add gateway <name> --provider <id> [--endpoint url]
+    [--api-key [key] | --api-key-env <var> | --secret <key>]
+    [--model <id>] [--models <role=id>]
+```
+
+`--current` 保存当前生效的登录快照。`--new` 使用服务商提供的浏览器登录方式，并保存其生成的原生凭据；没有可用启动器时会暂存当前登录并打印手动后续步骤。优先使用官方方法；`--auth-method <id>` 可选择服务商声明的其他方式，包括社区方式。多来源服务商可用 `--source <id>` 指定原生存储位置。
+
+`--credential <kind>`（兼容服务商也可用 `--api-key`）配合 `--secret`、`--api-key` 或不带值的 `--api-key` 提示输入，用来保存 API-key 凭据。`--profile` 或 `--option profile=<id>` 选择端点配置；`--region` 指定 Kiro API-key 云区域。省略 `--secret` 值会启动隐藏输入提示；也可通过 `ANYPICK_SECRET` 传入。
+
+## 账户
+
+```bash
+anypick account list [provider]
+anypick account refresh [provider [name]] [--all]
+anypick account remove <provider> <name> [--yes]
+anypick account export <provider> <name> [--out <file>]   # -o；默认 ~/.anypick/exports/*.json
+anypick account export [provider] --all [--out <file>] [--overwrite]
+anypick account import <provider> <name> <file.json> [--force]   # 或 -i
+anypick account import <file.json> [<file2.json> …] [--force]
+```
+
+`refresh` 会把服务商当前登录更新到已保存账户。不指定服务商时尝试刷新所有账户；指定服务商和可选名称后只刷新对应账户。如果刷新会让一个账户变成另一个账户的同一凭据快照，则会拒绝，以免刷新整个服务商时把多个登录静默合并。没有 `rm` 别名。
+
+账户备份包含可用凭据且未加密。导入会拒绝覆盖已有名称，除非传入 `--force`；同一登录身份不能重复保存到另一名称。CLI、TUI 和桌面应用支持单账户导出和多账户备份。
+
+## 网关和预设
+
+```bash
+anypick gateway add <name> --provider <id> [--endpoint url]
+    [--api-key [key]|--api-key-env <var>|--secret <key>]
+    [--model <id>] [--models <role=id>]
+anypick gateway list
+anypick gateway show <name>
+anypick gateway edit <name> [--endpoint url] [--model id] [-m id] [--api-key key]
+anypick gateway remove <name>
+
+anypick preset list
+anypick preset show <name>
+anypick preset remove <name>
+```
+
+`gateway show` 默认会隐藏 API key；只有使用全局 `--reveal` 才会显示。`edit` 可用 `--api-key` 更新密钥，`-m` 是 `--model` 的简写。预设命令中的名称不带 `@`；只有在 `--with` 中引用时才加此前缀。目前尚无创建预设的命令。
+
+## 代理、账号池和 Proxy Hub
+
+```bash
+anypick proxy enable|disable <provider> <account> [--port N]
+anypick proxy start|stop|status|token <provider> <account>
+anypick proxy config <provider> <account> [--port N]
+anypick proxy restart <provider> <account>
+anypick proxy logs <provider> <account> [--lines N] [--follow]
+
+anypick proxy pool status <provider>
+anypick proxy pool enable <provider> [--strategy failover|round-robin]
+    [--mode single|multi] [--port N] [-p N] [+account|-account ...]
+anypick proxy pool member <provider> <account> <on|off>
+anypick proxy pool start <provider>
+anypick proxy pool stop <provider>
+anypick proxy pool disable <provider>
+
+anypick proxy hub status <name>
+anypick proxy hub enable <name> [--host <host>] [--port N] [-p N]
+    [--strategy failover|round-robin] [--start]
+anypick proxy hub source <name> <provider> <account>
+anypick proxy hub owner <name> <model> <provider>/<account>
+anypick proxy hub preview <name>
+anypick proxy hub start <name>
+anypick proxy hub stop <name>
+```
+
+`--port` 在 `enable`/`config` 中固定端口；否则使用空闲端口。`token` 会显示或轮换（`--rotate`）本地代理认证 token/API key。`logs` 默认显示最近 50 行。`enable` 账号池时，`+account` 会添加成员，`-account` 会暂停成员；默认策略为 `failover`，默认模式为 `multi`。`round-robin` 会从下一个可用成员开始，`failover` 会继续使用上次成功的账户直到被拒绝。两者都会在配额类失败后尝试下一个账户。
+
+Proxy Hub 的 `source` 会切换指定来源：已有来源会移除，不存在的来源会添加，并且需要账户名称。`--strategy round-robin` 会让每个模型在能服务它的已启用账户间轮换；省略时保持当前模式。至少启用一个来源后，可以通过 `--with hub:<name>` 绑定。`owner` 指定多个来源提供相同模型 ID 时由哪个账户处理；`preview` 会刷新目录并打印路由和冲突。
+
+## 插件
+
+```bash
+anypick plugin list
+anypick plugin add <dir>
+anypick plugin enable <name>
+anypick plugin disable <name>
+anypick plugin trust <name>
+anypick plugin remove <name>
+```
+
+`add` 会安装本地目录并保持**禁用**。`enable` 是信任决定，会请求确认；没有 TTY 时需全局 `-y`。插件代码变化后，`trust` 会重新固定软件包摘要。详见[插件指南](/zh-cn/docs/guides/plugins)。
+
+## 终端界面和兼容 supervisor
+
+```bash
+anypick tui
+anypick tray
+anypick start
+anypick status
+anypick stop
+```
+
+`anypick tui` 总是打开 [Apps / 终端界面](/zh-cn/docs/guides/terminal-ui)。`tray` 命令由 Go 引擎实现：`anypick tray` 打印兼容状态快照；`start`、`status` 和 `stop` 管理兼容 supervisor 及它拥有的代理。这些命令不决定原生应用的生命周期。macOS 应用会启动 `Contents/Helpers/anypick-core`，让菜单栏快捷面板留在同一应用中，并在显式退出应用时停止 helper。详见[桌面应用](/zh-cn/docs/guides/tray)。
+
+## 健康检查和修复
+
+```bash
+anypick doctor [target]
+anypick doctor --fix [--dry-run] [-y]
+```
+
+`doctor` 检查整个安装；`--fix` 只执行有限的安全修复，不会切换账户、安装软件包或修改原生授权文件。详见[故障排查](/zh-cn/docs/reference/troubleshooting)。
+
+## 更新检查
+
+```bash
+anypick update
+anypick update --json
+anypick update check --json
+anypick update download --json
+```
+
+普通 `update` 会比较当前版本和最新 GitHub Release，给出可用安装方式，但不会修改安装。如果尚无正式 Release，会报告 `no published release yet` 并指向源码构建流程。`--json` 返回当前版本和最新版本。
+
+`check` 返回更新状态和当前安装渠道对应的操作；`download` 将直接安装文件下载到 AnyPick 用户缓存，并根据该 Release 的校验和文件检查 SHA-256。下载不会替换或重启已安装应用。macOS Settings 的 **Show in Finder** 会打开下载文件，以便手动安装；包管理器安装则显示对应升级命令。macOS 应用尚未公证，首次启动授权步骤见[桌面应用](/zh-cn/docs/guides/tray)。
+
+<Aside type="caution" title="下载不等于安装">
+直接安装渠道会下载并验证 Release 文件，但仍需手动完成安装。包管理器安装请使用 AnyPick 显示的命令；重新安装本地 `.deb` 或 `.rpm` 时也请按提示操作。
+</Aside>
+
+## Shell 补全
+
+```bash
+anypick completion zsh     # 也支持 bash、fish
+source <(anypick completion zsh)
+```
+
+将补全命令加入 shell 启动文件，或直接在当前 shell 中执行。
+
+## 退出码
+
+| 退出码 | 含义 |
+| --- | --- |
+| `0` | 成功 |
+| `1` | 操作失败 |
+| `2` | 用法错误，例如缺少客户端/来源，或无 TTY 时执行裸 `use` |
+| `3` | 未找到 |
+| `4` | 需要认证 |
+| `5` | 能力冲突、不支持的传输方式或没有绑定 |
+| `6` | 健康检查失败 |
+| `7` | 缺少依赖，例如外部代理二进制 |
+| `8` | 导入信封格式错误或不可信 |
+| `9` | 导入文件超出大小或文件数量限制 |
+| `130` | 收到 SIGINT 后取消 |
+
+## 环境变量
+
+### AnyPick
+
+| 变量 | 作用 |
+| --- | --- |
+| `ANYPICK_HOME` | 数据目录，默认 `~/.anypick` |
+| `ANYPICK_LANG` | 显示语言；支持 `en`、`zh-CN`、`es`、`fr`、`de`、`ja`、`ko`、`pt-BR` 和 `vi`。未设置时跟随进程区域设置；不支持的语言或尚未翻译的消息会回退到英文 |
+| `ANYPICK_SECRET` | `add account` / `add <provider>` 的凭据值，避免出现在进程列表中 |
+| `ANYPICK_NO_PLUGINS=1` | 完全跳过插件加载 |
+| `NO_COLOR` | 关闭颜色，状态图标仍保留 |
+
+### 服务商覆盖项
+
+| 变量 | 作用 |
+| --- | --- |
+| `GEMINI_API_KEY`、`GOOGLE_API_KEY` | `add account gemini --current` 读取的当前 Gemini API key |
+| `GEMINI_API_KEY_UPSTREAM` | 覆盖 Gemini API-key 上游基础 URL |
+| `GEMINI_CODE_ASSIST_UPSTREAM` | 覆盖 Gemini Code Assist 端点 |
+| `GEMINI_CLI_HOME`、`GEMINI_CONFIG_DIR` | Gemini 配置目录解析；优先使用 `GEMINI_CLI_HOME`，与 CLI 一致 |
+| `CLAUDE_BINARY`、`CODEX_BINARY`、`KIRO_BINARY`、`GROK_BINARY` | 指定客户端二进制路径 |
+| `KIROLINK_BIN` | 外部 `kirolink` 二进制路径 |
+| `WORKBUDDY_BASE_URL` | 覆盖 WorkBuddy/CodeBuddy API 基础地址 |
+| `CLINE_API_BASE_URL`、`CLINE_WORKOS_CLIENT_ID` | 覆盖 Cline API/WorkOS 设置；客户端 ID 是公开值，并覆盖内置默认值 |

@@ -95,78 +95,53 @@ final class AnyPickTests: XCTestCase {
     )
   }
 
-  /// Titles measured to land on ONE row of a real `_NSAlertPanel` beside
-  /// Cancel. A macOS alert gives its buttons a single 228pt row; a title too
-  /// wide for it is not squeezed, it takes its own full-width row — which is
-  /// what put "Remove Account" and "Cancel" on two lines. `confirmationDialog`,
-  /// `.alert` and a hand-built `NSAlert` all produce the identical panel, so the
-  /// title is the only lever, and it is the reason every button here is a bare
-  /// verb while the alert title carries the sentence.
-  ///
-  /// Measured by presenting each title in an `NSAlert` and comparing the
-  /// buttons' frame origins. Re-measure before adding an entry: the split is
-  /// pixel width, not character count ("Forget Books", 12 characters, fits;
-  /// "Remove Guest", 12 characters, wraps).
-  private static let measuredSingleRowTitles: Set<String> = [
-    "Cancel", "Clear", "Disconnect", "Forget", "OK", "Remove", "Remove App",
-    "Replace", "Rotate Key", "Sign Out", "Stop All", "Stop Proxy",
-  ]
-
-  /// Titles allowed only in a confirmation that offers three answers, where
-  /// macOS gives each button its own row whatever its width — measured: even
-  /// "No / Yes / Cancel" stacks. Two buttons beside Cancel is the only layout
-  /// the platform keeps on one line.
-  private static let threeAnswerTitles: Set<String> = ["Replace", "Skip"]
-
-  func testConfirmationButtonsFitOnOneRow() throws {
-    // Scanned rather than reviewed: a widened title reappears with any edit
-    // that improves the wording, and the wrap is invisible in a fixture
-    // screenshot because the panel still looks like a native alert.
+  @MainActor
+  func testConfirmationTitlesAreLocalizedInEveryCatalog() throws {
     let macOSDirectory = URL(fileURLWithPath: #filePath)
       .deletingLastPathComponent()
       .deletingLastPathComponent()
     let sources = try FileManager.default.contentsOfDirectory(atPath: macOSDirectory.path)
-    var seen: Set<String> = []
+    var keys: Set<String> = []
     for name in sources where name.hasSuffix(".swift") {
       let text = try String(
         contentsOf: macOSDirectory.appendingPathComponent(name),
         encoding: .utf8
       )
-      var literals = text.matches(of: /\.confirm\("([^"]+)"/).map { String($0.1) }
-      // One hand-written `.alert` bypasses the shared host: the
-      // CLIENT_CONFIG_FOREIGN takeover in MainWindow. Scan only its action
-      // closure — a whole-file `Button("…")` sweep would drag in context
-      // menus and toolbars, where the 228pt row rule does not apply.
-      if let alertStart = text.range(of: ".alert("),
-        let alertEnd = text.range(of: "} message:", range: alertStart.upperBound..<text.endIndex)
-      {
-        literals +=
-          text[alertStart.upperBound..<alertEnd.lowerBound]
-          .matches(of: /Button\("([^"]+)",?\s*(?:role: [^,]+,?)?action:/)
-          .map { String($0.1) }
-      } else if text.contains(".alert(") {
-        XCTFail("\(name) has an .alert whose action closure the scan could not bound")
-      }
-      for title in literals {
-        seen.insert(title)
-        let allowed =
-          Self.measuredSingleRowTitles.contains(title)
-          || Self.threeAnswerTitles.contains(title)
-        XCTAssertTrue(
-          allowed,
-          """
-          \(name) uses the confirmation button "\(title)", which is not on the \
-          measured list. A macOS alert gives its buttons one 228pt row beside \
-          Cancel, and a title too wide for it takes its own full-width row. Use \
-          a bare verb — the alert title already carries the sentence — or, for a \
-          three-answer confirmation, measure it and add it to threeAnswerTitles.
-          """
+      keys.formUnion(
+        text.matches(of: /\.confirm\(model\.localized\("([^"]+)"/).map { String($0.1) }
+      )
+      XCTAssertFalse(
+        text.contains(".confirm(\""),
+        "\(name) has a confirmation title that bypasses the localization catalog"
+      )
+    }
+
+    XCTAssertFalse(keys.isEmpty, "the scan matched no localized confirmation titles")
+    let catalogDirectory = macOSDirectory
+      .deletingLastPathComponent()
+      .appendingPathComponent("go/internal/i18n", isDirectory: true)
+    let locales = ["de", "en", "es", "fr", "ja", "ko", "pt-BR", "vi", "zh-CN"]
+    for locale in locales {
+      let url = catalogDirectory.appendingPathComponent("messages.\(locale).json")
+      let data = try Data(contentsOf: url)
+      let catalog = try XCTUnwrap(
+        JSONSerialization.jsonObject(with: data) as? [String: [String: String]],
+        "\(url.lastPathComponent) is not a desktop message catalog"
+      )
+      for key in keys {
+        XCTAssertFalse(
+          catalog[key]?["other"]?.isEmpty ?? true,
+          "\(url.lastPathComponent) is missing localized confirmation key \(key)"
         )
       }
     }
-    XCTAssertFalse(
-      seen.isEmpty, "the scan matched no .confirm(\"...\"); the gate would pass on nothing"
-    )
+  }
+
+  func testTraditionalChineseRegionsFallBackToEnglish() {
+    for locale in ["zh-Hant", "zh-TW", "zh-HK", "zh-MO"] {
+      XCTAssertEqual(DesktopMessageCatalog.catalogID(locale), "en", "locale: \(locale)")
+    }
+    XCTAssertEqual(DesktopMessageCatalog.catalogID("zh-CN"), "zh-CN")
   }
 
   func testAppServiceClientNegotiatesBeforeDeliveringFrames() async throws {
@@ -416,7 +391,10 @@ final class AnyPickTests: XCTestCase {
     try FileManager.default.removeItem(at: victim)
 
     XCTAssertThrowsError(try AuthPasteFiles.stage(String(repeating: "a", count: 256 * 1024 + 1))) { error in
-      XCTAssertEqual(error.localizedDescription, "Pasted auth JSON is larger than 256 KiB.")
+      XCTAssertEqual(
+        (error as? AuthPasteWriteError)?.localizationKey,
+        "desktop.add_account.auth_too_large"
+      )
     }
   }
 
@@ -1370,6 +1348,23 @@ final class AnyPickTests: XCTestCase {
     )
   }
 
+  @MainActor
+  func testLanguagePreferenceChangesSettingsCopyImmediately() {
+    let model = MacOSDesignModel(
+      destination: .settings, phase: .ready, appearance: .system, activityShowsLogs: false,
+      apps: [], accounts: [], proxies: [], activity: [], backups: [])
+
+    model.setLanguage("vi")
+
+    XCTAssertEqual(model.localized("desktop.settings.startup"), "Khởi động")
+    XCTAssertEqual(model.localized("desktop.settings.language"), "Ngôn ngữ")
+    XCTAssertEqual(
+      model.localizedSource("Backup files contain working credentials"),
+      "Tệp sao lưu chứa thông tin xác thực đang hoạt động"
+    )
+    XCTAssertEqual(model.localizedSource("Change Codex Connection"), "Đổi kết nối của Codex")
+  }
+
   // MARK: - Activity L9 provider decode
 
   func testActivityEventDecodesProvider() throws {
@@ -1452,6 +1447,40 @@ final class AnyPickTests: XCTestCase {
 
     XCTAssertEqual(quotaResetFormatted(resetsAtMs: nil, limitWindowSeconds: 18000), "every 5 hours")
   }
+
+  func testQuotaFullyRefreshAndGroupUsageWindows() {
+    let baseNow = Date(timeIntervalSince1970: 1_700_000_000)
+    let resetMs = (baseNow.timeIntervalSince1970 + Double(3 * 86_400 + 19 * 3_600)) * 1000
+    XCTAssertEqual(
+      quotaFullyRefreshFormatted(resetsAtMs: resetMs, now: baseNow),
+      "fully refresh in 3 days, 19 hours")
+    XCTAssertEqual(quotaLimitAdjective(limitWindowSeconds: 604800), "weekly")
+    XCTAssertEqual(quotaLimitAdjective(limitWindowSeconds: 18000), "five hour")
+
+    let weekly = DesignUsageWindow(
+      label: "Weekly Limit Remaining", remainingPercent: 95,
+      limitWindowSeconds: 604800, group: "Gemini Models")
+    XCTAssertEqual(quotaWindowLabel(weekly), "Weekly Limit Remaining")
+
+    let windows = [
+      DesignUsageWindow(
+        label: "Weekly Limit Remaining", remainingPercent: 95,
+        limitWindowSeconds: 604800, group: "Gemini Models"),
+      DesignUsageWindow(
+        label: "Five Hour Limit Remaining", remainingPercent: 100,
+        limitWindowSeconds: 18000, group: "Gemini Models"),
+      DesignUsageWindow(
+        label: "Weekly Limit Remaining", remainingPercent: 48,
+        limitWindowSeconds: 604800, group: "Claude and GPT models"),
+      DesignUsageWindow(label: "Session", remainingPercent: 72),
+    ]
+    let groups = groupUsageWindows(windows)
+    XCTAssertEqual(groups.map(\.title), ["Gemini Models", "Claude and GPT models", nil])
+    XCTAssertEqual(groups[0].windows.map(\.remainingPercent), [95, 100])
+    XCTAssertEqual(groups[1].windows.map(\.remainingPercent), [48])
+    XCTAssertEqual(groups[2].windows.map(\.label), ["Session"])
+  }
+
 
   // The account row's provider is a display name ("OpenAI"), while quota is
   // keyed by engine provider ("codex"). Matching on the display name dropped
@@ -2793,8 +2822,9 @@ final class AnyPickTests: XCTestCase {
     await waitUntil(store.codexProfileSources.first?.models == ["glm-5"])
     await waitUntil(model.codexProfileSources.first?.models == ["glm-5"])
     XCTAssertTrue(AppPreferences.codexAutoProfilesEnabled)
-    XCTAssertTrue(model.isBusy)
     await waitUntil(syncCommandCount(in: box.lines) == 1)
+    await waitUntil(model.isBusy)
+    XCTAssertTrue(model.isBusy)
     let payload = try XCTUnwrap(mutatePayload(in: box.lines, operation: "codex-profile-sync"))
     let requestID = try XCTUnwrap(payload["requestId"] as? String)
     store.consume(
@@ -3277,4 +3307,203 @@ final class AnyPickTests: XCTestCase {
 
 private final class CommandBox {
   var lines: [String] = []
+}
+
+final class FooterAlignmentTests: XCTestCase {
+  func testScrollerReserveMatchesLegacyScrollBarGap() {
+    XCTAssertEqual(designScrollerReserve(viewport: 480, content: 480), 0)
+    XCTAssertEqual(designScrollerReserve(viewport: 480, content: 479.6), 0)
+    // The reported Export Accounts sheet: 33px @2x ≈ 16pt of scroll bar.
+    XCTAssertEqual(designScrollerReserve(viewport: 480, content: 463.5), 17)
+    XCTAssertEqual(designScrollerReserve(viewport: 480, content: 464), 16)
+    XCTAssertEqual(designScrollerReserve(viewport: 480, content: 300), 24, "capped")
+    XCTAssertEqual(designScrollerReserve(viewport: 0, content: 464), 0)
+  }
+
+  @MainActor
+  func testBackupStartupFlowsPickASheet() {
+    let model = MacOSDesignModel.fromEnvironment(["ANYPICK_MACOS_FIXTURE": "ready"])
+    XCTAssertFalse(model.backups.isEmpty, "fixture needs backups")
+    let restore = backupStartupPresentation(flow: "restore-backup", backups: model.backups)
+    XCTAssertEqual(restore, BackupPresentation(id: model.backups[0].id, importedPackage: false))
+    let imported = backupStartupPresentation(flow: "import-backup", backups: model.backups)
+    XCTAssertEqual(imported?.importedPackage, true)
+    XCTAssertNil(backupStartupPresentation(flow: "create-backup", backups: model.backups))
+    XCTAssertNil(backupStartupPresentation(flow: "import-backup", backups: []))
+  }
+}
+
+final class FooterV5Tests: XCTestCase {
+  @MainActor
+  func testBackupStartupFlowsShareOneSheetSlot() {
+    let model = MacOSDesignModel.fromEnvironment(["ANYPICK_MACOS_FIXTURE": "ready"])
+    XCTAssertTrue(model.backups.contains { $0.id == "backup-import" }, "ready fixture needs the import backup")
+    XCTAssertEqual(backupStartupSheet(flow: "create-backup", backups: model.backups), .create)
+    XCTAssertEqual(
+      backupStartupSheet(flow: "restore-backup", backups: model.backups),
+      .review(BackupPresentation(id: model.backups[0].id, importedPackage: false)))
+    XCTAssertEqual(
+      backupStartupSheet(flow: "import-backup", backups: model.backups),
+      .review(BackupPresentation(id: "backup-import", importedPackage: true)))
+    XCTAssertNil(backupStartupSheet(flow: nil, backups: model.backups))
+    // The flow reaches BackupsView: destination and pending flow are set.
+    for flow in ["create-backup", "restore-backup", "import-backup"] {
+      let m = MacOSDesignModel.fromEnvironment(["ANYPICK_MACOS_FIXTURE": "ready", "ANYPICK_MACOS_FLOW": flow])
+      XCTAssertEqual(m.destination, .backups, flow)
+      XCTAssertEqual(m.pendingStartupFlow, flow)
+    }
+  }
+
+  func testSheetScrollCapFitsTheWindow() {
+    XCTAssertEqual(designSheetMaxScrollHeight(windowHeight: 0), 560)
+    XCTAssertEqual(designSheetMaxScrollHeight(windowHeight: 900), 560)
+    XCTAssertEqual(designSheetMaxScrollHeight(windowHeight: 680), 460)
+    XCTAssertEqual(designSheetMaxScrollHeight(windowHeight: 300), 160)
+  }
+
+  @MainActor
+  func testBackupsAndAccountsStartupFlowsUseTheSameMechanism() {
+    // Same delay constant, disjoint flow sets, and every Backups flow maps to
+    // a sheet in the ready fixture exactly like the Accounts flows do.
+    XCTAssertEqual(DesignStartupFlow.presentationDelay, 0.25)
+    XCTAssertTrue(DesignStartupFlow.accountsFlows.isDisjoint(with: DesignStartupFlow.backupsFlows))
+    XCTAssertTrue(DesignStartupFlow.accountsFlows.contains("add-account"))
+    let model = MacOSDesignModel.fromEnvironment(["ANYPICK_MACOS_FIXTURE": "ready"])
+    for flow in DesignStartupFlow.backupsFlows {
+      XCTAssertNotNil(backupStartupSheet(flow: flow, backups: model.backups), flow)
+    }
+  }
+}
+
+final class UpdatesPaneTests: XCTestCase {
+  private func fixture(_ kind: String) -> UpdateStatusDTO {
+    guard let status = UpdateStatusFixtures.status(kind) else {
+      XCTFail("missing fixture \(kind)")
+      return .bridgeFailure(current: "1.1.0")
+    }
+    return status
+  }
+
+  func testEveryFixtureDecodes() {
+    for kind in UpdateStatusFixtures.lines.keys {
+      XCTAssertEqual(UpdateStatusFixtures.status(kind)?.kind, kind)
+    }
+    XCTAssertEqual(UpdateStatusFixtures.lines.count, 13)
+  }
+
+  func testDirectInstallShowsDownloadUpdateAndChangelog() {
+    let p = UpdatePanePresentation(fixture("availableDirect"))
+    XCTAssertTrue(p.showsDownloadUpdate)
+    XCTAssertTrue(p.showsChangelog)
+    XCTAssertFalse(p.showsCommand)
+  }
+
+  func testPackageManagerShowsCommandNotUpdateNow() {
+    let status = fixture("availablePackageManager")
+    let p = UpdatePanePresentation(status)
+    XCTAssertFalse(p.showsDownloadUpdate)
+    XCTAssertTrue(p.showsCommand)
+    XCTAssertEqual(status.command, "brew upgrade --cask anypick")
+  }
+
+  func testHostBlockedHasViewOnGitHubAndNoRetry() {
+    let status = fixture("hostBlocked")
+    let p = UpdatePanePresentation(status)
+    XCTAssertTrue(p.showsViewOnGitHub)
+    XCTAssertFalse(p.showsRetry)
+    XCTAssertFalse(p.showsDownloadUpdate)
+    XCTAssertTrue(status.message?.hasPrefix(
+      "Update didn't finish. The download came from an address AnyPick doesn't trust") ?? false)
+  }
+
+  func testOfflineAndBadChecksumOfferRetry() {
+    XCTAssertTrue(UpdatePanePresentation(fixture("offline")).showsRetry)
+    XCTAssertTrue(UpdatePanePresentation(fixture("badChecksum")).showsRetry)
+  }
+
+  func testStorageUnavailableShowsErrorWithGitHubAndRetryActions() {
+    let status = fixture("storageUnavailable")
+    let presentation = UpdatePanePresentation(status)
+    XCTAssertTrue(presentation.isError)
+    XCTAssertTrue(presentation.showsViewOnGitHub)
+    XCTAssertTrue(presentation.showsRetry)
+    XCTAssertFalse(presentation.showsDownloadUpdate)
+    XCTAssertEqual(status.message,
+      "AnyPick couldn't read or save the update safety state. No update was downloaded. Check folder permissions, then retry.")
+  }
+
+  func testProgressStates() {
+    let downloading = UpdatePanePresentation(fixture("downloading"))
+    XCTAssertTrue(downloading.showsProgress)
+    XCTAssertFalse(downloading.isIndeterminate)
+    XCTAssertTrue(UpdatePanePresentation(fixture("checking")).isIndeterminate)
+    XCTAssertTrue(UpdatePanePresentation(fixture("verifying")).isIndeterminate)
+  }
+
+  func testReadyHasFootnoteAndNoVerifiedWord() {
+    let status = fixture("ready")
+    XCTAssertNotNil(status.footnote)
+    XCTAssertFalse(status.message?.lowercased().contains("verified") ?? true)
+    XCTAssertTrue(UpdatePanePresentation(status).showsRevealDownload)
+  }
+
+  func testRejectsUnknownSchema() {
+    XCTAssertNil(UpdateStatusDTO.decode(line: #"{"schema":2,"kind":"upToDate","current":"1","channel":"direct","progress":0,"retry":false}"#))
+    XCTAssertNil(UpdateStatusDTO.decode(line: "not json"))
+  }
+
+  func testReleaseNotesRenderHeadingsAndListsNotRawMarkdown() {
+    let notes = fixture("availableDirect").notes ?? ""
+    let blocks = ReleaseNotesMarkdown.blocks(notes)
+    XCTAssertEqual(blocks.first, .heading(level: 2, text: "What's new"))
+    XCTAssertTrue(blocks.contains(.bullet(text: "Settings > Updates checks GitHub Releases for you.")))
+    for block in blocks {
+      switch block {
+      case .heading(_, let text), .bullet(let text), .paragraph(let text):
+        XCTAssertFalse(text.hasPrefix("#"), "raw heading marker leaked: \(text)")
+        XCTAssertFalse(text.hasPrefix("- "), "raw list marker leaked: \(text)")
+      }
+    }
+  }
+
+  func testReleaseNotesBlocksParagraphsAndComments() {
+    let blocks = ReleaseNotesMarkdown.blocks(
+      "Intro line one\nline two\n\n<!-- anypick-release-scope=all -->\n### Fixed\n* **Bold** item\n#hashtag")
+    XCTAssertEqual(blocks, [
+      .paragraph(text: "Intro line one line two"),
+      .heading(level: 3, text: "Fixed"),
+      .bullet(text: "**Bold** item"),
+      .paragraph(text: "#hashtag"),
+    ])
+  }
+
+  func testReleaseNotesInlineMarkdownAndFallback() {
+    XCTAssertEqual(String(ReleaseNotesMarkdown.inline("**Bold** `code`").characters), "Bold code")
+    // Unparseable or odd input still shows its text instead of nothing.
+    let odd = "[unclosed link(https://x"
+    XCTAssertFalse(String(ReleaseNotesMarkdown.inline(odd).characters).isEmpty)
+    XCTAssertTrue(ReleaseNotesMarkdown.blocks("").isEmpty)
+  }
+
+  @MainActor
+  func testReleaseNotesViewRendersRealReleaseBody() {
+    let body = "## What's Changed\n* feat: x by @outof0 in https://github.com/outof0/anypick/pull/1\n\n<!-- c -->\n\n### Added\n- Linux\n  installers"
+    let host = NSHostingView(rootView: ReleaseNotesView(notes: body).frame(width: 600))
+    host.layoutSubtreeIfNeeded()
+    XCTAssertGreaterThan(host.fittingSize.height, 0)
+  }
+
+  @MainActor
+  func testPaneRendersEveryFixture() {
+    let preferences = MacOSDesignModel(
+      destination: .settings, phase: .ready, appearance: .system, activityShowsLogs: false,
+      apps: [], accounts: [], proxies: [], activity: [], backups: [])
+    for kind in UpdateStatusFixtures.lines.keys {
+      let model = UpdatesModel(environment: ["ANYPICK_MACOS_UPDATE_FIXTURE": kind])
+      let host = NSHostingView(
+        rootView: Form { SettingsUpdatesPane(updates: model, model: preferences) }.formStyle(.grouped))
+      host.frame = NSRect(x: 0, y: 0, width: 720, height: 640)
+      host.layoutSubtreeIfNeeded()
+    }
+  }
 }

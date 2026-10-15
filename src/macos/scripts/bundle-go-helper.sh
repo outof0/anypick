@@ -15,6 +15,15 @@ destination="${destination_dir}/anypick-core"
 resources_dir="${TARGET_BUILD_DIR:?}/${UNLOCALIZED_RESOURCES_FOLDER_PATH:?}"
 derived_dir="${DERIVED_FILE_DIR:-${TARGET_TEMP_DIR:?}}"
 mkdir -p "${derived_dir}"
+catalog_source="${go_root}/internal/i18n"
+catalog_destination="${resources_dir}/i18n"
+test -f "${catalog_source}/messages.en.json" || {
+  echo "error: i18n catalogs are missing from ${catalog_source}." >&2
+  exit 1
+}
+/bin/rm -rf "${catalog_destination}"
+mkdir -p "${catalog_destination}"
+/bin/cp "${catalog_source}"/messages.*.json "${catalog_destination}/"
 scratch="$(mktemp -d "${derived_dir}/anypick-core.XXXXXX")"
 trap 'rm -rf "${scratch}"' EXIT
 

@@ -106,15 +106,16 @@ struct TrayAccountChip: View {
 }
 
 struct TrayRoutingHeader: View {
+  @ObservedObject var model: MacOSDesignModel
   var showDetails = true
   var openDetails: () -> Void
 
   var body: some View {
     HStack(spacing: 8) {
-      traySectionTitle("Proxies")
+      traySectionTitle(model.localized("desktop.nav.proxies"))
       Spacer(minLength: 4)
       if showDetails {
-        Button("Details", action: openDetails)
+        Button(model.localized("desktop.common.show_details"), action: openDetails)
           .buttonStyle(.borderless)
           .font(TrayFont.detailMedium)
           .foregroundStyle(TrayPaint.accent)
@@ -203,8 +204,11 @@ func trayAttentionItems(from model: MacOSDesignModel) -> [TrayAttentionItem] {
     items.append(
       TrayAttentionItem(
         id: "app.\(app.id)",
-        title: app.attentionMessage ?? "\(shortName) live login does not match the selected account",
-        actionTitle: "Hide",
+        title: app.attentionMessage ?? model.localized(
+          "desktop.menu_bar.account_mismatch",
+          replacing: ["app": shortName]
+        ),
+        actionTitle: model.localized("desktop.menu_bar.hide_attention"),
         destination: .apps
       )
     )
@@ -213,8 +217,8 @@ func trayAttentionItems(from model: MacOSDesignModel) -> [TrayAttentionItem] {
     items.append(
       TrayAttentionItem(
         id: "hub.models",
-        title: "Proxy Hub model conflict",
-        actionTitle: "Hide",
+        title: model.localized("desktop.menu_bar.proxy_conflict_title"),
+        actionTitle: model.localized("desktop.menu_bar.hide_attention"),
         destination: .proxyHub
       )
     )
@@ -223,8 +227,8 @@ func trayAttentionItems(from model: MacOSDesignModel) -> [TrayAttentionItem] {
     items = [
       TrayAttentionItem(
         id: "app.kiro",
-        title: "Kiro live login does not match the selected account",
-        actionTitle: "Hide",
+        title: model.localized("desktop.menu_bar.account_mismatch", replacing: ["app": "Kiro"]),
+        actionTitle: model.localized("desktop.menu_bar.hide_attention"),
         destination: .apps
       )
     ]

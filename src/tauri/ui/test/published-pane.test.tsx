@@ -137,7 +137,7 @@ describe('the catalog filter', () => {
     renderPane(snapshot);
     const picker = screen.getByTestId('published-models.vendor-picker') as HTMLSelectElement;
     const labels = [...picker.options].map((option) => option.textContent);
-    expect(labels).toContain('All (3)');
+    expect(labels).toContain('All Catalogs (3)');
     expect(labels.some((label) => label?.startsWith('Anthropic Claude (2)'))).toBe(true);
     expect(labels.some((label) => label?.startsWith('OpenAI (1)'))).toBe(true);
   });

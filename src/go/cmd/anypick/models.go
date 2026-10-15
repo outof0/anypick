@@ -30,7 +30,7 @@ import (
 // because it has no command-line counterpart in any earlier CLI.
 func cmdModels(ctx context.Context, a *app.App, args []string) int {
 	if cli.WantsHelp(args) {
-		fmt.Print("usage: anypick models <client> [--with <source>] [--json]\n\n" +
+		cliPrint("usage: anypick models <client> [--with <source>] [--json]\n\n" +
 			"Lists the model ids one connection can serve. Without --with it uses\n" +
 			"the client's current binding. The source must exist: an account or\n" +
 			"gateway that does not is an error, not an empty catalog.\n")
@@ -42,7 +42,7 @@ func cmdModels(ctx context.Context, a *app.App, args []string) int {
 		return int(anyerr.InvalidUsage)
 	}
 	if fs.NArg() != 1 {
-		fmt.Fprintln(os.Stderr, "usage: anypick models <client> [--with <source>]")
+		cliFprintln(os.Stderr, "usage: anypick models <client> [--with <source>]")
 		return int(anyerr.InvalidUsage)
 	}
 	clientID := fs.Arg(0)
@@ -83,10 +83,10 @@ func cmdModels(ctx context.Context, a *app.App, args []string) int {
 		if catalogID != "" {
 			context += " · " + catalogID + " catalog"
 		}
-		fmt.Fprintln(os.Stderr, context)
+		cliFprintln(os.Stderr, context)
 	}
 	for _, model := range models {
-		fmt.Println(model)
+		cliPrintlnRaw(model)
 	}
 	return int(anyerr.Success)
 }

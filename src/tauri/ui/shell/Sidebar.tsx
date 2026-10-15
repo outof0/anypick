@@ -1,4 +1,5 @@
 import { DESTINATIONS, type AppDestination, type Destination } from '../lib/contract';
+import { translate } from '../lib/i18n';
 
 import { Symbol } from './Symbol';
 
@@ -10,14 +11,14 @@ import { Symbol } from './Symbol';
  * shell-only route and does not change that data contract.
  */
 
-const DESTINATION_LABEL: Record<Destination, string> = {
-  overview: 'Overview',
-  apps: 'Apps',
-  accounts: 'Accounts & APIs',
-  proxyHub: 'Proxy Hub',
-  proxies: 'Proxies',
-  activity: 'Activity',
-  backups: 'Backups',
+const DESTINATION_MESSAGE_KEY: Record<Destination, string> = {
+  overview: 'desktop.nav.overview',
+  apps: 'desktop.nav.apps',
+  accounts: 'desktop.nav.accounts',
+  proxyHub: 'desktop.nav.proxy_hub',
+  proxies: 'desktop.nav.proxies',
+  activity: 'desktop.nav.activity',
+  backups: 'desktop.nav.backups',
 };
 
 const DESTINATION_SYMBOL: Record<Destination, string> = {
@@ -31,27 +32,35 @@ const DESTINATION_SYMBOL: Record<Destination, string> = {
 };
 
 const SHELL_DESTINATIONS: readonly AppDestination[] = [...DESTINATIONS, 'settings'];
-const SETTINGS_LABEL = 'Settings';
 
 export function Sidebar({
   destination,
   onSelect,
   state,
   runningCount,
+  language,
+  resolvedLanguage,
 }: {
   destination: AppDestination;
   onSelect: (destination: AppDestination) => void;
   state: 'starting' | 'connected' | 'stopped' | 'error';
   runningCount: number;
+  language: string;
+  resolvedLanguage: string;
 }) {
   return (
     <aside
       className="flex min-h-0 min-w-0 flex-col overflow-auto border-r border-separator-soft bg-sidebar py-2 pr-2 pl-2"
       data-testid="sidebar-navigation"
     >
-      <nav className="grid content-start gap-px" aria-label="AnyPick sections">
+      <nav
+        className="grid content-start gap-px"
+        aria-label={translate('desktop.sidebar.sections', language, resolvedLanguage)}
+      >
         {SHELL_DESTINATIONS.map((item) => {
-          const label = item === 'settings' ? SETTINGS_LABEL : DESTINATION_LABEL[item];
+          const label = item === 'settings'
+            ? translate('desktop.nav.settings', language, resolvedLanguage)
+            : translate(DESTINATION_MESSAGE_KEY[item], language, resolvedLanguage);
           const symbol = item === 'settings' ? 'gearshape' : DESTINATION_SYMBOL[item];
           return (
             <button
@@ -93,16 +102,24 @@ export function Sidebar({
             }`}
             aria-hidden="true"
           />
-          <span className="overflow-hidden text-ellipsis whitespace-nowrap">{statusLabel(state, runningCount)}</span>
+          <span className="overflow-hidden text-ellipsis whitespace-nowrap">
+            {statusLabel(state, runningCount, language, resolvedLanguage)}
+          </span>
         </div>
       </div>
     </aside>
   );
 }
 
-function statusLabel(state: 'starting' | 'connected' | 'stopped' | 'error', runningCount: number): string {
-  if (state === 'starting') return 'Connecting to the service…';
-  if (state === 'error') return 'Service needs attention';
-  if (state === 'stopped') return 'Service stopped';
-  return `${runningCount} local service${runningCount === 1 ? '' : 's'} running`;
+function statusLabel(
+  state: 'starting' | 'connected' | 'stopped' | 'error',
+  runningCount: number,
+  language: string,
+  resolvedLanguage: string,
+): string {
+  if (state === 'starting') return translate('desktop.sidebar.service_connecting', language, resolvedLanguage);
+  if (state === 'error') return translate('desktop.sidebar.service_attention', language, resolvedLanguage);
+  if (state === 'stopped') return translate('desktop.sidebar.service_stopped', language, resolvedLanguage);
+  const countKey = runningCount === 1 ? 'desktop.sidebar.local_service_one' : 'desktop.sidebar.local_service_many';
+  return translate(countKey, language, resolvedLanguage).replace('%d', String(runningCount));
 }

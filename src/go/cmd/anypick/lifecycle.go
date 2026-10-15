@@ -110,7 +110,7 @@ func normalizeGlobalFlags(args []string) []string {
 // stdout must stay clean for machine consumers (no secrets in step lines).
 func tracef(format string, args ...interface{}) {
 	if globals.Trace {
-		fmt.Fprintf(os.Stderr, "[trace] "+format+"\n", args...)
+		cliFprintf(os.Stderr, "[trace] "+format+"\n", args...)
 	}
 }
 
@@ -132,7 +132,7 @@ func printDryRun(action, detail string, extra map[string]any) {
 		jsonOut(out)
 		return
 	}
-	fmt.Printf("[dry-run] %s\n", detail)
+	cliPrintf("[dry-run] %s\n", detail)
 }
 
 // runSuperviseChild keeps enabled proxies alive until terminated. This is the
@@ -184,7 +184,7 @@ func cmdTray(ctx context.Context, a *app.App, args []string) int {
 		}
 	}
 	if cli.WantsHelp(args) {
-		fmt.Print(`Usage:
+		cliPrint(`Usage:
   anypick tray                open the menu-bar tray app
   anypick tray start|stop|status
   anypick desktop-service --stdio   (used by the native app; not for humans)
@@ -213,7 +213,7 @@ command; use anypick status --json or anypick current <provider> for that.
 // its startup work — a bare pid is not proof the supervisor can do its job.
 func cmdStart(ctx context.Context, a *appView, args []string) int {
 	if cli.WantsHelp(args) {
-		fmt.Print(`Usage:
+		cliPrint(`Usage:
   anypick start
   anypick status [--json]
   anypick stop
@@ -233,7 +233,7 @@ Start, inspect, or stop the headless supervisor that keeps enabled proxies alive
 			jsonOut(map[string]interface{}{"running": true, "pid": pid})
 			return int(anyerr.Success)
 		}
-		fmt.Printf("already running (pid %d)\n", pid)
+		cliPrintf("already running (pid %d)\n", pid)
 		return int(anyerr.Success)
 	}
 	_ = os.Remove(filepath.Join(dir, "ready"))
@@ -256,14 +256,14 @@ Start, inspect, or stop the headless supervisor that keeps enabled proxies alive
 	if wantJSON(args) {
 		jsonOut(map[string]interface{}{"started": true, "pid": pid})
 	} else {
-		fmt.Printf("started supervisor (pid %d)\n", pid)
+		cliPrintf("started supervisor (pid %d)\n", pid)
 	}
 	return int(anyerr.Success)
 }
 
 func cmdStatus(a *appView, args []string) int {
 	if cli.WantsHelp(args) {
-		fmt.Print(`Usage:
+		cliPrint(`Usage:
   anypick status [--json]
 `)
 		return int(anyerr.Success)
@@ -280,16 +280,16 @@ func cmdStatus(a *appView, args []string) int {
 		return int(anyerr.Success)
 	}
 	if running {
-		fmt.Printf("supervisor running (pid %d)\n", pid)
+		cliPrintf("supervisor running (pid %d)\n", pid)
 	} else {
-		fmt.Println("not running")
+		cliPrintln("not running")
 	}
 	return int(anyerr.Success)
 }
 
 func cmdStop(a *appView, args []string) int {
 	if cli.WantsHelp(args) {
-		fmt.Print(`Usage:
+		cliPrint(`Usage:
   anypick stop [--json]
 `)
 		return int(anyerr.Success)
@@ -303,9 +303,9 @@ func cmdStop(a *appView, args []string) int {
 	if wantJSON(args) {
 		jsonOut(map[string]bool{"stopped": stopped})
 	} else if stopped {
-		fmt.Println("stopped")
+		cliPrintln("stopped")
 	} else {
-		fmt.Println("not running")
+		cliPrintln("not running")
 	}
 	return int(anyerr.Success)
 }

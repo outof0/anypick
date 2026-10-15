@@ -88,7 +88,7 @@ struct MenuBarAppCard: View {
       } else if model.isSwitching(app.id) {
         VStack(alignment: .trailing, spacing: 2) {
           ProgressView().controlSize(.small)
-          Text("Switching…")
+          Text(model.localized("desktop.common.switching"))
             .font(TrayFont.detailMedium)
             .foregroundStyle(.secondary)
         }
@@ -96,7 +96,7 @@ struct MenuBarAppCard: View {
         VStack(alignment: .trailing, spacing: 2) {
           Text(trailingStatus)
             .font(TrayFont.bodyStrong)
-          Button("Switch", action: onSwitch)
+          Button(model.localized("desktop.menu_bar.switch"), action: onSwitch)
             .buttonStyle(.borderless)
             .font(TrayFont.detailMedium)
             .foregroundStyle(TrayPaint.accent)
@@ -112,9 +112,9 @@ struct MenuBarAppCard: View {
 
   private var usingText: String {
     if let name = app.routeOptions.first(where: { $0.id == app.selectedRouteID })?.name {
-      if compact { return "Using \(name)" }
+      if compact { return model.localized("desktop.menu_bar.using_route", replacing: ["route": name]) }
       let count = max(app.accountCount, trayAccountRoutes(in: app).count)
-      return "Using \(name) · \(count) \(count == 1 ? "account" : "accounts")"
+      return model.localized("desktop.menu_bar.using_route_count", count: count, replacing: ["route": name, "count": String(count)])
     }
     return app.detail
   }
@@ -122,12 +122,13 @@ struct MenuBarAppCard: View {
   private var trailingStatus: String {
     switch app.status {
     case .attention, .unavailable:
-      return app.status.rawValue
+      return app.status.localizedLabel(using: model)
     case .ready, .running, .stopped:
       if model.showUsage, let usage = app.usageRemaining {
-        return usage.replacingOccurrences(of: " remaining", with: " left")
+        let amount = usage.replacingOccurrences(of: " remaining", with: "").replacingOccurrences(of: " left", with: "")
+        return model.localized("desktop.menu_bar.usage_remaining", replacing: ["amount": amount])
       }
-      return app.status == .stopped ? app.status.rawValue : "Ready"
+      return app.status == .stopped ? app.status.localizedLabel(using: model) : model.localized("desktop.common.ready")
     }
   }
 
@@ -152,7 +153,7 @@ struct MenuBarAppCard: View {
         }
         Spacer(minLength: 4)
         if more > 0 {
-          Button(compact ? "Switch" : "All", action: onSwitch)
+          Button(model.localized(compact ? "desktop.menu_bar.switch" : "desktop.menu_bar.all_accounts"), action: onSwitch)
             .buttonStyle(.borderless)
             .font(TrayFont.detailStrong)
             .foregroundStyle(TrayPaint.accent)
@@ -194,7 +195,7 @@ struct MenuBarProxiesRow: View {
               .font(.system(size: 12, weight: .medium))
               .foregroundStyle(.secondary)
               .frame(width: 14)
-            Text("Proxies")
+            Text(model.localized("desktop.nav.proxies"))
               .font(TrayFont.detailMedium)
             Spacer(minLength: 4)
             Text(summaryLabel)
@@ -209,11 +210,11 @@ struct MenuBarProxiesRow: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(
-          "Proxies, \(totalRunningCount) running, \(totalStoppedCount) stopped, \(attentionCount) need attention"
+          model.localized("desktop.menu_bar.proxies_accessibility", replacing: ["running": String(totalRunningCount), "stopped": String(totalStoppedCount), "attention": String(attentionCount)])
         )
-        .accessibilityValue(expanded ? "Expanded" : "Collapsed")
+        .accessibilityValue(model.localized(expanded ? "desktop.menu_bar.expanded" : "desktop.menu_bar.collapsed"))
         .accessibilityIdentifier("tray.row.proxies")
-        Button("Details", action: openProxies)
+        Button(model.localized("desktop.common.show_details"), action: openProxies)
           .buttonStyle(.borderless)
           .font(TrayFont.detailMedium)
       }
@@ -240,9 +241,9 @@ struct MenuBarProxiesRow: View {
 
   private var summaryLabel: String {
     if attentionCount > 0 {
-      return "\(attentionCount) issue · \(totalRunningCount) running"
+      return model.localized("desktop.menu_bar.issue_running_summary", replacing: ["issues": String(attentionCount), "running": String(totalRunningCount)])
     }
-    return "\(totalRunningCount) running · \(totalStoppedCount) stopped"
+    return model.localized("desktop.menu_bar.running_stopped_summary", replacing: ["running": String(totalRunningCount), "stopped": String(totalStoppedCount)])
   }
 
   private var totalRunningCount: Int { runningCount + (model.proxyHubEnabled ? 1 : 0) }
@@ -256,9 +257,9 @@ struct MenuBarProxiesRow: View {
         .foregroundStyle(.secondary)
         .frame(width: 18)
       VStack(alignment: .leading, spacing: 1) {
-        Text("Proxy Hub")
+        Text(model.localized("desktop.nav.proxy_hub"))
           .font(TrayFont.detailMedium)
-        Text("\(model.hubSourceIDs.count) sources · \(model.publishedModels.count) models")
+        Text(hubCountSummary)
           .font(TrayFont.detail)
           .foregroundStyle(.secondary)
           .lineLimit(1)
@@ -272,16 +273,16 @@ struct MenuBarProxiesRow: View {
         }
         .buttonStyle(.borderless)
         .controlSize(.small)
-        .help("Restart Proxy Hub")
-        .accessibilityLabel("Restart Proxy Hub")
+        .help(model.localized("desktop.menu_bar.restart_hub"))
+        .accessibilityLabel(model.localized("desktop.menu_bar.restart_hub"))
         .accessibilityIdentifier("tray.hub.restart")
       }
-      Toggle("Proxy Hub", isOn: hubEnabled)
+      Toggle(model.localized("desktop.nav.proxy_hub"), isOn: hubEnabled)
         .labelsHidden()
         .toggleStyle(.switch)
         .controlSize(.small)
         .disabled(model.isBusy || model.hubSourceIDs.isEmpty)
-        .help(model.proxyHubEnabled ? "Stop Proxy Hub" : "Start Proxy Hub")
+        .help(model.localized(model.proxyHubEnabled ? "desktop.menu_bar.stop_hub" : "desktop.menu_bar.start_hub"))
         .accessibilityIdentifier("tray.hub.toggle")
     }
     .padding(.horizontal, 9)
@@ -293,6 +294,14 @@ struct MenuBarProxiesRow: View {
       get: { model.proxyHubEnabled },
       set: { model.setProxyHubEnabled($0) }
     )
+  }
+
+  private var hubCountSummary: String {
+    let sourceCount = model.hubSourceIDs.count
+    let modelCount = model.publishedModels.count
+    let sources = model.localized("desktop.menu_bar.source_count", count: sourceCount, replacing: ["count": String(sourceCount)])
+    let models = model.localized("desktop.menu_bar.model_count", count: modelCount, replacing: ["count": String(modelCount)])
+    return "\(sources) · \(models)"
   }
 
   private func localProxyRow(_ proxy: DesignProxy) -> some View {
@@ -316,8 +325,8 @@ struct MenuBarProxiesRow: View {
         }
         .buttonStyle(.borderless)
         .controlSize(.small)
-        .help("Restart \(proxy.name)")
-        .accessibilityLabel("Restart \(proxy.name)")
+        .help(model.localized("desktop.menu_bar.restart_named", replacing: ["name": proxy.name]))
+        .accessibilityLabel(model.localized("desktop.menu_bar.restart_named", replacing: ["name": proxy.name]))
         .accessibilityIdentifier("tray.proxy.\(proxy.id).restart")
       }
       Toggle(proxy.name, isOn: proxyEnabled(proxy))
@@ -325,7 +334,7 @@ struct MenuBarProxiesRow: View {
         .toggleStyle(.switch)
         .controlSize(.small)
         .disabled(model.isBusy)
-        .help(proxy.status == .running ? "Stop \(proxy.name)" : "Start \(proxy.name)")
+        .help(model.localized(proxy.status == .running ? "desktop.proxy_detail.stop_named" : "desktop.proxy_detail.start_named", replacing: ["name": proxy.name]))
         .accessibilityIdentifier("tray.proxy.\(proxy.id).toggle")
     }
     .padding(.horizontal, 9)
@@ -344,6 +353,7 @@ struct MenuBarProxiesRow: View {
 }
 
 struct MenuBarOtherAppsRow: View {
+  @ObservedObject var model: MacOSDesignModel
   let apps: [DesignApp]
   var showMarks = false
   var openApps: () -> Void
@@ -355,7 +365,7 @@ struct MenuBarOtherAppsRow: View {
           .font(.system(size: 12, weight: .medium))
           .foregroundStyle(.secondary)
           .frame(width: 14)
-        Text("Other Apps")
+        Text(model.localized("desktop.menu_bar.other_apps"))
           .font(TrayFont.detailMedium)
         if showMarks {
           HStack(spacing: 5) {
@@ -391,6 +401,7 @@ struct MenuBarOtherAppsRow: View {
 }
 
 struct MenuBarActivityRow: View {
+  @ObservedObject var model: MacOSDesignModel
   let title: String
   let time: String
   var openActivity: () -> Void
@@ -409,7 +420,7 @@ struct MenuBarActivityRow: View {
         Text(time)
           .font(TrayFont.detail)
           .foregroundStyle(.secondary)
-        Text("Activity")
+        Text(model.localized("desktop.nav.activity"))
           .font(TrayFont.detailMedium)
           .foregroundStyle(TrayPaint.accent)
       }

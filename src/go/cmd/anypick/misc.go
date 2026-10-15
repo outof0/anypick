@@ -73,7 +73,7 @@ func cmdClients(ctx context.Context, a *appView, args []string) int {
 		if c.Present {
 			state = "present"
 		}
-		fmt.Printf("%s\t%s\t%s\n", c.ID, c.Name, state)
+		cliPrintf("%s\t%s\t%s\n", c.ID, c.Name, state)
 	}
 	return int(anyerr.Success)
 }
@@ -162,13 +162,13 @@ func renderDoctorReport(report doctor.InstallationReport) {
 		jsonOut(report)
 		return
 	}
-	fmt.Printf("anypick doctor — %s\n", report.Status)
+	cliPrintf("anypick doctor — %s\n", report.Status)
 	for _, f := range report.Findings {
 		detail := ""
 		if globals.Verbose {
 			detail = f.Detail
 		}
-		fmt.Printf("  [%s] %s %s\n", f.Status, f.Check, detail)
+		cliPrintf("  [%s] %s %s\n", f.Status, f.Check, detail)
 	}
 }
 
@@ -182,14 +182,14 @@ func renderDoctorReport(report doctor.InstallationReport) {
 // the user had not been shown. Returns false when there is nothing to do.
 func printDoctorPlan(plan doctor.FixPlan) bool {
 	if len(plan.Actions) == 0 && len(plan.Manual) == 0 {
-		fmt.Println("anypick doctor --fix: nothing to repair")
+		cliPrintln("anypick doctor --fix: nothing to repair")
 		return false
 	}
 	for _, action := range plan.Actions {
-		fmt.Printf("  [plan] %s: %s\n", action.Kind, action.Description)
+		cliPrintf("  [plan] %s: %s\n", action.Kind, action.Description)
 	}
 	for _, manual := range plan.Manual {
-		fmt.Printf("  [manual] %s: %s\n", manual.Check, manual.Detail)
+		cliPrintf("  [manual] %s: %s\n", manual.Check, manual.Detail)
 	}
 	return true
 }
@@ -211,13 +211,13 @@ func runDoctorFix(ctx context.Context, a *appView, dryRun, yes bool) int {
 			return int(anyerr.Success)
 		}
 		for _, action := range plan.Actions {
-			fmt.Println("[dry-run] " + doctor.DryRunMessage(action))
+			cliPrintln("[dry-run] " + doctor.DryRunMessage(action))
 		}
 		for _, manual := range plan.Manual {
-			fmt.Println("[dry-run] manual only: " + manual.Detail)
+			cliPrintln("[dry-run] manual only: " + manual.Detail)
 		}
 		if len(plan.Actions) == 0 {
-			fmt.Println("anypick doctor --fix: nothing to repair")
+			cliPrintln("anypick doctor --fix: nothing to repair")
 		}
 		return int(anyerr.Success)
 	}
@@ -250,7 +250,7 @@ func runDoctorFix(ctx context.Context, a *appView, dryRun, yes bool) int {
 	printRepairOutcomes(result)
 	printManualFindings(plan.Manual)
 	if len(result.Applied) == 0 {
-		fmt.Println("anypick doctor --fix: nothing to repair")
+		cliPrintln("anypick doctor --fix: nothing to repair")
 	}
 	// A repair that failed is not a success: a script running --fix in CI must
 	// be able to tell "all green" from "one repair was refused".
@@ -280,18 +280,18 @@ func printRepairOutcomes(result doctor.FixResult) {
 		if !outcome.OK {
 			prefix = "refused"
 		}
-		fmt.Printf("  [%s] %s\n", prefix, outcome.Message)
+		cliPrintf("  [%s] %s\n", prefix, outcome.Message)
 	}
 	if failed := countFailedRepairs(result); failed > 0 {
-		fmt.Printf("anypick doctor --fix: %d repair(s) failed\n", failed)
+		cliPrintf("anypick doctor --fix: %d repair(s) failed\n", failed)
 	}
 }
 
 func printManualFindings(manual []doctor.ManualFinding) {
 	for _, finding := range manual {
-		fmt.Printf("  [manual] %s: %s\n", finding.Check, finding.Detail)
+		cliPrintf("  [manual] %s: %s\n", finding.Check, finding.Detail)
 		for _, suggestion := range finding.Suggestions {
-			fmt.Printf("           %s\n", suggestion)
+			cliPrintf("           %s\n", suggestion)
 		}
 	}
 }
@@ -375,20 +375,20 @@ func currentDoctorEnvironment() doctor.EnvironmentReport {
 // only). The canonical channels are the GitHub Release assets and a source
 // checkout; the thin npm launcher is an optional channel when it is published,
 // so the guidance names all three.
-func cmdUpdate(_ context.Context, a *appView, args []string) int {
+func cmdUpdate(ctx context.Context, a *appView, args []string) int {
 	const releasesAPI = "https://api.github.com/repos/outof0/anypick/releases/latest"
 	const releasesPage = "https://github.com/outof0/anypick/releases/latest"
+	if len(args) > 0 && (args[0] == "check" || args[0] == "download") {
+		return cmdUpdateCore(ctx, args[0], args[1:])
+	}
 	if cli.WantsHelp(args) {
-		fmt.Print("usage: anypick update [--json]\n\n" +
-			"Checks GitHub for a newer release and says how to upgrade. Never\n" +
-			"downgrades: a published release older than this build is reported,\n" +
-			"not advertised.\n")
+		printUpdateHelp()
 		return int(anyerr.Success)
 	}
 	current := packageVersion()
 	req, err := http.NewRequest(http.MethodGet, releasesAPI, nil)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "update check failed (current version %s)\n", current)
+		cliFprintf(os.Stderr, "update check failed (current version %s)\n", current)
 		return int(anyerr.HealthFailure)
 	}
 	req.Header.Set("Accept", "application/vnd.github+json")
@@ -396,7 +396,7 @@ func cmdUpdate(_ context.Context, a *appView, args []string) int {
 	client := &http.Client{Timeout: 6 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "update check failed (current version %s)\n", current)
+		cliFprintf(os.Stderr, "update check failed (current version %s)\n", current)
 		return int(anyerr.HealthFailure)
 	}
 	defer resp.Body.Close()
@@ -407,19 +407,19 @@ func cmdUpdate(_ context.Context, a *appView, args []string) int {
 			jsonOut(map[string]any{"current": current, "latest": nil, "detail": "no published release yet"})
 			return int(anyerr.Success)
 		}
-		fmt.Printf("anypick %s: no published release yet\n", current)
-		fmt.Println("update a source checkout with: git pull && make build")
+		cliPrintf("anypick %s: no published release yet\n", current)
+		cliPrintln("update a source checkout with: git pull && make build")
 		return int(anyerr.Success)
 	}
 	if resp.StatusCode != http.StatusOK {
-		fmt.Fprintf(os.Stderr, "update check failed (current version %s)\n", current)
+		cliFprintf(os.Stderr, "update check failed (current version %s)\n", current)
 		return int(anyerr.HealthFailure)
 	}
 	var body struct {
 		TagName string `json:"tag_name"`
 	}
 	if json.NewDecoder(resp.Body).Decode(&body) != nil || body.TagName == "" {
-		fmt.Fprintf(os.Stderr, "update check returned an unreadable response\n")
+		cliFprintf(os.Stderr, "update check returned an unreadable response\n")
 		return int(anyerr.HealthFailure)
 	}
 	latest := strings.TrimPrefix(body.TagName, "v")
@@ -434,10 +434,10 @@ func cmdUpdate(_ context.Context, a *appView, args []string) int {
 		// checkout ahead of the last tag, or a local build. Advertising an
 		// upgrade to it would walk the user backwards, over a data directory
 		// this newer build may have already migrated.
-		fmt.Printf("anypick %s is newer than the latest published release (%s); nothing to update\n", current, latest)
+		cliPrintf("anypick %s is newer than the latest published release (%s); nothing to update\n", current, latest)
 		return int(anyerr.Success)
 	case 0:
-		fmt.Printf("anypick %s is up to date\n", current)
+		cliPrintf("anypick %s is up to date\n", current)
 		return int(anyerr.Success)
 	}
 	if globals.DryRun {
@@ -445,10 +445,23 @@ func cmdUpdate(_ context.Context, a *appView, args []string) int {
 			map[string]any{"latest": latest})
 		return int(anyerr.Success)
 	}
-	fmt.Printf("anypick %s → %s available\n", current, latest)
-	fmt.Println("upgrade: npm install --global anypick (when published), download " + releasesPage +
+	cliPrintf("anypick %s → %s available\n", current, latest)
+	cliPrintln("upgrade: npm install --global anypick (when published), download " + releasesPage +
 		", or update a source checkout with: git pull && make build")
 	return int(anyerr.Success)
+}
+
+func printUpdateHelp() {
+	cliPrint("usage: anypick update [--json]\n" +
+		"       anypick update check [--json] [--current <version>]\n" +
+		"       anypick update download [--json] [--current <version>]\n\n" +
+		"Checks GitHub for a newer release and says how to upgrade. Never\n" +
+		"downgrades: a published release older than this build is reported,\n" +
+		"not advertised.\n\n" +
+		"check/download print one JSON state per line with --json (the last\n" +
+		"line is the final state); the macOS Settings > Updates pane reads it.\n" +
+		"download only fetches and checks a direct-install asset into the\n" +
+		"user cache; it never replaces the installed app.\n")
 }
 
 // compareVersions orders dotted numeric versions: -1 when a < b, 0 when
@@ -505,7 +518,7 @@ func packageVersion() string { return buildinfo.Version }
 
 func cmdCompletion(a *appView, args []string) int {
 	if cli.WantsHelp(args) {
-		fmt.Print("usage: anypick completion <bash|zsh|fish>\n\n" +
+		cliPrint("usage: anypick completion <bash|zsh|fish>\n\n" +
 			"Prints the shell completion script for the given shell.\n")
 		return int(anyerr.Success)
 	}
@@ -519,7 +532,7 @@ func cmdCompletion(a *appView, args []string) int {
 	const topLevel = "use run current list models add account gateway preset proxy plugin link unlink reset codex tui tray serve doctor update completion providers clients app start status stop stop-proxy"
 	switch shell {
 	case "bash":
-		fmt.Printf(`# bash completion for anypick
+		cliPrintf(`# bash completion for anypick
 _anypick_completions() {
   local cur cmd
   cur="${COMP_WORDS[COMP_CWORD]}"
@@ -570,7 +583,7 @@ _anypick_completions() {
 complete -F _anypick_completions anypick
 `, topLevel)
 	case "zsh":
-		fmt.Printf(`#compdef anypick
+		cliPrintf(`#compdef anypick
 _anypick() {
   if (( CURRENT == 2 )); then
     _values 'command' %[1]s
@@ -618,21 +631,21 @@ _anypick() {
 compdef _anypick anypick
 `, topLevel)
 	case "fish":
-		fmt.Println("# fish completion for anypick")
-		fmt.Println("complete -c anypick -f")
-		fmt.Printf("complete -c anypick -n __fish_use_subcommand -a '%s'\n", topLevel)
-		fmt.Println("complete -c anypick -n '__fish_seen_subcommand_from use run link unlink reset' -a '(anypick __complete clients 2>/dev/null)'")
-		fmt.Println("complete -c anypick -n '__fish_seen_subcommand_from codex' -a 'profile'")
-		fmt.Println("complete -c anypick -n '__fish_seen_subcommand_from profile' -a 'login list show remove'")
-		fmt.Println("complete -c anypick -n '__fish_seen_subcommand_from show remove' -a '(anypick __complete codex-profiles 2>/dev/null)'")
-		fmt.Println("complete -c anypick -n '__fish_seen_subcommand_from list' -a 'accounts gateways clients presets'")
-		fmt.Println("complete -c anypick -n '__fish_seen_subcommand_from add' -a 'account gateway'")
-		fmt.Println("complete -c anypick -n '__fish_seen_subcommand_from plugin' -a 'list add remove enable disable trust'")
-		fmt.Println("complete -c anypick -n '__fish_seen_subcommand_from account' -a '(anypick __complete providers 2>/dev/null)'")
-		fmt.Println("complete -c anypick -n '__fish_seen_subcommand_from import' -a '(__fish_complete_path)' -F")
-		fmt.Println("complete -c anypick -n '__fish_seen_subcommand_from gateway' -a '(anypick __complete gateways 2>/dev/null)'")
-		fmt.Println("complete -c anypick -n '__fish_seen_subcommand_from account; and test (count (commandline -opc)) -eq 3' -a '(anypick __complete accounts (commandline -opc)[3] 2>/dev/null)'")
-		fmt.Println("complete -c anypick -n '__fish_seen_subcommand_from proxy; and test (count (commandline -opc)) -eq 4' -a '(anypick __complete accounts (commandline -opc)[3] 2>/dev/null)'")
+		cliPrintln("# fish completion for anypick")
+		cliPrintln("complete -c anypick -f")
+		cliPrintf("complete -c anypick -n __fish_use_subcommand -a '%s'\n", topLevel)
+		cliPrintln("complete -c anypick -n '__fish_seen_subcommand_from use run link unlink reset' -a '(anypick __complete clients 2>/dev/null)'")
+		cliPrintln("complete -c anypick -n '__fish_seen_subcommand_from codex' -a 'profile'")
+		cliPrintln("complete -c anypick -n '__fish_seen_subcommand_from profile' -a 'login list show remove'")
+		cliPrintln("complete -c anypick -n '__fish_seen_subcommand_from show remove' -a '(anypick __complete codex-profiles 2>/dev/null)'")
+		cliPrintln("complete -c anypick -n '__fish_seen_subcommand_from list' -a 'accounts gateways clients presets'")
+		cliPrintln("complete -c anypick -n '__fish_seen_subcommand_from add' -a 'account gateway'")
+		cliPrintln("complete -c anypick -n '__fish_seen_subcommand_from plugin' -a 'list add remove enable disable trust'")
+		cliPrintln("complete -c anypick -n '__fish_seen_subcommand_from account' -a '(anypick __complete providers 2>/dev/null)'")
+		cliPrintln("complete -c anypick -n '__fish_seen_subcommand_from import' -a '(__fish_complete_path)' -F")
+		cliPrintln("complete -c anypick -n '__fish_seen_subcommand_from gateway' -a '(anypick __complete gateways 2>/dev/null)'")
+		cliPrintln("complete -c anypick -n '__fish_seen_subcommand_from account; and test (count (commandline -opc)) -eq 3' -a '(anypick __complete accounts (commandline -opc)[3] 2>/dev/null)'")
+		cliPrintln("complete -c anypick -n '__fish_seen_subcommand_from proxy; and test (count (commandline -opc)) -eq 4' -a '(anypick __complete accounts (commandline -opc)[3] 2>/dev/null)'")
 	default:
 		return usageError("usage: anypick completion <bash|zsh|fish>")
 	}
@@ -690,7 +703,7 @@ func cmdComplete(ctx context.Context, a *appView, args []string) int {
 		return usageError("unknown completion kind %q", args[0])
 	}
 	for _, id := range out {
-		fmt.Println(id)
+		cliPrintlnRaw(id)
 	}
 	return int(anyerr.Success)
 }
@@ -703,7 +716,7 @@ func serveHubChild(ctx context.Context, a *appView, args []string) int {
 	name := args[0]
 	cfg, err := a.ProxyHub.GetConfig(ctx, name)
 	if err != nil || cfg == nil || !cfg.Enabled {
-		fmt.Fprintln(os.Stderr, "hub is not enabled:", name)
+		cliFprintln(os.Stderr, "hub is not enabled:", name)
 		return int(anyerr.Operational)
 	}
 	srv := &hub.Server{
@@ -723,7 +736,7 @@ func serveHubChild(ctx context.Context, a *appView, args []string) int {
 		Quotas: hubQuotaGuard(a, name),
 	}
 	if err := srv.Start(); err != nil {
-		fmt.Fprintln(os.Stderr, "hub start failed:", err)
+		cliFprintln(os.Stderr, "hub start failed:", err)
 		return int(anyerr.Operational)
 	}
 	// The parent health-checks the stored port. A kernel-assigned listener
@@ -732,7 +745,7 @@ func serveHubChild(ctx context.Context, a *appView, args []string) int {
 	// serving the revision it loaded.
 	if port := portFromEndpoint(srv.Endpoint()); port > 0 && a.ProxyHub != nil {
 		if nerr := a.ProxyHub.NoteBoundPort(ctx, name, port); nerr != nil {
-			fmt.Fprintf(os.Stderr, "warning: hub %s is listening but its port was not saved: %s\n", name, nerr)
+			cliFprintf(os.Stderr, "warning: hub %s is listening but its port was not saved: %s\n", name, nerr)
 		}
 	}
 	proxy.Logf("proxy-hub listening on %s", srv.Endpoint())
@@ -762,7 +775,7 @@ func servePoolChild(ctx context.Context, a *appView, args []string) int {
 		return usageError("_serve-pool requires a provider id")
 	}
 	if err := a.Proxy.ServePoolExisting(ctx, args[0]); err != nil {
-		fmt.Fprintln(os.Stderr, "pool serve failed:", err)
+		cliFprintln(os.Stderr, "pool serve failed:", err)
 		return int(anyerr.Operational)
 	}
 	return int(anyerr.Success)

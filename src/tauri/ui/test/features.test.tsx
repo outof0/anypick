@@ -625,8 +625,8 @@ describe('codex profiles', () => {
     await user.click(screen.getByTestId('codex-profile.create-missing'));
     await user.click(screen.getByTestId('codex-profile.add'));
     await user.type(screen.getByTestId('codex-profile-name'), 'personal');
-    await user.selectOptions(screen.getByRole('combobox', { name: 'Codex route' }), 'account/codex/personal');
-    await user.selectOptions(screen.getByRole('combobox', { name: 'Codex transport' }), 'proxy');
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Account or Route' }), 'account/codex/personal');
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Transport' }), 'proxy');
     await user.click(screen.getByTestId('codex-profile-save'));
     expect(mutatePayloads(bridge)).toEqual([
       expect.objectContaining({ operation: 'codex-profile-sync', sourceIds: ['account/codex/personal'] }),
@@ -686,7 +686,7 @@ describe('codex profiles', () => {
     await user.click(screen.getByTestId('apps-row-codex'));
     await user.click(screen.getByTestId('codex-profile.more.work'));
     await user.click(screen.getByRole('menuitem', { name: 'Edit Profile…' }));
-    expect(screen.getByTestId('codex-profile-save')).toHaveTextContent('Save Profile');
+    expect(screen.getByTestId('codex-profile-save')).toHaveTextContent('Save Changes');
     await user.click(screen.getByTestId('codex-profile-save'));
     expect(mutatePayloads(bridge)[0]).toEqual(
       expect.objectContaining({
@@ -908,7 +908,7 @@ describe('apps', () => {
     await user.click(screen.getByTestId('apps-refresh-menu'));
     await user.click(screen.getByTestId('app.more-claude'));
     await user.click(screen.getByTestId('app.disconnect-menu'));
-    await user.click(within(screen.getByTestId('apps-disconnect-dialog')).getByRole('button', { name: 'Disconnect' }));
+    await user.click(within(screen.getByTestId('apps-disconnect-dialog')).getByRole('button', { name: 'Disconnect from AnyPick' }));
     expect(mutatePayloads(bridge)).toEqual([
       expect.objectContaining({ operation: 'account-refresh', providerId: 'claude', name: 'work' }),
       expect.objectContaining({ operation: 'client-reset', name: 'claude', providerId: 'claude' }),
@@ -957,10 +957,16 @@ describe('settings', () => {
         onShowGettingStarted={onShowGettingStarted}
       />,
     );
+    expect(screen.getByTestId('settings.language')).toHaveValue('auto');
     await user.click(screen.getByRole('switch', { name: 'Show Usage Remaining' }));
     await user.click(screen.getByRole('switch', { name: 'Skip Accounts That Reach Their Usage Limit' }));
     await user.click(screen.getByRole('button', { name: 'Show Checklist' }));
     expect(onShowGettingStarted).toHaveBeenCalledOnce();
+    await user.selectOptions(screen.getByTestId('settings.language'), 'vi');
+    expect(screen.getByTestId('settings-pane')).toHaveAttribute('aria-label', 'Cài đặt');
+    expect(screen.getByTestId('settings-startup')).toHaveTextContent('Khởi động');
+    expect(screen.getByTestId('settings-usage')).toHaveTextContent('Mức sử dụng');
+    expect(screen.getByTestId('settings-getting-started')).toHaveTextContent('Bắt đầu');
     expect(screen.queryByRole('button', { name: /Open Proxies|Manage Backups|Check AnyPick/ })).not.toBeInTheDocument();
     expect(screen.queryByText('Credentials')).not.toBeInTheDocument();
     expect(screen.queryByText('Not encrypted')).not.toBeInTheDocument();
@@ -970,6 +976,9 @@ describe('settings', () => {
     );
     expect(mutatePayloads(bridge)[1]).toEqual(
       expect.objectContaining({ operation: 'setting-quota-guard', name: 'settings', enabled: true }),
+    );
+    expect(mutatePayloads(bridge)[2]).toEqual(
+      expect.objectContaining({ operation: 'setting-language', name: 'settings', language: 'vi' }),
     );
   });
 });

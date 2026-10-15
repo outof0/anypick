@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 )
@@ -250,7 +251,8 @@ func TestWriteStateAtomicOwnerOnly(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if perm := info.Mode().Perm(); perm != 0o600 {
+	if runtime.GOOS != "windows" && info.Mode().Perm() != 0o600 {
+		perm := info.Mode().Perm()
 		t.Fatalf("permissions = %o, want 600", perm)
 	}
 	back, rerr := ReadState(path)

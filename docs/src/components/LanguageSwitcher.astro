@@ -1,0 +1,68 @@
+---
+import {
+  languageSwitchHref,
+  localeNames,
+  supportedLocales,
+  type Locale,
+} from "@/i18n";
+
+interface Props {
+  locale: Locale;
+  pathname: string;
+  label: string;
+  appearance?: "docs" | "landing";
+}
+
+const { locale, pathname, label, appearance = "docs" } = Astro.props;
+const landing = appearance === "landing";
+---
+
+<details class:list={["language-switcher relative", landing ? "language-switcher-landing" : ""]}>
+  <summary
+    aria-label={label}
+    class:list={[
+      "cursor-pointer list-none rounded-md px-2 py-1 text-xs no-underline outline-none focus-visible:ring-2",
+      landing
+        ? "text-[#D6D9E0] hover:bg-white/5 focus-visible:ring-[#A78BFA]"
+        : "text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-ring",
+    ]}
+  >
+    {localeNames[locale]}
+    <span aria-hidden="true" class="ml-1">⌄</span>
+  </summary>
+  <nav
+    aria-label={label}
+    class:list={[
+      "absolute right-0 z-50 mt-1 max-h-80 min-w-44 overflow-y-auto rounded-md border p-1 shadow-lg",
+      landing
+        ? "border-white/10 bg-[#111827] text-[#F8FAFC]"
+        : "border-border bg-popover text-popover-foreground",
+    ]}
+  >
+    <ul class="m-0 list-none p-0">
+      {supportedLocales.map((targetLocale) => (
+        <li>
+          <a
+            href={languageSwitchHref(pathname, targetLocale)}
+            lang={targetLocale}
+            aria-current={targetLocale === locale ? "page" : undefined}
+            class:list={[
+              "block rounded px-2 py-1.5 text-sm no-underline outline-none",
+              landing
+                ? "hover:bg-white/10 focus-visible:bg-white/10"
+                : "hover:bg-accent focus-visible:bg-accent",
+            ]}
+          >
+            {localeNames[targetLocale]}
+          </a>
+        </li>
+      ))}
+    </ul>
+  </nav>
+</details>
+
+<style>
+  .language-switcher > summary::-webkit-details-marker {
+    display: none;
+  }
+</style>

@@ -9,6 +9,7 @@ import { Icon } from "astro-icon/components";
 import { getTabs } from "nimbus-docs/lib/pkgm";
 import type { CommandType, CommandOptions } from "nimbus-docs/lib/pkgm";
 import { LayerCard, LayerCardHeader } from "@/components/ui/layer-card";
+import { getTranslator, localeForPath } from "@/i18n";
 
 interface Props extends CommandOptions {
   pkg?: string;
@@ -16,6 +17,8 @@ interface Props extends CommandOptions {
 }
 
 const { pkg, type = "add", args, dev, comment } = Astro.props;
+const locale = localeForPath(Astro.url.pathname);
+const t = await getTranslator(locale);
 const tabs = getTabs(type, pkg, { args, dev, comment });
 // Deterministic ID — hash the props so two builds with identical content
 // produce identical IDs. Required for incremental builds: a per-render
@@ -63,9 +66,9 @@ const uid =
   }
 </script>
 
-<div data-nb-pm class="w-full">
+<div data-nb-pm data-locale={locale} class="w-full">
   <LayerCard>
-    <LayerCardHeader role="tablist" aria-label="Package manager">
+    <LayerCardHeader role="tablist" aria-label={t("packageManager.tabs")}>
       {tabs.map((tab, i) => (
         <button
           role="tab"
@@ -103,7 +106,7 @@ const uid =
               type="button"
               data-nb-pm-copy
               data-nb-command={tab.cmd}
-              aria-label="Copy to clipboard"
+              aria-label={t("packageManager.copy")}
               class="m-0 flex shrink-0 cursor-pointer items-center justify-center border-0 border-l border-solid border-border bg-transparent px-3 text-muted-foreground transition-colors hover:text-foreground"
             >
               <Icon name="ph:copy" class="w-[18px] h-[18px]" />

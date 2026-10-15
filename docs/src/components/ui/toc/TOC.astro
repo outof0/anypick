@@ -7,18 +7,20 @@
 import { cn } from "@/lib/cn";
 import type { HTMLAttributes } from "astro/types";
 import type { TOCItem } from "nimbus-docs/types";
+import { getTranslator, localeForPath } from "@/i18n";
 
 interface Props extends HTMLAttributes<"div"> {
   headings: TOCItem[];
 }
 
 const { headings, class: className, ...attrs } = Astro.props;
+const t = await getTranslator(localeForPath(Astro.url.pathname));
 ---
 
 {headings.length > 0 && (
   <div data-nb-toc class={cn("toc-container", className)} {...attrs}>
-    <h2 class="mb-2 text-sm font-semibold text-foreground">On this page</h2>
-    <nav aria-label="Table of contents" class="relative">
+    <h2 class="mb-2 text-sm font-semibold text-foreground">{t("toc.title")}</h2>
+    <nav aria-label={t("toc.label")} class="relative">
       <svg
         data-nb-toc-rail
         aria-hidden="true"

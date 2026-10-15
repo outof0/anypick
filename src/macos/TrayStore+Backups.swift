@@ -35,7 +35,11 @@ extension TrayStore {
         error: "inspection-failed",
         code: "BACKUP_INSPECT_FAILED",
         reason: "timeout",
-        message: "The backup review got no answer. Choose the backup again, and reinstall AnyPick if it repeats."
+        message: DesktopMessageCatalog.text(
+          "desktop.backups.timeout_detail",
+          preference: settings.language ?? "auto",
+          resolved: settings.resolvedLanguage ?? DesktopMessageCatalog.systemLanguage
+        )
       )
     }
     return requestId

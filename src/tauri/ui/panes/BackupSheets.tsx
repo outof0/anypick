@@ -2,6 +2,7 @@ import { useState, useRef } from 'react';
 
 import type { AccountRow } from '../lib/contract';
 import { backupImportEntryIDs } from '../lib/desktop-actions';
+import { translate, translateSource } from '../lib/i18n';
 import type { BackupPreviewFrame } from '../lib/wire';
 import { Dialog } from '../ui/Dialog';
 import { Button, CheckRow, Field, Group, Row, RowActions, RowText, WarningGlyph } from '../ui/primitives';
@@ -15,12 +16,16 @@ import { ProviderIcon } from '../shell/ProviderIcon';
  */
 export function CreateBackupSheet({
   accounts,
+  language,
+  resolvedLanguage,
   busy = false,
   onClose,
   onExport,
   onQuickBackup,
 }: {
   accounts: readonly AccountRow[];
+  language: string;
+  resolvedLanguage: string;
   busy?: boolean;
   onClose: () => void;
   onExport: (path: string, accountIds: string[], overwrite: boolean) => void;
@@ -29,6 +34,9 @@ export function CreateBackupSheet({
   const [path, setPath] = useState('');
   const [selected, setSelected] = useState<string[]>(() => accounts.map((a) => a.id));
   const [overwrite, setOverwrite] = useState(false);
+  const t = (key: string) => translate(`desktop.backups.${key}`, language, resolvedLanguage);
+  const selectedCount = (selected: number, total: number) =>
+    t('selection_count').replace('%1$d', String(selected)).replace('%2$d', String(total));
 
   const toggleAll = () => {
     if (selected.length === accounts.length) {
@@ -45,14 +53,14 @@ export function CreateBackupSheet({
 
   return (
     <Dialog
-      title="Export Accounts"
+      title={t('export_title')}
       width="form"
       onCancel={onClose}
       testId="backups-export"
       actions={
         <>
           <Button kind="secondary" onClick={onClose}>
-            Cancel
+            {t('cancel')}
           </Button>
           <Button
             kind="primary"
@@ -60,15 +68,15 @@ export function CreateBackupSheet({
             testId="backup-export-submit"
             onClick={handleExport}
           >
-            Export
+            {t('export')}
           </Button>
         </>
       }
     >
-      <Group title="Destination">
+      <Group title={t('destination')}>
         <Row>
           <Field
-            label="File"
+            label={t('file')}
             value={path}
             placeholder="~/Desktop/backup.json"
             onChange={setPath}
@@ -77,7 +85,7 @@ export function CreateBackupSheet({
         </Row>
         <Row>
           <CheckRow
-            label="Replace an existing file"
+            label={t('replace_existing_file')}
             checked={overwrite}
             testId="backup-export-overwrite"
             onChange={setOverwrite}
@@ -86,31 +94,31 @@ export function CreateBackupSheet({
       </Group>
 
       <Group
-        title="Saved Accounts"
+        title={t('saved_accounts')}
         footer={
           accounts.length === 0
-            ? 'Add a login under Accounts & APIs, then choose accounts here.'
-            : 'These files include working credentials and aren’t encrypted.'
+            ? t('add_login')
+            : t('unencrypted')
         }
       >
         {accounts.length > 1 ? (
           <Row>
-            <RowText detail={`${selected.length} of ${accounts.length} accounts selected.`} />
+            <RowText detail={selectedCount(selected.length, accounts.length)} />
             <RowActions>
               <button
                 type="button"
                 className="cursor-default bg-transparent text-[11px] font-medium text-accent hover:underline"
-                title={selected.length === accounts.length ? 'Deselect all saved accounts' : 'Select all saved accounts'}
+                title={t(selected.length === accounts.length ? 'deselect_saved_help' : 'select_saved_help')}
                 onClick={toggleAll}
               >
-                {selected.length === accounts.length ? 'Deselect All' : 'Select All'}
+                {t(selected.length === accounts.length ? 'deselect_all' : 'select_all')}
               </button>
             </RowActions>
           </Row>
         ) : null}
         {accounts.length === 0 ? (
           <Row>
-            <RowText detail="No saved accounts yet." />
+            <RowText detail={t('no_saved_accounts')} />
           </Row>
         ) : (
           accounts.map((account) => {
@@ -153,6 +161,8 @@ export function CreateBackupSheet({
  */
 export function RestoreBackupSheet({
   preview,
+  language,
+  resolvedLanguage,
   busy = false,
   initialPath = '',
   onClose,
@@ -161,6 +171,8 @@ export function RestoreBackupSheet({
   onDiscard,
 }: {
   preview: BackupPreviewFrame | null;
+  language: string;
+  resolvedLanguage: string;
   busy?: boolean;
   initialPath?: string;
   onClose: () => void;
@@ -174,6 +186,9 @@ export function RestoreBackupSheet({
   const [isDragging, setIsDragging] = useState(false);
   const [pickError, setPickError] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const t = (key: string) => translate(`desktop.backups.${key}`, language, resolvedLanguage);
+  const selectedCount = (selected: number, total: number) =>
+    t('selection_count').replace('%1$d', String(selected)).replace('%2$d', String(total));
 
   /**
    * Turn a chosen or dropped file into a review path.
@@ -194,9 +209,7 @@ export function RestoreBackupSheet({
       onReview(nativePath);
       return;
     }
-    setPickError(
-      'This app can’t read the location of a file chosen from the picker. Type the backup file’s full path in the field instead.',
-    );
+    setPickError(t('picker_error'));
   };
 
   const handleFileChosen = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -226,14 +239,14 @@ export function RestoreBackupSheet({
 
   return (
     <Dialog
-      title={isReady ? 'Restore Accounts' : 'Review Backup'}
+      title={isReady ? t('restore_title') : t('review_modal_title')}
       width="form"
       onCancel={onClose}
       testId="backups-import"
       actions={
         <>
           <Button kind="secondary" onClick={onClose}>
-            Cancel
+            {t('cancel')}
           </Button>
           {isReady && preview.inspectionId ? (
             <Button
@@ -242,7 +255,7 @@ export function RestoreBackupSheet({
               testId="backup-forget"
               onClick={() => onDiscard(preview.inspectionId)}
             >
-              Discard Review
+              {t('discard_review')}
             </Button>
           ) : null}
           {isReady ? (
@@ -252,7 +265,7 @@ export function RestoreBackupSheet({
               testId="backup-import-submit"
               onClick={handleImport}
             >
-              Import
+              {t('import')}
             </Button>
           ) : (
             <Button
@@ -261,13 +274,13 @@ export function RestoreBackupSheet({
               testId="backup-review"
               onClick={() => onReview(path.trim())}
             >
-              Review
+              {t('review')}
             </Button>
           )}
         </>
       }
     >
-      <Group title="Backup File" footer="Review the file before anything is written.">
+      <Group title={t('backup_file')} footer={t('review_before_write')}>
         <Row>
           <div
             className={`flex min-w-0 flex-1 items-center gap-3 transition-colors ${
@@ -285,7 +298,7 @@ export function RestoreBackupSheet({
               if (file) processFile(file);
             }}
           >
-            <span className="shrink-0 text-[13px] text-text">File</span>
+            <span className="shrink-0 text-[13px] text-text">{t('file')}</span>
             <input
               className="min-h-control w-full flex-1 rounded-control border border-control-border bg-field px-2 py-0.5 text-[12px] text-text placeholder:text-tertiary focus:border-accent"
               type="text"
@@ -310,18 +323,17 @@ export function RestoreBackupSheet({
               disabled={busy}
               onClick={() => fileInputRef.current?.click()}
             >
-              Choose…
+              {t('choose_file')}
             </Button>
           </RowActions>
           <p className="text-secondary" data-testid="backup-path-hint">
-            Choose… works only where the app can see a file’s location; if it
-            reports otherwise, type the backup file’s full path above.
+            {t('choose_hint')}
           </p>
         </Row>
         {pickError ? (
           <Row warning testId="backup-pick-error">
-            <WarningGlyph />
-            <RowText title="Can’t use that file" detail={pickError} />
+            <WarningGlyph language={language} resolvedLanguage={resolvedLanguage} />
+            <RowText title={t('picker_error_title')} detail={translateSource(pickError, language, resolvedLanguage)} />
           </Row>
         ) : null}
       </Group>
@@ -329,10 +341,14 @@ export function RestoreBackupSheet({
       {preview?.status === 'error' ? (
         <Group>
           <Row warning testId="backup-review-error">
-            <WarningGlyph />
+            <WarningGlyph language={language} resolvedLanguage={resolvedLanguage} />
             <RowText
-              title="Nothing was imported"
-              detail={preview.message || preview.reason || 'Choose another file.'}
+              title={t('nothing_imported')}
+              detail={preview.message
+                ? translateSource(preview.message, language, resolvedLanguage)
+                : preview.reason
+                  ? translateSource(preview.reason, language, resolvedLanguage)
+                  : t('choose_another')}
             />
           </Row>
         </Group>
@@ -341,20 +357,20 @@ export function RestoreBackupSheet({
       {isReady && entries.length > 0 ? (
         <>
           <Group
-            title="Accounts in Backup"
-            footer="Turn off an account to leave it out. Accounts already saved are skipped unless you choose Replace."
+            title={t('accounts_in_backup')}
+            footer={t('accounts_in_backup_help')}
           >
             {entries.length > 1 ? (
               <Row>
-                <RowText detail={`${selectedEntries.length} of ${entries.length} accounts selected.`} />
+                <RowText detail={selectedCount(selectedEntries.length, entries.length)} />
                 <RowActions>
                   <button
                     type="button"
                     className="cursor-default bg-transparent text-[11px] font-medium text-accent hover:underline"
-                    title={selectedEntries.length === entries.length ? 'Deselect all backup accounts' : 'Select all backup accounts'}
+                    title={t(selectedEntries.length === entries.length ? 'deselect_backup_help' : 'select_backup_help')}
                     onClick={toggleAll}
                   >
-                    {selectedEntries.length === entries.length ? 'Deselect All' : 'Select All'}
+                    {t(selectedEntries.length === entries.length ? 'deselect_all' : 'select_all')}
                   </button>
                 </RowActions>
               </Row>
@@ -383,7 +399,7 @@ export function RestoreBackupSheet({
                         <span className="text-[13px] font-medium text-text">{entry.label || entry.name}</span>
                         {isReplace ? (
                           <span className="rounded-control bg-badge px-1 py-0.2 text-[10px] font-medium text-secondary">
-                            Existing
+                            {t('existing')}
                           </span>
                         ) : null}
                       </div>
@@ -395,10 +411,10 @@ export function RestoreBackupSheet({
             })}
           </Group>
 
-          <Group title="Options">
+          <Group title={t('options')}>
             <Row>
               <CheckRow
-                label="Replace saved accounts"
+                label={t('replace_saved_accounts')}
                 checked={overwrite}
                 testId="backup-import-overwrite"
                 onChange={setOverwrite}

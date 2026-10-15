@@ -152,7 +152,9 @@ final class AnyPickUITests: XCTestCase {
     waitFor(cancel, "Add Login sheet Cancel")
     cancel.click()
     waitFor(app.staticTexts["No Accounts"].firstMatch, "Accounts pane (No Accounts)")
-    button(app, "Add Login…").click()
+    let emptyAccountsAddLogin = element(app, "accounts.empty.add-login")
+    waitFor(emptyAccountsAddLogin, "empty Accounts Add Login button")
+    emptyAccountsAddLogin.click()
     waitForAddLoginSheet(app, "empty Accounts")
     app.terminate()
 
@@ -257,6 +259,7 @@ final class AnyPickUITests: XCTestCase {
     waitFor(element(app, "settings.start-enabled-proxies"), "settings.start-enabled-proxies")
     waitFor(element(app, "settings.show-usage"), "settings.show-usage")
     waitFor(element(app, "settings.quota-guard"), "settings.quota-guard")
+    waitFor(element(app, "settings.language"), "settings.language")
     waitFor(element(app, "settings.show-getting-started"), "settings.show-getting-started")
     XCTAssertFalse(app.buttons["Open Proxies…"].firstMatch.exists)
     XCTAssertFalse(app.buttons["Manage Backups…"].firstMatch.exists)

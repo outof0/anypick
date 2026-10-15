@@ -1,0 +1,5190 @@
+{
+  "tui.help.title": {
+    "other": "AnyPick 终端界面",
+    "description": "Original English text: AnyPick terminal UI"
+  },
+  "cli.error.prefix": {
+    "other": "错误：",
+    "description": "Original English text: error:"
+  },
+  "cli.dry_run.heading": {
+    "other": "试运行 — 仅展示计划：",
+    "description": "Original English text: Dry run — plan only:"
+  },
+  "cli.action.cancelled": {
+    "other": "已取消。",
+    "description": "Original English text: Cancelled."
+  },
+  "cli.binding.dry_run.remove": {
+    "other": "将移除 %s 的全局绑定",
+    "description": "Original English text: Would remove global binding for %s"
+  },
+  "cli.binding.missing": {
+    "other": "%s 没有全局绑定",
+    "description": "Original English text: No global binding for %s"
+  },
+  "cli.confirm.delete": {
+    "other": "删除 %s？[y/N] ",
+    "description": "Original English text: Delete %s? [y/N] "
+  },
+  "cli.warning": {
+    "other": "警告：%s",
+    "description": "Original English text: warning: %s"
+  },
+  "cli.proxy.configured": {
+    "other": "已配置 %s/%s（端口 %d）",
+    "description": "Original English text: configured %s/%s (port %d)"
+  },
+  "cli.account.exported": {
+    "other": "已导出 %s/%s → %s",
+    "description": "Original English text: exported %s/%s → %s"
+  },
+  "cli.account.exported_count": {
+    "other": "已导出 %d 个账户 → %s",
+    "description": "Original English text: exported %d account(s) → %s"
+  },
+  "cli.account.imported": {
+    "other": "已导入 %s/%s",
+    "description": "Original English text: imported %s/%s"
+  },
+  "cli.account.imported_count": {
+    "other": "已导入 %d 个账户：%s",
+    "description": "Original English text: imported %d account(s): %s"
+  },
+  "cli.gateway.created": {
+    "other": "网关 %s（%s）→ %s",
+    "description": "Original English text: gateway %s (%s) → %s"
+  },
+  "cli.pool.status": {
+    "other": "账号池 %s：模式=%s 已启用=%v 策略=%s",
+    "description": "Original English text: pool %s: mode=%s enabled=%v strategy=%s"
+  },
+  "cli.update.current": {
+    "other": "anypick %s 已是最新版本",
+    "description": "Original English text: anypick %s is up to date"
+  },
+  "cli.update.available": {
+    "other": "anypick %s → %s 可更新",
+    "description": "Original English text: anypick %s → %s available"
+  },
+  "tui.board.apps": {
+    "other": "应用",
+    "description": "Original English text: apps"
+  },
+  "tui.board.accounts": {
+    "other": "账户",
+    "description": "Original English text: accounts"
+  },
+  "tui.board.gateways": {
+    "other": "网关",
+    "description": "Original English text: gateways"
+  },
+  "tui.board.proxy": {
+    "other": "代理",
+    "description": "Original English text: proxy"
+  },
+  "tui.board.diagnose": {
+    "other": "诊断",
+    "description": "Original English text: diagnose"
+  },
+  "tui.provider.saved_count": {
+    "other": "%d 个已保存",
+    "description": "Original English text: %d saved"
+  },
+  "tui.apps.source": {
+    "other": "%s 使用 %s",
+    "description": "Original English text: %s uses %s"
+  },
+  "tui.apps.model_hint": {
+    "other": "模型 %s · 按回车更改路由",
+    "description": "Original English text: model %s · enter to change route"
+  },
+  "tui.apps.native_login": {
+    "other": "%s 使用自己的登录",
+    "description": "Original English text: %s uses its own login"
+  },
+  "tui.apps.take_over_hint": {
+    "other": "按回车让 AnyPick 接管",
+    "description": "Original English text: enter to let AnyPick take over"
+  },
+  "tui.apps.status": {
+    "other": "%s：%s",
+    "description": "Original English text: %s is %s"
+  },
+  "tui.apps.connect_hint": {
+    "other": "按回车连接应用",
+    "description": "Original English text: enter to connect app"
+  },
+  "tui.label.accounts": {
+    "other": "账户",
+    "description": "Original English text: Accounts"
+  },
+  "tui.label.apps": {
+    "other": "应用",
+    "description": "Original English text: Apps"
+  },
+  "tui.label.gateways": {
+    "other": "网关",
+    "description": "Original English text: Gateways"
+  },
+  "tui.label.proxy": {
+    "other": "代理",
+    "description": "Original English text: Proxy"
+  },
+  "tui.hints.apps": {
+    "other": "↑↓ 移动 · ⏎ 连接/更改 · a 账户 · g 网关 · p 代理 · d 诊断 · ? 帮助 · q 退出",
+    "description": "Original English text: ↑↓ move · ⏎ connect/change · a accounts · g gateways · p proxy · d diagnose · ? help · q quit"
+  },
+  "tui.hints.accounts": {
+    "other": "↑↓ 移动 · ⏎ 使用 · v 详情 · p 代理 · s/a 保存当前登录 · d 删除 · r 重新加载 · esc 返回",
+    "description": "Original English text: ↑↓ move · ⏎ use · v details · p proxy · s/a save live · d delete · r reload · esc back"
+  },
+  "tui.filter.prompt": {
+    "other": "筛选：",
+    "description": "Original English text: filter: "
+  },
+  "tui.filter.help": {
+    "other": "_ · ⏎ 应用 · esc 清除",
+    "description": "Original English text: _ · ⏎ apply · esc clear"
+  },
+  "tui.hints.filtered_accounts": {
+    "other": "↑↓ 移动 · ⏎ 打开 · a 添加登录 · v 详情 · i/e 导入/导出 · f 筛选 · esc 应用 · ? 帮助",
+    "description": "Original English text: ↑↓ move · ⏎ open · a add login · v details · i/e import-export · f filter · esc apps · ? help"
+  },
+  "tui.hints.secondary_board": {
+    "other": "↑↓ 移动 · esc 应用 · r 重新加载 · ? 帮助",
+    "description": "Original English text: ↑↓ move · esc apps · r reload · ? help"
+  },
+  "tui.empty": {
+    "other": "  （没有可显示的内容）",
+    "description": "Original English text:   (nothing to show)"
+  },
+  "tui.import.file_prompt": {
+    "other": "JSON 文件（↑↓ 选择 · Tab 自动补全）：",
+    "description": "Original English text: JSON files (↑↓ choose · tab complete):"
+  },
+  "tui.import.no_files": {
+    "other": "当前文件夹或 AnyPick 导出目录中没有 .json 文件。",
+    "description": "Original English text: No .json files found in the current folder or AnyPick exports."
+  },
+  "tui.provider.status_unavailable": {
+    "other": "状态不可用",
+    "description": "Original English text: status unavailable"
+  },
+  "tui.account.active_status": {
+    "other": "当前使用",
+    "description": "Original English text: active"
+  },
+  "tui.account.model_prefix": {
+    "other": "模型 ",
+    "description": "Original English text: model "
+  },
+  "tui.account.model_set_by_client": {
+    "other": "（由客户端设置模型）",
+    "description": "Original English text: (model set by client)"
+  },
+  "tui.account.own_login": {
+    "other": "自己的登录",
+    "description": "Original English text: own login"
+  },
+  "tui.account.saved_login": {
+    "other": "已保存的登录",
+    "description": "Original English text: saved login"
+  },
+  "tui.account.current_live_login": {
+    "other": "当前登录",
+    "description": "Original English text: current live login"
+  },
+  "tui.source.gateway_label": {
+    "other": "网关",
+    "description": "Original English text: gateway"
+  },
+  "tui.gateway.default_model_set": {
+    "other": "网关 · 已设置默认模型",
+    "description": "Original English text: gateway · default model set"
+  },
+  "tui.proxy.running_label": {
+    "other": "代理运行中",
+    "description": "Original English text: proxy running"
+  },
+  "tui.proxy.stopped_label": {
+    "other": "代理已停止",
+    "description": "Original English text: proxy stopped"
+  },
+  "tui.time.just_now": {
+    "other": "刚刚",
+    "description": "Original English text: just now"
+  },
+  "tui.label.main": {
+    "other": "默认",
+    "description": "Original English text: main"
+  },
+  "tui.proxy.stopped": {
+    "other": "已停止",
+    "description": "Original English text: stopped"
+  },
+  "tui.proxy.running_prefix": {
+    "other": "运行中 ",
+    "description": "Original English text: running "
+  },
+  "tui.proxy.enabled_stopped": {
+    "other": "已启用，已停止",
+    "description": "Original English text: enabled, stopped"
+  },
+  "tui.account.active": {
+    "other": "（当前）",
+    "description": "Original English text: (active)"
+  },
+  "tui.wizard.step.source": {
+    "other": "来源",
+    "description": "Original English text: source"
+  },
+  "tui.wizard.step.models": {
+    "other": "模型",
+    "description": "Original English text: models"
+  },
+  "tui.wizard.step.preview": {
+    "other": "预览",
+    "description": "Original English text: preview"
+  },
+  "tui.wizard.hints.source": {
+    "other": "↑↓ 移动 · ⏎ 选择路由 · esc 返回",
+    "description": "Original English text: ↑↓ move · ⏎ choose route · esc back"
+  },
+  "tui.wizard.hints.models": {
+    "other": "↑↓ 移动 · ⏎ 编辑 · a 预览 · esc 返回",
+    "description": "Original English text: ↑↓ move · ⏎ edit · a preview · esc back"
+  },
+  "tui.wizard.hints.preview": {
+    "other": "⏎ 启用路由 · esc 返回",
+    "description": "Original English text: ⏎ activate route · esc back"
+  },
+  "tui.wizard.no_options": {
+    "other": "  （没有可选项 — 按 a 保存账户，或按 g 添加网关）",
+    "description": "Original English text:   (no options — save an account with a, or add a gateway with g)"
+  },
+  "tui.wizard.available_models": {
+    "other": "可用模型：",
+    "description": "Original English text: available models: "
+  },
+  "tui.wizard.same_as_default": {
+    "other": "（与默认值相同）",
+    "description": "Original English text: (same as default)"
+  },
+  "tui.wizard.plan_error": {
+    "other": "无法规划此路由：",
+    "description": "Original English text: Could not plan this route:"
+  },
+  "tui.wizard.back_hint": {
+    "other": "按 esc 返回并选择其他来源",
+    "description": "Original English text: esc to go back and pick a different source"
+  },
+  "tui.wizard.planning": {
+    "other": "正在规划…",
+    "description": "Original English text: planning…"
+  },
+  "tui.wizard.confirm_activate": {
+    "other": "要为 %s 启用此路由吗？",
+    "description": "Original English text: Activate this route for %s?"
+  },
+  "tui.plan.resolve_source": {
+    "other": "解析来源",
+    "description": "Original English text: resolve source"
+  },
+  "tui.plan.expand_preset": {
+    "other": "展开预设",
+    "description": "Original English text: expand preset"
+  },
+  "tui.plan.validate_compatibility": {
+    "other": "验证兼容性",
+    "description": "Original English text: validate compatibility"
+  },
+  "tui.plan.validate_credential": {
+    "other": "验证凭据",
+    "description": "Original English text: validate credential"
+  },
+  "tui.plan.inspect_client_state": {
+    "other": "检查客户端状态",
+    "description": "Original English text: inspect client state"
+  },
+  "tui.plan.resolve_transport": {
+    "other": "解析传输方式",
+    "description": "Original English text: resolve transport"
+  },
+  "tui.plan.validate_external_dependency": {
+    "other": "验证外部依赖",
+    "description": "Original English text: validate external dependency"
+  },
+  "tui.plan.allocate_proxy_lease": {
+    "other": "分配代理租约",
+    "description": "Original English text: allocate proxy lease"
+  },
+  "tui.plan.start_local_proxy": {
+    "other": "需要时启动本地代理",
+    "description": "Original English text: start local proxy if needed"
+  },
+  "tui.plan.wait_proxy_health": {
+    "other": "等待代理就绪",
+    "description": "Original English text: wait for proxy health"
+  },
+  "tui.plan.ensure_proxy_hub": {
+    "other": "确保代理中心可用",
+    "description": "Original English text: ensure proxy hub"
+  },
+  "tui.plan.attach_proxy_hub_route": {
+    "other": "连接代理中心路由",
+    "description": "Original English text: attach proxy hub route"
+  },
+  "tui.plan.wait_hub_health": {
+    "other": "等待代理中心就绪",
+    "description": "Original English text: wait for hub health"
+  },
+  "tui.plan.validate_proxy_hub_route": {
+    "other": "验证代理中心路由",
+    "description": "Original English text: validate proxy hub route"
+  },
+  "tui.plan.write_native_auth": {
+    "other": "写入原生认证信息",
+    "description": "Original English text: write native auth"
+  },
+  "tui.plan.write_client_config": {
+    "other": "写入客户端配置",
+    "description": "Original English text: write client config"
+  },
+  "tui.plan.create_environment_overlay": {
+    "other": "创建环境覆盖配置",
+    "description": "Original English text: create environment overlay"
+  },
+  "tui.plan.create_temporary_client_home": {
+    "other": "创建临时客户端目录",
+    "description": "Original English text: create temporary client home"
+  },
+  "tui.plan.verify_effective_state": {
+    "other": "验证生效状态",
+    "description": "Original English text: verify effective state"
+  },
+  "tui.plan.commit_global_binding": {
+    "other": "提交全局绑定",
+    "description": "Original English text: commit global binding"
+  },
+  "tui.plan.commit_project_binding": {
+    "other": "提交项目绑定",
+    "description": "Original English text: commit project binding"
+  },
+  "tui.plan.spawn_managed_client": {
+    "other": "启动受管理的客户端",
+    "description": "Original English text: spawn managed client"
+  },
+  "tui.plan.release_proxy_lease": {
+    "other": "释放代理租约",
+    "description": "Original English text: release proxy lease"
+  },
+  "tui.plan.restore_temporary_state": {
+    "other": "还原临时状态",
+    "description": "Original English text: restore temporary state"
+  },
+  "tui.diagnosis.healthy": {
+    "other": "正常",
+    "description": "Original English text: healthy"
+  },
+  "tui.diagnosis.needs_attention": {
+    "other": "需要注意",
+    "description": "Original English text: needs attention"
+  },
+  "tui.diagnosis.unhealthy": {
+    "other": "异常",
+    "description": "Original English text: unhealthy"
+  },
+  "tui.diagnosis.no_checks": {
+    "other": "  （未运行检查）",
+    "description": "Original English text:   (no checks ran)"
+  },
+  "tui.dismiss_hint": {
+    "other": "按任意键关闭",
+    "description": "Original English text: any key to dismiss"
+  },
+  "tui.help.title_short": {
+    "other": "anypick / 帮助",
+    "description": "Original English text: anypick / help"
+  },
+  "tui.help.apps": {
+    "other": "  应用       查看 Claude / Codex 当前使用的来源（主要功能）",
+    "description": "Original English text:   Apps       what Claude / Codex use right now (the product)"
+  },
+  "tui.help.accounts": {
+    "other": "  账户       保存、切换、刷新和删除登录",
+    "description": "Original English text:   Accounts   save, switch, refresh, delete logins"
+  },
+  "tui.help.gateways": {
+    "other": "  网关       绑定到应用的端点和密钥配置",
+    "description": "Original English text:   Gateways   endpoint + key profiles bound to apps"
+  },
+  "tui.help.proxy": {
+    "other": "  代理       本地代理、账号池和代理中心",
+    "description": "Original English text:   Proxy      local proxies, pools, hub"
+  },
+  "tui.help.navigation": {
+    "other": "  ↑/↓ 或 k/j   移动光标      tab   切换面板      esc   返回",
+    "description": "Original English text:   ↑/↓ or k/j   move cursor      tab   cycle boards      esc   back"
+  },
+  "tui.help.activate": {
+    "other": "  ⏎           连接/更改路由（应用）或使用账户（账户）",
+    "description": "Original English text:   ⏎           connect / change route (Apps) or use account (Accounts)"
+  },
+  "tui.help.shortcuts": {
+    "other": "  a g p       从应用跳转到账户 / 网关 / 代理",
+    "description": "Original English text:   a g p       jump to Accounts / Gateways / Proxy from Apps"
+  },
+  "tui.help.quit": {
+    "other": "  d           诊断                  ?   此屏幕           q   退出（应用）",
+    "description": "Original English text:   d           diagnose               ?   this screen      q   quit (Apps)"
+  },
+  "tui.help.proxy_secrets": {
+    "other": "会显示代理端点和中心密钥；不会显示账户代理令牌。",
+    "description": "Original English text: Proxy endpoints and hub keys are shown; account proxy tokens are never displayed."
+  },
+  "tui.confirm.delete_account": {
+    "other": "要删除已保存的账户 %s/%s 吗？",
+    "description": "Original English text: Delete saved account %s/%s?"
+  },
+  "cli.import.zero_accounts": {
+    "other": "已导入 0 个账户",
+    "description": "Original English text: imported 0 accounts"
+  },
+  "cli.account.import.file_hint": {
+    "other": "请从列表中选择 JSON 信封文件或 AnyPick 备份文件。",
+    "description": "Original English text: Choose a JSON envelope or AnyPick backup file from the list."
+  },
+  "tui.placeholder.gateway_actions": {
+    "other": "添加/删除网关将在第 3 阶段提供",
+    "description": "Original English text: gateway add/delete lands in Phase 3"
+  },
+  "tui.placeholder.proxy_actions": {
+    "other": "启动/停止代理将在第 3 阶段提供",
+    "description": "Original English text: proxy start/stop lands in Phase 3"
+  },
+  "tui.status.cancelled": {
+    "other": "已取消",
+    "description": "Original English text: cancelled"
+  },
+  "cli.tui.requires_terminal": {
+    "other": "交互式 TUI 需要终端；请改为运行 `anypick list`、`anypick use` 或 `anypick status`。",
+    "description": "Original English text: the interactive TUI requires a terminal: run `anypick list`, `anypick use` or `anypick status` instead"
+  },
+  "tui.source.group.gateways_proxies": {
+    "other": "网关与代理",
+    "description": "Original English text: Gateways & proxies"
+  },
+  "tui.source.group.native_accounts": {
+    "other": "原生账户",
+    "description": "Original English text: Native accounts"
+  },
+  "tui.source.group.saved_setups": {
+    "other": "已保存的方案",
+    "description": "Original English text: Saved setups"
+  },
+  "tui.source.sub.account_proxy": {
+    "other": "账户代理",
+    "description": "Original English text: account proxy"
+  },
+  "tui.source.sub.preset": {
+    "other": "预设",
+    "description": "Original English text: preset"
+  },
+  "tui.model.role.default": {
+    "other": "默认",
+    "description": "Original English text: default"
+  },
+  "cli.label.client": {
+    "other": "客户端",
+    "description": "Original English text: client"
+  },
+  "cli.label.route": {
+    "other": "路由",
+    "description": "Original English text: route"
+  },
+  "tui.wizard.hints.back": {
+    "other": "esc 返回",
+    "description": "esc back"
+  },
+  "tui.diagnosis.check.client": {
+    "other": "客户端",
+    "description": "client"
+  },
+  "tui.diagnosis.check.route": {
+    "other": "路由",
+    "description": "route"
+  },
+  "tui.diagnosis.check.proxy": {
+    "other": "代理",
+    "description": "proxy"
+  },
+  "cli.warning.line": {
+    "other": "警告：%s\n",
+    "description": "Original English text: warning: %s\n"
+  },
+  "cli.help.root": {
+    "other": "anypick-go — 将 AI 编程客户端连接到你已有的账号\n\n用法：\n  anypick use <client> --with <source> [--profile <name>] [--model <id>] [--transport auto|direct|proxy]\n  anypick run <client> (--with <source>|--profile <name>) -- <args…>   隔离的临时启动\n  anypick current <provider>\n  anypick list providers | accounts [<provider>]\n  anypick models <client> [--with <source>]   查看此连接可用的模型 ID\n  anypick add account <provider> --name <name> [--current|--new] [--source <id>] [--force]\n  anypick add gateway <name> --provider <id> [--endpoint url]\n  anypick add <provider> --name <name> [--force]   （add account --current 的弃用别名）\n  anypick account list|remove|refresh|export|import …\n  anypick account export <provider> <name> [--out <file>] | [<provider>] --all [--out <file>] [--overwrite]\n  anypick account import <provider> <name> <file.json> [--force] | <file.json> [<file2.json> …] [--force]\n  anypick gateway add|list|show|edit|remove|reset …\n  anypick preset list|show|remove …\n  anypick proxy enable|disable|config|start|stop|status|token|restart|logs …\n  anypick proxy pool status|enable|disable|member|start|stop …\n  anypick proxy hub status|enable|source|owner|preview|start|stop|token …\n  anypick plugin list|add|remove|enable|disable|trust …\n  anypick link|unlink <client> [--with <source>] [--dir <path>]   不带 --with 时，link 会重新应用全局配置\n  anypick reset <client>\n  anypick codex profile login|list|show|remove …\n  anypick tui | tray\n  anypick serve [--detach|--stop]   核心服务（状态 API）\n  anypick doctor | update | completion <bash|zsh|fish>\n\n来源：  provider/account · gateway-name · @preset · pool:<provider>\n",
+    "description": "Original English text: anypick-go — point AI coding clients at accounts you already have\n\nUsage:\n  anypick use <client> --with <source> [--profile <name>] [--model <id>] [--transport auto|direct|proxy]\n "
+  },
+  "tui.app_status.ready": {
+    "other": "就绪",
+    "description": "Original English text: ready"
+  },
+  "tui.app_status.native": {
+    "other": "原生登录",
+    "description": "Original English text: native"
+  },
+  "tui.app_status.not_set": {
+    "other": "未设置",
+    "description": "Original English text: not set"
+  },
+  "tui.app_status.attention": {
+    "other": "需要注意",
+    "description": "Original English text: attention"
+  },
+  "tui.app_status.failed": {
+    "other": "失败",
+    "description": "Original English text: failed"
+  },
+  "tui.app_status.not_connected": {
+    "other": "未连接",
+    "description": "Original English text: not connected"
+  },
+  "tui.provider.relation.changed": {
+    "other": "已更改",
+    "description": "Original English text: changed"
+  },
+  "tui.provider.relation.save_login": {
+    "other": "保存此登录",
+    "description": "Original English text: save this login"
+  },
+  "tui.provider.relation.signed_out": {
+    "other": "已退出登录",
+    "description": "Original English text: signed out"
+  },
+  "tui.provider.relation.no_saved_logins": {
+    "other": "没有已保存的登录",
+    "description": "Original English text: no saved logins"
+  },
+  "tui.provider.relation.unavailable": {
+    "other": "不可用",
+    "description": "Original English text: unavailable"
+  },
+  "desktop.nav.overview": {
+    "other": "概览",
+    "description": "Original English text: Overview"
+  },
+  "desktop.nav.apps": {
+    "other": "应用",
+    "description": "Original English text: Apps"
+  },
+  "desktop.nav.accounts": {
+    "other": "账户与 API",
+    "description": "Original English text: Accounts & APIs"
+  },
+  "desktop.nav.proxy_hub": {
+    "other": "代理中心",
+    "description": "Original English text: Proxy Hub"
+  },
+  "desktop.nav.proxies": {
+    "other": "代理",
+    "description": "Original English text: Proxies"
+  },
+  "desktop.nav.activity": {
+    "other": "活动",
+    "description": "Original English text: Activity"
+  },
+  "desktop.nav.backups": {
+    "other": "账户备份",
+    "description": "Original English text: Backups"
+  },
+  "desktop.nav.settings": {
+    "other": "设置",
+    "description": "Original English text: Settings"
+  },
+  "desktop.settings.startup": {
+    "other": "启动",
+    "description": "Original English text: Startup"
+  },
+  "desktop.settings.open_at_login": {
+    "other": "登录时打开",
+    "description": "Original English text: Open at Login"
+  },
+  "desktop.settings.open_at_login_help": {
+    "other": "登录这台 Mac 时自动启动 AnyPick。",
+    "description": "Original English text: Launch AnyPick automatically when you sign in to this Mac."
+  },
+  "desktop.settings.start_enabled_proxies": {
+    "other": "启动时启动已启用的代理",
+    "description": "Original English text: Start Enabled Proxies at Launch"
+  },
+  "desktop.settings.start_enabled_proxies_help": {
+    "other": "启动时启动已启用的代理。应用也可以在需要时启动其他代理。",
+    "description": "Original English text: Start enabled proxies on launch. Apps can start others as needed."
+  },
+  "desktop.settings.usage": {
+    "other": "用量",
+    "description": "Original English text: Usage"
+  },
+  "desktop.settings.show_usage": {
+    "other": "显示剩余用量",
+    "description": "Original English text: Show Usage Remaining"
+  },
+  "desktop.settings.show_usage_help": {
+    "other": "显示账户所在服务应用报告的用量。",
+    "description": "Original English text: Show usage reported for the account active in its provider app."
+  },
+  "desktop.settings.quota_guard": {
+    "other": "跳过达到用量上限的账户",
+    "description": "Original English text: Skip Accounts That Reach Their Usage Limit"
+  },
+  "desktop.settings.quota_guard_help": {
+    "other": "确认达到上限后，会让该账户在代理池中暂时冷却。",
+    "description": "Original English text: A confirmed limit cools that account down in proxy pools."
+  },
+  "desktop.settings.language": {
+    "other": "语言",
+    "description": "Original English text: Language"
+  },
+  "desktop.settings.language_detail": {
+    "other": "适用于导航、设置、账户备份、命令行和终端界面。自动检测会跟随系统语言。",
+    "description": "Original English text: Applies to navigation, Settings, and account backups, plus the CLI and terminal UI. Auto Detect follows your system language."
+  },
+  "desktop.settings.getting_started": {
+    "other": "开始使用",
+    "description": "Original English text: Getting Started"
+  },
+  "desktop.settings.setup_checklist": {
+    "other": "设置清单",
+    "description": "Original English text: Setup Checklist"
+  },
+  "desktop.settings.setup_checklist_help": {
+    "other": "在“概览”中再次显示设置清单。",
+    "description": "Original English text: Show the setup checklist on Overview again."
+  },
+  "desktop.settings.show": {
+    "other": "显示",
+    "description": "Original English text: Show"
+  },
+  "desktop.settings.updates": {
+    "other": "更新",
+    "description": "Original English text: Updates"
+  },
+  "desktop.settings.current_version": {
+    "other": "当前版本",
+    "description": "Original English text: Current Version"
+  },
+  "desktop.settings.available": {
+    "other": "可用版本",
+    "description": "Original English text: Available"
+  },
+  "desktop.settings.check_for_updates": {
+    "other": "检查更新",
+    "description": "Original English text: Check for Updates"
+  },
+  "desktop.settings.language_saved": {
+    "other": "语言偏好已保存。",
+    "description": "Original English text: Language preference saved."
+  },
+  "desktop.language.auto": {
+    "other": "自动检测",
+    "description": "Original English text: Auto Detect"
+  },
+  "desktop.settings.show_checklist": {
+    "other": "显示设置清单",
+    "description": "Original English text: Show Checklist"
+  },
+  "desktop.backups.warning_title": {
+    "other": "备份文件包含可用的凭据",
+    "description": "Original English text: Backup files contain working credentials"
+  },
+  "desktop.backups.warning_detail": {
+    "other": "这些文件是可读取的 JSON，且未加密。请妥善保管，不要分享。",
+    "description": "Original English text: They are readable JSON and are not encrypted. Store them securely and don’t share them."
+  },
+  "desktop.backups.reviewed_title": {
+    "other": "已检查的备份",
+    "description": "Original English text: Reviewed Backups"
+  },
+  "desktop.backups.reviewed_footer": {
+    "other": "仅包含已保存的账户，不包含 API 网关、应用设置、活动记录或 AnyPick 设置。对于导入的文件，AnyPick 会暂存受保护的副本；忘记此检查记录时，该副本会被丢弃。",
+    "description": "Original English text: Saved accounts only. API gateways, app settings, activity, and AnyPick settings are not included. For imported files, AnyPick stages a protected copy that is discarded when you forget the review."
+  },
+  "desktop.backups.empty_reviewed": {
+    "other": "没有已检查的备份。请选择一个备份文件，检查后再导入。",
+    "description": "Original English text: No reviewed backups. Choose a backup file to review it before importing."
+  },
+  "desktop.backups.review": {
+    "other": "查看",
+    "description": "Original English text: Review"
+  },
+  "desktop.backups.review_help": {
+    "other": "打开此备份并查看其中包含的账户。",
+    "description": "Original English text: Open this saved backup and review the accounts it contains."
+  },
+  "desktop.backups.more_options": {
+    "other": "更多备份选项",
+    "description": "Original English text: More backup options"
+  },
+  "desktop.backups.review_backup": {
+    "other": "查看备份…",
+    "description": "Original English text: Review Backup…"
+  },
+  "desktop.backups.review_backup_help": {
+    "other": "导入前查看此备份中的账户。",
+    "description": "Original English text: Review the accounts in this backup before importing."
+  },
+  "desktop.backups.copy_path": {
+    "other": "复制文件路径",
+    "description": "Original English text: Copy File Path"
+  },
+  "desktop.backups.copy_path_help": {
+    "other": "复制备份文件的完整路径。",
+    "description": "Original English text: Copy the backup’s full file path."
+  },
+  "desktop.backups.forget_review": {
+    "other": "忘记此检查记录…",
+    "description": "Original English text: Forget Review…"
+  },
+  "desktop.backups.forget_review_help": {
+    "other": "忘记此检查记录并丢弃暂存副本。",
+    "description": "Original English text: Forget this review and discard its staged copy."
+  },
+  "desktop.backups.export_accounts": {
+    "other": "导出账户…",
+    "description": "Original English text: Export Accounts…"
+  },
+  "desktop.backups.copied_path": {
+    "other": "已复制备份文件路径。",
+    "description": "Original English text: Copied backup file path."
+  },
+  "desktop.backups.copy_path_failed": {
+    "other": "无法复制备份文件路径。",
+    "description": "Original English text: Couldn’t copy backup file path."
+  },
+  "desktop.backups.forget_title": {
+    "other": "要忘记此备份检查记录吗？",
+    "description": "Original English text: Forget This Backup Review?"
+  },
+  "desktop.backups.forget_message": {
+    "other": "AnyPick 会丢弃此检查记录及其暂存副本，但不会删除原始备份文件。",
+    "description": "Original English text: AnyPick discards this review and its staged copy. The original backup file is not deleted."
+  },
+  "desktop.backups.forget_confirm": {
+    "other": "忘记",
+    "description": "Original English text: Forget"
+  },
+  "desktop.backups.account_one": {
+    "other": "%d 个账户",
+    "description": "Original English text: %d account"
+  },
+  "desktop.backups.account_many": {
+    "other": "%d 个账户",
+    "description": "Original English text: %d accounts"
+  },
+  "desktop.backups.today_at": {
+    "other": "今天 %@",
+    "description": "Original English text: Today at %@"
+  },
+  "desktop.backups.yesterday_at": {
+    "other": "昨天 %@",
+    "description": "Original English text: Yesterday at %@"
+  },
+  "desktop.backups.reading": {
+    "other": "正在读取备份…",
+    "description": "Original English text: Reading Backup…"
+  },
+  "desktop.backups.damaged_title": {
+    "other": "备份文件已损坏或不完整",
+    "description": "Original English text: Backup Is Damaged or Incomplete"
+  },
+  "desktop.backups.nothing_imported": {
+    "other": "没有导入任何内容。",
+    "description": "Original English text: Nothing was imported."
+  },
+  "desktop.backups.choose_another": {
+    "other": "选择其他文件…",
+    "description": "Original English text: Choose Another File…"
+  },
+  "desktop.backups.newer_version_title": {
+    "other": "由较新版本的 AnyPick 创建",
+    "description": "Original English text: Created by a Newer AnyPick Version"
+  },
+  "desktop.backups.newer_version_detail": {
+    "other": "请更新 AnyPick，然后重新检查此文件。",
+    "description": "Original English text: Update AnyPick, then review the file again."
+  },
+  "desktop.backups.permission_title": {
+    "other": "无法读取此文件",
+    "description": "Original English text: Can’t Read This File"
+  },
+  "desktop.backups.permission_detail": {
+    "other": "AnyPick 没有打开此文件的权限。",
+    "description": "Original English text: AnyPick does not have permission to open it."
+  },
+  "desktop.backups.missing_title": {
+    "other": "找不到此文件",
+    "description": "Original English text: Can’t Find This File"
+  },
+  "desktop.backups.missing_detail": {
+    "other": "文件可能已被移动或删除。",
+    "description": "Original English text: It may have been moved or deleted."
+  },
+  "desktop.backups.expired_title": {
+    "other": "检查记录已过期",
+    "description": "Original English text: Review Expired"
+  },
+  "desktop.backups.expired_detail": {
+    "other": "导入前请重新检查备份。",
+    "description": "Original English text: Review the backup again before importing."
+  },
+  "desktop.backups.review_again": {
+    "other": "重新检查…",
+    "description": "Original English text: Review Again…"
+  },
+  "desktop.backups.imported_title": {
+    "other": "账户已导入",
+    "description": "Original English text: Accounts Imported"
+  },
+  "desktop.backups.imported_detail": {
+    "other": "仅更改了受保护检查副本中所选的账户。",
+    "description": "Original English text: Only the accounts selected in the protected review copy were changed."
+  },
+  "desktop.backups.import_failed_title": {
+    "other": "无法导入账户",
+    "description": "Original English text: Couldn’t Import Accounts"
+  },
+  "desktop.backups.no_accounts_changed": {
+    "other": "未更改任何已保存的账户。",
+    "description": "Original English text: No saved accounts were changed."
+  },
+  "desktop.backups.export_title": {
+    "other": "导出账户",
+    "description": "Original English text: Export Accounts"
+  },
+  "desktop.backups.export": {
+    "other": "导出",
+    "description": "Original English text: Export"
+  },
+  "desktop.backups.no_saved_accounts": {
+    "other": "尚无已保存的账户。",
+    "description": "Original English text: No saved accounts yet."
+  },
+  "desktop.backups.saved_accounts": {
+    "other": "已保存的账户",
+    "description": "Original English text: Saved Accounts"
+  },
+  "desktop.backups.deselect_all": {
+    "other": "全不选",
+    "description": "Original English text: Deselect All"
+  },
+  "desktop.backups.select_all": {
+    "other": "全选",
+    "description": "Original English text: Select All"
+  },
+  "desktop.backups.deselect_saved_help": {
+    "other": "清除账户选择。",
+    "description": "Original English text: Clear the account selection."
+  },
+  "desktop.backups.select_saved_help": {
+    "other": "选择此备份中的所有已保存账户。",
+    "description": "Original English text: Select every saved account for this backup."
+  },
+  "desktop.backups.add_login": {
+    "other": "请先在“账户与 API”中添加登录，然后在此选择账户。",
+    "description": "Original English text: Add a login under Accounts & APIs, then choose accounts here."
+  },
+  "desktop.backups.unencrypted": {
+    "other": "这些文件包含凭据且未加密。",
+    "description": "Original English text: These files include credentials and aren’t encrypted."
+  },
+  "desktop.backups.restore_title": {
+    "other": "恢复账户",
+    "description": "Original English text: Restore Accounts"
+  },
+  "desktop.backups.import_title": {
+    "other": "导入账户",
+    "description": "Original English text: Import Accounts"
+  },
+  "desktop.backups.existing": {
+    "other": "已存在",
+    "description": "Original English text: Existing"
+  },
+  "desktop.backups.already_saved": {
+    "other": "已保存",
+    "description": "Original English text: Already saved"
+  },
+  "desktop.backups.accounts_in_backup": {
+    "other": "备份中的账户",
+    "description": "Original English text: Accounts in Backup"
+  },
+  "desktop.backups.deselect_backup_help": {
+    "other": "清除账户选择。",
+    "description": "Original English text: Clear the account selection."
+  },
+  "desktop.backups.select_backup_help": {
+    "other": "选择此备份中的所有账户。",
+    "description": "Original English text: Select every account in this backup."
+  },
+  "desktop.backups.accounts_in_backup_help": {
+    "other": "关闭账户开关即可将其排除。除非选择“替换”，否则已保存的账户会跳过。",
+    "description": "Original English text: Turn off an account to leave it out. Accounts already saved are skipped unless you choose Replace."
+  },
+  "desktop.backups.duplicate_one": {
+    "other": "所选账户中有 %d 个已保存。",
+    "description": "Original English text: %d selected account is already saved."
+  },
+  "desktop.backups.duplicate_many": {
+    "other": "所选账户中有 %d 个已保存。",
+    "description": "Original English text: %d selected accounts are already saved."
+  },
+  "desktop.backups.skip": {
+    "other": "跳过",
+    "description": "Original English text: Skip"
+  },
+  "desktop.backups.replace": {
+    "other": "替换",
+    "description": "Original English text: Replace"
+  },
+  "desktop.backups.done": {
+    "other": "完成",
+    "description": "Original English text: Done"
+  },
+  "desktop.backups.review_again_plain": {
+    "other": "重新检查",
+    "description": "Original English text: Review Again"
+  },
+  "desktop.backups.import": {
+    "other": "导入",
+    "description": "Original English text: Import"
+  },
+  "desktop.backups.importing_accounts": {
+    "other": "正在导入账户…",
+    "description": "Original English text: Importing Accounts…"
+  },
+  "desktop.backups.quick_title": {
+    "other": "快速备份",
+    "description": "Original English text: Quick Backup"
+  },
+  "desktop.backups.quick_footer": {
+    "other": "将所有账户导出到临时文件并显示其路径。文件包含账户凭据。",
+    "description": "Original English text: Exports all accounts to a temporary file and reports that file's path. The file contains account credentials."
+  },
+  "desktop.backups.quick_create_title": {
+    "other": "创建账户备份",
+    "description": "Original English text: Create an account backup"
+  },
+  "desktop.backups.quick_create_detail": {
+    "other": "将所有已保存账户保存到带时间戳的默认文件中。",
+    "description": "Original English text: Save all saved accounts to a default timestamped file."
+  },
+  "desktop.backups.quick_create_action": {
+    "other": "创建备份",
+    "description": "Original English text: Create Backup"
+  },
+  "desktop.backups.cancel": {
+    "other": "取消",
+    "description": "Original English text: Cancel"
+  },
+  "desktop.backups.destination": {
+    "other": "目标位置",
+    "description": "Original English text: Destination"
+  },
+  "desktop.backups.file": {
+    "other": "文件",
+    "description": "Original English text: File"
+  },
+  "desktop.backups.replace_existing_file": {
+    "other": "替换现有文件",
+    "description": "Original English text: Replace an existing file"
+  },
+  "desktop.backups.selection_count": {
+    "other": "已选择 %2$d 个账户中的 %1$d 个。",
+    "description": "Original English text: %1$d of %2$d accounts selected."
+  },
+  "desktop.backups.review_modal_title": {
+    "other": "检查备份",
+    "description": "Original English text: Review Backup"
+  },
+  "desktop.backups.discard_review": {
+    "other": "丢弃检查记录",
+    "description": "Original English text: Discard Review"
+  },
+  "desktop.backups.backup_file": {
+    "other": "备份文件",
+    "description": "Original English text: Backup File"
+  },
+  "desktop.backups.review_before_write": {
+    "other": "请先检查文件，再写入任何内容。",
+    "description": "Original English text: Review the file before anything is written."
+  },
+  "desktop.backups.choose_file": {
+    "other": "选择…",
+    "description": "Original English text: Choose…"
+  },
+  "desktop.backups.choose_hint": {
+    "other": "只有当应用能获取文件位置时，“选择…”才可用；如果无法获取，请在上方输入备份文件的完整路径。",
+    "description": "Original English text: Choose… works only where the app can see a file's location; if it reports otherwise, type the backup file's full path above."
+  },
+  "desktop.backups.picker_error_title": {
+    "other": "无法使用此文件",
+    "description": "Original English text: Can't use that file"
+  },
+  "desktop.backups.picker_error": {
+    "other": "此应用无法读取通过选择器选取的文件位置。请在输入框中填写备份文件的完整路径。",
+    "description": "Original English text: This app can't read the location of a file chosen from the picker. Type the backup file's full path in the field instead."
+  },
+  "desktop.backups.options": {
+    "other": "选项",
+    "description": "Original English text: Options"
+  },
+  "desktop.backups.replace_saved_accounts": {
+    "other": "替换已保存的账户",
+    "description": "Original English text: Replace saved accounts"
+  },
+  "desktop.backups.staged_backup": {
+    "other": "暂存的备份",
+    "description": "Original English text: Staged backup"
+  },
+  "desktop.backups.reviewed_backup": {
+    "other": "已检查的备份",
+    "description": "Original English text: Reviewed backup"
+  },
+  "desktop.backups.cancel_help": {
+    "other": "关闭此窗口而不保存更改。",
+    "description": "Original English text: Close this sheet without saving changes."
+  },
+  "desktop.backups.replace_existing_title": {
+    "other": "要替换现有账户吗？",
+    "description": "Original English text: Replace Existing Accounts?"
+  },
+  "desktop.sidebar.loading": {
+    "other": "正在加载服务…",
+    "description": "Original English text: Loading services…"
+  },
+  "desktop.sidebar.no_proxies": {
+    "other": "没有正在运行的代理",
+    "description": "Original English text: No proxies running"
+  },
+  "desktop.sidebar.one_proxy": {
+    "other": "%d 个代理正在运行",
+    "description": "Original English text: %d proxy running"
+  },
+  "desktop.sidebar.many_proxies": {
+    "other": "%d 个代理正在运行",
+    "description": "Original English text: %d proxies running"
+  },
+  "desktop.sidebar.service_connecting": {
+    "other": "正在连接到服务…",
+    "description": "Original English text: Connecting to the service…"
+  },
+  "desktop.sidebar.service_attention": {
+    "other": "服务需要处理",
+    "description": "Original English text: Service needs attention"
+  },
+  "desktop.sidebar.service_stopped": {
+    "other": "服务已停止",
+    "description": "Original English text: Service stopped"
+  },
+  "desktop.sidebar.local_service_one": {
+    "other": "%d 个本地服务正在运行",
+    "description": "Original English text: %d local service running"
+  },
+  "desktop.sidebar.local_service_many": {
+    "other": "%d 个本地服务正在运行",
+    "description": "Original English text: %d local services running"
+  },
+  "desktop.overview.needs_attention": {
+    "other": "需要处理",
+    "description": "Original English text: Needs Attention"
+  },
+  "desktop.overview.installation_health": {
+    "other": "安装状态",
+    "description": "Original English text: Installation Health"
+  },
+  "desktop.overview.check_installation": {
+    "other": "检查安装",
+    "description": "Original English text: Check Installation"
+  },
+  "desktop.overview.run_doctor": {
+    "other": "运行诊断",
+    "description": "Original English text: Run Doctor"
+  },
+  "desktop.overview.checking": {
+    "other": "正在检查…",
+    "description": "Original English text: Checking…"
+  },
+  "desktop.overview.doctor_help": {
+    "other": "对 AnyPick 的本地安装运行只读检查。",
+    "description": "Original English text: Run read-only checks for AnyPick’s local installation."
+  },
+  "desktop.overview.doctor_footer": {
+    "other": "诊断会检查安装，但不会更改文件。",
+    "description": "Original English text: Doctor checks the installation without changing files."
+  },
+  "desktop.overview.all_checks_passed": {
+    "other": "所有检查均已通过。",
+    "description": "Original English text: All checks passed."
+  },
+  "desktop.overview.status_ok": {
+    "other": "正常",
+    "description": "Original English text: OK"
+  },
+  "desktop.overview.status_warn": {
+    "other": "警告",
+    "description": "Original English text: Warning"
+  },
+  "desktop.overview.status_fail": {
+    "other": "失败",
+    "description": "Original English text: Failed"
+  },
+  "desktop.overview.get_started": {
+    "other": "开始使用",
+    "description": "Original English text: Get Started"
+  },
+  "desktop.overview.add_login": {
+    "other": "添加登录",
+    "description": "Original English text: Add a Login"
+  },
+  "desktop.overview.login_saved": {
+    "other": "此 Mac 上已保存登录信息。",
+    "description": "Original English text: A login is saved on this Mac."
+  },
+  "desktop.overview.use_existing_login": {
+    "other": "使用此 Mac 上已有的登录信息。",
+    "description": "Original English text: Use a login already on this Mac."
+  },
+  "desktop.overview.use_app": {
+    "other": "使用应用",
+    "description": "Original English text: Use an App"
+  },
+  "desktop.overview.app_available": {
+    "other": "Claude Code、Codex 或其他受支持的应用已就绪。",
+    "description": "Original English text: Claude Code, Codex, or another supported app is available."
+  },
+  "desktop.overview.install_clients": {
+    "other": "安装 Claude Code 或 Codex，然后刷新。",
+    "description": "Original English text: Install Claude Code or Codex, then refresh."
+  },
+  "desktop.overview.refresh": {
+    "other": "刷新",
+    "description": "Original English text: Refresh"
+  },
+  "desktop.overview.point_app": {
+    "other": "连接应用",
+    "description": "Original English text: Point an App"
+  },
+  "desktop.overview.app_using_login": {
+    "other": "应用正在使用已保存的登录信息。",
+    "description": "Original English text: An app is using a saved login."
+  },
+  "desktop.overview.point_client": {
+    "other": "将 Claude 或 Codex 连接到已保存的登录信息。",
+    "description": "Original English text: Point Claude or Codex at a saved login."
+  },
+  "desktop.overview.choose": {
+    "other": "选择…",
+    "description": "Original English text: Choose…"
+  },
+  "desktop.overview.hub_optional": {
+    "other": "设置 Proxy Hub（可选）",
+    "description": "Original English text: Set Up Proxy Hub (Optional)"
+  },
+  "desktop.overview.hub_sources_ready": {
+    "other": "Hub 来源已就绪。",
+    "description": "Original English text: Hub sources are ready."
+  },
+  "desktop.overview.hub_endpoint_detail": {
+    "other": "通过一个本地端点连接多个模型。不确定时可以跳过。",
+    "description": "Original English text: One local endpoint for many models. Skip it if unsure."
+  },
+  "desktop.overview.set_up": {
+    "other": "设置…",
+    "description": "Original English text: Set Up…"
+  },
+  "desktop.overview.hide_getting_started": {
+    "other": "隐藏入门指南",
+    "description": "Original English text: Hide Getting Started"
+  },
+  "desktop.overview.hide_getting_started_help": {
+    "other": "在“总览”中隐藏此清单。之后可在“设置”中重新显示。",
+    "description": "Original English text: Hide this checklist from Overview. You can show it again in Settings."
+  },
+  "desktop.overview.footer_complete": {
+    "other": "Proxy Hub 是可选的，您可以隐藏此清单。",
+    "description": "Original English text: Proxy Hub is optional — you can hide this list."
+  },
+  "desktop.overview.footer_incomplete": {
+    "other": "保存登录信息，然后将应用连接到它。Proxy Hub 是可选的。",
+    "description": "Original English text: Save a login, then point an app at it. Proxy Hub is optional."
+  },
+  "desktop.overview.active_apps": {
+    "other": "正在使用的应用",
+    "description": "Original English text: Active Apps"
+  },
+  "desktop.overview.apps": {
+    "other": "应用",
+    "description": "Original English text: Apps"
+  },
+  "desktop.overview.all_apps": {
+    "other": "所有应用（{count}）…",
+    "description": "Original English text: All Apps ({count})…"
+  },
+  "desktop.overview.choose_login_each_app": {
+    "other": "为每个应用选择登录信息后才能运行。",
+    "description": "Original English text: Choose a login for each app before it can run."
+  },
+  "desktop.overview.services": {
+    "other": "服务",
+    "description": "Original English text: Services"
+  },
+  "desktop.overview.proxies": {
+    "other": "代理",
+    "description": "Original English text: Proxies"
+  },
+  "desktop.overview.services_stopped": {
+    "other": "服务已停止。",
+    "description": "Original English text: Services are stopped."
+  },
+  "desktop.overview.services_running": {
+    "other": "{count} 个服务正在运行",
+    "description": "Original English text: {count} services running"
+  },
+  "desktop.overview.services_ratio": {
+    "other": "{total} 个中有 {running} 个正在运行",
+    "description": "Original English text: {running} of {total} running"
+  },
+  "desktop.overview.recent_activity": {
+    "other": "近期活动",
+    "description": "Original English text: Recent Activity"
+  },
+  "desktop.overview.recent_empty": {
+    "other": "最近的事件会显示在这里。",
+    "description": "Original English text: Recent events will appear here."
+  },
+  "desktop.overview.no_routes": {
+    "other": "目前没有可用的应用路由。",
+    "description": "Original English text: No app routes are available yet."
+  },
+  "desktop.overview.needs_login_before_run": {
+    "other": "需要先选择登录信息才能运行。",
+    "description": "Original English text: Needs a login before it can run."
+  },
+  "desktop.overview.no_login_chosen": {
+    "other": "尚未选择登录信息。请打开应用进行选择。",
+    "description": "Original English text: No login chosen. Open the app to choose one."
+  },
+  "desktop.overview.attention_proxy_title": {
+    "other": "{name} 不可用",
+    "description": "Original English text: {name} is unavailable"
+  },
+  "desktop.overview.attention_proxy_detail": {
+    "other": "使用 {name} 的应用无法连接。",
+    "description": "Original English text: Apps using {name} cannot connect."
+  },
+  "desktop.overview.open_proxies": {
+    "other": "打开代理",
+    "description": "Original English text: Open Proxies"
+  },
+  "desktop.overview.attention_app_title": {
+    "other": "{name} 没有可用的登录信息",
+    "description": "Original English text: {name} doesn’t have a working login"
+  },
+  "desktop.overview.attention_app_detail": {
+    "other": "在“应用”中选择登录信息。",
+    "description": "Original English text: Choose a login on Apps."
+  },
+  "desktop.overview.open_apps": {
+    "other": "打开应用",
+    "description": "Original English text: Open Apps"
+  },
+  "desktop.overview.attention_account_title": {
+    "other": "{name} 无法正常使用",
+    "description": "Original English text: {name} isn’t working"
+  },
+  "desktop.overview.attention_account_detail": {
+    "other": "在“账户与 API”中检查登录信息。",
+    "description": "Original English text: Check the login on Accounts & APIs."
+  },
+  "desktop.overview.open_accounts": {
+    "other": "打开账户",
+    "description": "Original English text: Open Accounts"
+  },
+  "desktop.overview.attention_conflict_title": {
+    "other": "模型冲突：{name}",
+    "description": "Original English text: Model conflict: {name}"
+  },
+  "desktop.overview.attention_conflict_detail": {
+    "other": "多个提供商提供了相同的模型 ID。请选择一个用于路由请求。",
+    "description": "Original English text: Multiple providers offer the same model ID. Choose one to route requests."
+  },
+  "desktop.overview.open_proxy_hub": {
+    "other": "打开 Proxy Hub",
+    "description": "Original English text: Open Proxy Hub"
+  },
+  "desktop.overview.welcome_title": {
+    "other": "欢迎使用 AnyPick",
+    "description": "Original English text: Welcome to AnyPick"
+  },
+  "desktop.overview.add_login_action": {
+    "other": "添加登录…",
+    "description": "Original English text: Add Login…"
+  },
+  "desktop.overview.not_now": {
+    "other": "暂不",
+    "description": "Original English text: Not Now"
+  },
+  "desktop.overview.welcome_detail": {
+    "other": "在您使用的编程应用中使用现有 AI 账户。登录信息保存在此 Mac 上。",
+    "description": "Original English text: Use the AI accounts you already have with the coding apps you use. Logins are stored on this Mac."
+  },
+  "desktop.overview.local_default": {
+    "other": "默认在本地",
+    "description": "Original English text: Local by default"
+  },
+  "desktop.overview.credentials_local": {
+    "other": "凭据保留在此 Mac 上",
+    "description": "Original English text: Credentials stay on this Mac"
+  },
+  "desktop.overview.flexible_connections": {
+    "other": "灵活连接",
+    "description": "Original English text: Flexible connections"
+  },
+  "desktop.overview.providers_gateways": {
+    "other": "提供商账户和 API 网关",
+    "description": "Original English text: Provider accounts and API gateways"
+  },
+  "desktop.overview.connections_anytime": {
+    "other": "您可以随时添加或更改连接。",
+    "description": "Original English text: You can add or change connections at any time."
+  },
+  "desktop.overview.open_apps_help": {
+    "other": "打开已配置应用的完整列表。",
+    "description": "Original English text: Open the full list of configured apps."
+  },
+  "desktop.overview.done": {
+    "other": "完成",
+    "description": "Original English text: Done"
+  },
+  "desktop.overview.not_done": {
+    "other": "未完成",
+    "description": "Original English text: Not done"
+  },
+  "desktop.overview.uses_account": {
+    "other": "使用 {name}",
+    "description": "Original English text: Uses {name}"
+  },
+  "desktop.overview.not_configured": {
+    "other": "未配置",
+    "description": "Original English text: Not Configured"
+  },
+  "desktop.overview.gateway": {
+    "other": "网关",
+    "description": "Original English text: Gateway"
+  },
+  "desktop.overview.hub_transport": {
+    "other": "Proxy Hub",
+    "description": "Original English text: Proxy Hub"
+  },
+  "desktop.overview.anypick_proxy": {
+    "other": "AnyPick 代理",
+    "description": "Original English text: AnyPick proxy"
+  },
+  "desktop.overview.direct": {
+    "other": "直连",
+    "description": "Original English text: Direct"
+  },
+  "desktop.overview.status_ready": {
+    "other": "就绪",
+    "description": "Original English text: Ready"
+  },
+  "desktop.overview.status_running": {
+    "other": "运行中",
+    "description": "Original English text: Running"
+  },
+  "desktop.overview.status_attention": {
+    "other": "无法正常工作",
+    "description": "Original English text: Isn’t working"
+  },
+  "desktop.overview.status_unavailable": {
+    "other": "不可用",
+    "description": "Original English text: Not available"
+  },
+  "desktop.overview.status_stopped": {
+    "other": "已停止",
+    "description": "Original English text: Stopped"
+  },
+  "desktop.overview.doctor_last_check": {
+    "other": "上次检查：{status}。再次运行以刷新。",
+    "description": "Original English text: Last check: {status}. Run it again to refresh."
+  },
+  "desktop.overview.services_one_running": {
+    "other": "{count} 个服务正在运行",
+    "description": "Original English text: {count} service running"
+  },
+  "desktop.overview.services_many_running": {
+    "other": "{count} 个服务正在运行",
+    "description": "Original English text: {count} services running"
+  },
+  "desktop.overview.status_not_set": {
+    "other": "未设置",
+    "description": "Original English text: Not configured"
+  },
+  "desktop.overview.check_client": {
+    "other": "客户端应用",
+    "description": "Original English text: Client app"
+  },
+  "desktop.overview.check_route": {
+    "other": "应用路由",
+    "description": "Original English text: App routing"
+  },
+  "desktop.overview.check_proxy": {
+    "other": "代理服务",
+    "description": "Original English text: Proxy service"
+  },
+  "desktop.overview.check_proxy_environment": {
+    "other": "代理环境",
+    "description": "Original English text: Proxy environment"
+  },
+  "desktop.overview.check_database": {
+    "other": "数据库",
+    "description": "Original English text: Database"
+  },
+  "desktop.overview.check_permissions": {
+    "other": "文件权限",
+    "description": "Original English text: File permissions"
+  },
+  "desktop.overview.check_active_binding": {
+    "other": "当前账户",
+    "description": "Original English text: Active account"
+  },
+  "desktop.overview.check_duplicate_snapshot": {
+    "other": "重复账户",
+    "description": "Original English text: Duplicate accounts"
+  },
+  "desktop.overview.check_named_profile": {
+    "other": "已保存的配置",
+    "description": "Original English text: Saved profiles"
+  },
+  "desktop.overview.check_plugin_host": {
+    "other": "插件服务",
+    "description": "Original English text: Plugin service"
+  },
+  "desktop.overview.check_plugin": {
+    "other": "插件：{name}",
+    "description": "Original English text: Plugin: {name}"
+  },
+  "desktop.common.cancel": {
+    "other": "取消",
+    "description": "Original English text: Cancel"
+  },
+  "desktop.common.cancel_help": {
+    "other": "关闭此窗口而不保存更改。",
+    "description": "Original English text: Close this sheet without saving changes."
+  },
+  "desktop.common.save": {
+    "other": "保存",
+    "description": "Original English text: Save"
+  },
+  "desktop.common.remove": {
+    "other": "移除",
+    "description": "Original English text: Remove"
+  },
+  "desktop.common.edit": {
+    "other": "编辑…",
+    "description": "Original English text: Edit…"
+  },
+  "desktop.common.connect": {
+    "other": "连接",
+    "description": "Original English text: Connect"
+  },
+  "desktop.common.current": {
+    "other": "当前",
+    "description": "Original English text: Current"
+  },
+  "desktop.common.show_details": {
+    "other": "查看详情",
+    "description": "Original English text: Show Details"
+  },
+  "desktop.common.test_connection": {
+    "other": "测试连接",
+    "description": "Original English text: Test Connection"
+  },
+  "desktop.common.refresh_login": {
+    "other": "刷新登录",
+    "description": "Original English text: Refresh Login"
+  },
+  "desktop.common.remove_action": {
+    "other": "移除…",
+    "description": "Original English text: Remove…"
+  },
+  "desktop.common.search": {
+    "other": "搜索",
+    "description": "Original English text: Search"
+  },
+  "desktop.common.clear_search": {
+    "other": "清除搜索",
+    "description": "Original English text: Clear Search"
+  },
+  "desktop.accounts.title": {
+    "other": "账户和 API",
+    "description": "Original English text: Accounts & APIs"
+  },
+  "desktop.accounts.filter_provider": {
+    "other": "按提供商筛选账户",
+    "description": "Original English text: Filter accounts by provider"
+  },
+  "desktop.accounts.search": {
+    "other": "搜索账户",
+    "description": "Original English text: Search Accounts"
+  },
+  "desktop.accounts.cancel_signin": {
+    "other": "取消登录",
+    "description": "Original English text: Cancel Sign-In"
+  },
+  "desktop.accounts.no_results": {
+    "other": "没有结果",
+    "description": "Original English text: No Results"
+  },
+  "desktop.accounts.no_saved_accounts": {
+    "other": "没有已保存的账户",
+    "description": "Original English text: No Saved Accounts"
+  },
+  "desktop.accounts.no_accounts_match": {
+    "other": "没有符合搜索条件的账户。",
+    "description": "Original English text: No accounts match your search."
+  },
+  "desktop.accounts.saved_logins_here": {
+    "other": "已保存的登录会显示在这里。",
+    "description": "Original English text: Saved logins will appear here."
+  },
+  "desktop.accounts.api_gateways": {
+    "other": "API 网关",
+    "description": "Original English text: API Gateways"
+  },
+  "desktop.accounts.add_login": {
+    "other": "添加登录…",
+    "description": "Original English text: Add Login…"
+  },
+  "desktop.accounts.add_gateway": {
+    "other": "添加 API 网关…",
+    "description": "Original English text: Add API Gateway…"
+  },
+  "desktop.accounts.accounts_count": {
+    "other": "账户（{count}）",
+    "description": "Original English text: Accounts ({count})"
+  },
+  "desktop.accounts.gateways_count": {
+    "other": "API 网关（{count}）",
+    "description": "Original English text: API Gateways ({count})"
+  },
+  "desktop.accounts.switch_account": {
+    "other": "切换到此账户",
+    "description": "Original English text: Switch to Account"
+  },
+  "desktop.accounts.switch_help": {
+    "other": "将此已保存登录设为兼容应用的当前账户。",
+    "description": "Original English text: Make this saved login current for compatible apps."
+  },
+  "desktop.accounts.connect_help": {
+    "other": "将此 API 网关连接到 AnyPick。",
+    "description": "Original English text: Connect this API gateway to AnyPick."
+  },
+  "desktop.accounts.details_help": {
+    "other": "查看账户身份、用量和连接详情。",
+    "description": "Original English text: View this account’s identity, usage, and connection details."
+  },
+  "desktop.accounts.edit_help": {
+    "other": "更改账户名称或已保存的配置。",
+    "description": "Original English text: Change this account’s name or saved configuration."
+  },
+  "desktop.accounts.remove_help": {
+    "other": "从 AnyPick 移除此已保存登录。",
+    "description": "Original English text: Remove this saved login from AnyPick."
+  },
+  "desktop.accounts.test_help": {
+    "other": "检查此 API 网关是否可连接。",
+    "description": "Original English text: Check whether this API gateway is reachable."
+  },
+  "desktop.accounts.refresh_help": {
+    "other": "从提供商刷新已保存的登录。",
+    "description": "Original English text: Refresh the saved login from its provider."
+  },
+  "desktop.accounts.gateway_remove_message": {
+    "other": "使用此网关的应用会停止连接，直到你选择其他路由。",
+    "description": "Original English text: Apps using this gateway stop until you choose another route."
+  },
+  "desktop.accounts.account_remove_message": {
+    "other": "AnyPick 将移除此已保存登录。使用它的应用会停止工作，直到你选择其他账户。",
+    "description": "Original English text: AnyPick removes this saved login. Apps using it stop until you choose another."
+  },
+  "desktop.accounts.label": {
+    "other": "标签",
+    "description": "Original English text: Label"
+  },
+  "desktop.accounts.no_compatible_apps": {
+    "other": "没有兼容的应用",
+    "description": "Original English text: No compatible apps"
+  },
+  "desktop.accounts.compatible_detail": {
+    "other": "为 Claude Code、Codex 或 OpenCode 设置路由后，即可使用此网关。",
+    "description": "Original English text: This gateway can be used with Claude Code, Codex, or OpenCode once one of those apps has a route for it."
+  },
+  "desktop.accounts.show_details_for": {
+    "other": "查看{name}的详情",
+    "description": "Original English text: Show details for {name}"
+  },
+  "desktop.accounts.more_actions_for": {
+    "other": "{name}的更多操作",
+    "description": "Original English text: More actions for {name}"
+  },
+  "desktop.accounts.current_help": {
+    "other": "此 Mac 上当前正在使用的账户",
+    "description": "Original English text: Current active account on this Mac"
+  },
+  "desktop.apps.title": {
+    "other": "应用",
+    "description": "Original English text: Apps"
+  },
+  "desktop.apps.search": {
+    "other": "搜索应用",
+    "description": "Original English text: Search Apps"
+  },
+  "desktop.apps.no_results": {
+    "other": "没有结果",
+    "description": "Original English text: No Results"
+  },
+  "desktop.apps.no_apps": {
+    "other": "尚未配置应用",
+    "description": "Original English text: No Apps Configured"
+  },
+  "desktop.apps.empty_detail": {
+    "other": "添加要使用 AnyPick 账户和代理配置的编程应用。",
+    "description": "Original English text: Add the coding apps you want to configure with AnyPick accounts and proxies."
+  },
+  "desktop.apps.clear_search": {
+    "other": "清除搜索",
+    "description": "Original English text: Clear Search"
+  },
+  "desktop.apps.add_app": {
+    "other": "添加应用…",
+    "description": "Original English text: Add App…"
+  },
+  "desktop.apps.apps_count": {
+    "other": "应用（{count}）",
+    "description": "Original English text: Apps ({count})"
+  },
+  "desktop.apps.matching_apps_count": {
+    "other": "匹配的应用（{count}）",
+    "description": "Original English text: Matching Apps ({count})"
+  },
+  "desktop.apps.direct": {
+    "other": "直连",
+    "description": "Original English text: Direct"
+  },
+  "desktop.apps.set_up": {
+    "other": "设置…",
+    "description": "Original English text: Set Up…"
+  },
+  "desktop.apps.anypick_proxy": {
+    "other": "AnyPick 代理",
+    "description": "Original English text: AnyPick proxy"
+  },
+  "desktop.apps.change_connection": {
+    "other": "更改连接…",
+    "description": "Original English text: Change Connection…"
+  },
+  "desktop.apps.refresh_models": {
+    "other": "刷新模型",
+    "description": "Original English text: Refresh Models"
+  },
+  "desktop.apps.disconnect_anypick": {
+    "other": "断开 AnyPick 连接",
+    "description": "Original English text: Disconnect from AnyPick"
+  },
+  "desktop.apps.remove_app": {
+    "other": "移除应用",
+    "description": "Original English text: Remove App"
+  },
+  "desktop.apps.remove_app_help": {
+    "other": "从 AnyPick 列表中移除此应用。",
+    "description": "Original English text: Remove this app from the AnyPick list."
+  },
+  "desktop.apps.disconnect_help": {
+    "other": "恢复此应用自己的连接和模型设置。",
+    "description": "Original English text: Return this app to its own connection and model settings."
+  },
+  "desktop.apps.quick_panel": {
+    "other": "在快捷面板中显示",
+    "description": "Original English text: Show in Quick Panel"
+  },
+  "desktop.apps.quick_panel_help": {
+    "other": "在菜单栏快捷面板中显示此应用。",
+    "description": "Original English text: Show this app in the menu bar Quick Panel."
+  },
+  "desktop.apps.remove_message": {
+    "other": "AnyPick 将不再列出此应用。应用自身设置不会更改，你可以随时重新添加。",
+    "description": "Original English text: AnyPick stops listing this app. Its own settings are untouched, and you can add it back at any time."
+  },
+  "desktop.apps.disconnect_message": {
+    "other": "AnyPick 将移除此应用的路由。",
+    "description": "Original English text: AnyPick removes the route it wrote for this app."
+  },
+  "desktop.apps.models_refreshed": {
+    "other": "已刷新此应用当前登录的模型列表。",
+    "description": "Original English text: Model list refreshed for the login this app is using."
+  },
+  "desktop.apps.add_app_help": {
+    "other": "添加受支持的编程应用并使用 AnyPick 进行配置。",
+    "description": "Original English text: Add a supported coding app to configure with AnyPick."
+  },
+  "desktop.accounts.all_providers": {
+    "other": "所有提供商",
+    "description": "Original English text: All Providers"
+  },
+  "desktop.accounts.remove_title": {
+    "other": "移除{name}？",
+    "description": "Original English text: Remove {name}?"
+  },
+  "desktop.accounts.gateway_remove_title": {
+    "other": "移除{name}？",
+    "description": "Original English text: Remove {name}?"
+  },
+  "desktop.accounts.no_gateways": {
+    "other": "尚无 API 网关。",
+    "description": "Original English text: No API gateways yet."
+  },
+  "desktop.accounts.no_gateways_match": {
+    "other": "没有符合“{query}”的网关。",
+    "description": "Original English text: No gateways match \"{query}\"."
+  },
+  "desktop.apps.remove_title": {
+    "other": "移除{name}？",
+    "description": "Original English text: Remove {name}?"
+  },
+  "desktop.apps.disconnect_title": {
+    "other": "断开{name}？",
+    "description": "Original English text: Disconnect {name}?"
+  },
+  "desktop.accounts.edit_title": {
+    "other": "编辑{name}",
+    "description": "Original English text: Edit {name}"
+  },
+  "desktop.accounts.connect_title": {
+    "other": "连接{name}",
+    "description": "Original English text: Connect {name}"
+  },
+  "desktop.accounts.no_accounts": {
+    "other": "没有账户",
+    "description": "Original English text: No Accounts"
+  },
+  "desktop.accounts.empty_detail": {
+    "other": "添加此 Mac 上已有的登录、登录账户，或添加 API 网关。",
+    "description": "Original English text: Add the login already on this Mac, sign in, or add an API gateway."
+  },
+  "desktop.accounts.clear_filters": {
+    "other": "清除筛选条件",
+    "description": "Original English text: Clear Filters"
+  },
+  "desktop.accounts.accounts": {
+    "other": "账户",
+    "description": "Original English text: Accounts"
+  },
+  "desktop.accounts.switch": {
+    "other": "切换",
+    "description": "Original English text: Switch"
+  },
+  "desktop.accounts.switch_to": {
+    "other": "切换到{name}",
+    "description": "Original English text: Switch to {name}"
+  },
+  "desktop.accounts.connect_to": {
+    "other": "连接到{name}",
+    "description": "Original English text: Connect to {name}"
+  },
+  "desktop.accounts.position": {
+    "other": "共 {total} 项，第 {index} 项",
+    "description": "Original English text: {index} of {total}"
+  },
+  "desktop.accounts.provider": {
+    "other": "提供商",
+    "description": "Original English text: Provider"
+  },
+  "desktop.accounts.current_remove_message": {
+    "other": "AnyPick 将移除“{name}”。{app}仍会在此 Mac 上保持登录。",
+    "description": "Original English text: “{name}” is removed from AnyPick. {app} stays signed in on this Mac."
+  },
+  "desktop.accounts.other_remove_message": {
+    "other": "AnyPick 将移除“{name}”。此 Mac 上的 {app} 登录不会更改。",
+    "description": "Original English text: “{name}” is removed from AnyPick. The {app} login on this Mac does not change."
+  },
+  "desktop.accounts.no_provider_accounts": {
+    "other": "没有{provider}账户。",
+    "description": "Original English text: No {provider} accounts."
+  },
+  "desktop.accounts.no_filter_match": {
+    "other": "没有账户符合此筛选条件。",
+    "description": "Original English text: No accounts match this filter."
+  },
+  "desktop.common.start": {
+    "other": "启动",
+    "description": "Original English text: Start"
+  },
+  "desktop.common.stop": {
+    "other": "停止",
+    "description": "Original English text: Stop"
+  },
+  "desktop.common.restart": {
+    "other": "重新启动",
+    "description": "Original English text: Restart"
+  },
+  "desktop.common.address": {
+    "other": "地址",
+    "description": "Original English text: Address"
+  },
+  "desktop.common.api_key": {
+    "other": "API 密钥",
+    "description": "Original English text: API Key"
+  },
+  "desktop.common.copy_address": {
+    "other": "复制地址",
+    "description": "Original English text: Copy Address"
+  },
+  "desktop.common.copy_api_key": {
+    "other": "复制 API 密钥",
+    "description": "Original English text: Copy API Key"
+  },
+  "desktop.common.rotate_key": {
+    "other": "轮换密钥",
+    "description": "Original English text: Rotate Key"
+  },
+  "desktop.activity.view": {
+    "other": "视图",
+    "description": "Original English text: View"
+  },
+  "desktop.activity.events": {
+    "other": "事件",
+    "description": "Original English text: Events"
+  },
+  "desktop.activity.live_logs": {
+    "other": "实时日志",
+    "description": "Original English text: Live Logs"
+  },
+  "desktop.activity.filter_events": {
+    "other": "筛选事件",
+    "description": "Original English text: Filter events"
+  },
+  "desktop.activity.log_source": {
+    "other": "日志来源",
+    "description": "Original English text: Log source"
+  },
+  "desktop.activity.no_sources": {
+    "other": "没有来源",
+    "description": "Original English text: No Sources"
+  },
+  "desktop.activity.no_results_detail": {
+    "other": "没有符合筛选条件的事件。",
+    "description": "Original English text: No events match your filters."
+  },
+  "desktop.activity.no_activity": {
+    "other": "暂无活动",
+    "description": "Original English text: No Activity Yet"
+  },
+  "desktop.activity.no_events": {
+    "other": "账户、路由和服务事件会显示在这里。",
+    "description": "Original English text: Account, routing and service events will appear here."
+  },
+  "desktop.activity.changes_header": {
+    "other": "近期更改和恢复信息",
+    "description": "Original English text: Recent changes and recovery information"
+  },
+  "desktop.activity.sensitive_redacted": {
+    "other": "日志显示在此窗口前，敏感值会被隐藏。",
+    "description": "Original English text: Sensitive values are redacted before logs reach this window."
+  },
+  "desktop.activity.clear_log": {
+    "other": "清除日志…",
+    "description": "Original English text: Clear Log…"
+  },
+  "desktop.activity.clear_events": {
+    "other": "清除事件…",
+    "description": "Original English text: Clear Events…"
+  },
+  "desktop.activity.clear_visible_logs": {
+    "other": "清除显示的日志？",
+    "description": "Original English text: Clear Visible Logs?"
+  },
+  "desktop.activity.clear_visible_events": {
+    "other": "清除显示的事件？",
+    "description": "Original English text: Clear Visible Events?"
+  },
+  "desktop.activity.clear_message": {
+    "other": "账户、应用和代理均不会更改。",
+    "description": "Original English text: Accounts, apps, and proxies are unchanged."
+  },
+  "desktop.activity.search_logs": {
+    "other": "搜索日志",
+    "description": "Original English text: Search logs"
+  },
+  "desktop.activity.search_events": {
+    "other": "搜索事件",
+    "description": "Original English text: Search events"
+  },
+  "desktop.activity.filter_logs": {
+    "other": "筛选日志",
+    "description": "Original English text: Filter Logs"
+  },
+  "desktop.activity.filter_events_help": {
+    "other": "按类别筛选事件",
+    "description": "Original English text: Filter events by category"
+  },
+  "desktop.activity.filter_logs_help": {
+    "other": "按提供商筛选日志",
+    "description": "Original English text: Filter logs by provider"
+  },
+  "desktop.activity.recent_activity": {
+    "other": "最近活动",
+    "description": "Original English text: Recent activity"
+  },
+  "desktop.activity.no_logs": {
+    "other": "暂无日志",
+    "description": "Original English text: No Logs Yet"
+  },
+  "desktop.activity.log_unavailable": {
+    "other": "所选日志已不可用",
+    "description": "Original English text: Selected Log Is No Longer Available"
+  },
+  "desktop.activity.status_live": {
+    "other": "状态：实时",
+    "description": "Original English text: Status: Live"
+  },
+  "desktop.proxies.no_account_proxies": {
+    "other": "没有账户代理",
+    "description": "Original English text: No Account Proxies"
+  },
+  "desktop.proxies.no_proxies_detail": {
+    "other": "可用作代理的已保存账户会显示在这里，即使当前已停止。请在“账户和 API”中添加。",
+    "description": "Original English text: Saved accounts that can proxy appear here even when stopped. Add one under Accounts & APIs."
+  },
+  "desktop.proxies.no_results_detail": {
+    "other": "没有代理符合此搜索条件。",
+    "description": "Original English text: No proxies match this search."
+  },
+  "desktop.proxies.search": {
+    "other": "搜索代理",
+    "description": "Original English text: Search Proxies"
+  },
+  "desktop.proxies.hub_footer": {
+    "other": "将各账户已发布模型整合到一个本地端点。",
+    "description": "Original English text: A unified local endpoint combining published models across your accounts."
+  },
+  "desktop.proxies.not_running": {
+    "other": "未运行",
+    "description": "Original English text: Not running"
+  },
+  "desktop.proxies.account_proxies": {
+    "other": "账户代理",
+    "description": "Original English text: Account Proxies"
+  },
+  "desktop.proxies.endpoint_footer": {
+    "other": "所有端点都仅在此 Mac 上运行并需要身份验证。选择代理可查看其地址和 API 密钥。",
+    "description": "Original English text: All endpoints stay on this Mac and require authentication. Select a proxy to view its address and API key."
+  },
+  "desktop.proxies.stop_all_title": {
+    "other": "停止所有代理？",
+    "description": "Original English text: Stop All Proxies?"
+  },
+  "desktop.proxies.stop_all_message": {
+    "other": "使用这些代理的应用在服务重新启动前将无法连接。",
+    "description": "Original English text: Apps using these proxies will not connect until their services restart."
+  },
+  "desktop.proxies.stop_all_action": {
+    "other": "全部停止",
+    "description": "Original English text: Stop All"
+  },
+  "desktop.proxies.stop_proxy_title": {
+    "other": "停止 {name}？",
+    "description": "Original English text: Stop {name}?"
+  },
+  "desktop.proxies.stop_proxy_message": {
+    "other": "使用此代理的应用在其重新启动前将无法连接。",
+    "description": "Original English text: Apps using this proxy will not connect until it restarts."
+  },
+  "desktop.proxies.rotate_key_title": {
+    "other": "轮换 {name} 的 API 密钥？",
+    "description": "Original English text: Rotate API Key for {name}?"
+  },
+  "desktop.proxies.rotate_message": {
+    "other": "使用当前 API 密钥的应用将断开连接，直到你用新密钥更新它们。",
+    "description": "Original English text: Apps using the current API key will be disconnected until you update them with the new key."
+  },
+  "desktop.proxies.start_help": {
+    "other": "为兼容的应用启动此本地代理。",
+    "description": "Original English text: Start this local proxy for compatible apps."
+  },
+  "desktop.proxies.stop_help": {
+    "other": "停止此本地代理。使用它的应用将断开连接。",
+    "description": "Original English text: Stop this local proxy. Apps using it will lose this connection."
+  },
+  "desktop.proxies.restart_help": {
+    "other": "重新启动此本地代理。活动连接可能会短暂中断。",
+    "description": "Original English text: Restart this local proxy. Active connections may be interrupted briefly."
+  },
+  "desktop.proxies.copy_address_help": {
+    "other": "复制此代理的本地地址。",
+    "description": "Original English text: Copy this proxy’s local address."
+  },
+  "desktop.proxies.copy_key_help": {
+    "other": "将代理 API 密钥复制到剪贴板，但不显示密钥。",
+    "description": "Original English text: Copy the proxy API key to the clipboard without displaying it."
+  },
+  "desktop.proxies.rotate_help": {
+    "other": "替换此代理的 API 密钥。现有客户端必须使用新密钥。",
+    "description": "Original English text: Replace this proxy’s API key. Existing clients must use the new key."
+  },
+  "desktop.proxies.start_all": {
+    "other": "启动所有代理",
+    "description": "Original English text: Start All Proxies"
+  },
+  "desktop.proxies.start_remaining": {
+    "other": "启动剩余代理",
+    "description": "Original English text: Start Remaining Proxies"
+  },
+  "desktop.proxies.restart_running": {
+    "other": "重新启动运行中的代理",
+    "description": "Original English text: Restart Running Proxies"
+  },
+  "desktop.hub.service": {
+    "other": "服务",
+    "description": "Original English text: Service"
+  },
+  "desktop.hub.restart_hub": {
+    "other": "重启 Hub",
+    "description": "Original English text: Restart Hub"
+  },
+  "desktop.hub.hidden_key": {
+    "other": "复制前会隐藏。密钥不会进入快照（ADR 0006）。",
+    "description": "Original English text: Hidden until copied. The key never enters the snapshot (ADR 0006)."
+  },
+  "desktop.hub.copy_key": {
+    "other": "复制 Proxy Hub API 密钥",
+    "description": "Original English text: Copy Proxy Hub API key"
+  },
+  "desktop.hub.rotate_key_button": {
+    "other": "轮换 Proxy Hub API 密钥",
+    "description": "Original English text: Rotate Proxy Hub API key"
+  },
+  "desktop.hub.published_models": {
+    "other": "已发布模型",
+    "description": "Original English text: Published Models"
+  },
+  "desktop.hub.need_choice": {
+    "other": "需要选择",
+    "description": "Original English text: need choice"
+  },
+  "desktop.hub.unavailable": {
+    "other": "Proxy Hub 不可用",
+    "description": "Original English text: Proxy Hub Unavailable"
+  },
+  "desktop.hub.unavailable_detail": {
+    "other": "引擎未为此设备提供 Hub，因此没有可启动的服务。",
+    "description": "Original English text: The engine published no hub for this machine, so there is nothing to start."
+  },
+  "desktop.hub.conflicts": {
+    "other": "路由冲突",
+    "description": "Original English text: Routing Conflicts"
+  },
+  "desktop.hub.conflict_footer": {
+    "other": "多个账户可以提供同一模型。请先选择由哪个账户提供，再让 Hub 提供该模型。",
+    "description": "Original English text: Two accounts can serve the same model. Choose which one owns it before this hub serves that model."
+  },
+  "desktop.hub.request_strategy": {
+    "other": "请求策略",
+    "description": "Original English text: Request Strategy"
+  },
+  "desktop.hub.strategy_footer": {
+    "other": "故障转移会将每个请求发送到一个账户。轮询会在可提供该模型的账户间分配请求。",
+    "description": "Original English text: Failover sends each request to one account. Round Robin spreads each model across the accounts that serve it."
+  },
+  "desktop.hub.no_results": {
+    "other": "没有结果",
+    "description": "Original English text: No Results"
+  },
+  "desktop.hub.no_sources": {
+    "other": "没有 Hub 来源",
+    "description": "Original English text: No Hub Sources"
+  },
+  "desktop.hub.no_sources_detail": {
+    "other": "在“账户和 API”中保存登录，然后在此处启用。",
+    "description": "Original English text: Save a login under Accounts & APIs, then switch it on here."
+  },
+  "desktop.hub.accounts_enabled": {
+    "other": "此 Hub 中的账户（已启用 {enabled}/{total} 个）",
+    "description": "Original English text: Accounts in This Hub ({enabled} of {total} enabled)"
+  },
+  "desktop.hub.accounts_footer": {
+    "other": "启用已保存的登录以发布其可提供的模型。Proxies 中的账户代理独立运行并使用各自的地址。",
+    "description": "Original English text: Switch on a saved login to publish the models it can serve. Account proxies under Proxies are separate and stay running on their own addresses."
+  },
+  "desktop.hub.rotate_title": {
+    "other": "轮换 Proxy Hub API 密钥？",
+    "description": "Original English text: Rotate Proxy Hub API Key?"
+  },
+  "desktop.hub.rotate_message": {
+    "other": "使用当前密钥配置的应用在更新前将无法连接。此操作无法撤销。",
+    "description": "Original English text: Apps configured with the current key stop connecting until they are updated. This cannot be undone."
+  },
+  "desktop.common.refresh": {
+    "other": "刷新",
+    "description": "Original English text: Refresh"
+  },
+  "desktop.activity.no_results": {
+    "other": "没有结果",
+    "description": "Original English text: No Results"
+  },
+  "desktop.activity.category_all": {
+    "other": "所有事件",
+    "description": "Original English text: All Events"
+  },
+  "desktop.activity.category_routing": {
+    "other": "路由",
+    "description": "Original English text: Routing"
+  },
+  "desktop.activity.category_accounts": {
+    "other": "账户和 API",
+    "description": "Original English text: Accounts & APIs"
+  },
+  "desktop.activity.category_proxies": {
+    "other": "Proxy Hub",
+    "description": "Original English text: Proxy Hub"
+  },
+  "desktop.activity.category_issues": {
+    "other": "问题",
+    "description": "Original English text: Issues"
+  },
+  "desktop.activity.live": {
+    "other": "实时",
+    "description": "Original English text: Live"
+  },
+  "desktop.activity.cleared_log": {
+    "other": "已清除当前显示的日志",
+    "description": "Original English text: Cleared the visible log"
+  },
+  "desktop.activity.cleared_log_detail": {
+    "other": "引擎会保留日志文件。刷新即可重新读取。",
+    "description": "Original English text: The engine keeps the log file. Refresh to read it again."
+  },
+  "desktop.activity.no_matching_lines": {
+    "other": "没有匹配的行",
+    "description": "Original English text: No Matching Lines"
+  },
+  "desktop.activity.no_entries": {
+    "other": "暂无条目",
+    "description": "Original English text: No Entries Yet"
+  },
+  "desktop.activity.clear_search_detail": {
+    "other": "清除搜索内容以查看完整日志。",
+    "description": "Original English text: Clear the search to see the whole log."
+  },
+  "desktop.activity.earlier_lines": {
+    "other": "未显示之前的 {count} 行。",
+    "description": "Original English text: {count} earlier lines are not shown."
+  },
+  "desktop.activity.log_truncated": {
+    "other": "日志已截断",
+    "description": "Original English text: Log truncated"
+  },
+  "desktop.activity.waiting": {
+    "other": "等待首次读取…",
+    "description": "Original English text: Waiting for the first reading…"
+  },
+  "desktop.activity.unavailable": {
+    "other": "不可用",
+    "description": "Original English text: Unavailable"
+  },
+  "desktop.activity.could_not_read": {
+    "other": "无法读取此日志。",
+    "description": "Original English text: Could not read this log."
+  },
+  "desktop.apps.actions_for": {
+    "other": "“{name}” 的操作",
+    "description": "Original English text: Actions for {name}"
+  },
+  "desktop.apps.add_title": {
+    "other": "添加编程应用",
+    "description": "Original English text: Add Coding App"
+  },
+  "desktop.apps.supported_tools": {
+    "other": "支持的编程工具",
+    "description": "Original English text: Supported Coding Tools"
+  },
+  "desktop.apps.supported_footer": {
+    "other": "选择一个应用，在 AnyPick 中配置其 AI 凭据、模型和代理连接。",
+    "description": "Original English text: Choose an app to configure its AI credentials, models, and proxy connections in AnyPick."
+  },
+  "desktop.apps.all_added": {
+    "other": "已添加所有受支持的编程应用。",
+    "description": "Original English text: All supported coding apps have already been added."
+  },
+  "desktop.apps.no_apps_match": {
+    "other": "没有应用符合此搜索条件。",
+    "description": "Original English text: No apps match your search."
+  },
+  "desktop.apps.quick_panel_footer": {
+    "other": "启用后，此应用会显示在菜单栏快速面板中，方便快速切换。",
+    "description": "Original English text: When enabled, this app appears in the menu bar Quick Panel for quick switching."
+  },
+  "desktop.apps.about_claude": {
+    "other": "Anthropic 的终端编程助手",
+    "description": "Original English text: Anthropic’s terminal coding agent"
+  },
+  "desktop.apps.about_codex": {
+    "other": "OpenAI 的终端和桌面编程工具",
+    "description": "Original English text: OpenAI’s terminal and desktop coding tool"
+  },
+  "desktop.apps.about_kiro": {
+    "other": "AI 辅助编程 IDE 和环境",
+    "description": "Original English text: AI-assisted coding IDE and environment"
+  },
+  "desktop.apps.about_commandcode": {
+    "other": "终端命令 AI 助手",
+    "description": "Original English text: Terminal command AI assistant"
+  },
+  "desktop.apps.about_gemini": {
+    "other": "Google 的 AI 编程工具",
+    "description": "Original English text: Google’s AI coding tool"
+  },
+  "desktop.apps.about_opencode": {
+    "other": "开源开发者终端助手",
+    "description": "Original English text: Open-source developer terminal assistant"
+  },
+  "desktop.apps.about_workbuddy": {
+    "other": "腾讯 AI 编程助手",
+    "description": "Original English text: Tencent’s AI programming assistant"
+  },
+  "desktop.apps.about_codebuddy": {
+    "other": "腾讯 AI 编程助手",
+    "description": "Original English text: Tencent’s AI programming assistant"
+  },
+  "desktop.apps.about_zcode": {
+    "other": "Z.ai 智能开发环境",
+    "description": "Original English text: Z.ai intelligent development environment"
+  },
+  "desktop.apps.about_dsh": {
+    "other": "DeepSeek AI 编程框架",
+    "description": "Original English text: DeepSeek AI coding harness"
+  },
+  "desktop.apps.about_pi": {
+    "other": "交互式终端 AI 代理",
+    "description": "Original English text: Interactive terminal AI agent"
+  },
+  "desktop.apps.about_omp": {
+    "other": "多提供商 AI 命令行界面",
+    "description": "Original English text: Multi-provider AI command line interface"
+  },
+  "desktop.proxies.proxy_not_running": {
+    "other": "此代理未运行。",
+    "description": "Original English text: This proxy isn’t running."
+  },
+  "desktop.hub.no_sources_match": {
+    "other": "没有来源符合此搜索条件。",
+    "description": "Original English text: No sources match your search."
+  },
+  "desktop.hub.excluded": {
+    "other": "已从 Hub 排除",
+    "description": "Original English text: Excluded from Hub"
+  },
+  "desktop.hub.unavailable_source": {
+    "other": "不可用",
+    "description": "Original English text: Unavailable"
+  },
+  "desktop.hub.enable": {
+    "other": "启用",
+    "description": "Original English text: Enable"
+  },
+  "desktop.hub.disable": {
+    "other": "停用",
+    "description": "Original English text: Disable"
+  },
+  "desktop.hub.strategy": {
+    "other": "策略",
+    "description": "Original English text: Strategy"
+  },
+  "desktop.hub.strategy_needs_accounts": {
+    "other": "此 Hub 至少需要两个账户。",
+    "description": "Original English text: Needs two or more accounts in this hub."
+  },
+  "desktop.hub.failover": {
+    "other": "故障转移",
+    "description": "Original English text: Failover"
+  },
+  "desktop.hub.round_robin": {
+    "other": "轮询",
+    "description": "Original English text: Round Robin"
+  },
+  "desktop.hub.footer_conflicts": {
+    "other": "请先解决下方的路由冲突，然后 Hub 才能提供所有模型。",
+    "description": "Original English text: Resolve the routing conflicts below before this hub serves every model."
+  },
+  "desktop.hub.footer_turn_on": {
+    "other": "开启 Hub，通过一个本地地址发布模型。",
+    "description": "Original English text: Turn the hub on to publish models on one local address."
+  },
+  "desktop.hub.footer_turn_on_start": {
+    "other": "启用下方的账户，然后启动 Hub。",
+    "description": "Original English text: Turn on an account below, then start the hub."
+  },
+  "desktop.hub.footer_enabled_not_serving": {
+    "other": "Hub 已启用，但尚未开始提供服务。",
+    "description": "Original English text: The hub is enabled but not serving yet."
+  },
+  "desktop.hub.footer_no_source_serves": {
+    "other": "Hub 正在运行，但目前没有来源可以提供模型。",
+    "description": "Original English text: The hub is serving, but no source can serve a model yet."
+  },
+  "desktop.hub.model_count": {
+    "other": "{count} 个模型",
+    "description": "Original English text: {count} model"
+  },
+  "desktop.hub.models_count": {
+    "other": "{count} 个模型",
+    "description": "Original English text: {count} models"
+  },
+  "desktop.hub.models_published": {
+    "other": "已发布",
+    "description": "Original English text: published"
+  },
+  "desktop.hub.no_accounts_on": {
+    "other": "尚未启用任何账户",
+    "description": "Original English text: No accounts switched on yet"
+  },
+  "desktop.hub.no_models_published": {
+    "other": "尚未发布模型。请启用下方的账户。",
+    "description": "Original English text: No models published. Turn on an account below."
+  },
+  "desktop.hub.footer_models_on_address": {
+    "other": "通过一个本地地址提供 {count} 个模型。",
+    "description": "Original English text: {count} models on one local address."
+  },
+  "desktop.hub.status_enabled_not_serving": {
+    "other": "已启用，尚未提供服务",
+    "description": "Original English text: Enabled, not serving yet"
+  },
+  "desktop.hub.view_models_help": {
+    "other": "查看 Proxy Hub 发布的模型",
+    "description": "Original English text: View models published by Proxy Hub"
+  },
+  "desktop.activity.not_running": {
+    "other": "未运行",
+    "description": "Original English text: Not running"
+  },
+  "desktop.common.clear": {
+    "other": "清除",
+    "description": "Original English text: Clear"
+  },
+  "desktop.common.try_again": {
+    "other": "重试",
+    "description": "Original English text: Try Again"
+  },
+  "desktop.activity.copy_message": {
+    "other": "复制消息",
+    "description": "Original English text: Copy Message"
+  },
+  "desktop.activity.copy_message_help": {
+    "other": "仅复制活动消息。",
+    "description": "Original English text: Copy only the activity message."
+  },
+  "desktop.activity.copy_details": {
+    "other": "复制完整详情",
+    "description": "Original English text: Copy Full Details"
+  },
+  "desktop.activity.copy_details_help": {
+    "other": "复制时间戳、消息和详情。",
+    "description": "Original English text: Copy the timestamp, message, and details."
+  },
+  "desktop.activity.status": {
+    "other": "状态",
+    "description": "Original English text: Status"
+  },
+  "desktop.activity.loading_logs": {
+    "other": "正在加载日志…",
+    "description": "Original English text: Loading logs…"
+  },
+  "desktop.activity.proxy_not_running": {
+    "other": "代理未运行 — 启动后才能接收新日志。",
+    "description": "Original English text: Proxy is not running — start it to stream new entries."
+  },
+  "desktop.activity.could_not_load": {
+    "other": "无法加载日志",
+    "description": "Original English text: Couldn’t Load Logs"
+  },
+  "desktop.activity.no_log_source": {
+    "other": "没有可用的日志来源。",
+    "description": "Original English text: No log source available."
+  },
+  "desktop.activity.log_output_hint": {
+    "other": "所选提供商运行时，输出会显示在这里。",
+    "description": "Original English text: Output appears here while the selected provider is running."
+  },
+  "desktop.activity.service_no_logs": {
+    "other": "服务尚未写入任何日志。",
+    "description": "Original English text: The service has not written any log entries."
+  },
+  "desktop.activity.showing_loaded_logs": {
+    "other": "正在显示最近成功加载的日志。",
+    "description": "Original English text: Showing the most recent logs that loaded successfully."
+  },
+  "desktop.activity.choose_log_source": {
+    "other": "选择其他服务或返回“活动”。",
+    "description": "Original English text: Choose another service or return to Activity."
+  },
+  "desktop.hub.conflict_two_owners": {
+    "other": "{model} 有两个来源",
+    "description": "Original English text: {model} has two owners"
+  },
+  "desktop.hub.conflict_pair_need_provider": {
+    "other": "{first} 和 {second} 需要选择提供商",
+    "description": "Original English text: {first} and {second} need a provider"
+  },
+  "desktop.hub.conflict_many_need_provider": {
+    "other": "{count} 个模型需要选择提供商：{first}、{second} 等 {more} 个",
+    "description": "Original English text: {count} models need a provider: {first}, {second}, and {more} more"
+  },
+  "desktop.hub.available_via": {
+    "other": "可通过以下提供商使用：{providers}",
+    "description": "Original English text: Available via {providers}"
+  },
+  "desktop.hub.footer_one_model": {
+    "other": "通过一个本地地址提供 1 个模型。",
+    "description": "Original English text: 1 model on one local address."
+  },
+  "desktop.hub.starting": {
+    "other": "正在启动 Proxy Hub…",
+    "description": "Original English text: Starting Proxy Hub…"
+  },
+  "desktop.hub.stopping": {
+    "other": "正在停止 Proxy Hub…",
+    "description": "Original English text: Stopping Proxy Hub…"
+  },
+  "desktop.hub.restarting": {
+    "other": "正在重新启动 Proxy Hub…",
+    "description": "Original English text: Restarting Proxy Hub…"
+  },
+  "desktop.hub.no_usable_models": {
+    "other": "暂无可发布的可用模型",
+    "description": "Original English text: No usable models to publish yet"
+  },
+  "desktop.hub.start_help": {
+    "other": "启动 Proxy Hub",
+    "description": "Original English text: Start Proxy Hub"
+  },
+  "desktop.hub.stop_help": {
+    "other": "停止 Proxy Hub",
+    "description": "Original English text: Stop Proxy Hub"
+  },
+  "desktop.hub.published_count": {
+    "other": "已发布 {count} 个",
+    "description": "Original English text: {count} published"
+  },
+  "desktop.hub.add_compatible_title": {
+    "other": "添加兼容账户",
+    "description": "Original English text: Add a Compatible Account"
+  },
+  "desktop.hub.add_compatible_detail": {
+    "other": "启动 Proxy Hub 前，请先添加兼容的已保存账户。",
+    "description": "Original English text: Add a compatible saved account before starting Proxy Hub."
+  },
+  "desktop.hub.model_routing": {
+    "other": "模型路由",
+    "description": "Original English text: Model Routing"
+  },
+  "desktop.hub.model_routing_footer": {
+    "other": "多个提供商提供同一模型时，请选择处理客户端请求的提供商。",
+    "description": "Original English text: Choose which provider handles client requests when multiple providers offer the same model."
+  },
+  "desktop.hub.view_routed_models": {
+    "other": "查看全部 {count} 个已路由模型…",
+    "description": "Original English text: View all {count} routed models…"
+  },
+  "desktop.hub.select_provider": {
+    "other": "选择提供商…",
+    "description": "Original English text: Select Provider…"
+  },
+  "desktop.hub.applying_choice": {
+    "other": "正在应用选择…",
+    "description": "Original English text: Applying choice…"
+  },
+  "desktop.hub.service_failed_title": {
+    "other": "Proxy Hub 无法启动",
+    "description": "Original English text: Proxy Hub Couldn’t Start"
+  },
+  "desktop.hub.failure_footer": {
+    "other": "应用设置未更改。请调整冲突的服务，然后重试。",
+    "description": "Original English text: No app settings were changed. Adjust the conflicting service, then try again."
+  },
+  "desktop.hub.copy_address_label": {
+    "other": "复制 Proxy Hub 地址",
+    "description": "Original English text: Copy Proxy Hub address"
+  },
+  "desktop.hub.copy_address_failure": {
+    "other": "无法复制 Proxy Hub 地址。",
+    "description": "Original English text: Couldn’t copy Proxy Hub address."
+  },
+  "desktop.hub.copy_address_success": {
+    "other": "已复制 Proxy Hub 地址。",
+    "description": "Original English text: Copied Proxy Hub address."
+  },
+  "desktop.hub.copy_api_key_label": {
+    "other": "复制 Proxy Hub API 密钥",
+    "description": "Original English text: Copy Proxy Hub API key"
+  },
+  "desktop.hub.rotate_api_key_label": {
+    "other": "轮换 Proxy Hub API 密钥",
+    "description": "Original English text: Rotate Proxy Hub API Key"
+  },
+  "desktop.activity.cleared_events": {
+    "other": "已清除当前显示的活动列表。Supervisor 历史记录未更改。",
+    "description": "Original English text: Cleared the visible activity list. Supervisor history is unchanged."
+  },
+  "desktop.apps.current_login": {
+    "other": "当前登录",
+    "description": "Original English text: Current login"
+  },
+  "desktop.apps.needs_attention": {
+    "other": "需要处理",
+    "description": "Original English text: Needs Attention"
+  },
+  "desktop.apps.not_configured": {
+    "other": "未配置",
+    "description": "Original English text: Not configured"
+  },
+  "desktop.published.title": {
+    "other": "已发布模型",
+    "description": "Original English text: Published Models"
+  },
+  "desktop.published.no_models": {
+    "other": "没有已发布的模型",
+    "description": "Original English text: No Published Models"
+  },
+  "desktop.published.empty_detail": {
+    "other": "启用账户并解决模型重叠后，模型会显示在这里。",
+    "description": "Original English text: Turn on an account and resolve overlapping models, then they appear here."
+  },
+  "desktop.published.open_hub": {
+    "other": "打开 Proxy Hub",
+    "description": "Original English text: Open Proxy Hub"
+  },
+  "desktop.published.filter": {
+    "other": "筛选",
+    "description": "Original English text: Filter"
+  },
+  "desktop.published.catalog": {
+    "other": "目录",
+    "description": "Original English text: Catalog"
+  },
+  "desktop.published.needs_provider": {
+    "other": "需要选择提供商",
+    "description": "Original English text: Needs a Provider"
+  },
+  "desktop.published.conflict_footer": {
+    "other": "多个账户可以提供同一模型。请先选择由哪个账户提供，再让 Hub 提供该模型。",
+    "description": "Original English text: Two accounts can serve the same model. Choose which one owns it before this hub serves it."
+  },
+  "desktop.published.no_results": {
+    "other": "没有结果",
+    "description": "Original English text: No Results"
+  },
+  "desktop.published.no_results_detail": {
+    "other": "没有模型符合此筛选条件或搜索内容。",
+    "description": "Original English text: No models match this filter or search query."
+  },
+  "desktop.published.reset_filters": {
+    "other": "重置筛选条件",
+    "description": "Original English text: Reset Filters"
+  },
+  "desktop.published.reset_help": {
+    "other": "清除搜索并显示所有已发布模型。",
+    "description": "Original English text: Clear the search and show all published models."
+  },
+  "desktop.published.multi_provider": {
+    "other": "多提供商",
+    "description": "Original English text: Multi-provider"
+  },
+  "desktop.published.multi_provider_routes": {
+    "other": "多提供商路由",
+    "description": "Original English text: Multi-provider Routes"
+  },
+  "desktop.published.multi_route_detail": {
+    "other": "这些模型可由多个提供商提供。选择一个提供商来处理客户端请求。",
+    "description": "Original English text: These models are available from multiple providers. Select a provider to switch which one handles client requests."
+  },
+  "desktop.published.published_catalogs": {
+    "other": "已发布目录",
+    "description": "Original English text: Published Catalogs"
+  },
+  "desktop.published.catalogs_footer": {
+    "other": "点击目录查看已发布模型。多个提供商都提供的模型可在此直接切换。",
+    "description": "Original English text: Click a catalog to view its published models. Models available across multiple providers can be switched inline."
+  },
+  "desktop.published.all_catalogs": {
+    "other": "所有目录（{count}）",
+    "description": "Original English text: All Catalogs ({count})"
+  },
+  "desktop.published.multi_routes_count": {
+    "other": "多提供商路由（{count}）",
+    "description": "Original English text: Multi-provider Routes ({count})"
+  },
+  "desktop.published.active": {
+    "other": "已启用",
+    "description": "Original English text: Active"
+  },
+  "desktop.published.route_to": {
+    "other": "路由到",
+    "description": "Original English text: Route to"
+  },
+  "desktop.published.base_url": {
+    "other": "基础 URL",
+    "description": "Original English text: Base URL"
+  },
+  "desktop.published.chat_url": {
+    "other": "聊天 URL",
+    "description": "Original English text: Chat URL"
+  },
+  "desktop.published.test_terminal": {
+    "other": "在终端中测试",
+    "description": "Original English text: Test in Terminal"
+  },
+  "desktop.published.openai_compatible": {
+    "other": "兼容 OpenAI",
+    "description": "Original English text: OpenAI-compatible"
+  },
+  "desktop.published.model_routing": {
+    "other": "模型和路由",
+    "description": "Original English text: Model & Routing"
+  },
+  "desktop.published.endpoint": {
+    "other": "Proxy Hub 端点",
+    "description": "Original English text: Proxy Hub Endpoint"
+  },
+  "desktop.published.endpoint_detail": {
+    "other": "兼容 OpenAI 客户端库。使用此基础 URL 或复制 cURL 命令进行测试。",
+    "description": "Original English text: Compatible with OpenAI client libraries. Use this base URL or copy the cURL command to test."
+  },
+  "desktop.published.copy_model_id": {
+    "other": "复制模型 ID",
+    "description": "Original English text: Copy Model ID"
+  },
+  "desktop.published.inspect_model": {
+    "other": "检查模型…",
+    "description": "Original English text: Inspect Model…"
+  },
+  "desktop.published.inspect_model_help": {
+    "other": "查看模型的提供商、账户和路由详情。",
+    "description": "Original English text: View the model’s provider, account, and routing details."
+  },
+  "desktop.published.copy_model_id_help": {
+    "other": "复制此模型的标识符。",
+    "description": "Original English text: Copy this model’s identifier."
+  },
+  "desktop.published.hub_not_running": {
+    "other": "Hub 未运行",
+    "description": "Original English text: The hub is not running"
+  },
+  "desktop.common.copy": {
+    "other": "复制",
+    "description": "Original English text: Copy"
+  },
+  "desktop.published.done": {
+    "other": "完成",
+    "description": "Original English text: Done"
+  },
+  "desktop.published.show": {
+    "other": "显示",
+    "description": "Original English text: Show"
+  },
+  "desktop.published.serving_source": {
+    "other": "服务来源：{source}",
+    "description": "Original English text: Serving source: {source}"
+  },
+  "desktop.published.published_via": {
+    "other": "通过 {provider} 发布",
+    "description": "Original English text: Published via {provider}"
+  },
+  "desktop.published.select_provider": {
+    "other": "选择提供商…",
+    "description": "Original English text: Select Provider…"
+  },
+  "desktop.published.copy_curl": {
+    "other": "复制 cURL 命令",
+    "description": "Original English text: Copy cURL command"
+  },
+  "desktop.activity.app_uses_source": {
+    "other": "{client} 现在使用 {source}。",
+    "description": "Original English text: {client} now uses {source}."
+  },
+  "desktop.activity.app_updated": {
+    "other": "{client} 已更新。",
+    "description": "Original English text: {client} updated."
+  },
+  "desktop.activity.operation_completed": {
+    "other": "操作已完成。",
+    "description": "Original English text: Operation completed."
+  },
+  "desktop.activity.app_change_failed": {
+    "other": "{client} 更改失败。",
+    "description": "Original English text: {client} change failed."
+  },
+  "desktop.activity.operation_failed": {
+    "other": "操作失败。",
+    "description": "Original English text: Operation failed."
+  },
+  "desktop.activity.app_rolled_back": {
+    "other": "{client} 的更改已回滚。",
+    "description": "Original English text: {client} change was rolled back."
+  },
+  "desktop.activity.operation_rolled_back": {
+    "other": "操作已回滚。",
+    "description": "Original English text: Operation was rolled back."
+  },
+  "desktop.activity.app_rolling_back": {
+    "other": "正在回滚 {client} 的更改。",
+    "description": "Original English text: {client} change is rolling back."
+  },
+  "desktop.activity.operation_rolling_back": {
+    "other": "正在回滚操作。",
+    "description": "Original English text: Operation is rolling back."
+  },
+  "desktop.activity.app_in_progress": {
+    "other": "正在更改 {client}。",
+    "description": "Original English text: {client} change in progress."
+  },
+  "desktop.activity.operation_in_progress": {
+    "other": "操作进行中。",
+    "description": "Original English text: Operation in progress."
+  },
+  "desktop.activity.detail_account_updated": {
+    "other": "已更新已保存的登录信息。",
+    "description": "Original English text: Saved login updated."
+  },
+  "desktop.activity.detail_account_not_changed": {
+    "other": "已保存的登录信息未更改。",
+    "description": "Original English text: The saved login was not changed."
+  },
+  "desktop.activity.detail_gateway_updated": {
+    "other": "网关已更新。",
+    "description": "Original English text: Gateway updated."
+  },
+  "desktop.activity.detail_gateway_not_changed": {
+    "other": "已保存的网关未更改。",
+    "description": "Original English text: The saved gateway was not changed."
+  },
+  "desktop.activity.detail_proxy_updated": {
+    "other": "本地服务已更新。",
+    "description": "Original English text: Local service updated."
+  },
+  "desktop.activity.detail_proxy_attention": {
+    "other": "服务需要处理。",
+    "description": "Original English text: The service needs attention."
+  },
+  "desktop.activity.detail_usage_refreshed": {
+    "other": "用量已刷新。",
+    "description": "Original English text: Usage refreshed."
+  },
+  "desktop.activity.detail_usage_failed": {
+    "other": "无法刷新用量。",
+    "description": "Original English text: Usage could not be refreshed."
+  },
+  "desktop.activity.detail_setting_updated": {
+    "other": "设置已更新。",
+    "description": "Original English text: Setting updated."
+  },
+  "desktop.activity.detail_setting_not_changed": {
+    "other": "设置未更改。",
+    "description": "Original English text: The setting was not changed."
+  },
+  "desktop.activity.detail_routing_updated": {
+    "other": "应用路由已更新。",
+    "description": "Original English text: App routing updated."
+  },
+  "desktop.activity.detail_routing_kept": {
+    "other": "已保留之前的应用配置。",
+    "description": "Original English text: The previous app configuration was kept."
+  },
+  "desktop.activity.sample_gateway_check_failed": {
+    "other": "{gateway} 检查失败。",
+    "description": "Original English text: {gateway} check failed."
+  },
+  "desktop.activity.sample_auth_failed": {
+    "other": "身份验证失败。已保存的网关未更改。",
+    "description": "Original English text: Authentication failed. The saved gateway was not changed."
+  },
+  "desktop.activity.sample_hub_started": {
+    "other": "Proxy Hub 已启动。",
+    "description": "Original English text: Proxy Hub started."
+  },
+  "desktop.activity.sample_local_address": {
+    "other": "正在本地经过身份验证的地址上监听。",
+    "description": "Original English text: Listening on a local authenticated address."
+  },
+  "desktop.activity.sample_account_saved": {
+    "other": "已保存 {account}。",
+    "description": "Original English text: {account} saved."
+  },
+  "desktop.activity.sample_login_stored": {
+    "other": "当前登录信息已保存为账户。",
+    "description": "Original English text: Current login stored as a saved account."
+  },
+  "desktop.activity.sample_backup_completed": {
+    "other": "已备份 {provider} 账户。",
+    "description": "Original English text: {provider} account backup completed."
+  },
+  "desktop.activity.sample_backup_settings": {
+    "other": "已备份之前的应用设置。",
+    "description": "Original English text: Previous app settings were backed up."
+  },
+  "desktop.common.status": {
+    "other": "状态",
+    "description": "Original English text: Status"
+  },
+  "desktop.activity.today": {
+    "other": "今天",
+    "description": "Original English text: Today"
+  },
+  "desktop.activity.yesterday": {
+    "other": "昨天",
+    "description": "Original English text: Yesterday"
+  },
+  "desktop.activity.kind_activation": {
+    "other": "路由",
+    "description": "Original English text: Routing"
+  },
+  "desktop.activity.kind_account": {
+    "other": "账户",
+    "description": "Original English text: Account"
+  },
+  "desktop.activity.kind_gateway": {
+    "other": "API 网关",
+    "description": "Original English text: API gateway"
+  },
+  "desktop.activity.kind_proxy": {
+    "other": "代理服务",
+    "description": "Original English text: Proxy service"
+  },
+  "desktop.activity.kind_quota": {
+    "other": "用量",
+    "description": "Original English text: Usage"
+  },
+  "desktop.activity.kind_settings": {
+    "other": "设置",
+    "description": "Original English text: Settings"
+  },
+  "desktop.activity.copied_message": {
+    "other": "已复制活动消息。",
+    "description": "Original English text: Copied activity message."
+  },
+  "desktop.activity.copy_message_failed": {
+    "other": "无法复制活动消息。",
+    "description": "Original English text: Couldn’t copy activity message."
+  },
+  "desktop.activity.copied_details": {
+    "other": "已复制活动详情。",
+    "description": "Original English text: Copied activity details."
+  },
+  "desktop.activity.copy_details_failed": {
+    "other": "无法复制活动详情。",
+    "description": "Original English text: Couldn’t copy activity details."
+  },
+  "desktop.common.needs_attention": {
+    "other": "需要注意",
+    "description": "Original English text: Needs Attention"
+  },
+  "desktop.account_detail.account": {
+    "other": "账户",
+    "description": "Original English text: Account"
+  },
+  "desktop.account_detail.identity": {
+    "other": "身份信息",
+    "description": "Original English text: Identity"
+  },
+  "desktop.account_detail.identity_not_reported": {
+    "other": "未提供身份信息",
+    "description": "Original English text: Identity not reported"
+  },
+  "desktop.account_detail.endpoint": {
+    "other": "端点",
+    "description": "Original English text: Endpoint"
+  },
+  "desktop.account_detail.email_or_id": {
+    "other": "邮箱或 ID",
+    "description": "Original English text: Email or ID"
+  },
+  "desktop.account_detail.not_reported": {
+    "other": "未提供",
+    "description": "Original English text: Not reported"
+  },
+  "desktop.account_detail.provider": {
+    "other": "提供方",
+    "description": "Original English text: Provider"
+  },
+  "desktop.account_detail.type": {
+    "other": "类型",
+    "description": "Original English text: Type"
+  },
+  "desktop.account_detail.api_gateway": {
+    "other": "API 网关",
+    "description": "Original English text: API Gateway"
+  },
+  "desktop.account_detail.saved_login": {
+    "other": "已保存的登录",
+    "description": "Original English text: Saved Login"
+  },
+  "desktop.account_detail.account_name": {
+    "other": "账户名称",
+    "description": "Original English text: Account Name"
+  },
+  "desktop.account_detail.last_used": {
+    "other": "上次使用",
+    "description": "Original English text: Last Used"
+  },
+  "desktop.account_detail.provider_no_quota": {
+    "other": "此提供方不提供剩余额度信息。",
+    "description": "Original English text: This provider does not report remaining quota."
+  },
+  "desktop.account_detail.live_quota_active": {
+    "other": "仅报告此 Mac 当前活动账户的实时额度。",
+    "description": "Original English text: Live quota is reported for the account currently active on this Mac."
+  },
+  "desktop.account_detail.make_current_check_quota": {
+    "other": "设为当前账户以查看额度",
+    "description": "Original English text: Make Current to Check Quota"
+  },
+  "desktop.account_detail.make_current_check_quota_help": {
+    "other": "在此 Mac 上临时使用此登录，让 AnyPick 读取其额度。",
+    "description": "Original English text: Temporarily use this saved login on this Mac so AnyPick can read its quota."
+  },
+  "desktop.account_detail.remaining_quota": {
+    "other": "剩余额度",
+    "description": "Original English text: Remaining Quota"
+  },
+  "desktop.account_detail.reported_by_active": {
+    "other": "{provider} 为此 Mac 上当前活动的账户提供的数据。",
+    "description": "Original English text: Reported by {provider} for the account currently active on this Mac."
+  },
+  "desktop.account_detail.usage_active": {
+    "other": "此 Mac 当前活动账户的使用情况可用。",
+    "description": "Original English text: Usage is available for the account currently active on this Mac."
+  },
+  "desktop.account_detail.remove_account": {
+    "other": "移除账户…",
+    "description": "Original English text: Remove Account…"
+  },
+  "desktop.account_detail.remove_title": {
+    "other": "从 AnyPick 移除“{name}”？",
+    "description": "Original English text: Remove “{name}” from AnyPick?"
+  },
+  "desktop.account_detail.remove_account_title": {
+    "other": "移除账户？",
+    "description": "Original English text: Remove Account?"
+  },
+  "desktop.account_detail.remove_unavailable": {
+    "other": "此账户将不再在 AnyPick 中提供。",
+    "description": "Original English text: This account will no longer be available in AnyPick."
+  },
+  "desktop.account_detail.remove_gateway_message": {
+    "other": "仅从 AnyPick 移除“{name}”。远程 API 密钥不会被撤销。",
+    "description": "Original English text: Only “{name}” is removed from AnyPick. The remote API key is not revoked."
+  },
+  "desktop.account_detail.remove_current_message": {
+    "other": "从 AnyPick 移除“{name}”。此 Mac 上的 {app} 仍保持登录。",
+    "description": "Original English text: “{name}” is removed from AnyPick. {app} stays signed in on this Mac."
+  },
+  "desktop.account_detail.remove_other_message": {
+    "other": "从 AnyPick 移除“{name}”。此 Mac 上的 {app} 登录不会更改。",
+    "description": "Original English text: “{name}” is removed from AnyPick. The {app} login on this Mac does not change."
+  },
+  "desktop.proxy_detail.serving_account": {
+    "other": "服务账户",
+    "description": "Original English text: Serving Account"
+  },
+  "desktop.proxy_detail.service": {
+    "other": "服务",
+    "description": "Original English text: Service"
+  },
+  "desktop.proxy_detail.service_error": {
+    "other": "服务错误",
+    "description": "Original English text: Service Error"
+  },
+  "desktop.proxy_detail.service_error_help": {
+    "other": "调整服务配置或重启服务以清除此错误。",
+    "description": "Original English text: Adjust the service configuration or restart to clear this error."
+  },
+  "desktop.proxy_detail.enabled_not_running": {
+    "other": "此代理已启用，但当前未运行。",
+    "description": "Original English text: This proxy is enabled but not currently running."
+  },
+  "desktop.proxy_detail.start_relay_help": {
+    "other": "点按“启动”以运行此兼容中继。",
+    "description": "Original English text: Click Start to launch this compatibility relay."
+  },
+  "desktop.proxy_detail.not_running": {
+    "other": "未运行",
+    "description": "Original English text: Not running"
+  },
+  "desktop.proxy_detail.hidden_until_copied": {
+    "other": "复制前隐藏",
+    "description": "Original English text: Hidden until copied"
+  },
+  "desktop.proxy_detail.security": {
+    "other": "安全性",
+    "description": "Original English text: Security"
+  },
+  "desktop.proxy_detail.loopback_authenticated": {
+    "other": "仅限本机回环（需认证）",
+    "description": "Original English text: Loopback only (authenticated)"
+  },
+  "desktop.proxy_detail.port": {
+    "other": "端口",
+    "description": "Original English text: Port"
+  },
+  "desktop.proxy_detail.activity_logs": {
+    "other": "活动与日志",
+    "description": "Original English text: Activity & Logs"
+  },
+  "desktop.proxy_detail.view_in_activity": {
+    "other": "在活动中查看",
+    "description": "Original English text: View in Activity"
+  },
+  "desktop.proxy_detail.open_activity_help": {
+    "other": "打开“活动”以查看此代理的近期事件和日志。",
+    "description": "Original English text: Open Activity to read this proxy’s recent events and logs."
+  },
+  "desktop.proxy_detail.endpoint": {
+    "other": "端点",
+    "description": "Original English text: Endpoint"
+  },
+  "desktop.proxy_detail.loopback_key_detail": {
+    "other": "此代理仅在本机 (127.0.0.1) 上监听。请使用其 API 密钥进行请求认证（Bearer 令牌或 x-api-key 标头）。",
+    "description": "Original English text: This proxy listens only on this Mac (127.0.0.1). Authenticate requests with its API key (Bearer token or x-api-key header)."
+  },
+  "desktop.proxy_detail.loopback_detail": {
+    "other": "此代理仅在本机 (127.0.0.1) 上监听。",
+    "description": "Original English text: This proxy listens only on this Mac (127.0.0.1)."
+  },
+  "desktop.proxy_detail.client_apps": {
+    "other": "客户端应用",
+    "description": "Original English text: Client Apps"
+  },
+  "desktop.proxy_detail.client_apps_detail": {
+    "other": "这些应用已配置为通过此代理中继进行路由。",
+    "description": "Original English text: These apps are configured to route through this proxy relay."
+  },
+  "desktop.proxy_detail.unavailable": {
+    "other": "代理已不可用",
+    "description": "Original English text: Proxy Is No Longer Available"
+  },
+  "desktop.proxy_detail.unavailable_detail": {
+    "other": "返回“代理”并选择其他服务。",
+    "description": "Original English text: Return to Proxies and choose another service."
+  },
+  "desktop.proxy_detail.this_proxy": {
+    "other": "此代理",
+    "description": "Original English text: This Proxy"
+  },
+  "desktop.proxy_detail.stop_title": {
+    "other": "停止“{name}”？",
+    "description": "Original English text: Stop {name}?"
+  },
+  "desktop.proxy_detail.stop_message": {
+    "other": "使用此代理的应用在代理重新启动前将无法连接。",
+    "description": "Original English text: Apps using this proxy will not connect until it restarts."
+  },
+  "desktop.proxy_detail.stop_proxy": {
+    "other": "停止代理",
+    "description": "Original English text: Stop Proxy"
+  },
+  "desktop.proxy_detail.rotate_title": {
+    "other": "轮换“{name}”的 API 密钥？",
+    "description": "Original English text: Rotate API Key for {name}?"
+  },
+  "desktop.proxy_detail.rotate_message": {
+    "other": "使用当前 API 密钥的应用将断开连接，直到你用新密钥更新它们。",
+    "description": "Original English text: Apps using the current API key will be disconnected until you update them with the new key."
+  },
+  "desktop.proxy_detail.restart_proxy": {
+    "other": "重新启动代理",
+    "description": "Original English text: Restart Proxy"
+  },
+  "desktop.proxy_detail.stop_help": {
+    "other": "停止此本地代理。使用它的应用将断开连接。",
+    "description": "Original English text: Stop this local proxy. Apps using it will lose this connection."
+  },
+  "desktop.proxy_detail.stopping": {
+    "other": "正在停止 {name}",
+    "description": "Original English text: Stopping {name}"
+  },
+  "desktop.proxy_detail.stop_named": {
+    "other": "停止 {name}",
+    "description": "Original English text: Stop {name}"
+  },
+  "desktop.proxy_detail.start_help": {
+    "other": "为兼容应用启动此本地代理。",
+    "description": "Original English text: Start this local proxy for compatible apps."
+  },
+  "desktop.proxy_detail.starting": {
+    "other": "正在启动 {name}",
+    "description": "Original English text: Starting {name}"
+  },
+  "desktop.proxy_detail.start_named": {
+    "other": "启动 {name}",
+    "description": "Original English text: Start {name}"
+  },
+  "desktop.proxy_detail.local_compatibility_service": {
+    "other": "本地兼容服务",
+    "description": "Original English text: Local compatibility service"
+  },
+  "desktop.proxy_detail.compatibility": {
+    "other": "{provider} 兼容服务",
+    "description": "Original English text: {provider} compatibility"
+  },
+  "desktop.proxy_detail.copy_address_failed": {
+    "other": "无法复制 {name} 地址。",
+    "description": "Original English text: Couldn’t copy {name} address."
+  },
+  "desktop.proxy_detail.copy_address_success": {
+    "other": "已复制 {name} 地址。",
+    "description": "Original English text: Copied {name} address."
+  },
+  "desktop.app_detail.disconnect_anypick": {
+    "other": "断开 AnyPick",
+    "description": "Original English text: Disconnect AnyPick"
+  },
+  "desktop.app_detail.remove_app": {
+    "other": "移除应用",
+    "description": "Original English text: Remove App"
+  },
+  "desktop.app_detail.disconnect_title": {
+    "other": "断开 {app} 与 AnyPick 的连接？",
+    "description": "Original English text: Disconnect {app} from AnyPick?"
+  },
+  "desktop.app_detail.disconnect_message": {
+    "other": "将恢复官方直接登录，并移除 AnyPick 代理路由和模型覆盖。",
+    "description": "Original English text: The official direct login will be restored. AnyPick proxy routing and model overrides will be removed."
+  },
+  "desktop.app_detail.disconnect": {
+    "other": "断开连接",
+    "description": "Original English text: Disconnect"
+  },
+  "desktop.app_detail.remove_title": {
+    "other": "从 AnyPick 移除 {app}？",
+    "description": "Original English text: Remove {app} from AnyPick?"
+  },
+  "desktop.app_detail.remove_message": {
+    "other": "这会从已配置应用列表中移除 {app}。如果它已连接，AnyPick 会断开连接并恢复其官方登录。",
+    "description": "Original English text: This removes {app} from your configured apps list. If it was connected, AnyPick will disconnect and restore its official login."
+  },
+  "desktop.app_detail.the_app": {
+    "other": "此应用",
+    "description": "Original English text: the app"
+  },
+  "desktop.app_detail.remove_profile_title": {
+    "other": "移除 Codex 配置 {name}？",
+    "description": "Original English text: Remove Codex profile {name}?"
+  },
+  "desktop.app_detail.remove_profile_message": {
+    "other": "AnyPick 将移除此配置的托管路由、身份验证副本和代理设置。Codex 主登录会保留。",
+    "description": "Original English text: AnyPick will remove this profile’s managed route, authentication copy, and proxy settings. Codex’s main login is kept."
+  },
+  "desktop.app_detail.app": {
+    "other": "应用",
+    "description": "Original English text: App"
+  },
+  "desktop.app_detail.uses": {
+    "other": "使用",
+    "description": "Original English text: Uses"
+  },
+  "desktop.app_detail.transport": {
+    "other": "传输方式",
+    "description": "Original English text: Transport"
+  },
+  "desktop.app_detail.connection": {
+    "other": "连接",
+    "description": "Original English text: Connection"
+  },
+  "desktop.app_detail.change": {
+    "other": "更改…",
+    "description": "Original English text: Change…"
+  },
+  "desktop.app_detail.connect": {
+    "other": "连接…",
+    "description": "Original English text: Connect…"
+  },
+  "desktop.app_detail.change_help": {
+    "other": "为此应用选择其他已保存账户或路由。",
+    "description": "Original English text: Choose a different saved account or route for this app."
+  },
+  "desktop.app_detail.connect_help": {
+    "other": "为此应用选择已保存的登录或网关。",
+    "description": "Original English text: Choose a saved login or gateway for this app."
+  },
+  "desktop.app_detail.disconnect_action": {
+    "other": "断开连接…",
+    "description": "Original English text: Disconnect…"
+  },
+  "desktop.app_detail.disconnect_help": {
+    "other": "停止使用 AnyPick 管理此应用，并恢复之前的连接。",
+    "description": "Original English text: Stop managing this app with AnyPick and restore its previous connection."
+  },
+  "desktop.app_detail.show_quick_panel": {
+    "other": "在快捷面板中显示",
+    "description": "Original English text: Show in Quick Panel"
+  },
+  "desktop.app_detail.quick_panel_help": {
+    "other": "启用后，此应用会显示在菜单栏快捷面板中，方便快速切换。",
+    "description": "Original English text: When enabled, this app appears in the menu bar Quick Panel for quick switching."
+  },
+  "desktop.app_detail.default": {
+    "other": "默认",
+    "description": "Original English text: Default"
+  },
+  "desktop.app_detail.overrides": {
+    "other": "覆盖项",
+    "description": "Original English text: Overrides"
+  },
+  "desktop.app_detail.manage_models": {
+    "other": "管理模型",
+    "description": "Original English text: Manage Models"
+  },
+  "desktop.app_detail.manage": {
+    "other": "管理…",
+    "description": "Original English text: Manage…"
+  },
+  "desktop.app_detail.manage_models_help": {
+    "other": "选择此应用在各个角色中使用的模型。",
+    "description": "Original English text: Choose the models this app uses for each role."
+  },
+  "desktop.app_detail.models": {
+    "other": "模型",
+    "description": "Original English text: Models"
+  },
+  "desktop.app_detail.add_source_for_profile": {
+    "other": "添加兼容账户或路由以创建 Codex CLI 配置。",
+    "description": "Original English text: Add a compatible account or route to create a Codex CLI profile."
+  },
+  "desktop.app_detail.no_profiles": {
+    "other": "尚无配置。添加一个即可在 Codex CLI 中使用单独的 AnyPick 连接。",
+    "description": "Original English text: No profiles yet. Add one to use a separate AnyPick connection in Codex CLI."
+  },
+  "desktop.app_detail.codex_profiles": {
+    "other": "Codex 配置",
+    "description": "Original English text: Codex Profiles"
+  },
+  "desktop.app_detail.profile_detail": {
+    "other": "每个配置都有独立的 Codex CLI 凭据和设置。复制其命令即可启动。",
+    "description": "Original English text: Each profile has separate Codex CLI credentials and settings. Copy its command to launch it."
+  },
+  "desktop.app_detail.create_profiles_automatically": {
+    "other": "自动创建配置",
+    "description": "Original English text: Create profiles automatically"
+  },
+  "desktop.app_detail.create_missing_profiles": {
+    "other": "创建缺失配置…",
+    "description": "Original English text: Create Missing Profiles…"
+  },
+  "desktop.app_detail.create_missing_profiles_help": {
+    "other": "为每个兼容的已保存账户创建单独的 Codex CLI 配置。",
+    "description": "Original English text: Create a separate Codex CLI profile for each compatible saved account."
+  },
+  "desktop.app_detail.automation": {
+    "other": "自动化",
+    "description": "Original English text: Automation"
+  },
+  "desktop.app_detail.automation_help": {
+    "other": "添加兼容的已保存账户时自动创建配置。“创建缺失配置”也会为现有账户补建配置。",
+    "description": "Original English text: Automatically create a profile when you add a compatible saved account. Create Missing Profiles also backfills existing accounts."
+  },
+  "desktop.app_detail.login_no_usage": {
+    "other": "此登录不会报告使用情况。",
+    "description": "Original English text: This login doesn’t report usage."
+  },
+  "desktop.app_detail.add_profile": {
+    "other": "添加配置",
+    "description": "Original English text: Add Profile"
+  },
+  "desktop.app_detail.add_profile_help": {
+    "other": "创建一个具名 Codex CLI 配置，并使用单独的模型设置。",
+    "description": "Original English text: Create a named Codex CLI profile with separate model settings."
+  },
+  "desktop.app_detail.source_default": {
+    "other": "来源默认值",
+    "description": "Original English text: Source default"
+  },
+  "desktop.app_detail.direct": {
+    "other": "直接",
+    "description": "Original English text: Direct"
+  },
+  "desktop.app_detail.proxy": {
+    "other": "代理",
+    "description": "Original English text: Proxy"
+  },
+  "desktop.app_detail.automatic": {
+    "other": "自动",
+    "description": "Original English text: Automatic"
+  },
+  "desktop.app_detail.copy_launch_command": {
+    "other": "复制 {name} 的启动命令",
+    "description": "Original English text: Copy launch command for {name}"
+  },
+  "desktop.app_detail.actions_for": {
+    "other": "{name} 的操作",
+    "description": "Original English text: Actions for {name}"
+  },
+  "desktop.app_detail.edit_profile": {
+    "other": "编辑配置…",
+    "description": "Original English text: Edit Profile…"
+  },
+  "desktop.app_detail.edit_profile_help": {
+    "other": "更改此配置的名称、账户或模型设置。",
+    "description": "Original English text: Change this profile’s name, account, or model settings."
+  },
+  "desktop.app_detail.remove_profile": {
+    "other": "移除配置…",
+    "description": "Original English text: Remove Profile…"
+  },
+  "desktop.app_detail.remove_profile_help": {
+    "other": "从 AnyPick 移除此 Codex CLI 配置。",
+    "description": "Original English text: Remove this Codex CLI profile from AnyPick."
+  },
+  "desktop.app_detail.direct_login": {
+    "other": "直接登录",
+    "description": "Original English text: Direct Login"
+  },
+  "desktop.app_detail.current_login": {
+    "other": "当前登录",
+    "description": "Original English text: Current login"
+  },
+  "desktop.app_detail.not_selected": {
+    "other": "未选择",
+    "description": "Original English text: Not selected"
+  },
+  "desktop.app_detail.same_as_default": {
+    "other": "与默认值相同",
+    "description": "Original English text: Same as Default"
+  },
+  "desktop.account_detail.edit_account": {
+    "other": "编辑账户",
+    "description": "Original English text: Edit Account"
+  },
+  "desktop.account_detail.name": {
+    "other": "名称",
+    "description": "Original English text: Name"
+  },
+  "desktop.account_detail.name_example": {
+    "other": "工作",
+    "description": "Original English text: Work"
+  },
+  "desktop.account_detail.details": {
+    "other": "详细信息",
+    "description": "Original English text: Details"
+  },
+  "desktop.account_detail.name_help": {
+    "other": "此名称会显示在 AnyPick 中。提供方登录和身份信息不会更改。",
+    "description": "Original English text: The name is shown in AnyPick. The provider login and identity are unchanged."
+  },
+  "desktop.account_detail.account_unavailable": {
+    "other": "账户不可用",
+    "description": "Original English text: Account Unavailable"
+  },
+  "desktop.account_detail.save_error_safe": {
+    "other": "无法安全保存账户名称。请重试。",
+    "description": "Original English text: The account name could not be saved safely. Try again."
+  },
+  "desktop.account_detail.save_error": {
+    "other": "无法保存该名称。请重试。",
+    "description": "Original English text: Couldn’t save that name. Try again."
+  },
+  "desktop.account_detail.change_in_progress": {
+    "other": "另一项更改正在进行中。请稍后重试。",
+    "description": "Original English text: Another change is in progress. Try again in a moment."
+  },
+  "desktop.gateway.connect_title": {
+    "other": "连接 {name}",
+    "description": "Original English text: Connect {name}"
+  },
+  "desktop.gateway.connect_api_gateway": {
+    "other": "连接 API 网关",
+    "description": "Original English text: Connect API Gateway"
+  },
+  "desktop.gateway.compatible_clients": {
+    "other": "此网关可与 Claude Code、Codex 或 OpenCode 搭配使用。",
+    "description": "Original English text: This gateway can be used with Claude Code, Codex, or OpenCode."
+  },
+  "desktop.gateway.choose_apps": {
+    "other": "选择要使用此网关的应用。",
+    "description": "Original English text: Choose which apps use this gateway."
+  },
+  "desktop.gateway.uses_gateway": {
+    "other": "使用此网关",
+    "description": "Original English text: Uses this gateway"
+  },
+  "desktop.gateway.error_unreachable": {
+    "other": "端点不可访问：无法连接到网关服务器。请确认端点 URL 拼写正确并包含 https://。",
+    "description": "Original English text: Endpoint unreachable: could not connect to the gateway server. Verify the endpoint URL is spelled correctly and includes https://."
+  },
+  "desktop.gateway.add_title": {
+    "other": "添加 API 网关",
+    "description": "Original English text: Add API Gateway"
+  },
+  "desktop.gateway.add_action": {
+    "other": "添加网关",
+    "description": "Original English text: Add Gateway"
+  },
+  "desktop.gateway.add_help": {
+    "other": "使用下方显示的提供方信息保存此网关。",
+    "description": "Original English text: Save this gateway with the provider details shown below."
+  },
+  "desktop.gateway.choose_provider_help": {
+    "other": "选择签发此网关凭据的服务。",
+    "description": "Original English text: Choose the service that issued this gateway’s credentials."
+  },
+  "desktop.gateway.name_example_custom": {
+    "other": "我的网关",
+    "description": "Original English text: My Gateway"
+  },
+  "desktop.gateway.name_example": {
+    "other": "生产环境",
+    "description": "Original English text: Production"
+  },
+  "desktop.gateway.name_help": {
+    "other": "用于在“账户与 API”中识别此网关的简短名称。",
+    "description": "Original English text: A short label to recognize this gateway in Accounts & APIs."
+  },
+  "desktop.gateway.provider_fields_help": {
+    "other": "选择提供方后，只显示其所需字段。此名称会显示在“账户与 API”中。",
+    "description": "Original English text: Choose a provider to show only the fields it needs. This name is how the gateway appears in Accounts & APIs."
+  },
+  "desktop.gateway.enter_api_key_help": {
+    "other": "输入此提供方签发的 API 密钥。",
+    "description": "Original English text: Enter the API key issued by this provider."
+  },
+  "desktop.gateway.hide_api_key": {
+    "other": "隐藏 API 密钥",
+    "description": "Original English text: Hide API Key"
+  },
+  "desktop.gateway.show_api_key": {
+    "other": "显示 API 密钥",
+    "description": "Original English text: Show API Key"
+  },
+  "desktop.gateway.credentials": {
+    "other": "凭据",
+    "description": "Original English text: Credentials"
+  },
+  "desktop.gateway.grok_login_help": {
+    "other": "使用你的 Grok 登录会话 (~/.grok/auth.json)。",
+    "description": "Original English text: Uses your Grok login session (~/.grok/auth.json)."
+  },
+  "desktop.gateway.setup": {
+    "other": "设置",
+    "description": "Original English text: Setup"
+  },
+  "desktop.gateway.grok_setup": {
+    "other": "运行：grok login",
+    "description": "Original English text: Run: grok login"
+  },
+  "desktop.gateway.account_id": {
+    "other": "账户 ID",
+    "description": "Original English text: Account ID"
+  },
+  "desktop.gateway.account_id_prompt": {
+    "other": "32 位十六进制账户 ID",
+    "description": "Original English text: 32-character hex account ID"
+  },
+  "desktop.gateway.account_id_help": {
+    "other": "输入此提供方控制台中显示的账户 ID。",
+    "description": "Original English text: Enter the account ID shown in this provider’s dashboard."
+  },
+  "desktop.gateway.gateway_id": {
+    "other": "网关 ID",
+    "description": "Original English text: Gateway ID"
+  },
+  "desktop.gateway.gateway_id_help": {
+    "other": "输入此提供方显示的 AI 网关 ID 或名称。",
+    "description": "Original English text: Enter the AI Gateway ID or name shown by this provider."
+  },
+  "desktop.gateway.region": {
+    "other": "区域",
+    "description": "Original English text: Region"
+  },
+  "desktop.gateway.region_help": {
+    "other": "选择此提供方账户所在的区域。",
+    "description": "Original English text: Choose the region where this provider account is configured."
+  },
+  "desktop.gateway.provided_by": {
+    "other": "由 {provider} 提供",
+    "description": "Original English text: Provided by {provider}"
+  },
+  "desktop.gateway.endpoint_example": {
+    "other": "https://gateway.example/v1",
+    "description": "Original English text: https://gateway.example/v1"
+  },
+  "desktop.gateway.endpoint_help": {
+    "other": "输入提供方的基础 URL，包括 https:// 和必要路径。",
+    "description": "Original English text: Enter the provider’s base URL, including https:// and any required path."
+  },
+  "desktop.gateway.testing_connection": {
+    "other": "正在测试连接",
+    "description": "Original English text: Testing connection"
+  },
+  "desktop.gateway.test_running_help": {
+    "other": "连接测试已在运行。",
+    "description": "Original English text: The connection test is already running."
+  },
+  "desktop.gateway.connected": {
+    "other": "已连接",
+    "description": "Original English text: Connected"
+  },
+  "desktop.gateway.test_again": {
+    "other": "再次测试",
+    "description": "Original English text: Test Again"
+  },
+  "desktop.gateway.test_again_help": {
+    "other": "使用当前提供方信息再次测试。",
+    "description": "Original English text: Test again using the current provider details."
+  },
+  "desktop.gateway.not_connected": {
+    "other": "未连接",
+    "description": "Original English text: Not Connected"
+  },
+  "desktop.gateway.retry_test_help": {
+    "other": "使用当前信息重试连接测试。",
+    "description": "Original English text: Retry the connection test using the current details."
+  },
+  "desktop.gateway.check_connection_help": {
+    "other": "检查此网关能否使用当前信息连接。",
+    "description": "Original English text: Check whether this gateway can connect with the current details."
+  },
+  "desktop.gateway.contacting_provider": {
+    "other": "正在连接 {provider}…",
+    "description": "Original English text: Contacting {provider}…"
+  },
+  "desktop.gateway.contacting_endpoint": {
+    "other": "正在连接 {endpoint}…",
+    "description": "Original English text: Contacting {endpoint}…"
+  },
+  "desktop.gateway.connected_success": {
+    "other": "连接成功。网关已返回实时模型目录。",
+    "description": "Original English text: Connected successfully. The gateway returned a live model catalog."
+  },
+  "desktop.gateway.could_not_connect": {
+    "other": "无法连接到网关。请检查端点 URL 和 API 密钥。",
+    "description": "Original English text: Could not connect to the gateway. Please check the endpoint URL and API key."
+  },
+  "desktop.gateway.key_storage_help": {
+    "other": "AnyPick 会将此密钥存储在所选提供方的账户存储中。",
+    "description": "Original English text: AnyPick stores this key in the selected provider’s account store."
+  },
+  "desktop.gateway.derived_endpoint_help": {
+    "other": "端点由你的账户 ID 推导得出。",
+    "description": "Original English text: The endpoint is derived from your Account ID."
+  },
+  "desktop.gateway.provider_endpoint_help": {
+    "other": "端点由 {provider} 提供。选择“自定义”可输入其他 URL。",
+    "description": "Original English text: {provider} supplies the endpoint. Choose Custom to enter a different URL."
+  },
+  "desktop.gateway.detect_format_help": {
+    "other": "AnyPick 会自动检测 API 格式。",
+    "description": "Original English text: AnyPick detects the API format automatically."
+  },
+  "desktop.gateway.fixture_connected": {
+    "other": "设计预览中的连接可用。",
+    "description": "Original English text: Connection available in the design fixture."
+  },
+  "desktop.gateway.fixture_rejected_key": {
+    "other": "设计预览拒绝了此 API 密钥。",
+    "description": "Original English text: The design fixture rejected this API key."
+  },
+  "desktop.gateway.test_could_not_start": {
+    "other": "AnyPick 无法启动连接测试。",
+    "description": "Original English text: AnyPick could not start the connection test."
+  },
+  "desktop.common.checking": {
+    "other": "正在检查",
+    "description": "Original English text: Checking"
+  },
+  "desktop.common.optional": {
+    "other": "可选",
+    "description": "Original English text: Optional"
+  },
+  "desktop.add_account.mode_this_mac": {
+    "other": "在此 Mac 上",
+    "description": "Original English text: On This Mac"
+  },
+  "desktop.add_account.mode_new_account": {
+    "other": "新账户",
+    "description": "Original English text: New Account"
+  },
+  "desktop.add_account.mode_api_key": {
+    "other": "API 密钥",
+    "description": "Original English text: API Key"
+  },
+  "desktop.add_account.mode_paste_auth": {
+    "other": "粘贴身份验证 JSON",
+    "description": "Original English text: Paste Auth JSON"
+  },
+  "desktop.add_account.replace_account": {
+    "other": "替换账户",
+    "description": "Original English text: Replace Account"
+  },
+  "desktop.add_account.replace_named": {
+    "other": "替换 {name}",
+    "description": "Original English text: Replace {name}"
+  },
+  "desktop.add_account.sign_in_with": {
+    "other": "使用 {provider} 登录",
+    "description": "Original English text: Sign In with {provider}"
+  },
+  "desktop.add_account.checking_help": {
+    "other": "请等待账户检查完成。",
+    "description": "Original English text: Wait for the account check to finish."
+  },
+  "desktop.add_account.replace_auth_help": {
+    "other": "使用粘贴的身份验证文件替换此已保存账户。",
+    "description": "Original English text: Replace this saved account with the pasted auth file."
+  },
+  "desktop.add_account.save_auth_help": {
+    "other": "保存身份验证文件，不更改此 Mac 上的登录状态。",
+    "description": "Original English text: Save the auth file without changing this Mac’s login."
+  },
+  "desktop.add_account.save_key_help": {
+    "other": "保存此 API 密钥，供支持的应用通过 AnyPick 使用。",
+    "description": "Original English text: Save this API key for supported apps to use through AnyPick."
+  },
+  "desktop.add_account.save_login_help": {
+    "other": "为兼容应用保存此提供方登录。",
+    "description": "Original English text: Save this provider login for compatible apps."
+  },
+  "desktop.add_account.source": {
+    "other": "来源",
+    "description": "Original English text: Source"
+  },
+  "desktop.add_account.source_help": {
+    "other": "选择 AnyPick 获取此登录的方式。",
+    "description": "Original English text: Choose how AnyPick gets this login."
+  },
+  "desktop.add_account.provider_help": {
+    "other": "选择此已保存登录对应的提供方。",
+    "description": "Original English text: Choose the provider for this saved login."
+  },
+  "desktop.add_account.local_app_help": {
+    "other": "选择 AnyPick 应读取哪个本地应用的登录。",
+    "description": "Original English text: Choose which local app’s login AnyPick should read."
+  },
+  "desktop.add_account.sign_in_method": {
+    "other": "登录方式",
+    "description": "Original English text: Sign-in Method"
+  },
+  "desktop.add_account.personal_example": {
+    "other": "个人",
+    "description": "Original English text: Personal"
+  },
+  "desktop.add_account.name_help": {
+    "other": "选择一个便于识别此登录的名称。",
+    "description": "Original English text: Choose a label that helps you recognize this login."
+  },
+  "desktop.add_account.fixture_duplicate": {
+    "other": "{provider} 已存在名为“{name}”的账户。请选择其他名称或使用现有账户。",
+    "description": "Original English text: Account “{name}” already exists for {provider}. Choose a different name or use the existing account."
+  },
+  "desktop.add_account.browser_unreadable": {
+    "other": "浏览器登录返回了无法读取的响应。请重试。",
+    "description": "Original English text: The browser sign-in returned an unreadable response. Try again."
+  },
+  "desktop.add_account.provider_unreadable": {
+    "other": "提供方返回了无法读取的响应。请重试。",
+    "description": "Original English text: The provider returned an unreadable response. Try again."
+  },
+  "desktop.add_account.key_save_error": {
+    "other": "无法保存该密钥。请重试。",
+    "description": "Original English text: Couldn’t save that key. Try again."
+  },
+  "desktop.add_account.account_exists": {
+    "other": "已存在同名账户。",
+    "description": "Original English text: An account with that name already exists."
+  },
+  "desktop.add_account.auth_save_error": {
+    "other": "无法保存粘贴的身份验证 JSON。",
+    "description": "Original English text: The pasted auth JSON could not be saved."
+  },
+  "desktop.add_account.auth_write_error": {
+    "other": "AnyPick 无法存储粘贴的身份验证 JSON。",
+    "description": "Original English text: AnyPick could not store the pasted auth JSON."
+  },
+  "desktop.add_account.auth_too_large": {
+    "other": "粘贴的身份验证 JSON 超过 256 KiB。",
+    "description": "Original English text: Pasted auth JSON is larger than 256 KiB."
+  },
+  "desktop.add_account.browser_did_not_finish": {
+    "other": "浏览器登录未完成。请重试，或使用已在此 Mac 上登录的账户。",
+    "description": "Original English text: The browser sign-in did not finish. Try again or use an account already signed in on this Mac."
+  },
+  "desktop.add_account.browser_save_footer": {
+    "other": "浏览器流程完成后，AnyPick 会保存账户。",
+    "description": "Original English text: AnyPick saves the account when the browser flow finishes."
+  },
+  "desktop.add_account.browser_start_error": {
+    "other": "AnyPick 无法启动浏览器登录。请重试。",
+    "description": "Original English text: AnyPick could not start the browser sign-in. Try again."
+  },
+  "desktop.add_account.browser_save_error": {
+    "other": "无法保存浏览器登录。请重试。",
+    "description": "Original English text: The browser sign-in could not be saved. Try again."
+  },
+  "desktop.add_account.check_current_account": {
+    "other": "检查此 Mac 上当前活动的 {app} 账户。",
+    "description": "Original English text: Checks the {app} account currently active on this Mac."
+  },
+  "desktop.add_account.checking_app": {
+    "other": "正在检查 {app}",
+    "description": "Original English text: Checking {app}"
+  },
+  "desktop.add_account.checking_wait": {
+    "other": "通常需要几秒钟。",
+    "description": "Original English text: This usually takes a few seconds."
+  },
+  "desktop.add_account.choose_sign_in_method": {
+    "other": "选择可用的登录方式，然后重试。",
+    "description": "Original English text: Choose an available sign-in method, then try again."
+  },
+  "desktop.add_account.cloudflare_hint": {
+    "other": "使用 wrangler whoami 查找账户 ID。网关填写 AI Gateway 名称；无需额外设置即可使用 “default”。",
+    "description": "Original English text: Find the account ID with wrangler whoami. The gateway is the AI Gateway name — “default” works without setup."
+  },
+  "desktop.add_account.cloudflare_route_help": {
+    "other": "输入 Cloudflare 账户 ID 和 AI Gateway 名称，以 / 分隔。",
+    "description": "Original English text: Enter the Cloudflare account ID and AI Gateway name, separated by /."
+  },
+  "desktop.add_account.community_browser_flow": {
+    "other": "打开 {provider} 的社区支持浏览器流程",
+    "description": "Original English text: Opens {provider}’s community-supported browser flow"
+  },
+  "desktop.add_account.credential": {
+    "other": "凭据",
+    "description": "Original English text: Credential"
+  },
+  "desktop.add_account.credential_help": {
+    "other": "选择要为此提供方保存的凭据类型。",
+    "description": "Original English text: Choose which credential type to save for this provider."
+  },
+  "desktop.add_account.credential_input_help": {
+    "other": "输入此提供方签发的凭据。",
+    "description": "Original English text: Enter the credential issued by this provider."
+  },
+  "desktop.add_account.current_provider_login": {
+    "other": "当前 {provider} 登录",
+    "description": "Original English text: Current {provider} login"
+  },
+  "desktop.add_account.detected_on_this_mac": {
+    "other": "此 Mac 上的 {source}",
+    "description": "Original English text: {source} on this Mac"
+  },
+  "desktop.add_account.detecting_footer": {
+    "other": "账户出现后，AnyPick 会自动填入信息。",
+    "description": "Original English text: AnyPick will fill in the account when it appears."
+  },
+  "desktop.add_account.local_login_footer": {
+    "other": "读取此 Mac 上本地的 {app} 登录，不会读取浏览器中当前打开的账户。",
+    "description": "Original English text: Reads the local {app} login on this Mac. It does not read the account currently open in your browser."
+  },
+  "desktop.add_account.no_app_login": {
+    "other": "此 Mac 上未找到 {app} 登录。",
+    "description": "Original English text: No {app} login was found on this Mac."
+  },
+  "desktop.add_account.no_login_this_mac": {
+    "other": "此 Mac 上没有登录",
+    "description": "Original English text: No login on this Mac"
+  },
+  "desktop.add_account.no_readable_login": {
+    "other": "此 Mac 上未找到可读取的登录。",
+    "description": "Original English text: No readable login was found on this Mac."
+  },
+  "desktop.add_account.official_browser_flow": {
+    "other": "打开 {provider} 的官方浏览器流程",
+    "description": "Original English text: Opens {provider}’s official browser flow"
+  },
+  "desktop.add_account.paste_auth_footer": {
+    "other": "粘贴提供方自己的身份验证文件。AnyPick 会将其保存为账户，且不更改此 Mac 上的登录。",
+    "description": "Original English text: Paste the provider’s own auth file. AnyPick saves it as an account and leaves the login on this Mac unchanged."
+  },
+  "desktop.add_account.paste_auth_help": {
+    "other": "粘贴提供方自己的身份验证文件。这不会更改此 Mac 上已有的登录。",
+    "description": "Original English text: Paste the provider’s own auth file. This does not change the login already on this Mac."
+  },
+  "desktop.add_account.profile": {
+    "other": "配置",
+    "description": "Original English text: Profile"
+  },
+  "desktop.add_account.profile_help": {
+    "other": "选择此凭据所属的提供方配置。",
+    "description": "Original English text: Choose the provider profile this credential belongs to."
+  },
+  "desktop.add_account.account_gateway": {
+    "other": "账户 / 网关",
+    "description": "Original English text: Account / Gateway"
+  },
+  "desktop.add_account.start_sign_in": {
+    "other": "开始登录",
+    "description": "Original English text: Start Sign In"
+  },
+  "desktop.add_account.check_again": {
+    "other": "再次检查",
+    "description": "Original English text: Check Again"
+  },
+  "desktop.add_account.account_actions": {
+    "other": "账户操作",
+    "description": "Original English text: Account Actions"
+  },
+  "desktop.add_account.sign_out": {
+    "other": "退出登录",
+    "description": "Original English text: Sign Out"
+  },
+  "desktop.add_account.sign_out_help": {
+    "other": "备份并从此 Mac 移除此提供方登录。",
+    "description": "Original English text: Back up and remove this provider’s login from this Mac."
+  },
+  "desktop.add_account.sign_out_message": {
+    "other": "AnyPick 会在此 Mac 上退出前备份此账户。远程会话仍保持活动。",
+    "description": "Original English text: AnyPick backs up this account before signing out on this Mac. Remote sessions stay active."
+  },
+  "desktop.add_account.sign_out_this_mac": {
+    "other": "在此 Mac 上退出登录",
+    "description": "Original English text: Sign Out on This Mac"
+  },
+  "desktop.add_account.sign_out_title": {
+    "other": "退出 {app}？",
+    "description": "Original English text: Sign Out of {app}?"
+  },
+  "desktop.add_account.switch_api_key_help": {
+    "other": "切换到此提供方的 API 密钥表单。",
+    "description": "Original English text: Switch to the API-key form for this provider."
+  },
+  "desktop.add_account.switch_back_footer": {
+    "other": "AnyPick 会保存此账户，方便你随时切换回来。",
+    "description": "Original English text: AnyPick saves this account so you can switch back anytime."
+  },
+  "desktop.add_account.unable_to_complete": {
+    "other": "无法完成",
+    "description": "Original English text: Unable to Complete"
+  },
+  "desktop.add_account.use_account_this_mac": {
+    "other": "使用此 Mac 上的账户",
+    "description": "Original English text: Use Account on This Mac"
+  },
+  "desktop.add_account.use_api_key": {
+    "other": "使用 API 密钥",
+    "description": "Original English text: Use API Key"
+  },
+  "desktop.add_account.use_detected_login_help": {
+    "other": "使用此 Mac 上检测到的登录，而不是浏览器登录。",
+    "description": "Original English text: Use this Mac’s detected login instead of browser sign-in."
+  },
+  "desktop.add_account.work_example": {
+    "other": "工作",
+    "description": "Original English text: Work"
+  },
+  "desktop.add_account.workbuddy_installed": {
+    "other": "此 Mac 上已安装 WorkBuddy 应用，可在此使用其当前登录",
+    "description": "Original English text: WorkBuddy app is on this Mac — its current login is available here"
+  },
+  "desktop.add_account.workbuddy_new_account": {
+    "other": "选择“新账户”以在浏览器中登录 WorkBuddy",
+    "description": "Original English text: Use New Account to sign in with WorkBuddy in the browser"
+  },
+  "desktop.add_account.zai_new_account": {
+    "other": "选择“新账户”以在浏览器中登录 Z.ai",
+    "description": "Original English text: Use New Account to sign in with Z.ai in the browser"
+  },
+  "desktop.add_account.zcode_not_detected": {
+    "other": "未检测到 ZCode 登录 — 尝试选择“新账户”在浏览器中登录",
+    "description": "Original English text: ZCode login was not detected — try New Account to sign in in the browser"
+  },
+  "desktop.add_account.zcode_plan_hint": {
+    "other": "选择“在此 Mac 上”读取 ZCode 登录，或选择“新账户”在浏览器中登录 Z.ai。",
+    "description": "Original English text: Use On This Mac to read the ZCode login, or choose New Account to sign in with Z.ai in the browser."
+  },
+  "desktop.add_account.account_number": {
+    "other": "账户 {number}",
+    "description": "Original English text: Account {number}"
+  },
+  "desktop.add_account.api_key_footer": {
+    "other": "AnyPick 会存储此密钥，供支持的应用通过本地代理使用 {provider}。",
+    "description": "Original English text: AnyPick stores this key so supported apps can use {provider} through a local proxy."
+  },
+  "desktop.add_account.save_error": {
+    "other": "无法保存此账户。请重试。",
+    "description": "Original English text: Couldn’t save that account. Try again."
+  },
+  "desktop.add_account.save_error_safe": {
+    "other": "无法安全保存账户。请重试。",
+    "description": "Original English text: The account could not be saved safely. Try again."
+  },
+  "desktop.app_route.anypick_will": {
+    "other": "AnyPick 将会",
+    "description": "Original English text: AnyPick Will"
+  },
+  "desktop.app_route.apply_changes": {
+    "other": "应用更改",
+    "description": "Original English text: Apply Changes"
+  },
+  "desktop.app_route.apply_failed": {
+    "other": "无法应用所请求的连接。此应用仍在使用 {route}。",
+    "description": "Original English text: The requested connection could not be applied. The app still uses {route}."
+  },
+  "desktop.app_route.applying": {
+    "other": "正在应用…",
+    "description": "Original English text: Applying…"
+  },
+  "desktop.app_route.backup_settings": {
+    "other": "备份应用当前设置",
+    "description": "Original English text: Back up the app’s current settings"
+  },
+  "desktop.app_route.change_title": {
+    "other": "更改 {app} 连接",
+    "description": "Original English text: Change {app} Connection"
+  },
+  "desktop.app_route.choose_connection": {
+    "other": "选择连接",
+    "description": "Original English text: Choose a Connection"
+  },
+  "desktop.app_route.choose_models": {
+    "other": "选择模型",
+    "description": "Original English text: Choose Models"
+  },
+  "desktop.app_route.choose_source_help": {
+    "other": "在下方选择其他来源以查看连接更改。",
+    "description": "Original English text: Choose another source below to review a connection change."
+  },
+  "desktop.app_route.connection_updated": {
+    "other": "连接已更新",
+    "description": "Original English text: Connection updated"
+  },
+  "desktop.app_route.current_connection": {
+    "other": "当前连接",
+    "description": "Original English text: Current Connection"
+  },
+  "desktop.app_route.current_hint": {
+    "other": "这是此应用当前的连接。",
+    "description": "Original English text: This is the app’s current connection."
+  },
+  "desktop.app_route.done": {
+    "other": "完成",
+    "description": "Original English text: Done"
+  },
+  "desktop.app_route.from": {
+    "other": "来源",
+    "description": "Original English text: From"
+  },
+  "desktop.app_route.keep_current_help": {
+    "other": "保留此应用当前的连接。",
+    "description": "Original English text: Keep the current connection for this app."
+  },
+  "desktop.app_route.keep_open_help": {
+    "other": "更新设置和所需服务时，请保持 AnyPick 打开。",
+    "description": "Original English text: Keep AnyPick open while settings and required services are updated."
+  },
+  "desktop.app_route.models_preserved": {
+    "other": "兼容的模型选择会保留。下一步可为新连接选择模型。",
+    "description": "Original English text: Compatible model choices are preserved. You choose the models for the new connection on the next step."
+  },
+  "desktop.app_route.models_published_by": {
+    "other": "由 {route} 提供。更改模型不会切换账户。",
+    "description": "Original English text: Published by {route}. Changing models doesn’t switch the account."
+  },
+  "desktop.app_route.no_compatible_connections": {
+    "other": "没有可用的兼容连接。",
+    "description": "Original English text: No compatible connections are available."
+  },
+  "desktop.app_route.no_matching_connections": {
+    "other": "没有其他连接与“{query}”匹配。",
+    "description": "Original English text: No other connections match “{query}”."
+  },
+  "desktop.app_route.no_other_connections": {
+    "other": "没有其他兼容连接。",
+    "description": "Original English text: No other compatible connections are available."
+  },
+  "desktop.app_route.now_uses": {
+    "other": "{app} 现在使用 {route}。",
+    "description": "Original English text: {app} now uses {route}."
+  },
+  "desktop.app_route.previous_connection": {
+    "other": "之前的连接",
+    "description": "Original English text: its previous connection"
+  },
+  "desktop.app_route.previous_settings_restored": {
+    "other": "已恢复之前的设置",
+    "description": "Original English text: Previous settings restored"
+  },
+  "desktop.app_route.recovery_help": {
+    "other": "请检查连接后重试。未保留不完整的应用设置。",
+    "description": "Original English text: Review the connection and try again. No partial app settings were kept."
+  },
+  "desktop.app_route.review_change": {
+    "other": "查看更改",
+    "description": "Original English text: Review Change"
+  },
+  "desktop.app_route.save_models": {
+    "other": "保存模型",
+    "description": "Original English text: Save Models"
+  },
+  "desktop.app_route.search_connections": {
+    "other": "搜索连接",
+    "description": "Original English text: Search connections"
+  },
+  "desktop.app_route.select_hint": {
+    "other": "选择此连接。",
+    "description": "Original English text: Select this connection."
+  },
+  "desktop.app_route.selected": {
+    "other": "已选中",
+    "description": "Original English text: Selected"
+  },
+  "desktop.app_route.selected_connection": {
+    "other": "所选连接",
+    "description": "Original English text: the selected connection"
+  },
+  "desktop.app_route.start_proxy": {
+    "other": "启动所需的本地代理",
+    "description": "Original English text: Start a required local proxy"
+  },
+  "desktop.app_route.to": {
+    "other": "目标",
+    "description": "Original English text: To"
+  },
+  "desktop.app_route.use_connection_help": {
+    "other": "将 {route} 用作此应用的连接。",
+    "description": "Original English text: Use {route} as this app’s connection."
+  },
+  "desktop.app_route.write_settings": {
+    "other": "以原子方式写入新的应用设置",
+    "description": "Original English text: Write the new app settings atomically"
+  },
+  "desktop.apps.add_coding_app": {
+    "other": "添加编程应用",
+    "description": "Original English text: Add Coding App"
+  },
+  "desktop.apps.all_supported_added": {
+    "other": "已添加所有受支持的编程应用。",
+    "description": "Original English text: All supported coding apps have already been added."
+  },
+  "desktop.apps.coding_app": {
+    "other": "编程应用",
+    "description": "Original English text: Coding App"
+  },
+  "desktop.codex_profile.account_or_route": {
+    "other": "账户或路由",
+    "description": "Original English text: Account or Route"
+  },
+  "desktop.codex_profile.add_title": {
+    "other": "添加 Codex 配置",
+    "description": "Original English text: Add Codex Profile"
+  },
+  "desktop.codex_profile.edit_title": {
+    "other": "编辑 Codex 配置",
+    "description": "Original English text: Edit Codex Profile"
+  },
+  "desktop.codex_profile.name_exists": {
+    "other": "此配置名称已被使用。",
+    "description": "Original English text: That profile name is already in use."
+  },
+  "desktop.codex_profile.name_immutable": {
+    "other": "配置创建后无法更改名称。",
+    "description": "Original English text: A profile’s name can’t be changed after creation."
+  },
+  "desktop.codex_profile.name_rules": {
+    "other": "使用 1–64 个字母、数字、连字符或下划线。",
+    "description": "Original English text: Use 1–64 letters, numbers, hyphens, or underscores."
+  },
+  "desktop.codex_profile.profile": {
+    "other": "配置",
+    "description": "Original English text: Profile"
+  },
+  "desktop.codex_profile.profile_settings_help": {
+    "other": "每个配置使用独立的 CODEX_HOME 和账户设置。来源默认值使用所选连接的第一个可用模型。",
+    "description": "Original English text: Each profile uses its own CODEX_HOME and account settings. Source default uses the selected connection’s first available model."
+  },
+  "desktop.codex_profile.save_changes": {
+    "other": "保存更改",
+    "description": "Original English text: Save Changes"
+  },
+  "desktop.codex_profile.save_error": {
+    "other": "无法添加此 Codex 配置。请重试。",
+    "description": "Original English text: Couldn’t add this Codex profile. Try again."
+  },
+  "desktop.codex_profile.saving": {
+    "other": "正在保存…",
+    "description": "Original English text: Saving…"
+  },
+  "desktop.codex_profile.transport": {
+    "other": "传输方式",
+    "description": "Original English text: Transport"
+  },
+  "desktop.models.all_provider_accounts": {
+    "other": "所有 {provider} 账户",
+    "description": "Original English text: All {provider} accounts"
+  },
+  "desktop.models.applies_to": {
+    "other": "应用范围",
+    "description": "Original English text: Applies to"
+  },
+  "desktop.models.available": {
+    "other": "可用模型",
+    "description": "Original English text: Available Models"
+  },
+  "desktop.models.change_in_progress": {
+    "other": "另一项更改正在进行中。请稍后重试。",
+    "description": "Original English text: Another change is in progress. Try again in a moment."
+  },
+  "desktop.models.changing_does_not_switch": {
+    "other": "更改模型不会切换账户。",
+    "description": "Original English text: Changing models doesn’t switch the account."
+  },
+  "desktop.models.custom_for_connection": {
+    "other": "此连接的自定义模型。",
+    "description": "Original English text: Custom models for this connection."
+  },
+  "desktop.models.customization": {
+    "other": "自定义",
+    "description": "Original English text: Customization"
+  },
+  "desktop.models.none_pinned": {
+    "other": "尚未固定模型。",
+    "description": "Original English text: No models pinned yet."
+  },
+  "desktop.models.refresh_help": {
+    "other": "重新加载此应用的可用模型。",
+    "description": "Original English text: Reload the available models for this app."
+  },
+  "desktop.models.reset_help": {
+    "other": "移除此覆盖项并使用提供方默认模型。",
+    "description": "Original English text: Remove this override and use the provider’s default model."
+  },
+  "desktop.models.save_error": {
+    "other": "无法保存这些模型。请重试。",
+    "description": "Original English text: Couldn’t save those models. Try again."
+  },
+  "desktop.models.this_connection": {
+    "other": "此连接",
+    "description": "Original English text: This connection"
+  },
+  "desktop.models.title_for_app": {
+    "other": "{app} 的模型",
+    "description": "Original English text: Models for {app}"
+  },
+  "desktop.models.use_provider_default": {
+    "other": "使用 {provider} 默认值",
+    "description": "Original English text: Use {provider} Default"
+  },
+  "desktop.models.using_provider_default": {
+    "other": "所有账户使用 {provider} 的默认模型。",
+    "description": "Original English text: Using the {provider} default for all accounts."
+  },
+  "desktop.models.using_shared_default": {
+    "other": "使用共享默认值。",
+    "description": "Original English text: Using a shared default."
+  },
+  "desktop.common.copied_to_clipboard": {
+    "other": "已复制到剪贴板。",
+    "description": "Original English text: Copied to clipboard."
+  },
+  "desktop.common.copy_failed": {
+    "other": "无法复制到剪贴板。",
+    "description": "Original English text: Couldn’t copy to clipboard."
+  },
+  "desktop.published.applying_choice_for": {
+    "other": "正在应用 {name} 的选择",
+    "description": "Original English text: Applying choice for {name}"
+  },
+  "desktop.published.copied_curl": {
+    "other": "已复制 cURL 命令",
+    "description": "Original English text: cURL command copied"
+  },
+  "desktop.published.copy_base_url": {
+    "other": "复制基础 URL",
+    "description": "Original English text: Copy Base URL"
+  },
+  "desktop.published.copy_chat_url": {
+    "other": "复制聊天 URL",
+    "description": "Original English text: Copy Chat URL"
+  },
+  "desktop.published.failover_strategy": {
+    "other": "故障转移",
+    "description": "Original English text: Failover"
+  },
+  "desktop.published.model_family": {
+    "other": "模型系列",
+    "description": "Original English text: Model Family"
+  },
+  "desktop.published.rotates_across_accounts": {
+    "other": "在账户间轮换",
+    "description": "Original English text: Rotates across accounts"
+  },
+  "desktop.published.round_robin_strategy": {
+    "other": "轮询",
+    "description": "Original English text: Round robin"
+  },
+  "desktop.published.routing_strategy": {
+    "other": "路由策略",
+    "description": "Original English text: Routing Strategy"
+  },
+  "desktop.common.ready": {
+    "other": "就绪",
+    "description": "Original English text: Ready"
+  },
+  "desktop.common.switching": {
+    "other": "正在切换…",
+    "description": "Original English text: Switching…"
+  },
+  "desktop.common.back": {
+    "other": "返回",
+    "description": "Original English text: Back"
+  },
+  "desktop.common.running": {
+    "other": "运行中",
+    "description": "Original English text: Running"
+  },
+  "desktop.common.stopped": {
+    "other": "已停止",
+    "description": "Original English text: Stopped"
+  },
+  "desktop.menu_bar.all_accounts": {
+    "other": "全部",
+    "description": "Original English text: All"
+  },
+  "desktop.menu_bar.collapsed": {
+    "other": "已折叠",
+    "description": "Original English text: Collapsed"
+  },
+  "desktop.menu_bar.expanded": {
+    "other": "已展开",
+    "description": "Original English text: Expanded"
+  },
+  "desktop.menu_bar.issue_running_summary": {
+    "other": "问题：{issues} · 运行中：{running}",
+    "description": "Original English text: Issues: {issues} · Running: {running}"
+  },
+  "desktop.menu_bar.other_apps": {
+    "other": "其他应用",
+    "description": "Original English text: Other Apps"
+  },
+  "desktop.menu_bar.proxies_accessibility": {
+    "other": "运行中：{running}，已停止：{stopped}，需注意：{attention}",
+    "description": "Original English text: Running: {running}, stopped: {stopped}, need attention: {attention}"
+  },
+  "desktop.menu_bar.restart_hub": {
+    "other": "重新启动 Proxy Hub",
+    "description": "Original English text: Restart Proxy Hub"
+  },
+  "desktop.menu_bar.restart_named": {
+    "other": "重新启动 {name}",
+    "description": "Original English text: Restart {name}"
+  },
+  "desktop.menu_bar.running_stopped_summary": {
+    "other": "运行中：{running} · 已停止：{stopped}",
+    "description": "Original English text: Running: {running} · Stopped: {stopped}"
+  },
+  "desktop.menu_bar.start_hub": {
+    "other": "启动 Proxy Hub",
+    "description": "Original English text: Start Proxy Hub"
+  },
+  "desktop.menu_bar.stop_hub": {
+    "other": "停止 Proxy Hub",
+    "description": "Original English text: Stop Proxy Hub"
+  },
+  "desktop.menu_bar.switch": {
+    "other": "切换",
+    "description": "Original English text: Switch"
+  },
+  "desktop.menu_bar.usage_remaining": {
+    "other": "剩余 {amount}",
+    "description": "Original English text: {amount} left"
+  },
+  "desktop.menu_bar.using_route": {
+    "other": "使用 {route}",
+    "description": "Original English text: Using {route}"
+  },
+  "desktop.menu_bar.accounts_count": {
+    "other": "账户 · {count}",
+    "description": "Original English text: Accounts · {count}"
+  },
+  "desktop.menu_bar.current_badge": {
+    "other": "当前 · {badge}",
+    "description": "Original English text: Current · {badge}"
+  },
+  "desktop.menu_bar.current_saved_accounts": {
+    "other": "当前：{current} · 已保存账户：{count}",
+    "description": "Original English text: Current: {current} · Saved accounts: {count}"
+  },
+  "desktop.menu_bar.find": {
+    "other": "查找",
+    "description": "Original English text: Find"
+  },
+  "desktop.menu_bar.open_anypick": {
+    "other": "打开 AnyPick",
+    "description": "Original English text: Open AnyPick"
+  },
+  "desktop.menu_bar.open_in_anypick": {
+    "other": "在 AnyPick 中打开",
+    "description": "Original English text: Open in AnyPick"
+  },
+  "desktop.menu_bar.or_use_shared": {
+    "other": "或使用共享连接",
+    "description": "Original English text: Or Use Shared"
+  },
+  "desktop.menu_bar.quit": {
+    "other": "退出",
+    "description": "Original English text: Quit"
+  },
+  "desktop.menu_bar.route_current_accessibility": {
+    "other": "{route}，当前账户",
+    "description": "Original English text: {route}, current account"
+  },
+  "desktop.menu_bar.route_failed_accessibility": {
+    "other": "{route}，切换失败，请重试",
+    "description": "Original English text: {route}, switch failed, try again"
+  },
+  "desktop.menu_bar.route_switching_accessibility": {
+    "other": "{route}，正在切换账户",
+    "description": "Original English text: {route}, switching account"
+  },
+  "desktop.menu_bar.switch_app_account": {
+    "other": "切换 {app} 账户",
+    "description": "Original English text: Switch {app} Account"
+  },
+  "desktop.menu_bar.try_another_search": {
+    "other": "请尝试其他名称或电子邮件地址。",
+    "description": "Original English text: Try another name or email address."
+  },
+  "desktop.menu_bar.use_route": {
+    "other": "使用 {route}",
+    "description": "Original English text: Use {route}"
+  },
+  "desktop.menu_bar.hub_online_detail": {
+    "other": "Hub 在线 · 代理：{proxies} · 应用：{apps}",
+    "description": "Original English text: Hub online · Proxies: {proxies} · Apps: {apps}"
+  },
+  "desktop.menu_bar.focus_search": {
+    "other": "聚焦搜索",
+    "description": "Original English text: Focus Search"
+  },
+  "desktop.menu_bar.issue_count": {
+    "one": "1 个问题",
+    "other": "{count} 个问题",
+    "description": "Original English text: 1 issue"
+  },
+  "desktop.menu_bar.proxies_running_detail": {
+    "one": "代理运行中 · 1 个应用",
+    "other": "代理运行中 · {apps} 个应用",
+    "description": "Original English text: Proxies running · 1 app"
+  },
+  "desktop.menu_bar.first_run_signin": {
+    "other": "先登录受支持的应用，然后将其保存到 AnyPick。",
+    "description": "Original English text: Sign in with a supported app, then save it in AnyPick."
+  },
+  "desktop.menu_bar.active_login_found": {
+    "other": "检测到已登录的 {app} 账户。",
+    "description": "Original English text: We found an active {app} login."
+  },
+  "desktop.menu_bar.add_login_action": {
+    "other": "添加登录…",
+    "description": "Original English text: Add Login…"
+  },
+  "desktop.menu_bar.add_login_step": {
+    "other": "添加登录",
+    "description": "Original English text: Add login"
+  },
+  "desktop.menu_bar.add_login_to_start": {
+    "other": "添加登录以开始",
+    "description": "Original English text: Add a login to start"
+  },
+  "desktop.menu_bar.choose_another_login": {
+    "other": "选择其他登录…",
+    "description": "Original English text: Choose Another Login…"
+  },
+  "desktop.menu_bar.current_login_detected": {
+    "other": "检测到当前登录",
+    "description": "Original English text: Current login detected"
+  },
+  "desktop.menu_bar.point_an_app": {
+    "other": "连接应用",
+    "description": "Original English text: Point an app"
+  },
+  "desktop.menu_bar.save_login_step": {
+    "other": "保存登录",
+    "description": "Original English text: Save login"
+  },
+  "desktop.menu_bar.save_login_to_start": {
+    "other": "保存登录以开始",
+    "description": "Original English text: Save a login to start"
+  },
+  "desktop.menu_bar.save_this_login": {
+    "other": "保存此登录",
+    "description": "Original English text: Save This Login"
+  },
+  "desktop.menu_bar.trust_encrypted_snapshot": {
+    "other": "存储加密的本地快照以便切换",
+    "description": "Original English text: Stores an encrypted local snapshot for switching"
+  },
+  "desktop.menu_bar.trust_keep_signed_in": {
+    "other": "保持当前 {app} 会话登录状态",
+    "description": "Original English text: Keeps the current {app} session signed in"
+  },
+  "desktop.menu_bar.trust_remove_replace": {
+    "other": "你可以随时移除或替换",
+    "description": "Original English text: You can remove or replace it at any time"
+  },
+  "desktop.menu_bar.using_route_count": {
+    "one": "使用 {route} · 1 个账户",
+    "other": "使用 {route} · {count} 个账户",
+    "description": "Original English text: Using {route} · 1 account"
+  },
+  "desktop.menu_bar.search_saved_accounts": {
+    "one": "搜索 1 个已保存账户…",
+    "other": "搜索 {count} 个已保存账户…",
+    "description": "Original English text: Search 1 saved account…"
+  },
+  "desktop.menu_bar.app_count": {
+    "one": "1 个应用",
+    "other": "{count} 个应用",
+    "description": "Original English text: 1 app"
+  },
+  "desktop.menu_bar.source_count": {
+    "one": "1 个来源",
+    "other": "{count} 个来源",
+    "description": "Original English text: 1 source"
+  },
+  "desktop.menu_bar.model_count": {
+    "one": "1 个模型",
+    "other": "{count} 个模型",
+    "description": "Original English text: 1 model"
+  },
+  "desktop.menu_bar.search_accounts": {
+    "one": "搜索 1 个 {app} 账户…",
+    "other": "搜索 {count} 个 {app} 账户…",
+    "description": "Original English text: Search 1 {app} account…"
+  },
+  "desktop.menu_bar.attention_accessibility": {
+    "one": "AnyPick，有 {count} 项需要处理",
+    "other": "AnyPick，有 {count} 项需要处理",
+    "description": "Original English text: AnyPick，有 {count} 项需要处理"
+  },
+  "desktop.menu_bar.review_routing_hint": {
+    "other": "打开 AnyPick 查看路由设置",
+    "description": "Original English text: Open AnyPick to review routing"
+  },
+  "desktop.menu_bar.no_results": {
+    "other": "没有结果",
+    "description": "Original English text: No Results"
+  },
+  "desktop.menu_bar.no_results_detail": {
+    "other": "没有应用、账户或路由与“{query}”匹配。",
+    "description": "Original English text: No app, account, or route matches “{query}”."
+  },
+  "desktop.menu_bar.search_results": {
+    "other": "搜索结果",
+    "description": "Original English text: Search Results"
+  },
+  "desktop.app_commands.about": {
+    "other": "关于 AnyPick",
+    "description": "Original English text: About AnyPick"
+  },
+  "desktop.app_commands.about_help": {
+    "other": "查看应用版本和产品信息。",
+    "description": "Original English text: View the app version and product information."
+  },
+  "desktop.app_commands.settings_help": {
+    "other": "在主窗口中打开设置。",
+    "description": "Original English text: Open Settings in the main window."
+  },
+  "desktop.app_commands.add_login_help": {
+    "other": "保存 AI 提供商的登录信息或 API 密钥。",
+    "description": "Original English text: Save a login or API key for an AI provider."
+  },
+  "desktop.app_commands.refresh_help": {
+    "other": "刷新账户、应用、服务和用量。",
+    "description": "Original English text: Refresh accounts, apps, services, and usage."
+  },
+  "desktop.app_commands.restart_proxies": {
+    "other": "重启代理",
+    "description": "Original English text: Restart Proxies"
+  },
+  "desktop.app_commands.restart_proxies_help": {
+    "other": "重启所有正在运行的代理服务。",
+    "description": "Original English text: Restart every running proxy service."
+  },
+  "desktop.app_commands.go": {
+    "other": "前往",
+    "description": "Original English text: Go"
+  },
+  "desktop.app_commands.open_destination": {
+    "other": "打开“{destination}”。",
+    "description": "Original English text: Open {destination}."
+  },
+  "desktop.main.unable_to_complete": {
+    "other": "无法完成",
+    "description": "Original English text: Unable to Complete"
+  },
+  "desktop.main.replace_help": {
+    "other": "先备份此文件，然后用 AnyPick 配置替换它。",
+    "description": "Original English text: Back up this file, then replace it with AnyPick’s configuration."
+  },
+  "desktop.main.cancel_warning_help": {
+    "other": "保留当前文件并关闭此警告。",
+    "description": "Original English text: Keep the current file and dismiss this warning."
+  },
+  "desktop.main.dismiss_help": {
+    "other": "关闭此消息。",
+    "description": "Original English text: Dismiss this message."
+  },
+  "desktop.main.load_failed_title": {
+    "other": "AnyPick 无法加载",
+    "description": "Original English text: AnyPick could not load"
+  },
+  "desktop.main.load_failed_production": {
+    "other": "随应用打包的 AnyPick 服务未提供有效快照。请重试或重新安装 AnyPick。",
+    "description": "Original English text: The bundled AnyPick service did not provide a valid snapshot. Try again or reinstall AnyPick."
+  },
+  "desktop.main.load_failed_fixture": {
+    "other": "设计测试数据准备内存数据失败。",
+    "description": "Original English text: The design fixture failed to prepare its in-memory data."
+  },
+  "desktop.main.account_unavailable_title": {
+    "other": "账户已不可用",
+    "description": "Original English text: Account Is No Longer Available"
+  },
+  "desktop.main.account_unavailable_detail": {
+    "other": "返回“账户与 API”，然后选择其他账户。",
+    "description": "Original English text: Return to Accounts & APIs and choose another account."
+  },
+  "desktop.common.done": {
+    "other": "完成",
+    "description": "Original English text: Done"
+  },
+  "desktop.account_inspect.edit_help": {
+    "other": "更改此账户的名称或已保存设置。",
+    "description": "Original English text: Change this account’s name or saved settings."
+  },
+  "desktop.updates.bridge_failed": {
+    "other": "AnyPick 无法运行更新检查。请重试，或从 GitHub 下载最新版本。",
+    "description": "Original English text: AnyPick could not run its update check. Try again, or download the latest release from GitHub."
+  },
+  "desktop.updates.copied": {
+    "other": "已复制",
+    "description": "Original English text: Copied"
+  },
+  "desktop.updates.view_on_github": {
+    "other": "在 GitHub 上查看",
+    "description": "Original English text: View on GitHub"
+  },
+  "desktop.updates.show_in_finder": {
+    "other": "在 Finder 中显示",
+    "description": "Original English text: Show in Finder"
+  },
+  "desktop.updates.download_update": {
+    "other": "下载更新",
+    "description": "Original English text: Download Update"
+  },
+  "desktop.updates.whats_new": {
+    "other": "{version} 版本的新内容",
+    "description": "Original English text: What's New in {version}"
+  },
+  "desktop.confirm.dismiss_help": {
+    "other": "关闭此确认提示。",
+    "description": "Original English text: Dismiss this confirmation."
+  },
+  "desktop.confirm.cancel_help": {
+    "other": "保留当前设置并关闭此确认提示。",
+    "description": "Original English text: Keep the current settings and close this confirmation."
+  },
+  "desktop.confirm.destructive_help": {
+    "other": "确认此更改。",
+    "description": "Original English text: Confirm this change."
+  },
+  "desktop.confirm.continue_help": {
+    "other": "继续此操作。",
+    "description": "Original English text: Continue with this choice."
+  },
+  "desktop.app_detail.issue_no_login": {
+    "other": "尚未选择登录。打开应用以选择登录方式。",
+    "description": "Original English text: No login chosen. Open the app to choose one."
+  },
+  "desktop.app_detail.issue_not_working": {
+    "other": "此应用没有可用的登录信息。",
+    "description": "Original English text: This app doesn’t have a working login."
+  },
+  "desktop.quota.remaining_accessibility": {
+    "other": "{label}：剩余 {percent}%",
+    "description": "Original English text: {label}: {percent}% remaining"
+  },
+  "desktop.quota.minutes": {
+    "one": "{count} 分钟",
+    "other": "{count} 分钟",
+    "description": "Original English text: {count} 分钟"
+  },
+  "desktop.quota.hours": {
+    "one": "{count} 小时",
+    "other": "{count} 小时",
+    "description": "Original English text: {count} 小时"
+  },
+  "desktop.quota.day": {
+    "other": "天",
+    "description": "Original English text: day"
+  },
+  "desktop.quota.week": {
+    "other": "周",
+    "description": "Original English text: week"
+  },
+  "desktop.quota.weeks": {
+    "one": "{count} 周",
+    "other": "{count} 周",
+    "description": "Original English text: {count} 周"
+  },
+  "desktop.quota.days": {
+    "one": "{count} 天",
+    "other": "{count} 天",
+    "description": "Original English text: {count} 天"
+  },
+  "desktop.quota.five_hour": {
+    "other": "五小时",
+    "description": "Original English text: five hour"
+  },
+  "desktop.quota.weekly": {
+    "other": "每周",
+    "description": "Original English text: weekly"
+  },
+  "desktop.quota.daily": {
+    "other": "每日",
+    "description": "Original English text: daily"
+  },
+  "desktop.quota.hourly": {
+    "other": "每小时",
+    "description": "Original English text: hourly"
+  },
+  "desktop.quota.monthly": {
+    "other": "每月",
+    "description": "Original English text: Monthly"
+  },
+  "desktop.quota.quota": {
+    "other": "配额",
+    "description": "Original English text: Quota"
+  },
+  "desktop.quota.every_period": {
+    "other": "每{period}重置",
+    "description": "Original English text: every {period}"
+  },
+  "desktop.quota.reset_soon": {
+    "other": "即将重置",
+    "description": "Original English text: Resets soon"
+  },
+  "desktop.quota.in_minutes_short": {
+    "one": "{count} 分钟后",
+    "other": "{count} 分钟后",
+    "description": "Original English text: {count} 分钟后"
+  },
+  "desktop.quota.in_hours_short": {
+    "one": "{count} 小时后",
+    "other": "{count} 小时后",
+    "description": "Original English text: {count} 小时后"
+  },
+  "desktop.quota.fully_refresh_soon": {
+    "other": "即将完全恢复",
+    "description": "Original English text: fully refresh soon"
+  },
+  "desktop.quota.duration_two": {
+    "other": "{first}和{second}",
+    "description": "Original English text: {first}, {second}"
+  },
+  "desktop.quota.fully_refresh_in": {
+    "other": "将在 {duration} 后完全恢复",
+    "description": "Original English text: fully refresh in {duration}"
+  },
+  "desktop.quota.limit_unused": {
+    "other": "你的{period}限额尚未使用，将于{refresh}。",
+    "description": "Original English text: Your {period} limit is unused; it will {refresh}."
+  },
+  "desktop.quota.limit_used": {
+    "other": "你已使用部分{period}限额，将于{refresh}。",
+    "description": "Original English text: You have used some of your {period} limit, it will {refresh}."
+  },
+  "desktop.quota.refresh_without_period": {
+    "other": "将于{refresh}。",
+    "description": "Original English text: It will {refresh}."
+  },
+  "desktop.common.starting": {
+    "other": "正在启动…",
+    "description": "Original English text: Starting…"
+  },
+  "desktop.common.stopping": {
+    "other": "正在停止…",
+    "description": "Original English text: Stopping…"
+  },
+  "desktop.common.restarting": {
+    "other": "正在重新启动…",
+    "description": "Original English text: Restarting…"
+  },
+  "desktop.overview.app_accessibility": {
+    "other": "{app}，{connection}，{transport}",
+    "description": "Original English text: {app}, {connection}, {transport}"
+  },
+  "desktop.hub.add_compatible_help": {
+    "other": "添加或连接 Proxy Hub 可提供服务的账户。",
+    "description": "Original English text: Add or connect accounts that Proxy Hub can serve."
+  },
+  "desktop.hub.need_choice_count": {
+    "one": "{count} 个模型需要选择提供商",
+    "other": "{count} 个模型需要选择提供商",
+    "description": "Original English text: {count} models need a choice"
+  },
+  "desktop.common.direct_account": {
+    "other": "直接账户",
+    "description": "Original English text: Direct account"
+  },
+  "desktop.common.saved_account": {
+    "other": "已保存账户",
+    "description": "Original English text: Saved account"
+  },
+  "desktop.common.available_route": {
+    "other": "可用连接",
+    "description": "Original English text: Available route"
+  },
+  "desktop.proxies.proxy_named": {
+    "other": "{provider} 代理",
+    "description": "Original English text: {provider} proxy"
+  },
+  "desktop.proxies.running_port": {
+    "other": "正在运行 · 端口 {port}",
+    "description": "Original English text: Running · Port {port}"
+  },
+  "desktop.add_account.no_compatible_providers": {
+    "other": "未安装兼容的服务提供商。请使用受支持的应用登录后重试。",
+    "description": "Original English text: No compatible providers are installed. Sign in with a supported app, then try again."
+  },
+  "desktop.add_account.provider_unavailable": {
+    "other": "此 Mac 上无法使用 {provider}。",
+    "description": "Original English text: {provider} is not available on this Mac."
+  },
+  "desktop.add_account.method_unavailable": {
+    "other": "无法使用{method}。",
+    "description": "Original English text: {method} is not available."
+  },
+  "desktop.menu_bar.hide_attention": {
+    "other": "隐藏",
+    "description": "Original English text: Hide"
+  },
+  "desktop.menu_bar.proxy_conflict_title": {
+    "other": "Proxy Hub 模型冲突",
+    "description": "Original English text: Proxy Hub model conflict"
+  },
+  "desktop.menu_bar.account_mismatch": {
+    "other": "{app} 当前登录与所选账户不匹配",
+    "description": "Original English text: {app} live login does not match the selected account"
+  },
+  "desktop.menu_bar.quit_confirmation_title": {
+    "other": "要退出 AnyPick 吗？",
+    "description": "Original English text: Quit AnyPick?"
+  },
+  "desktop.menu_bar.quit_confirmation_detail": {
+    "other": "本地代理将停止运行。",
+    "description": "Original English text: Local proxies will stop."
+  },
+  "desktop.activity.loading_logs_for_source": {
+    "other": "正在加载 {source} 日志…",
+    "description": "Original English text: Loading {source} logs…"
+  },
+  "desktop.activity.log_unavailable_detail": {
+    "other": "此服务已不可用。请选择其他日志来源。",
+    "description": "Original English text: This service is no longer available. Choose another log source."
+  },
+  "desktop.activity.stopped_log_detail": {
+    "other": "之前的日志仍可能显示。启动 {service} 以查看新记录。",
+    "description": "Original English text: Prior logs may remain visible. Start {service} to view new entries."
+  },
+  "desktop.backups.timeout_detail": {
+    "other": "备份审查未收到响应。请重新选择备份；如果问题再次出现，请重新安装 AnyPick。",
+    "description": "Original English text: The backup review got no answer. Choose the backup again, and reinstall AnyPick if it repeats."
+  },
+  "desktop.backups.reading_protected_copy": {
+    "other": "正在读取受保护的审查副本…",
+    "description": "Original English text: Reading a protected review copy…"
+  },
+  "desktop.backups.nothing_imported_choose_another": {
+    "other": "未导入任何内容。请选择其他文件。",
+    "description": "Original English text: Nothing was imported. Choose another file."
+  },
+  "desktop.backups.accounts_imported": {
+    "other": "账户已导入。",
+    "description": "Original English text: Accounts imported."
+  },
+  "desktop.main.service_not_running": {
+    "other": "AnyPick 服务未运行",
+    "description": "Original English text: The AnyPick service is not running"
+  },
+  "desktop.main.unreadable_state": {
+    "other": "AnyPick 无法读取服务状态。请更新 AnyPick，然后重新打开。",
+    "description": "Original English text: AnyPick cannot read its service's state. Update AnyPick, then reopen it."
+  },
+  "desktop.main.unreadable_response": {
+    "other": "AnyPick 无法读取服务的 {kind} 响应。请重新打开 AnyPick 并重试。",
+    "description": "Original English text: AnyPick could not read the service's {kind} response. Reopen AnyPick and try again."
+  },
+  "desktop.main.unreadable_result": {
+    "other": "AnyPick 无法读取服务结果。请重新打开 AnyPick 并重试。",
+    "description": "Original English text: AnyPick could not read its service's result. Reopen AnyPick and try again."
+  },
+  "desktop.main.unreadable_doctor": {
+    "other": "AnyPick 无法读取 Doctor 响应。请重新打开 AnyPick 并重试。",
+    "description": "Original English text: AnyPick could not read the Doctor response. Reopen AnyPick and try again."
+  },
+  "desktop.sidebar.sections": {
+    "other": "AnyPick 区域",
+    "description": "Original English text: AnyPick sections"
+  },
+  "desktop.common.dismiss_notification": {
+    "other": "关闭通知",
+    "description": "Original English text: Dismiss notification"
+  },
+  "desktop.common.command_refused": {
+    "other": "命令被拒绝",
+    "description": "Original English text: Command Refused"
+  },
+  "desktop.main.service_stopped": {
+    "other": "AnyPick 服务已停止",
+    "description": "Original English text: AnyPick service stopped"
+  },
+  "desktop.main.service_stopped_detail": {
+    "other": "捆绑的 AnyPick 服务未运行。请重新启动 AnyPick 再试一次。",
+    "description": "Original English text: The bundled AnyPick service is not running. Restart AnyPick to try again."
+  },
+  "desktop.account_detail.make_current": {
+    "other": "设为当前账户",
+    "description": "Original English text: Make Current"
+  },
+  "desktop.common.yes": {
+    "other": "是",
+    "description": "Original English text: Yes"
+  },
+  "desktop.common.never": {
+    "other": "从未",
+    "description": "Original English text: Never"
+  },
+  "desktop.app_detail.models_pinned": {
+    "other": "{count} 个模型覆盖",
+    "description": "Original English text: {count} model overrides"
+  },
+  "desktop.models.applies_to_app": {
+    "other": "适用于 {app}",
+    "description": "Original English text: Applies to {app}"
+  },
+  "desktop.models.choose_model": {
+    "other": "选择模型…",
+    "description": "Original English text: Choose model…"
+  },
+  "desktop.models.no_model_selected": {
+    "other": "未选择模型",
+    "description": "Original English text: No model selected"
+  },
+  "desktop.models.not_configurable": {
+    "other": "不可配置",
+    "description": "Original English text: Not configurable"
+  },
+  "desktop.models.model_for_app": {
+    "other": "{app} 的模型",
+    "description": "Original English text: Model for {app}"
+  },
+  "desktop.models.model_for_role": {
+    "other": "{app} 的模型 · {role}",
+    "description": "Original English text: Model for {app} · {role}"
+  },
+  "desktop.codex_profile.name": {
+    "other": "名称",
+    "description": "Original English text: Name"
+  },
+  "desktop.codex_profile.name_example": {
+    "other": "例如：work",
+    "description": "Original English text: e.g. work"
+  },
+  "desktop.codex_profile.invalid_name": {
+    "other": "配置文件名称格式无效。",
+    "description": "Original English text: Invalid profile name format."
+  },
+  "desktop.codex_profile.missing_profiles": {
+    "other": "缺少的配置文件",
+    "description": "Original English text: Missing Profiles"
+  },
+  "desktop.codex_profile.missing_profiles_detail": {
+    "other": "{count} 个兼容的已保存账户尚未创建 Codex 配置文件。",
+    "description": "Original English text: {count} compatible saved accounts don’t have Codex profiles yet."
+  },
+  "desktop.codex_profile.local_proxy": {
+    "other": "AnyPick 本地代理",
+    "description": "Original English text: Local AnyPick proxy"
+  },
+  "desktop.codex_profile.direct_vendor": {
+    "other": "直接连接到服务商",
+    "description": "Original English text: Direct vendor connection"
+  },
+  "desktop.codex_profile.model": {
+    "other": "模型",
+    "description": "Original English text: Model"
+  },
+  "desktop.common.hide": {
+    "other": "隐藏",
+    "description": "Original English text: Hide"
+  },
+  "desktop.common.show": {
+    "other": "显示",
+    "description": "Original English text: Show"
+  },
+  "desktop.add_account.provider_for": {
+    "other": "{account} 的服务商",
+    "description": "Original English text: Provider for {account}"
+  },
+  "desktop.add_account.new_account": {
+    "other": "新账户",
+    "description": "Original English text: the new account"
+  },
+  "desktop.add_account.paste_auth_placeholder": {
+    "other": "在此粘贴认证 JSON…",
+    "description": "Original English text: Paste auth JSON here…"
+  },
+  "desktop.add_account.no_login_found": {
+    "other": "未找到登录信息",
+    "description": "Original English text: No login found"
+  },
+  "desktop.add_account.this_account_exists": {
+    "other": "此账户已存在",
+    "description": "Original English text: This account already exists"
+  },
+  "desktop.add_account.could_not_save_file": {
+    "other": "无法保存该文件",
+    "description": "Original English text: Couldn’t save that file"
+  },
+  "desktop.add_account.could_not_read_file": {
+    "other": "无法读取该文件",
+    "description": "Original English text: Couldn’t read that file"
+  },
+  "desktop.add_account.local_app": {
+    "other": "本地应用",
+    "description": "Original English text: Local app"
+  },
+  "desktop.add_account.not_checked_yet": {
+    "other": "尚未检查。",
+    "description": "Original English text: Not checked yet."
+  },
+  "desktop.add_account.detect": {
+    "other": "检测",
+    "description": "Original English text: Detect"
+  },
+  "desktop.add_account.cannot_add_account": {
+    "other": "无法添加此账户",
+    "description": "Original English text: Can’t add this account"
+  },
+  "desktop.add_account.account_name": {
+    "other": "账户名称",
+    "description": "Original English text: Account Name"
+  },
+  "desktop.gateway.gateway": {
+    "other": "网关",
+    "description": "Original English text: Gateway"
+  },
+  "desktop.gateway.provider": {
+    "other": "网关服务商",
+    "description": "Original English text: Gateway provider"
+  },
+  "desktop.gateway.name": {
+    "other": "名称",
+    "description": "Original English text: Name"
+  },
+  "desktop.gateway.no_key_needed": {
+    "other": "无需密钥",
+    "description": "Original English text: No key needed"
+  },
+  "desktop.gateway.endpoint": {
+    "other": "端点",
+    "description": "Original English text: Endpoint"
+  },
+  "desktop.gateway.connection": {
+    "other": "连接",
+    "description": "Original English text: Connection"
+  },
+  "desktop.gateway.testing": {
+    "other": "正在测试…",
+    "description": "Original English text: Testing…"
+  },
+  "desktop.app_route.proxy_hub": {
+    "other": "代理中心",
+    "description": "Original English text: Proxy Hub"
+  },
+  "desktop.app_route.api_gateways": {
+    "other": "API 网关",
+    "description": "Original English text: API Gateways"
+  },
+  "desktop.app_route.no_connections": {
+    "other": "没有连接",
+    "description": "Original English text: No Connections"
+  },
+  "desktop.published.no_owner": {
+    "other": "无所有者",
+    "description": "Original English text: No owner"
+  },
+  "desktop.common.copy_succeeded_for": {
+    "other": "已复制{description}。",
+    "description": "Original English text: Copied {description}."
+  },
+  "desktop.common.copy_failed_for": {
+    "other": "无法复制{description}。",
+    "description": "Original English text: Couldn’t copy {description}."
+  },
+  "desktop.common.copied": {
+    "other": "已复制",
+    "description": "Original English text: Copied"
+  },
+  "desktop.common.working": {
+    "other": "处理中",
+    "description": "Original English text: Working"
+  },
+  "desktop.common.warning": {
+    "other": "警告",
+    "description": "Original English text: Warning"
+  },
+  "desktop.main.loading": {
+    "other": "正在加载 AnyPick…",
+    "description": "Original English text: Loading AnyPick…"
+  },
+  "desktop.main.copy_api_key_failed": {
+    "other": "无法复制 API 密钥。",
+    "description": "Original English text: Couldn’t copy API key."
+  },
+  "desktop.main.copy_api_key_success": {
+    "other": "已复制 API 密钥。",
+    "description": "Original English text: Copied API key."
+  },
+  "desktop.main.doctor_finished": {
+    "other": "诊断已完成。",
+    "description": "Original English text: Doctor finished."
+  },
+  "desktop.main.doctor_failed": {
+    "other": "无法完成诊断。",
+    "description": "Original English text: Doctor could not complete the check."
+  },
+  "desktop.main.action_completed": {
+    "other": "操作已完成。",
+    "description": "Original English text: Action completed."
+  },
+  "desktop.main.action_failed": {
+    "other": "操作失败。",
+    "description": "Original English text: Action failed."
+  },
+  "desktop.main.manage_title": {
+    "other": "使用 AnyPick 管理？",
+    "description": "Original English text: Manage with AnyPick?"
+  },
+  "desktop.main.manage_action": {
+    "other": "使用 AnyPick 管理",
+    "description": "Original English text: Manage with AnyPick"
+  },
+  "desktop.main.takeover_message": {
+    "other": "AnyPick 在替换其未管理的设置前需要获得你的确认。",
+    "description": "Original English text: AnyPick needs confirmation before it replaces settings it does not own."
+  },
+  "desktop.main.cannot_start": {
+    "other": "无法在此处启动 AnyPick",
+    "description": "Original English text: AnyPick cannot start here"
+  },
+  "desktop.main.doctor_all_clear": {
+    "other": "所有检查均已通过。没有需要处理的问题。",
+    "description": "Original English text: All checks passed. Nothing needs attention."
+  },
+  "desktop.proxies.stop_all_prompt": {
+    "other": "全部停止…",
+    "description": "Original English text: Stop All…"
+  },
+  "desktop.proxies.rotate_key_menu": {
+    "other": "轮换 API 密钥…",
+    "description": "Original English text: Rotate API Key…"
+  },
+  "desktop.account_detail.used_now": {
+    "other": "正在使用",
+    "description": "Original English text: Used now"
+  },
+  "desktop.account_detail.saved": {
+    "other": "已保存",
+    "description": "Original English text: Saved"
+  },
+  "desktop.account_detail.saved_now": {
+    "other": "刚刚保存",
+    "description": "Original English text: Saved now"
+  },
+  "desktop.account_detail.created_now": {
+    "other": "刚刚创建",
+    "description": "Original English text: Created now"
+  },
+  "desktop.account_detail.minutes_ago": {
+    "other": "{count}分钟前",
+    "description": "Original English text: {count} minutes ago"
+  },
+  "desktop.account_detail.days_ago": {
+    "other": "{count}天前",
+    "description": "Original English text: {count} days ago"
+  },
+  "desktop.account_detail.this_morning": {
+    "other": "今天早上",
+    "description": "Original English text: This morning"
+  },
+  "desktop.quota.label_session": {
+    "other": "会话",
+    "description": "Original English text: Session"
+  },
+  "desktop.quota.label_weekly": {
+    "other": "每周",
+    "description": "Original English text: Weekly"
+  },
+  "desktop.quota.label_monthly": {
+    "other": "每月",
+    "description": "Original English text: Monthly"
+  },
+  "desktop.quota.label_daily": {
+    "other": "每日",
+    "description": "Original English text: Daily"
+  },
+  "desktop.gateway.hosted": {
+    "other": "托管服务",
+    "description": "Original English text: Hosted"
+  },
+  "desktop.gateway.self_hosted_custom": {
+    "other": "自托管和自定义",
+    "description": "Original English text: Self-Hosted & Custom"
+  },
+  "desktop.settings.launch_at_login_unsupported": {
+    "other": "AnyPick 不支持此系统操作。",
+    "description": "Original English text: AnyPick does not support that system operation."
+  },
+  "desktop.settings.login_items_approval_required": {
+    "other": "请在“系统设置”›“通用”›“登录项”中允许 AnyPick，然后重试。",
+    "description": "Original English text: Allow AnyPick in System Settings › General › Login Items, then try again."
+  },
+  "desktop.settings.login_items_change_failed": {
+    "other": "macOS 未能应用登录项更改。",
+    "description": "Original English text: macOS did not apply the Login Items change."
+  },
+  "desktop.settings.launch_at_login_success": {
+    "other": "AnyPick 将在登录时打开。",
+    "description": "Original English text: AnyPick will open at login."
+  },
+  "desktop.settings.launch_at_login_disabled": {
+    "other": "已停用登录时打开。",
+    "description": "Original English text: Launch at login disabled."
+  },
+  "desktop.settings.system_change_failed": {
+    "other": "本机宿主无法完成系统更改。",
+    "description": "Original English text: The native host could not complete the system change."
+  }
+}

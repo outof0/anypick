@@ -15,6 +15,7 @@ import (
 	"flag"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -110,6 +111,8 @@ func TestDoctorFixDryRunPrintsPlanAndMutatesNothing(t *testing.T) {
 	// Plant a stale overlay in the system temp dir the process will scan.
 	tmp := t.TempDir()
 	t.Setenv("TMPDIR", tmp)
+	t.Setenv("TMP", tmp)
+	t.Setenv("TEMP", tmp)
 	overlay := filepath.Join(tmp, "anypick-claude-doctor-test")
 	if err := os.MkdirAll(overlay, 0o700); err != nil {
 		t.Fatal(err)
@@ -147,6 +150,8 @@ func TestDoctorFixYesDeletesStaleOverlay(t *testing.T) {
 
 	tmp := t.TempDir()
 	t.Setenv("TMPDIR", tmp)
+	t.Setenv("TMP", tmp)
+	t.Setenv("TEMP", tmp)
 	overlay := filepath.Join(tmp, "anypick-live-checkpoint-doctor-test")
 	if err := os.MkdirAll(overlay, 0o700); err != nil {
 		t.Fatal(err)
@@ -212,7 +217,11 @@ func TestDoctorPlainReportUnchanged(t *testing.T) {
 		return got
 	}
 
-	want := "proxy-environment,database,permissions"
+	wantFindings := []string{"proxy-environment", "database"}
+	if runtime.GOOS != "windows" {
+		wantFindings = append(wantFindings, "permissions")
+	}
+	want := strings.Join(wantFindings, ",")
 	if got := strings.Join(findingsOf("doctor"), ","); got != want {
 		t.Fatalf("doctor findings = %q, want %q: the read-only report changed", got, want)
 	}

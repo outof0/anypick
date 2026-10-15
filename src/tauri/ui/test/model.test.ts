@@ -14,9 +14,12 @@ import {
   displaySafeIdentity,
   friendlyProxyName,
   friendlyProxyStatusSubtitle,
+  groupUsageWindows,
   friendlyRouteDetail,
   isAppRouteConfigured,
   isAppManagedByAnyPick,
+  localizedQuotaResetFormatted,
+  localizedQuotaWindowLabel,
   looksLikeOpaqueDisplayValue,
   nativeProviderFamily,
   nativeProviderName,
@@ -60,6 +63,33 @@ describe('accountIdentityLine', () => {
     ]) {
       expect(accountIdentityLine(provider, detail).endsWith('·')).toBe(false);
     }
+  });
+});
+
+describe('groupUsageWindows', () => {
+  it('preserves reported group order and puts ungrouped windows last', () => {
+    const groups = groupUsageWindows([
+      { label: 'Weekly', remainingPercent: 45, group: 'Gemini Models' },
+      { label: '5h', remainingPercent: 80, group: 'Gemini Models' },
+      { label: 'Weekly', remainingPercent: 30, group: 'Claude and GPT models' },
+      { label: 'Session', remainingPercent: 65 },
+    ]);
+    expect(groups).toEqual([
+      {
+        id: 'Gemini Models',
+        title: 'Gemini Models',
+        windows: [
+          { label: 'Weekly', remainingPercent: 45, group: 'Gemini Models' },
+          { label: '5h', remainingPercent: 80, group: 'Gemini Models' },
+        ],
+      },
+      {
+        id: 'Claude and GPT models',
+        title: 'Claude and GPT models',
+        windows: [{ label: 'Weekly', remainingPercent: 30, group: 'Claude and GPT models' }],
+      },
+      { id: '_ungrouped', windows: [{ label: 'Session', remainingPercent: 65 }] },
+    ]);
   });
 });
 
@@ -296,6 +326,36 @@ describe('quota windows', () => {
     expect(quotaResetFormatted({ label: '', remainingPercent: 10, resetsAtMs: now + 10 * 60 * 1000 }, now)).toBe('in 10m');
     expect(quotaResetFormatted({ label: '', remainingPercent: 10, resetsAtMs: now + 3 * 3600 * 1000 }, now)).toBe('in 3h');
     expect(quotaResetFormatted({ label: '', remainingPercent: 10, resetsAtMs: now - 1000 }, now)).toBe('Resets soon');
+  });
+
+  it('localizes standard quota labels and reset durations', () => {
+    const now = Date.parse('2026-01-15T12:00:00Z');
+    expect(
+      localizedQuotaWindowLabel(
+        { label: '', remainingPercent: 10, limitWindowSeconds: 604800 },
+        'vi',
+        'vi',
+      ),
+    ).toBe('Hàng tuần');
+    expect(
+      localizedQuotaResetFormatted(
+        { label: '', remainingPercent: 10, limitWindowSeconds: 18000 },
+        'vi',
+        'vi',
+        now,
+      ),
+    ).toBe('mỗi 5 giờ');
+    expect(
+      localizedQuotaResetFormatted(
+        { label: '', remainingPercent: 10, resetsAtMs: now + 2 * 3600 * 1000 },
+        'vi',
+        'vi',
+        now,
+      ),
+    ).toBe('trong 2 giờ');
+    expect(
+      localizedQuotaWindowLabel({ label: 'opaque-window-name', remainingPercent: 10 }, 'vi', 'vi'),
+    ).toBe('opaque-window-name');
   });
 });
 

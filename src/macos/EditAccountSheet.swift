@@ -19,9 +19,10 @@ struct EditAccountSheet: View {
 
   var body: some View {
     DesignSheetHost(
-      title: "Edit Account",
+      model: model,
+      title: model.localized("desktop.account_detail.edit_account"),
       width: 440,
-      primaryTitle: "Save",
+      primaryTitle: model.localized("desktop.common.save"),
       primaryDisabled: !canSave || model.isBusy || awaitingSaveResult,
       primaryIdentifier: "account-edit.save",
       onCancel: { dismiss() },
@@ -39,43 +40,43 @@ struct EditAccountSheet: View {
               VStack(alignment: .leading, spacing: 3) {
                 Text(disambiguatedAccountName(for: account, in: model.accounts))
                   .font(.headline)
-                Text(account.detail.isEmpty ? "Identity not reported" : account.detail)
+              Text(account.detail.isEmpty ? model.localized("desktop.account_detail.identity_not_reported") : account.detail)
                   .foregroundStyle(.secondary)
                   .lineLimit(1)
               }
               Spacer(minLength: 0)
             }
           } header: {
-            Text("Account")
+            Text(model.localized("desktop.account_detail.account"))
           }
 
           Section {
-            TextField("Name", text: $name, prompt: Text("Work"))
+            TextField(model.localized("desktop.account_detail.name"), text: $name, prompt: Text(model.localized("desktop.account_detail.name_example")))
               .focused($nameFocused)
               .accessibilityIdentifier("account-edit.name")
-            LabeledContent(account.kind == .gateway ? "Endpoint" : "Email or ID") {
-              Text(account.detail.isEmpty ? "Not reported" : account.detail)
+            LabeledContent(model.localized(account.kind == .gateway ? "desktop.account_detail.endpoint" : "desktop.account_detail.email_or_id")) {
+              Text(account.detail.isEmpty ? model.localized("desktop.account_detail.not_reported") : account.detail)
                 .foregroundStyle(.secondary)
                 .textSelection(.enabled)
             }
-            LabeledContent("Provider", value: account.provider)
+            LabeledContent(model.localized("desktop.account_detail.provider"), value: account.provider)
             LabeledContent(
-              "Type",
-              value: account.kind == .gateway ? "API Gateway" : "Saved Login"
+              model.localized("desktop.account_detail.type"),
+              value: model.localized(account.kind == .gateway ? "desktop.account_detail.api_gateway" : "desktop.account_detail.saved_login")
             )
-            LabeledContent("Status") {
+            LabeledContent(model.localized("desktop.common.status")) {
               if model.isCurrentAccount(account) {
-                Label("Current", systemImage: "checkmark.circle.fill")
+                Label(model.localized("desktop.common.current"), systemImage: "checkmark.circle.fill")
                   .foregroundStyle(.green)
               } else {
-                Label(account.status.rawValue, systemImage: account.status.symbol)
+                Label(account.status.localizedLabel(using: model), systemImage: account.status.symbol)
                   .foregroundStyle(account.status.color)
               }
             }
           } header: {
-            Text("Details")
+            Text(model.localized("desktop.account_detail.details"))
           } footer: {
-            Text("The name is shown in AnyPick. The provider login and identity are unchanged.")
+            Text(model.localized("desktop.account_detail.name_help"))
           }
 
           if let saveError {
@@ -94,9 +95,9 @@ struct EditAccountSheet: View {
           }
         } else {
           ContentUnavailableView(
-            "Account Unavailable",
+            model.localized("desktop.account_detail.account_unavailable"),
             systemImage: "person.crop.circle.badge.exclamationmark",
-            description: Text("This account is no longer available.")
+            description: Text(model.localized("desktop.account_detail.remove_unavailable"))
           )
         }
       }
@@ -114,10 +115,10 @@ struct EditAccountSheet: View {
         } else if let message = result?.message, !message.isEmpty {
           saveError = displaySafeFeedback(
             message,
-            fallback: "The account name could not be saved safely. Try again."
+            fallback: model.localized("desktop.account_detail.save_error_safe")
           )
         } else {
-          saveError = "Couldn’t save that name. Try again."
+          saveError = model.localized("desktop.account_detail.save_error")
         }
       }
     }
@@ -129,19 +130,19 @@ struct EditAccountSheet: View {
       // No mutation fires for a vanished account — never strand the sheet
       // waiting for a result that cannot arrive.
       guard model.accounts.contains(where: { $0.id == accountID }) else {
-        saveError = "That account is no longer available."
+        saveError = model.localized("desktop.account_detail.remove_unavailable")
         return
       }
       // Only arm the wait after the request is accepted; otherwise the sheet
       // would wait for a result that cannot arrive.
       guard !model.isBusy else {
-        saveError = "Another change is in progress. Try again in a moment."
+        saveError = model.localized("desktop.account_detail.change_in_progress")
         return
       }
       if model.updateAccount(id: accountID, label: name) {
         awaitingSaveResult = true
       } else {
-        saveError = "Another change is in progress. Try again in a moment."
+        saveError = model.localized("desktop.account_detail.change_in_progress")
       }
       return
     }

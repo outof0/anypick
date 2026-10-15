@@ -64,11 +64,11 @@ struct MenuBarUseWithSheet: View {
       }
       .buttonStyle(.bordered)
       .controlSize(.small)
-      .accessibilityLabel("Back")
+      .accessibilityLabel(model.localized("desktop.common.back"))
       if let app {
         DesignProviderIcon(provider: app.id, fallbackSymbol: app.symbol, size: 30)
         VStack(alignment: .leading, spacing: 2) {
-          Text("Switch \(app.name) Account")
+          Text(model.localized("desktop.menu_bar.switch_app_account", replacing: ["app": app.name]))
             .font(.system(size: 14, weight: .semibold))
           Text(headerDetail(for: app))
             .font(TrayFont.detail)
@@ -104,7 +104,7 @@ struct MenuBarUseWithSheet: View {
         .strokeBorder(TrayPaint.hairline, lineWidth: 0.5)
     )
     .overlay {
-      Button("Find") { searchFocused = true }
+      Button(model.localized("desktop.menu_bar.find")) { searchFocused = true }
         .keyboardShortcut("f", modifiers: .command)
         .opacity(0)
         .accessibilityHidden(true)
@@ -113,7 +113,7 @@ struct MenuBarUseWithSheet: View {
   }
 
   private var savedAccountsHeader: some View {
-    traySectionTitle("Accounts · \(accountRoutes.count)")
+    traySectionTitle(model.localized("desktop.menu_bar.accounts_count", replacing: ["count": String(accountRoutes.count)]))
       .frame(height: 15)
   }
 
@@ -123,9 +123,9 @@ struct MenuBarUseWithSheet: View {
       VStack(spacing: 4) {
         Image(systemName: "magnifyingglass")
           .foregroundStyle(.secondary)
-        Text("No matching accounts")
+        Text(model.localized("desktop.accounts.no_results"))
           .font(TrayFont.detailMedium)
-        Text("Try another name or email address.")
+        Text(model.localized("desktop.menu_bar.try_another_search"))
           .font(TrayFont.detail)
           .foregroundStyle(.secondary)
       }
@@ -191,12 +191,12 @@ struct MenuBarUseWithSheet: View {
     case .switching:
       HStack(spacing: 5) {
         ProgressView().controlSize(.small)
-        Text("Switching…")
+        Text(model.localized("desktop.common.switching"))
       }
       .font(TrayFont.detailStrong)
       .foregroundStyle(.secondary)
     case .retry:
-      Label("Try again", systemImage: "exclamationmark.triangle.fill")
+      Label(model.localized("desktop.common.try_again"), systemImage: "exclamationmark.triangle.fill")
         .font(TrayFont.detailStrong)
         .foregroundStyle(TrayPaint.attention)
     case .available:
@@ -209,7 +209,7 @@ struct MenuBarUseWithSheet: View {
   }
 
   private var sharedHeader: some View {
-    traySectionTitle("Or Use Shared")
+    traySectionTitle(model.localized("desktop.menu_bar.or_use_shared"))
       .frame(height: 15)
   }
 
@@ -223,14 +223,14 @@ struct MenuBarUseWithSheet: View {
           .foregroundStyle(TrayPaint.accent)
           .frame(width: 28, height: 28)
         VStack(alignment: .leading, spacing: 2) {
-          Text("Proxy Hub")
+          Text(model.localized("desktop.nav.proxy_hub"))
             .font(TrayFont.detailStrong)
           Text(hubDetail)
             .font(TrayFont.detail)
             .foregroundStyle(.secondary)
         }
         Spacer(minLength: 6)
-        Text(model.proxyHubEnabled ? "Running" : "Stopped")
+        Text(model.localized(model.proxyHubEnabled ? "desktop.common.running" : "desktop.common.stopped"))
           .font(TrayFont.detailStrong)
           .foregroundStyle(model.proxyHubEnabled ? TrayPaint.ready : Color.secondary)
         Image(systemName: "chevron.right")
@@ -257,7 +257,7 @@ struct MenuBarUseWithSheet: View {
           .font(.system(size: 13, weight: .medium))
           .foregroundStyle(TrayPaint.accent)
           .frame(width: 28, height: 28)
-        Text("API Gateways")
+        Text(model.localized("desktop.accounts.api_gateways"))
           .font(TrayFont.detailStrong)
         Spacer(minLength: 6)
         Text("\(gatewayRoutes.count)")
@@ -282,14 +282,14 @@ struct MenuBarUseWithSheet: View {
   private var footer: some View {
     HStack(spacing: 8) {
       Button(action: quit) {
-        Text("Quit")
+        Text(model.localized("desktop.menu_bar.quit"))
           .frame(maxWidth: .infinity)
       }
       .buttonStyle(.bordered)
       .controlSize(.small)
       .keyboardShortcut("q", modifiers: .command)
       Button(action: openMainWindow) {
-        Text("Open AnyPick")
+        Text(model.localized("desktop.menu_bar.open_anypick"))
           .frame(maxWidth: .infinity)
       }
       .buttonStyle(.borderedProminent)
@@ -307,18 +307,20 @@ struct MenuBarUseWithSheet: View {
     let name = app?.name
       .replacingOccurrences(of: " Code", with: "")
       .replacingOccurrences(of: " CLI", with: "") ?? "app"
-    return "Search \(accountRoutes.count) \(name) accounts…"
+    return model.localized("desktop.menu_bar.search_accounts", count: accountRoutes.count, replacing: ["count": String(accountRoutes.count), "app": name])
   }
 
   private var hubDetail: String {
     let sources = model.hubSourceIDs.count
     let models = model.publishedModels.count
-    return "\(sources) \(sources == 1 ? "source" : "sources") · \(models) \(models == 1 ? "model" : "models")"
+    let sourceText = model.localized("desktop.menu_bar.source_count", count: sources, replacing: ["count": String(sources)])
+    let modelText = model.localized("desktop.menu_bar.model_count", count: models, replacing: ["count": String(models)])
+    return "\(sourceText) · \(modelText)"
   }
 
   private func headerDetail(for app: DesignApp) -> String {
-    let current = app.routeOptions.first { $0.id == app.selectedRouteID }?.name ?? "Not selected"
-    return "Current: \(current) · \(accountRoutes.count) saved accounts"
+    let current = app.routeOptions.first { $0.id == app.selectedRouteID }?.name ?? model.localized("desktop.app_detail.not_selected")
+    return model.localized("desktop.menu_bar.current_saved_accounts", replacing: ["current": current, "count": String(accountRoutes.count)])
   }
 
   private func rowBackground(for state: TrayInlineSwitchState) -> Color {
@@ -335,27 +337,27 @@ struct MenuBarUseWithSheet: View {
   private func routeAccessibilityLabel(_ route: DesignRoute, state: TrayInlineSwitchState) -> String {
     switch state {
     case .current:
-      return "\(route.name), current account"
+      return model.localized("desktop.menu_bar.route_current_accessibility", replacing: ["route": route.name])
     case .switching:
-      return "\(route.name), switching account"
+      return model.localized("desktop.menu_bar.route_switching_accessibility", replacing: ["route": route.name])
     case .retry:
-      return "\(route.name), switch failed, try again"
+      return model.localized("desktop.menu_bar.route_failed_accessibility", replacing: ["route": route.name])
     case .available:
-      return "Use \(route.name)"
+      return model.localized("desktop.menu_bar.use_route", replacing: ["route": route.name])
     }
   }
 
   private func accountTrailing(_ route: DesignRoute) -> String {
     guard let app else { return route.badge ?? "" }
     if route.id == app.selectedRouteID {
-      if let badge = route.badge { return "Current · \(badge)" }
+      if let badge = route.badge { return model.localized("desktop.menu_bar.current_badge", replacing: ["badge": badge]) }
       if model.showUsage, let usage = app.usageRemaining {
         let short = usage
           .replacingOccurrences(of: " remaining", with: "")
           .replacingOccurrences(of: " left", with: "")
-        return "Current · \(short)"
+        return model.localized("desktop.menu_bar.current_badge", replacing: ["badge": short])
       }
-      return "Current"
+      return model.localized("desktop.common.current")
     }
     return route.badge ?? ""
   }

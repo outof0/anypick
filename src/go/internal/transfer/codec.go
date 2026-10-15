@@ -11,6 +11,7 @@ package transfer
 import (
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"path/filepath"
 	"regexp"
@@ -19,6 +20,7 @@ import (
 	"unicode"
 
 	"github.com/outof0/anypick/go/internal/anyerr"
+	"github.com/outof0/anypick/go/internal/safepath"
 	"github.com/outof0/anypick/go/internal/store"
 )
 
@@ -55,34 +57,40 @@ func importLimit(format string, args ...interface{}) error {
 		anyerr.WithExitCode(anyerr.ImportLimit), anyerr.WithMutated(false))
 }
 
-// ValidateImportFileKey rejects empty/NUL/absolute/mixed-separator/traversal
-// keys purely, before any staging root exists. Also called at write time as
-// defense-in-depth.
+// ValidateImportFileKey applies the shared path-key rules (safepath) purely,
+// before any staging root exists. StagedFilePath calls it again at write
+// time and keeps the folder check as a second layer.
 func ValidateImportFileKey(key string) error {
-	if key == "" || strings.ContainsRune(key, '\x00') {
-		return importFormat("Invalid import file path: %q.", key)
-	}
-	if filepath.IsAbs(key) {
-		return importFormat("Import file path must be relative: %s.", key)
-	}
-	// Windows-style absolute paths on every host; IsAbs only knows this platform.
-	if driveAbs.MatchString(key) || strings.HasPrefix(key, `\\`) {
-		return importFormat("Import file path must be relative: %s.", key)
+	if err := safepath.ValidateKey(key); err != nil {
+		return refusedImportPath(key, err)
 	}
 	if strings.Contains(key, `\`) && strings.Contains(key, "/") {
 		return importFormat("Import file path mixes path separators: %s.", key)
 	}
-	normalized := normalizeKey(key)
-	if normalized == "." || normalized == ".." ||
-		strings.HasPrefix(normalized, "../") ||
-		strings.Contains(normalized, "/../") ||
-		strings.HasSuffix(normalized, "/..") {
-		return importFormat("Import file path escapes the staging root: %s.", key)
-	}
 	return nil
 }
 
-var driveAbs = regexp.MustCompile(`^[A-Za-z]:[\\/]`)
+// ReasonUnsafePath is the protocol reason for an import or restore key the
+// path validator refused. It is carried in the error's Details["reason"].
+const ReasonUnsafePath = "unsafe-path"
+
+// refusedImportPath is the user-facing copy for a refused import key.
+func refusedImportPath(key string, cause error) error {
+	return anyerr.Newf(
+		safepath.ImportRefusalMessage(key, cause),
+		"IMPORT_FORMAT", anyerr.WithExitCode(anyerr.ImportFormat), anyerr.WithMutated(false),
+		anyerr.WithDetails(map[string]any{"reason": ReasonUnsafePath}))
+}
+
+// IsUnsafePath reports whether err is a refused import or restore key.
+func IsUnsafePath(err error) bool {
+	var ae *anyerr.Error
+	if !errors.As(err, &ae) || ae.Details == nil {
+		return false
+	}
+	reason, _ := ae.Details["reason"].(string)
+	return reason == ReasonUnsafePath
+}
 
 // normalizeKey converts backslashes to slashes then cleans the result.
 func normalizeKey(key string) string {
@@ -107,7 +115,7 @@ func StagedFilePath(stagingRoot, relKey string) (string, error) {
 	}
 	rel, rerr := filepath.Rel(rootAbs, abs)
 	if rerr != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
-		return "", importFormat("Import file path escapes the staging root: %s.", relKey)
+		return "", refusedImportPath(relKey, safepath.ErrNotLocal)
 	}
 	return abs, nil
 }
@@ -323,9 +331,6 @@ func decodeFiles(files map[string]json.RawMessage) (map[string]string, error) {
 	var seen []string
 	total := 0
 	for _, key := range keys {
-		if key == "" {
-			return nil, importFormat("Import file map contains an invalid key.")
-		}
 		if err := ValidateImportFileKey(key); err != nil {
 			return nil, err
 		}

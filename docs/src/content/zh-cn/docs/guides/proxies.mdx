@@ -1,0 +1,155 @@
+---
+title: 代理
+description: 了解 AnyPick 如何转换协议，以及如何检查和管理本地代理进程。
+---
+
+客户端和账户协议不同时，AnyPick 会在两者之间启动本地代理。代理会在启用路由时按需启动，并由 supervisor 管理；一般情况下无需手动控制。本指南主要用于检查和排障。
+
+## 代理的作用
+
+不同服务商代理可以接收一种或多种 API 协议，并转发到真实服务商 API：
+
+- **grok**：支持 OpenAI 和 Anthropic 兼容路由；上游 `/v1/models` 目录及请求模型 ID 会原样转发。
+- **opencode**：提供 Zen 和 Go 模型目录，根据模型能力选择 Messages、Chat Completions、Responses 或 Google 协议。
+- **gemini**：使用 API key 调用 Gemini API，或使用 OAuth 调用 Code Assist；支持当前 Codex CLI 需要的 `/v1/responses` 请求和 SSE 生命周期。
+- **kiro**：如已安装外部 `kirolink` / `kiro-proxy` 二进制，则委托该程序处理。
+- **workbuddy**：将 OpenAI Chat Completions（以及 Anthropic 转换）请求转发到 CodeBuddy 订阅。部分推理模型可能持续输出文字；若发生这种情况，可停止请求并选择 `hy3` 等非路由模型 ID。
+- **cline**：将 OpenAI Chat Completions 请求转发到 Cline 网关。
+- **兼容服务商插件**：服务商提供 Anthropic Messages 时使用原生协议，否则使用 OpenAI Chat Completions；Codex 使用的 Responses 生命周期也可用。API-key 和编程订阅密钥使用相同本地边界。
+
+模型发现优先查询实时上游；`/models` 缺失或不可用时才使用服务商提供的备用列表。例如 Gemini API-key 账户读取 `models.list`，OAuth 账户读取 Code Assist `fetchAvailableModels`；OpenCode 会将实时目录与服务商元数据取交集。新模型无需等待 AnyPick 发布新版本。
+
+协议转换会保留推理意图，包括 Codex/OpenAI `reasoning_effort`、Responses `reasoning.effort`、Claude `output_config.effort`、自适应思考、显式 `budget_tokens` 和可见思考摘要。Google 路由会将相同意图映射到 Gemini `thinkingConfig`，并将思考摘要与最终回答分开。原生 Anthropic 和 OpenAI 路由会直通上游。
+
+## 默认端口
+
+代理优先使用账号池配置的端口；否则使用服务商声明的 `DefaultProxyPort`；都没有时使用共享默认端口 `8080`。当前声明专用端口的服务商包括 Ark、TokenHub、GroqCloud、Fireworks、Cerebras 和 NVIDIA NIM。未配置端口且服务商没有默认端口时，会选择第一个空闲端口。
+
+## 手动管理生命周期
+
+```bash
+anypick proxy status <provider> <account>
+anypick proxy start <provider> <account>
+anypick proxy stop <provider> <account>
+anypick proxy enable <provider> <account> [--port N]
+anypick proxy disable <provider> <account>
+anypick proxy config <provider> <account> [--port N]
+anypick proxy restart <provider> <account>
+anypick proxy logs <provider> <account> [--lines N] [--follow]
+```
+
+`enable` 会配置并启动代理；`config` 修改端口并重启；`restart` 重启同一账户的代理。`status`、`start`、`stop` 和 `logs` 都要求完整的 `<provider> <account>`，没有一次操作全部代理的形式。
+
+## Gemini 登录来源
+
+Gemini 账户保存时会固定所用的登录来源，代理不会在每次请求时切换：
+
+```bash
+anypick add account gemini --current --source gemini-cli --name work
+anypick add account gemini --current --source antigravity --name work
+```
+
+省略 `--source` 时，AnyPick 根据文件推断，优先 Gemini CLI。代理使用已保存的快照；要切换固定来源，需保存新账户。模型目录别名不会跨来源混用，Antigravity rollout ID 不会误发给 Gemini CLI。
+
+## OpenCode 认证模式
+
+Go 引擎会根据账户实际登录凭据选择一个 OpenCode 目录：Go 订阅账户使用 `https://opencode.ai/zen/go/v1`，其他 Zen/Go key 使用 `https://opencode.ai/zen/v1`。TypeScript 版本的 `--auth-mode auto|public|api`、逐模型路由和 `OPENCODE_PROXY_UPSTREAM` 覆盖项尚未移植；请用想要提供服务的凭据保存账户。
+
+代理按以下顺序查找 key，使用第一个匹配项：
+
+1. 当前 CLI 凭据库（`OPENCODE_DATA_DIR` 下的 `opencode.db`）。
+2. 与账户 `auth.json` 同目录保存的 `opencode.db`。
+3. 快照中的 `auth.json`。
+
+新版 beta CLI 登录时不再重写 `auth.json`，因此优先检查当前凭据库；否则，切换账户前保存的快照可能仍会提供旧 key。
+
+如果保存的登录没有 Zen/Go key（例如只有 ChatGPT 或 Anthropic OAuth），就不能用于此代理。这样的登录仍可通过 `anypick use` 应用到原生客户端；代理会报 `NO_LIVE_AUTH`。具体错误会区分缺少 `auth.json`、文件不可读，或文件只有 OAuth 而没有 Zen/Go API key。
+
+## 多账户池
+
+默认每个账户运行一个代理。账号池可将同一服务商的多个账户放在一个端口后，让客户端只看到一个端点，由 AnyPick 负责轮换：
+
+```bash
+anypick proxy pool enable gemini -p 4150
+anypick proxy pool member gemini work on
+anypick proxy pool member gemini alt off      # 保留配置但暂停
+anypick proxy pool status gemini
+anypick use claude --with pool:gemini
+anypick proxy pool disable gemini             # 恢复每账户一个进程
+```
+
+TUI Proxy 面板中按 `p` 开关账号池，按 <kbd>space</kbd> 暂停或恢复当前成员。多账户池行按 <kbd>f</kbd> 可开关基于配额的安全故障转移保护。
+
+<Aside type="note" title="谨慎启用账号池">
+账号池共享一个端口和多份凭据，并会自动轮换。除非确实需要共用端点和故障转移，否则建议使用每账户单独代理。
+</Aside>
+
+### 故障转移、轮换和配额保护
+
+默认策略 `failover` 会继续使用上次成功响应的账户，只有被拒绝时才切换。`round-robin` 则让每个新请求从环中的下一个成员开始：
+
+```bash
+anypick proxy pool enable kiro --strategy round-robin
+```
+
+两种策略都只选择符合条件的成员。被配额保护设为冷却状态的账户会跳过；若某账户返回配额类错误，请求也会转给下一个成员。区别在于每次尝试从哪里开始，而非是否支持故障转移。
+
+所有成员都在冷却时，账号池不会在本机拒绝请求，而是只尝试最早恢复的账户一次，并将服务商的响应原样返回。这样不会因为轮询而重复冲击已耗尽的服务商；调用方会看到服务商给出的 `429`、`402` 或重置时间。
+
+配额保护默认读取 `~/.anypick/config.json` 中的设置：
+
+```jsonc
+{
+  "ui": {
+    "quotaGuard": {
+      "enabled": true,
+      "cooldownMinutes": 60,
+      "serveWhenAllCooling": true
+    }
+  }
+}
+```
+
+在 TUI 账号池行按 <kbd>f</kbd>，或修改 `enabled` 字段，可开关单个池的保护。
+
+## Proxy Hub（可选）
+
+账号池只包含一个服务商。统一的 **Proxy Hub** 是独立的可选端点，可以在一个本地地址后提供多个已保存账户，并按模型路由。启用 Hub 不会改写现有绑定：
+
+```bash
+anypick proxy hub enable default -p 4140 --start
+anypick proxy hub source default grok work
+anypick proxy hub status default
+anypick use claude --with hub:default
+```
+
+Hub 为每个账户提供单独开关，并对整个 Hub 使用一个全局轮换模式。默认 `failover` 会将模型交给拥有它的账户；没有账户声明模型时使用第一个来源。`round-robin` 会在所有启用且支持该模型的账户之间轮换：
+
+```bash
+anypick proxy hub enable default --strategy round-robin
+```
+
+“支持模型”由服务商目录决定；多个服务商提供相同模型 ID 时都会参与轮换。若目录没有模型信息，轮换范围会限制在解析到的服务商内；记录的模型所有者仍决定服务商，轮换只改变该服务商中使用的账户。已关闭的账户永远不会被选择；关闭某服务商的全部账户后，该服务商便不再属于 Hub。全局轮换模式适用于整个 Hub，因为每个请求先解析来源，再分配账户。
+
+Hub 也有自己的配额保护（读取同一 `ui.quotaGuard` 设置）。服务商因为 key 或账户配额不足而拒绝请求时，该账户进入冷却，Hub 会尝试下一个能够服务同一模型的启用账户。若拒绝原因与凭据无关（例如真实 500 或每分钟速率限制），Hub 会原样返回错误，不会再消耗其他账户配额。所有候选账户都在冷却时，默认仍会尝试最早恢复的账户一次；`serveWhenAllCooling: false` 时除外。账号池代理使用自己的保护设置，这一套仅用于 Hub。
+
+配置后，Proxy 面板会将 Hub 作为独立行显示；按 <kbd>enter</kbd> 或 <kbd>m</kbd> 打开编辑器。除非需要跨服务商共用端点，普通账户代理更简单。
+
+## 进程由谁管理
+
+macOS 原生架构中，`AnyPick.app` 拥有内置 Go 服务，Go 服务再拥有本地代理。关闭主窗口不会退出应用；显式退出应用时，helper 会优雅停止其代理。菜单栏只是同一应用的另一个视图，不是独立 supervisor。
+
+Go 引擎也可以直接管理兼容 supervisor：
+
+```bash
+anypick tray          # 应用兼容入口，与 anypick app 使用相同核心
+anypick tray start
+anypick tray status
+anypick tray stop     # 停止 supervisor 及它拥有的代理
+```
+
+在源码仓库中可运行 `make run ARGS="…"`。退出 TUI（<kbd>q</kbd>）不会更改后台 supervisor。TUI 的 <kbd>Shift+D</kbd> 和 <kbd>t</kbd> 操作不会管理另行启动的原生应用。
+
+启动时 AnyPick 会释放已退出进程持有的代理租约并停止其代理，避免孤儿进程不断累积。
+
+Linux 和 Windows Tauri 安装包与 macOS 应用由同一 Release workflow 发布。当前安装包见[GitHub Releases](https://github.com/outof0/anypick/releases/latest)；没有单独的托盘安装程序。

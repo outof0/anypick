@@ -7,7 +7,8 @@ import UniformTypeIdentifiers
 extension MacOSDesignModel {
   /// VoiceOver-only success cue — no modal. Use for copy / non-blocking status.
   func announceOnly(_ message: String) {
-    announce(message)
+    announce(DesktopMessageCatalog.text(
+      source: message, preference: selectedLanguage, resolved: resolvedLanguage))
   }
 
   func announce(_ message: String) {
@@ -33,6 +34,11 @@ extension MacOSDesignModel {
     title: String? = nil,
     kind: DesignFeedback.Kind = .information
   ) {
+    let message = DesktopMessageCatalog.text(
+      source: message, preference: selectedLanguage, resolved: resolvedLanguage)
+    let title = title.map {
+      DesktopMessageCatalog.text(source: $0, preference: selectedLanguage, resolved: resolvedLanguage)
+    }
     feedbackDismissTask?.cancel()
     if kind == .error {
       feedback = DesignFeedback(title: title, message: message, kind: kind)

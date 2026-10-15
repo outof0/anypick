@@ -309,8 +309,27 @@ func newUUID() (string, error) {
 	return fmt.Sprintf("%x-%x-%x-%x-%x", b[0:4], b[4:6], b[6:8], b[8:10], b[10:16]), nil
 }
 
+// inspectionFailure builds the error preview frame. A refused path keeps its
+// own reason and the Design message instead of falling back to "damaged".
+func inspectionFailure(requestID string, err error) BackupPreviewResult {
+	reason := inspectionFailureReason(err)
+	message := inspectionFailureMessage(reason)
+	var ae *anyerr.Error
+	if reason == transfer.ReasonUnsafePath && errors.As(err, &ae) {
+		message = ae.Message
+	}
+	return BackupPreviewResult{
+		Version: ProtocolVersion, RequestID: requestID, Status: "error",
+		Error: "inspection-failed", Code: "BACKUP_INSPECT_FAILED", Reason: reason,
+		Message: message,
+	}
+}
+
 // inspectionFailureReason maps an inspection error to the protocol reason.
 func inspectionFailureReason(err error) string {
+	if transfer.IsUnsafePath(err) {
+		return transfer.ReasonUnsafePath
+	}
 	if ae, ok := err.(*anyerr.Error); ok {
 		switch ae.Code {
 		case "BACKUP_VERSION":

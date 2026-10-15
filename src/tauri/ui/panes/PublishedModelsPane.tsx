@@ -14,6 +14,7 @@ import {
   type RouteCandidate,
 } from '../lib/published';
 import type { ServicePort } from '../lib/service';
+import { translate } from '../lib/i18n';
 import { Dialog } from '../ui/Dialog';
 import {
   Button,
@@ -52,6 +53,10 @@ export function PublishedModelsPane({
   /** Clears the shell's search field. Reset Filters resets both, as on macOS. */
   onClearQuery?: () => void;
 }) {
+  const t = (key: string) =>
+    translate(`desktop.published.${key}`, snapshot.settings.language, snapshot.settings.resolvedLanguage);
+  const language = snapshot.settings.language;
+  const resolvedLanguage = snapshot.settings.resolvedLanguage;
   const [vendor, setVendor] = useState('all');
   const [inspecting, setInspecting] = useState<HubPublishedModel | null>(null);
 
@@ -109,11 +114,11 @@ export function PublishedModelsPane({
 
   if (nothingToShow) {
     return (
-      <Pane title="Published Models" testId="published-models">
+      <Pane title={t('title')} testId="published-models">
         <EmptyState
-          title="No Published Models"
-          detail="Turn on an account and resolve overlapping models, then they appear here."
-          actionTitle="Open Proxy Hub"
+          title={t('no_models')}
+          detail={t('empty_detail')}
+          actionTitle={t('open_hub')}
           onAction={() => onNavigate?.('proxies')}
           testId="published-models-empty"
         />
@@ -122,10 +127,10 @@ export function PublishedModelsPane({
   }
 
   return (
-    <Pane title="Published Models" testId="published-models">
-      <Group title="Filter" testId="published-models-filters">
+    <Pane title={t('title')} testId="published-models">
+      <Group title={t('filter')} testId="published-models-filters">
         <Row>
-          <RowText title="Catalog" />
+          <RowText title={t('catalog')} />
           <RowActions>
             <Select
               label=""
@@ -133,9 +138,9 @@ export function PublishedModelsPane({
               value={vendor}
               onChange={setVendor}
               options={[
-                { value: 'all', label: `All (${routable.length})` },
+                { value: 'all', label: t('all_catalogs').replace('{count}', String(routable.length)) },
                 ...(switchable.length > 0
-                  ? [{ value: 'switchable', label: `Multi-provider (${switchable.length})` }]
+                  ? [{ value: 'switchable', label: t('multi_routes_count').replace('{count}', String(switchable.length)) }]
                   : []),
                 ...vendors.map((group) => ({
                   value: group.vendorKey,
@@ -149,14 +154,15 @@ export function PublishedModelsPane({
 
       {unresolved.length > 0 ? (
         <Group
-          title="Needs a Provider"
-          footer="Two accounts can serve the same model. Choose which one owns it before this hub serves it."
+          title={t('needs_provider')}
+          footer={t('conflict_footer')}
           testId="published-models.conflicts"
         >
           {unresolved.map((model) => (
             <ConflictRow
               key={model.id}
               model={model}
+              t={t}
               conflicts={snapshot.hubConflicts}
               revision={revision}
               service={service}
@@ -168,9 +174,9 @@ export function PublishedModelsPane({
 
       {groups.length === 0 ? (
         <EmptyState
-          title="No Results"
-          detail="No models match this filter or search query."
-          actionTitle="Reset Filters"
+          title={t('no_results')}
+          detail={t('no_results_detail')}
+          actionTitle={t('reset_filters')}
           // macOS resets both halves (`ProxyFlows.swift:305`). Resetting only
           // the vendor leaves the search that produced the empty result.
           onAction={() => {
@@ -186,15 +192,23 @@ export function PublishedModelsPane({
             <Group
               key={group.vendorKey}
               title={group.vendorName}
-              footer={group.footer}
+              footer={group.footer.startsWith('Serving source: ')
+                ? t('serving_source').replace('{source}', group.footer.slice('Serving source: '.length))
+                : group.footer.startsWith('Published via ')
+                  ? t('published_via').replace('{provider}', group.footer.slice('Published via '.length))
+                  : group.footer}
               testId={`published-models.group-${group.vendorKey}`}
             >
               {!open ? (
                 <Row>
-                  <RowText title={`${group.models.length} models`} />
+                  <RowText title={translate(
+                    `desktop.hub.${group.models.length === 1 ? 'model_count' : 'models_count'}`,
+                    snapshot.settings.language,
+                    snapshot.settings.resolvedLanguage,
+                  ).replace('{count}', String(group.models.length))} />
                   <RowActions>
                     <Button kind="quiet" onClick={() => toggle(group.vendorKey)}>
-                      Show
+                      {t('show')}
                     </Button>
                   </RowActions>
                 </Row>
@@ -203,6 +217,9 @@ export function PublishedModelsPane({
                   <ModelRow
                     key={model.id}
                     model={model}
+                    t={t}
+                    language={language}
+                    resolvedLanguage={resolvedLanguage}
                     candidates={routeCandidatesFor(model.id, candidates)}
                     revision={revision}
                     service={service}
@@ -219,6 +236,9 @@ export function PublishedModelsPane({
       {inspecting ? (
         <InspectDialog
           model={inspecting}
+          t={t}
+          language={language}
+          resolvedLanguage={resolvedLanguage}
           hub={hub}
           candidates={routeCandidatesFor(inspecting.id, candidates)}
           revision={revision}
@@ -240,6 +260,9 @@ function routeCandidatesFor(
 
 function ModelRow({
   model,
+  t,
+  language,
+  resolvedLanguage,
   candidates,
   revision,
   service,
@@ -247,6 +270,9 @@ function ModelRow({
   onInspect,
 }: {
   model: HubPublishedModel;
+  t: (key: string) => string;
+  language: string;
+  resolvedLanguage: string;
   candidates: RouteCandidate[];
   revision: number;
   service: ServicePort;
@@ -264,11 +290,11 @@ function ModelRow({
             <span>{identity.cleanName}</span>
             {identity.tag ? <span className="text-[11px] text-tertiary">{identity.tag}</span> : null}
             {multiProvider ? (
-              <span className="text-[11px] text-secondary">Multi-provider</span>
+              <span className="text-[11px] text-secondary">{t('multi_provider')}</span>
             ) : null}
           </span>
         }
-        detail={`${model.id} · ${model.ownerLabel || 'No owner'}`}
+        detail={`${model.id} · ${model.ownerLabel || t('no_owner')}`}
       />
       <RowActions>
         {multiProvider ? (
@@ -282,19 +308,23 @@ function ModelRow({
               if (actionId) service.invokeAction(actionId, revision);
             }}
             options={[
-              { value: '', label: 'Route to…' },
+            { value: '', label: t('route_to') + '…' },
               ...candidates.map((candidate) => ({ value: candidate.actionId, label: candidate.label })),
             ]}
           />
         ) : null}
         <CopyButton
-          label={`Copy model id for ${identity.cleanName}`}
+          label={`${t('copy_model_id')} ${identity.cleanName}`}
           testId={`published-models.copy-${model.id}`}
           value={model.id}
           copy={service.copy}
+          language={language}
+          resolvedLanguage={resolvedLanguage}
         />
         <IconButton
-          label={`Inspect ${identity.cleanName}`}
+          label={`${t('inspect_model')} ${identity.cleanName}`}
+          language={language}
+          resolvedLanguage={resolvedLanguage}
           testId={`published-models.inspect-${model.id}`}
           onClick={onInspect}
         >
@@ -310,12 +340,14 @@ function ModelRow({
 
 function ConflictRow({
   model,
+  t,
   conflicts,
   revision,
   service,
   busy,
 }: {
   model: HubPublishedModel;
+  t: (key: string) => string;
   conflicts: readonly HubConflict[];
   revision: number;
   service: ServicePort;
@@ -325,7 +357,7 @@ function ConflictRow({
   const identity = parseModelIdentity(model.id, model.ownerProviderId);
   return (
     <Row testId={`published-models.conflict-${model.id}`}>
-      <RowText title={identity.cleanName} detail={`${model.id} · needs a provider`} />
+      <RowText title={identity.cleanName} detail={`${model.id} · ${t('needs_provider').toLocaleLowerCase()}`} />
       <RowActions>
         <Select
           label=""
@@ -336,7 +368,7 @@ function ConflictRow({
             if (actionId) service.invokeAction(actionId, revision);
           }}
           options={[
-            { value: '', label: 'Select Provider…' },
+            { value: '', label: t('select_provider') },
             ...(conflict?.candidates ?? []).map((candidate) => ({
               value: candidate.actionId,
               label: candidate.label || hubProviderDisplayName(candidate.providerId),
@@ -350,6 +382,9 @@ function ConflictRow({
 
 function InspectDialog({
   model,
+  t,
+  language,
+  resolvedLanguage,
   hub,
   candidates,
   revision,
@@ -358,6 +393,9 @@ function InspectDialog({
   onClose,
 }: {
   model: HubPublishedModel;
+  t: (key: string) => string;
+  language: string;
+  resolvedLanguage: string;
   hub: ProxyRow | undefined;
   candidates: RouteCandidate[];
   revision: number;
@@ -377,7 +415,7 @@ function InspectDialog({
       width="form"
       actions={
         <Button kind="primary" onClick={onClose}>
-          Done
+          {t('done')}
         </Button>
       }
     >
@@ -387,12 +425,12 @@ function InspectDialog({
           detail={`${model.id} · ${identity.vendorName}`}
         />
         <RowActions>
-          <span className="text-[12px] whitespace-nowrap text-secondary">Active</span>
+          <span className="text-[12px] whitespace-nowrap text-secondary">{t('active')}</span>
         </RowActions>
       </Row>
 
       <Row testId="published-models.inspect-route">
-        <RowText title="Route to" />
+        <RowText title={t('route_to')} />
         <RowActions>
           {candidates.length > 1 ? (
             <Select
@@ -403,7 +441,7 @@ function InspectDialog({
                 if (actionId) service.invokeAction(actionId, revision);
               }}
               options={[
-                { value: '', label: 'Select Provider…' },
+              { value: '', label: t('select_provider') },
                 ...candidates.map((candidate) => ({ value: candidate.actionId, label: candidate.label })),
               ]}
             />
@@ -416,41 +454,47 @@ function InspectDialog({
       </Row>
 
       <Row testId="published-models.base-url">
-        <RowText title="Base URL" detail={base ? `${base}/v1` : 'The hub is not running'} />
+        <RowText title={t('base_url')} detail={base ? `${base}/v1` : t('hub_not_running')} />
         <RowActions>
           {base ? (
             <CopyButton
-              label="Copy base URL"
+              label={`${t('copy')} ${t('base_url')}`}
               testId={`model-inspect.copy-${'base-url'}`}
               value={`${base}/v1`}
               copy={service.copy}
+              language={language}
+              resolvedLanguage={resolvedLanguage}
             />
           ) : null}
         </RowActions>
       </Row>
 
       <Row testId="published-models.chat-url">
-        <RowText title="Chat URL" detail={chat || 'The hub is not running'} />
+        <RowText title={t('chat_url')} detail={chat || t('hub_not_running')} />
         <RowActions>
           {chat ? (
             <CopyButton
-              label="Copy chat URL"
+              label={`${t('copy')} ${t('chat_url')}`}
               testId={`model-inspect.copy-${'chat-url'}`}
               value={chat}
               copy={service.copy}
+              language={language}
+              resolvedLanguage={resolvedLanguage}
             />
           ) : null}
         </RowActions>
       </Row>
 
       <Row testId="model-inspect.copy-curl">
-        <RowText title="Test in Terminal" detail="OpenAI-compatible" />
+        <RowText title={t('test_terminal')} detail={t('openai_compatible')} />
         <RowActions>
           <CopyButton
-            label="Copy cURL command"
+            label={t('copy_curl')}
             testId="published-models.copy-curl"
             value={curlTemplate(chat, model.id)}
             copy={service.copy}
+            language={language}
+            resolvedLanguage={resolvedLanguage}
           />
         </RowActions>
       </Row>

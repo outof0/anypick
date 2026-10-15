@@ -6,6 +6,8 @@ struct MainWindow: View {
   @ObservedObject var model: MacOSDesignModel
   @Environment(\.openWindow) private var openWindow
   @State private var path = NavigationPath()
+  /// Window content height, so sheets cap their scroll area to what fits.
+  @State private var windowHeight: CGFloat = 0
 
   var body: some View {
     NavigationSplitView {
@@ -19,7 +21,7 @@ struct MainWindow: View {
     }
     .navigationSplitViewStyle(.balanced)
     .alert(
-      model.feedback?.title ?? "Unable to Complete",
+      model.feedback?.title ?? model.localized("desktop.main.unable_to_complete"),
       isPresented: Binding(
         get: { model.feedback?.kind == .error },
         set: { if !$0 { model.dismissFeedback() } }
@@ -31,21 +33,29 @@ struct MainWindow: View {
         // is the engine's own verb for it (see the --allow-foreign-config
         // suggestion), and it fits beside Cancel on one row where
         // "Manage with AnyPick" would take a row of its own.
-        Button("Replace", action: model.confirmPendingTakeover)
-          .help("Back up this file, then replace it with AnyPick’s configuration.")
-        Button("Cancel", role: .cancel, action: model.dismissFeedback)
-          .help("Keep the current file and dismiss this warning.")
+        Button(model.localized("desktop.backups.replace"), action: model.confirmPendingTakeover)
+          .help(model.localized("desktop.main.replace_help"))
+        Button(model.localized("desktop.common.cancel"), role: .cancel, action: model.dismissFeedback)
+          .help(model.localized("desktop.main.cancel_warning_help"))
       } else {
         // A lone dismissal is the default action, not a cancel role: the role
         // is what would bind Escape instead of Return to the only button.
-        Button("OK", action: model.dismissFeedback)
-          .help("Dismiss this message.")
+        Button(model.localized("desktop.overview.status_ok"), action: model.dismissFeedback)
+          .help(model.localized("desktop.main.dismiss_help"))
       }
     } message: {
       Text(model.feedback?.message ?? "")
     }
     .followingDesignAppearance(model.appearance)
     .frame(minWidth: 920, minHeight: 640)
+    .background(
+      GeometryReader { proxy in
+        Color.clear
+          .onAppear { windowHeight = proxy.size.height }
+          .onChange(of: proxy.size.height) { _, height in windowHeight = height }
+      })
+    .environment(
+      \.designSheetMaxScrollHeight, designSheetMaxScrollHeight(windowHeight: windowHeight))
     .sheet(
       isPresented: Binding(
         get: { model.showFirstRunWelcome },
@@ -92,7 +102,7 @@ struct MainWindow: View {
 
   private func sidebarRow(_ destination: DesignDestination) -> some View {
     Label {
-      Text(destination.title)
+      Text(model.localized(destination.messageKey))
     } icon: {
       Image(systemName: destination.symbol)
         .symbolRenderingMode(.hierarchical)
@@ -126,11 +136,14 @@ struct MainWindow: View {
   private var serviceStatusSummary: String {
     // Visible in every phase: hiding it while loading/error removes the
     // status exactly when it is needed (and pops the layout when it returns).
-    if model.phase == .loading { return "Loading services…" }
+    if model.phase == .loading { return model.localized("desktop.sidebar.loading") }
     let running = model.proxies.filter { $0.status == .running }.count
       + (model.proxyHubEnabled ? 1 : 0)
-    if running == 0 { return "No proxies running" }
-    return running == 1 ? "1 proxy running" : "\(running) proxies running"
+    if running == 0 { return model.localized("desktop.sidebar.no_proxies") }
+    let message = model.localized(
+      running == 1 ? "desktop.sidebar.one_proxy" : "desktop.sidebar.many_proxies"
+    )
+    return String(format: message, running)
   }
 
   @ViewBuilder
@@ -156,16 +169,16 @@ struct MainWindow: View {
   private var detailColumn: some View {
     switch model.phase {
     case .loading:
-      DesignLoadingState()
+      DesignLoadingState(model: model)
         .navigationTitle("AnyPick")
     case .error:
       DesignEmptyState(
-        title: "AnyPick could not load",
+        title: model.localized("desktop.main.load_failed_title"),
         message: model.isProduction
-          ? "The bundled AnyPick service did not provide a valid snapshot. Try again or reinstall AnyPick."
-          : "The design fixture failed to prepare its in-memory data.",
+          ? model.localized("desktop.main.load_failed_production")
+          : model.localized("desktop.main.load_failed_fixture"),
         symbol: "exclamationmark.triangle",
-        actionTitle: "Try Again",
+        actionTitle: model.localized("desktop.common.try_again"),
         action: model.refresh
       )
       .navigationTitle("AnyPick")
@@ -173,7 +186,7 @@ struct MainWindow: View {
     case .ready, .empty:
       NavigationStack(path: $path) {
         rootPane
-          .navigationTitle(model.destination.title)
+          .navigationTitle(model.localized(model.destination.messageKey))
           .navigationDestination(for: DesignRouteID.self) { route in
             switch route {
             case .app(let id):
@@ -183,8 +196,8 @@ struct MainWindow: View {
                 AccountDetailView(model: model, accountID: account.id)
               } else {
                 DesignEmptyState(
-                  title: "Account Is No Longer Available",
-                  message: "Return to Accounts & APIs and choose another account.",
+                  title: model.localized("desktop.main.account_unavailable_title"),
+                  message: model.localized("desktop.main.account_unavailable_detail"),
                   symbol: "person.2"
                 )
               }

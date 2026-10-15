@@ -110,8 +110,10 @@ func TestValidateImportFileKeyAndWindows(t *testing.T) {
 	if err := validateImportFileKey(string([]byte{0})); err == nil {
 		t.Fatal("nul byte should error")
 	}
-	if err := validateImportFileKey("/abs"); err == nil {
-		t.Fatal("abs should error")
+	for _, absolute := range []string{"/abs", `\abs`} {
+		if err := validateImportFileKey(absolute); err == nil {
+			t.Fatalf("absolute path %q should error", absolute)
+		}
 	}
 	if err := validateImportFileKey("C:\\windows\\path"); err == nil {
 		t.Fatal("windows drive should error")
@@ -119,11 +121,11 @@ func TestValidateImportFileKeyAndWindows(t *testing.T) {
 	if err := validateImportFileKey(`a\b/c`); err == nil {
 		t.Fatal("mixed separators should error")
 	}
-	if !isWindowsAbsolute(`C:\x`) || !isWindowsAbsolute(`\\host`) {
-		t.Fatal("isWindowsAbsolute false negative")
+	if validateImportFileKey(`C:\x`) == nil || validateImportFileKey(`\\host`) == nil {
+		t.Fatal("Windows absolute key should error")
 	}
-	if isWindowsAbsolute("rel/path") {
-		t.Fatal("isWindowsAbsolute false positive")
+	if err := validateImportFileKey("rel/path"); err != nil {
+		t.Fatalf("relative key rejected: %v", err)
 	}
 	if got := quote("hi"); got != `"hi"` {
 		t.Fatalf("quote = %q", got)

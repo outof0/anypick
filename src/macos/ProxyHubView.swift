@@ -20,7 +20,7 @@ struct ProxyHubView: View {
         // button. A switch said "policy"; this service is started and stopped,
         // and the README puts service lifecycle in the Service row as a button.
         DesignIdentityRow(
-          title: "Proxy Hub",
+          title: model.localized("desktop.nav.proxy_hub"),
           detail: hubStatusSubtitle
         ) {
           Image(systemName: DesignDestination.proxyHub.symbol)
@@ -30,13 +30,13 @@ struct ProxyHubView: View {
         }
         .contextMenu {
           if model.proxyHubEnabled {
-            Button("Restart Hub") { model.restartProxy(id: "hub") }
-              .help("Restart Proxy Hub. Apps using it may briefly lose their connection.")
+            Button(model.localized("desktop.hub.restart_hub")) { model.restartProxy(id: "hub") }
+              .help(model.localized("desktop.proxies.restart_help"))
               .disabled(model.isBusy || model.serviceOperations["hub"] != nil)
           }
         }
 
-        LabeledContent("Address") {
+        LabeledContent(model.localized("desktop.common.address")) {
           HStack(spacing: 6) {
             Text(hubAddress)
               .font(.system(.body, design: .monospaced))
@@ -46,7 +46,8 @@ struct ProxyHubView: View {
               .truncationMode(.middle)
             DesignCopyButton(
               copied: copiedAddress,
-              label: "Copy Proxy Hub address",
+              label: model.localized("desktop.hub.copy_address_label"),
+              copiedLabel: model.localized("desktop.common.copied_to_clipboard"),
               identifier: "hub.copy-address",
               action: copyAddress
             )
@@ -54,10 +55,10 @@ struct ProxyHubView: View {
         }
 
         if model.proxyHubCanCopyAPIKey {
-          LabeledContent("API Key") {
+          LabeledContent(model.localized("desktop.common.api_key")) {
             HStack(spacing: 6) {
               if model.proxyHubApiKey.isEmpty {
-                Text("Hidden until copied")
+                Text(model.localized("desktop.hub.hidden_key"))
                   .foregroundStyle(.secondary)
               } else {
                 Text(model.proxyHubApiKey)
@@ -69,13 +70,14 @@ struct ProxyHubView: View {
               }
               DesignCopyButton(
                 copied: copiedApiKey,
-                label: "Copy Proxy Hub API key",
+                label: model.localized("desktop.hub.copy_key"),
+                copiedLabel: model.localized("desktop.common.copied_to_clipboard"),
                 identifier: "hub.copy-api-key",
                 action: { model.copyProxyAPIKey(id: "hub") }
               )
               DesignIconButton(
                 symbol: "arrow.triangle.2.circlepath",
-                label: "Rotate Proxy Hub API Key",
+                label: model.localized("desktop.hub.rotate_api_key_label"),
                 identifier: "hub.rotate-api-key",
                 action: requestRotate
               )
@@ -84,12 +86,16 @@ struct ProxyHubView: View {
         }
 
         NavigationLink(value: DesignRouteID.publishedModels) {
-          LabeledContent("Published Models") {
+          LabeledContent(model.localized("desktop.hub.published_models")) {
             HStack(spacing: 6) {
               Text(publishedSummary)
                 .foregroundStyle(.secondary)
               if waitingPublishedCount > 0 {
-                Text("\(waitingPublishedCount) need choice")
+                Text(model.localized(
+                  "desktop.hub.need_choice_count",
+                  count: waitingPublishedCount,
+                  replacing: ["count": String(waitingPublishedCount)]
+                ))
                   .font(.caption)
                   .foregroundStyle(.secondary)
               }
@@ -98,7 +104,7 @@ struct ProxyHubView: View {
         }
         .accessibilityIdentifier("hub.models")
       } header: {
-        Text("Service")
+        Text(model.localized("desktop.hub.service"))
       } footer: {
         Text(serviceFooter)
       }
@@ -107,7 +113,7 @@ struct ProxyHubView: View {
         Section {
           Label {
             VStack(alignment: .leading, spacing: 2) {
-              Text("Proxy Hub Couldn’t Start")
+              Text(model.localized("desktop.hub.service_failed_title"))
               Text(failure)
                 .foregroundStyle(.secondary)
             }
@@ -115,7 +121,7 @@ struct ProxyHubView: View {
             DesignWarningSymbol()
           }
         } footer: {
-          Text("No app settings were changed. Adjust the conflicting service, then try again.")
+          Text(model.localized("desktop.hub.failure_footer"))
         }
       }
 
@@ -125,9 +131,9 @@ struct ProxyHubView: View {
             conflictPicker(conflict)
           }
         } header: {
-          Text("Routing Conflicts")
+          Text(model.localized("desktop.hub.conflicts"))
         } footer: {
-          Text("Multiple providers share these model IDs. Selecting a provider routes client requests to that provider’s accounts.")
+          Text(model.localized("desktop.hub.conflict_footer"))
         }
       }
 
@@ -162,7 +168,8 @@ struct ProxyHubView: View {
                   Text(item.modelID)
                     .font(.system(.body, design: .monospaced))
                     .lineLimit(1)
-                  Text("Available via \(providerNames.joined(separator: ", "))")
+                  Text(model.localized("desktop.hub.available_via")
+                    .replacingOccurrences(of: "{providers}", with: providerNames.joined(separator: ", ")))
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 }
@@ -171,26 +178,27 @@ struct ProxyHubView: View {
           }
           if switchableModels.count > 4 {
             NavigationLink(value: DesignRouteID.publishedModels) {
-              Text("View all \(switchableModels.count) routed models…")
+              Text(model.localized("desktop.hub.view_routed_models")
+                .replacingOccurrences(of: "{count}", with: String(switchableModels.count)))
                 .foregroundStyle(.secondary)
             }
           }
         } header: {
-          Text("Model Routing")
+          Text(model.localized("desktop.hub.model_routing"))
         } footer: {
-          Text("Choose which provider handles client requests when multiple providers offer the same model.")
+          Text(model.localized("desktop.hub.model_routing_footer"))
         }
       }
 
       Section {
         if !model.hubSources.contains(where: { !$0.rotates }) {
           LabeledContent {
-            Button("Open Accounts & APIs") { model.destination = .accounts }
-              .help("Add or connect accounts that Proxy Hub can serve.")
+            Button(model.localized("desktop.nav.accounts")) { model.destination = .accounts }
+              .help(model.localized("desktop.hub.add_compatible_help"))
           } label: {
             VStack(alignment: .leading, spacing: 2) {
-              Text("Add a Compatible Account")
-              Text("Add a compatible saved account before starting Proxy Hub.")
+              Text(model.localized("desktop.hub.add_compatible_title"))
+              Text(model.localized("desktop.hub.add_compatible_detail"))
                 .foregroundStyle(.secondary)
             }
           }
@@ -211,13 +219,13 @@ struct ProxyHubView: View {
             strategyPicker(rotation)
           }
         } header: {
-          Text("Request Strategy")
+        Text(model.localized("desktop.hub.request_strategy"))
         } footer: {
-          Text("Failover sends each request to one account. Round Robin spreads each model across the accounts that serve it.")
+        Text(model.localized("desktop.hub.strategy_footer"))
         }
       }
     }
-    .designConfirmation($confirmation)
+    .designConfirmation($confirmation, model: model)
     .onChange(of: model.copiedKey) { _, copied in
       guard copied?.id == "hub" else { return }
       copiedApiKey = true
@@ -230,10 +238,9 @@ struct ProxyHubView: View {
   private func requestRotate() {
     confirmation = DesignConfirmation(
       id: "rotate-hub-key",
-      title: "Rotate Proxy Hub API Key?",
-      message:
-        "Apps connected to Proxy Hub will be disconnected until you update them with the new key.",
-      action: .confirm("Rotate Key") { model.rotateProxyKey(id: "hub") }
+      title: model.localized("desktop.hub.rotate_title"),
+      message: model.localized("desktop.hub.rotate_message"),
+      action: .confirm(model.localized("desktop.common.rotate_key")) { model.rotateProxyKey(id: "hub") }
     )
   }
 
@@ -252,25 +259,25 @@ struct ProxyHubView: View {
           model.setProxyHubEnabled(false)
         } label: {
           ZStack {
-            if working { ProgressView().controlSize(.small) } else { Text("Stop") }
+            if working { ProgressView().controlSize(.small) } else { Text(model.localized("desktop.common.stop")) }
           }
           .frame(minWidth: 46)
         }
         .disabled(busy)
-        .help("Stop Proxy Hub. Apps routed through it will lose their connection.")
-        .accessibilityLabel(working ? "Stopping Proxy Hub" : "Stop Proxy Hub")
+        .help(model.localized("desktop.hub.stop_help"))
+        .accessibilityLabel("\(model.localized("desktop.common.stop")) \(model.localized("desktop.nav.proxy_hub"))")
       } else {
         Button {
           model.setProxyHubEnabled(true)
         } label: {
           ZStack {
-            if working { ProgressView().controlSize(.small) } else { Text("Start") }
+            if working { ProgressView().controlSize(.small) } else { Text(model.localized("desktop.common.start")) }
           }
           .frame(minWidth: 46)
         }
         .disabled(busy)
-        .help("Start Proxy Hub to provide one local endpoint for its published models.")
-        .accessibilityLabel(working ? "Starting Proxy Hub" : "Start Proxy Hub")
+        .help(startHelp)
+        .accessibilityLabel("\(model.localized("desktop.common.start")) \(model.localized("desktop.nav.proxy_hub"))")
       }
     }
     .buttonStyle(.bordered)
@@ -279,7 +286,7 @@ struct ProxyHubView: View {
   }
 
   private var hubMembershipFooter: String {
-    "Include a saved account or gateway to publish its models on the Hub address. Independent per-account services appear under Proxies."
+    model.localized("desktop.hub.accounts_footer")
   }
 
   @ViewBuilder
@@ -292,24 +299,25 @@ struct ProxyHubView: View {
   private var serviceFooter: String {
     if let op = model.serviceOperations["hub"] {
       switch op {
-      case .starting: return "Starting Proxy Hub…"
-      case .stopping: return "Stopping Proxy Hub…"
-      case .restarting: return "Restarting Proxy Hub…"
+      case .starting: return model.localized("desktop.hub.starting")
+      case .stopping: return model.localized("desktop.hub.stopping")
+      case .restarting: return model.localized("desktop.hub.restarting")
       }
     }
     if !model.proxyHubEnabled {
-      return "Turn on Proxy Hub to publish models on a single shared address."
+      return model.localized("desktop.hub.footer_turn_on")
     }
     if !model.routingConflicts.isEmpty {
-      return "Only models with a resolved provider route are published to apps."
+      return model.localized("desktop.hub.footer_conflicts")
     }
     if usableModelCount == 0 {
       if model.hubSourceIDs.isEmpty {
-        return "Turn on a model source before starting Proxy Hub."
+        return model.localized("desktop.hub.footer_turn_on_start")
       }
-      return "No usable models yet — add a compatible account or resolve the catalog, then start."
+      return model.localized("desktop.hub.no_usable_models")
     }
-    return "All published model IDs are available to apps."
+    return model.localized(usableModelCount == 1 ? "desktop.hub.footer_one_model" : "desktop.hub.footer_models_on_address")
+      .replacingOccurrences(of: "{count}", with: String(usableModelCount))
   }
 
   private var usableModelCount: Int { usablePublishedModelCount(model.publishedModels) }
@@ -323,9 +331,9 @@ struct ProxyHubView: View {
   }
 
   private var startHelp: String {
-    if model.proxyHubEnabled { return "Stop Proxy Hub" }
-    if usableModelCount == 0 { return "No usable models to publish yet" }
-    return "Start Proxy Hub"
+    if model.proxyHubEnabled { return model.localized("desktop.hub.stop_help") }
+    if usableModelCount == 0 { return model.localized("desktop.hub.no_usable_models") }
+    return model.localized("desktop.hub.start_help")
   }
 
   private var hubStatus: DesignStatus {
@@ -337,24 +345,27 @@ struct ProxyHubView: View {
     let copied = (NSPasteboard.general.clearContents() != 0)
       && NSPasteboard.general.setString(hubAddress, forType: .string)
     guard copied else {
-      model.announceOnly("Couldn’t copy Proxy Hub address.")
+      model.announceOnly(model.localized("desktop.hub.copy_address_failure"))
       return
     }
     copiedAddress = true
-    model.announceOnly("Copied Proxy Hub address.")
+    model.announceOnly(model.localized("desktop.hub.copy_address_success"))
     DispatchQueue.main.asyncAfter(deadline: .now() + 1.4) {
       copiedAddress = false
     }
   }
 
   private var hubStatusSubtitle: String {
-    if let op = model.serviceOperations["hub"]?.label {
+    if let op = model.serviceOperations["hub"]?.localizedLabel(using: model) {
       return op
     }
     if model.proxyHubEnabled {
-      return "Running · Port \(model.proxyHubPort)"
+      return model.localized(
+        "desktop.proxies.running_port",
+        replacing: ["port": String(model.proxyHubPort)]
+      )
     } else {
-      return "Stopped"
+      return model.localized("desktop.overview.status_stopped")
     }
   }
 
@@ -378,14 +389,16 @@ struct ProxyHubView: View {
 
   private var publishedSummary: String {
     let published = model.publishedModels.count - waitingPublishedCount
-    return "\(published) published"
+    return model.localized("desktop.hub.published_count")
+      .replacingOccurrences(of: "{count}", with: String(published))
   }
 
   private var accountsSectionTitle: String {
     let enabledCount = visibleHubSources.filter { model.hubSourceShowsEnabled($0.id) }.count
     let totalCount = visibleHubSources.count
-    if totalCount == 0 { return "Accounts in This Hub" }
-    return "Accounts in This Hub (\(enabledCount) of \(totalCount) enabled)"
+    return model.localized("desktop.hub.accounts_enabled")
+      .replacingOccurrences(of: "{enabled}", with: String(enabledCount))
+      .replacingOccurrences(of: "{total}", with: String(totalCount))
   }
 
   /// The rotation row governs the whole hub, so it sorts first; the sources
@@ -409,12 +422,12 @@ struct ProxyHubView: View {
   private func strategyPicker(_ rotation: DesignHubSource) -> some View {
     let serviceID = hubSourceServiceID(rotation.id)
     VStack(alignment: .leading, spacing: 4) {
-      Picker("Strategy", selection: Binding(
+      Picker(model.localized("desktop.hub.strategy"), selection: Binding(
         get: { model.hubSourceShowsEnabled(rotation.id) },
         set: { enabled in model.setHubRotation(rotation.hub.isEmpty ? "default" : rotation.hub, enabled: enabled) }
       )) {
-        Text("Failover").tag(false)
-        Text("Round Robin").tag(true)
+        Text(model.localized("desktop.hub.failover")).tag(false)
+        Text(model.localized("desktop.hub.round_robin")).tag(true)
       }
       .pickerStyle(.segmented)
       .labelsHidden()
@@ -554,9 +567,10 @@ struct ProxyHubView: View {
     let modelsPart: String
     if isEnabled {
       let count = max(0, source.modelCount)
-      modelsPart = "\(count) \(count == 1 ? "model" : "models")"
+      let key = count == 1 ? "desktop.hub.model_count" : "desktop.hub.models_count"
+      modelsPart = model.localized(key).replacingOccurrences(of: "{count}", with: String(count))
     } else {
-      modelsPart = "Excluded from Hub"
+      modelsPart = model.localized("desktop.hub.excluded")
     }
 
     var parts: [String] = []
@@ -575,7 +589,14 @@ struct ProxyHubView: View {
   private func conflictPicker(_ conflict: DesignRoutingConflict) -> some View {
     let serviceID = hubConflictServiceID(conflict.id)
     let resolving = model.serviceOperations[serviceID] != nil
-    let (infoTitle, infoSubtitle) = hubConflictDisplayInfo(conflict)
+    let modelNames = conflict.models.map {
+      parseModelIdentity($0, fallbackProvider: conflict.candidates.first?.provider ?? "").cleanName
+    }
+    let infoTitle = localizedConflictInfoTitle(modelNames, fallback: conflict.title)
+    let providerNames = uniqueProviderCandidates(conflict.candidates)
+      .map { $0.providerChoice ? hubProviderDisplayName($0.provider) : $0.label }
+    let infoSubtitle = providerNames.isEmpty ? "" : model.localized("desktop.hub.available_via")
+      .replacingOccurrences(of: "{providers}", with: providerNames.joined(separator: ", "))
     let candidatesToShow = uniqueProviderCandidates(conflict.candidates)
     let conflictModelID = conflict.models.first ?? conflict.title
     let parsed = parseModelIdentity(conflictModelID, fallbackProvider: conflict.candidates.first?.provider ?? "")
@@ -598,7 +619,7 @@ struct ProxyHubView: View {
             model.selectRoutingCandidate(actionID: candidate.actionID)
           }
         ),
-        placeholder: "Select Provider…",
+        placeholder: model.localized("desktop.hub.select_provider"),
         accessibilityIdentifier: "hub.conflict.\(conflict.id).picker"
       )
       .fixedSize()
@@ -614,28 +635,53 @@ struct ProxyHubView: View {
           Text(infoTitle)
             .font(.system(.body, design: .monospaced))
           if let failure = model.serviceFailures[serviceID] {
-          HStack(spacing: 4) {
-            DesignWarningSymbol()
-            Text(failure)
+            HStack(spacing: 4) {
+              DesignWarningSymbol()
+              Text(failure)
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .accessibilityIdentifier("hub.conflict.\(conflict.id).error")
+            }
+          } else if resolving {
+            Text(model.localized("desktop.hub.applying_choice"))
+              .font(.footnote)
+              .foregroundStyle(.secondary)
+              .accessibilityLabel(
+                model.localized(
+                  "desktop.published.applying_choice_for",
+                  replacing: ["name": infoTitle]
+                )
+              )
+          } else if !infoSubtitle.isEmpty {
+            Text(infoSubtitle)
               .font(.footnote)
               .foregroundStyle(.secondary)
               .lineLimit(1)
-              .accessibilityIdentifier("hub.conflict.\(conflict.id).error")
           }
-        } else if resolving {
-          Text("Applying choice…")
-            .font(.footnote)
-            .foregroundStyle(.secondary)
-            .accessibilityLabel("Applying choice for \(conflict.title)")
-        } else if !infoSubtitle.isEmpty {
-          Text(infoSubtitle)
-            .font(.footnote)
-            .foregroundStyle(.secondary)
-            .lineLimit(1)
         }
       }
     }
+    .accessibilityIdentifier("hub.conflict.\(conflict.id)")
   }
-  .accessibilityIdentifier("hub.conflict.\(conflict.id)")
-}
+
+  private func localizedConflictInfoTitle(_ names: [String], fallback: String) -> String {
+    if names.count == 1 {
+      return model.localized("desktop.hub.conflict_two_owners")
+        .replacingOccurrences(of: "{model}", with: names[0])
+    }
+    if names.count == 2 {
+      return model.localized("desktop.hub.conflict_pair_need_provider")
+        .replacingOccurrences(of: "{first}", with: names[0])
+        .replacingOccurrences(of: "{second}", with: names[1])
+    }
+    if names.count > 2 {
+      return model.localized("desktop.hub.conflict_many_need_provider")
+        .replacingOccurrences(of: "{count}", with: String(names.count))
+        .replacingOccurrences(of: "{first}", with: names[0])
+        .replacingOccurrences(of: "{second}", with: names[1])
+        .replacingOccurrences(of: "{more}", with: String(names.count - 2))
+    }
+    return fallback
+  }
 }

@@ -6,6 +6,7 @@
 import { Icon } from "astro-icon/components";
 import { cn } from "@/lib/cn";
 import type { HTMLAttributes } from "astro/types";
+import { getTranslator, localeForPath } from "@/i18n";
 
 interface Props extends HTMLAttributes<"div"> {
   content: string;
@@ -14,6 +15,7 @@ interface Props extends HTMLAttributes<"div"> {
 }
 
 const { content, type = "note", dismissible, class: className, ...attrs } = Astro.props;
+const t = await getTranslator(localeForPath(Astro.url.pathname));
 
 function sanitizeBannerHtml(value: string): string {
   return value
@@ -50,7 +52,7 @@ const safeContent = sanitizeBannerHtml(content);
       type="button"
       data-nb-banner-close
       class="-my-1 -mr-2 flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-current opacity-60 transition-[background-color,opacity] hover:bg-card/60 hover:opacity-100"
-      aria-label="Dismiss banner"
+      aria-label={t("banner.dismiss")}
     >
       <Icon name="ph:x" class="w-3.5 h-3.5" />
     </button>

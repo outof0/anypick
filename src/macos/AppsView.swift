@@ -18,15 +18,15 @@ struct AppsView: View {
     Group {
       if model.apps.isEmpty {
         ContentUnavailableView {
-          Label("No Apps Configured", systemImage: "square.grid.2x2")
+          Label(model.localized("desktop.apps.no_apps"), systemImage: "square.grid.2x2")
         } description: {
-          Text("Add the coding apps you want to configure with AnyPick accounts and proxies.")
+          Text(model.localized("desktop.apps.empty_detail"))
         } actions: {
-          Button("Add App…") {
+          Button(model.localized("desktop.apps.add_app")) {
             showingAddApp = true
           }
           .buttonStyle(.borderedProminent)
-          .help("Add a supported coding app to configure with AnyPick.")
+          .help(model.localized("desktop.apps.add_app_help"))
           .accessibilityIdentifier("apps.empty.add")
         }
       } else {
@@ -38,15 +38,17 @@ struct AppsView: View {
           } header: {
             Text(
               searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                ? "Apps (\(filteredApps.count))"
-                : "Matching Apps (\(filteredApps.count))")
+                ? model.localized("desktop.apps.apps_count")
+                    .replacingOccurrences(of: "{count}", with: String(filteredApps.count))
+                : model.localized("desktop.apps.matching_apps_count")
+                    .replacingOccurrences(of: "{count}", with: String(filteredApps.count)))
           }
         }
       }
     }
     .toolbar {
       ToolbarItem(placement: .primaryAction) {
-        DesignToolbarSearch(text: $searchQuery, prompt: "Search Apps")
+        DesignToolbarSearch(text: $searchQuery, prompt: model.localized("desktop.apps.search"))
           .frame(minWidth: 140, idealWidth: 160, maxWidth: 200)
       }
     }
@@ -59,7 +61,7 @@ struct AppsView: View {
   private var paneActions: some View {
     DesignPaneActions {
       DesignSheetButton(
-        title: "Add App…",
+        title: model.localized("desktop.apps.add_app"),
         enabled: !model.isBusy,
         identifier: "apps.add"
       ) { showingAddApp = true }
@@ -72,7 +74,7 @@ struct AppsView: View {
       DesignIdentityRow(
         title: app.name,
         detail: appSubtitle(app),
-        issue: app.issue
+        issue: app.issue(using: model)
       ) {
         DesignProviderIcon(
           provider: app.id,
@@ -81,19 +83,19 @@ struct AppsView: View {
         )
       } trailing: {
         if isManaged {
-          DesignStatusLabel(status: app.status)
+          DesignStatusLabel(model: model, status: app.status)
         } else {
           if !isAppRouteConfigured(app) && app.status != .ready {
             HStack(spacing: 6) {
               Circle()
                 .fill(Color.orange)
                 .frame(width: 7, height: 7)
-              Text("Set Up…")
+              Text(model.localized("desktop.apps.set_up"))
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
             }
           } else {
-            Text("Direct")
+            Text(model.localized("desktop.apps.direct"))
               .font(.subheadline)
               .foregroundStyle(.secondary)
           }
@@ -105,22 +107,22 @@ struct AppsView: View {
       Button(role: .destructive) {
         model.removeApp(appID: app.id)
       } label: {
-        Label("Remove App", systemImage: "trash")
+        Label(model.localized("desktop.apps.remove_app"), systemImage: "trash")
       }
-      .help("Remove this app from the AnyPick list.")
+      .help(model.localized("desktop.apps.remove_app_help"))
       .disabled(model.isBusy)
       if isAppManagedByAnyPick(app) {
         Button(role: .destructive) {
           model.resetAppConfiguration(appID: app.id)
         } label: {
-          Label("Disconnect from AnyPick", systemImage: "bolt.slash")
+          Label(model.localized("desktop.apps.disconnect_anypick"), systemImage: "bolt.slash")
         }
-        .help("Return this app to its own connection and model settings.")
+        .help(model.localized("desktop.apps.disconnect_help"))
         .disabled(model.isBusy)
       }
       Divider()
-      Toggle("Show in Quick Panel", isOn: quickPanelBinding(app))
-        .help("Show this app in the menu bar Quick Panel.")
+      Toggle(model.localized("desktop.apps.quick_panel"), isOn: quickPanelBinding(app))
+        .help(model.localized("desktop.apps.quick_panel_help"))
         .disabled(model.isBusy)
     }
   }
@@ -185,7 +187,7 @@ struct AppsView: View {
         return app.detail.replacingOccurrences(of: "Uses ", with: "")
       }
       if app.detail == "Current login" {
-        return "Current login"
+        return model.localized("desktop.apps.current_login")
       }
       if !app.detail.isEmpty && app.detail != "No usable connection"
         && app.detail != "No account selected"
@@ -193,20 +195,20 @@ struct AppsView: View {
         return app.detail
       }
       if isAppRouteConfigured(app) || app.status == .ready {
-        return "Current login"
+        return model.localized("desktop.apps.current_login")
       }
-      return "Not configured"
+      return model.localized("desktop.apps.not_configured")
     }
   }
 
   private func appModel(_ app: DesignApp) -> String {
-    if app.selectedRouteID.hasPrefix("native-") { return friendlyRouteKindLabel(.native) }
+    if app.selectedRouteID.hasPrefix("native-") { return friendlyRouteKindLabel(.native, using: model) }
     if let modelID = app.modelRoles.first(where: { $0.id == "default" && !$0.modelID.isEmpty })?
       .modelID
     {
       return cleanModelDisplayName(modelID)
     }
-    if app.reasoningModel == "Direct account" { return friendlyRouteKindLabel(.native) }
+    if app.reasoningModel == "Direct account" { return friendlyRouteKindLabel(.native, using: model) }
     return ""
   }
 }

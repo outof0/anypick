@@ -16,13 +16,13 @@ extension View {
 
 extension DesignApp {
   /// Copy shown when an app has no working login; `nil` keeps the row clean.
-  var issue: String? {
+  @MainActor func issue(using model: MacOSDesignModel) -> String? {
     if !isAppRouteConfigured(self) {
-      return "No login chosen. Open the app to choose one."
+      return model.localized("desktop.app_detail.issue_no_login")
     }
     switch status {
     case .attention, .unavailable:
-      return "This app doesn’t have a working login."
+      return model.localized("desktop.app_detail.issue_not_working")
     case .ready, .running, .stopped:
       return nil
     }
@@ -30,15 +30,16 @@ extension DesignApp {
 }
 
 struct DesignStatusLabel: View {
+  let model: MacOSDesignModel
   let status: DesignStatus
 
   var body: some View {
     HStack(spacing: 5) {
       statusDot
-      Text(status.rawValue)
+      Text(status.localizedLabel(using: model))
         .foregroundStyle(.secondary)
     }
-    .accessibilityLabel("Status: \(status.rawValue)")
+    .accessibilityLabel("\(model.localized("desktop.common.status")): \(status.localizedLabel(using: model))")
   }
 
   @ViewBuilder
@@ -74,16 +75,28 @@ struct DesignStatusLabel: View {
 /// nearly-exhausted quota is attention, and `.red` / `.orange` are system
 /// colours rather than palette values.
 struct DesignQuotaView: View {
+  let model: MacOSDesignModel
   let window: DesignUsageWindow
   var isCompact: Bool = false
   var showsLabel: Bool = true
+  /// Antigravity-style limit row: title, "fully refresh in …" caption, % + ring.
+  var showsLimitCard: Bool = false
 
   private var remainingPercent: Int { max(0, min(100, window.remainingPercent)) }
+  private var label: String { localizedQuotaWindowLabel(window, using: model) }
 
   var body: some View {
+    if showsLimitCard {
+      limitCard
+    } else {
+      compactRow
+    }
+  }
+
+  private var compactRow: some View {
     HStack(spacing: 8) {
       if showsLabel {
-        Text(quotaWindowLabel(window))
+        Text(label)
           .foregroundStyle(.secondary)
           .lineLimit(1)
       }
@@ -99,7 +112,8 @@ struct DesignQuotaView: View {
         .frame(width: 42, alignment: .trailing)
 
       Text(
-        quotaResetFormatted(
+        localizedQuotaResetFormatted(
+          using: model,
           resetsAtMs: window.resetsAtMs,
           limitWindowSeconds: window.limitWindowSeconds
         ) ?? ""
@@ -109,7 +123,53 @@ struct DesignQuotaView: View {
       .frame(width: 72, alignment: .trailing)
     }
     .accessibilityElement(children: .combine)
-    .accessibilityLabel("\(quotaWindowLabel(window)): \(remainingPercent)% remaining")
+    .accessibilityLabel(model.localized("desktop.quota.remaining_accessibility", replacing: [
+      "label": label,
+      "percent": String(remainingPercent),
+    ]))
+  }
+
+  private var limitCard: some View {
+    HStack(alignment: .center, spacing: 12) {
+      VStack(alignment: .leading, spacing: 4) {
+        Text(label)
+          .font(.body.weight(.medium))
+          .fixedSize(horizontal: false, vertical: true)
+        if let refresh = localizedQuotaFullyRefreshFormatted(resetsAtMs: window.resetsAtMs, using: model) {
+          Text(limitCaption(refresh: refresh))
+            .font(.subheadline)
+            .foregroundStyle(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
+        }
+      }
+      Spacer(minLength: 8)
+      Text("\(remainingPercent)%")
+        .font(.title3.monospacedDigit())
+        .foregroundStyle(.primary)
+      Gauge(value: Double(remainingPercent), in: 0...100) {
+        EmptyView()
+      }
+      .gaugeStyle(.accessoryCircularCapacity)
+      .tint(attentionTint ?? Color.accentColor)
+      .frame(width: 36, height: 36)
+      .accessibilityHidden(true)
+    }
+    .accessibilityElement(children: .combine)
+    .accessibilityLabel(model.localized("desktop.quota.remaining_accessibility", replacing: [
+      "label": label,
+      "percent": String(remainingPercent),
+    ]))
+  }
+
+  private func limitCaption(refresh: String) -> String {
+    let period = localizedQuotaLimitAdjective(limitWindowSeconds: window.limitWindowSeconds, using: model)
+    if let period {
+      if remainingPercent >= 100 {
+        return model.localized("desktop.quota.limit_unused", replacing: ["period": period, "refresh": refresh])
+      }
+      return model.localized("desktop.quota.limit_used", replacing: ["period": period, "refresh": refresh])
+    }
+    return model.localized("desktop.quota.refresh_without_period", replacing: ["refresh": refresh])
   }
 
   private var attentionTint: Color? {
@@ -252,6 +312,7 @@ struct DesignEmptyState: View {
   let message: String
   let symbol: String
   var actionTitle: String?
+  var actionIdentifier: String?
   var action: (() -> Void)?
 
   var body: some View {
@@ -263,6 +324,7 @@ struct DesignEmptyState: View {
       if let actionTitle, let action {
         Button(actionTitle, action: action)
           .help(message)
+          .modifier(DesignOptionalAccessibilityIdentifier(identifier: actionIdentifier))
       }
     }
     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -276,14 +338,9 @@ struct DesignEmptyState: View {
 struct DesignCopyButton: View {
   let copied: Bool
   let label: String
+  let copiedLabel: String
   let identifier: String
   let action: () -> Void
-
-  private var copiedDescription: String {
-    label.hasPrefix("Copy ")
-      ? "Copied \(label.dropFirst("Copy ".count))"
-      : "Copied"
-  }
 
   var body: some View {
     Button(action: action) {
@@ -291,8 +348,8 @@ struct DesignCopyButton: View {
     }
     .buttonStyle(.borderless)
     .controlSize(.small)
-    .help(copied ? copiedDescription : label)
-    .accessibilityLabel(copied ? copiedDescription : label)
+    .help(copied ? copiedLabel : label)
+    .accessibilityLabel(copied ? copiedLabel : label)
     .accessibilityIdentifier(identifier)
   }
 }
@@ -420,11 +477,79 @@ struct DesignEmptyRow: View {
 }
 
 struct DesignLoadingState: View {
+  let model: MacOSDesignModel
+
   var body: some View {
-    ProgressView("Loading AnyPick…")
+    ProgressView(model.localized("desktop.sidebar.loading"))
       .controlSize(.large)
       .frame(maxWidth: .infinity, maxHeight: .infinity)
       .accessibilityIdentifier("state.loading")
+  }
+}
+
+/// Pane action row alignment against the grouped Form's cards.
+enum DesignPaneLayout {
+  /// Added on top of the default `.padding(.horizontal)` on the trailing side.
+  static let actionRowExtraTrailingInset: CGFloat = 4
+}
+
+/// Cap for a sheet's scroll area. A fixed 560pt cap made sheets with long
+/// content (Export Accounts with 9 accounts) taller than a 680pt window, and
+/// macOS did not show them at all. MainWindow sets this from its height.
+private struct DesignSheetMaxScrollHeightKey: EnvironmentKey {
+  static let defaultValue: CGFloat = 560
+}
+
+extension EnvironmentValues {
+  var designSheetMaxScrollHeight: CGFloat {
+    get { self[DesignSheetMaxScrollHeightKey.self] }
+    set { self[DesignSheetMaxScrollHeightKey.self] = newValue }
+  }
+}
+
+/// Window height minus the sheet's own chrome (title, paddings, button bar)
+/// and the window's title bar, between 160 and the old 560 cap.
+func designSheetMaxScrollHeight(windowHeight: CGFloat) -> CGFloat {
+  guard windowHeight > 0 else { return 560 }
+  return min(560, max(160, (windowHeight - 220).rounded(.down)))
+}
+
+/// Widths measured inside and around DesignSheetHost's ScrollView.
+struct DesignSheetContentWidthKey: PreferenceKey {
+  static let defaultValue: CGFloat = 0
+  static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+    value = max(value, nextValue())
+  }
+}
+
+struct DesignSheetViewportWidthKey: PreferenceKey {
+  static let defaultValue: CGFloat = 0
+  static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+    value = max(value, nextValue())
+  }
+}
+
+/// How much narrower the scrolled content is than its scroll view: the width
+/// a legacy scroll bar reserves. Rounded to whole points, ignoring sub-point
+/// noise, and capped so a bad measurement can't push the buttons far in.
+func designScrollerReserve(viewport: CGFloat, content: CGFloat) -> CGFloat {
+  guard viewport > 0, content > 0 else { return 0 }
+  let gap = (viewport - content).rounded()
+  guard gap >= 1 else { return 0 }
+  return min(gap, 24)
+}
+
+extension View {
+  /// Horizontal insets for a bottom action-button row that sits below a
+  /// grouped Form (pane action rows, sheet button bars). The grouped Form
+  /// insets its cards 4pt more than the default horizontal padding (measured
+  /// on Apps @2x: cards end at x=1919, the old row ended at 1927), so the
+  /// trailing side gets the extra 4pt and the buttons' trailing edge lands on
+  /// the cards' trailing edge. The Form keeps its system margins; only the
+  /// row moves. Use this for every such row instead of a bare padding.
+  func designActionRowInsets() -> some View {
+    padding(.horizontal)
+      .padding(.trailing, DesignPaneLayout.actionRowExtraTrailingInset)
   }
 }
 
@@ -501,7 +626,7 @@ struct DesignGroupedPane<Content: View>: View {
     if let actions {
       actions
         .frame(maxWidth: .infinity, alignment: .trailing)
-        .padding(.horizontal)
+        .designActionRowInsets()
         .padding(.vertical, 8)
     }
   }
@@ -648,6 +773,7 @@ struct DesignSheetButton: NSViewRepresentable {
 /// titlebar: the title sits inside the sheet above the content, and the
 /// actions live in a separated bottom bar rather than the window title bar.
 struct DesignSheetHost<Content: View>: View {
+  @ObservedObject var model: MacOSDesignModel
   let title: String
   var width: CGFloat = 480
   var primaryTitle: String
@@ -655,12 +781,24 @@ struct DesignSheetHost<Content: View>: View {
   var primaryIdentifier: String?
   var primaryRole: ButtonRole? = nil
   var showsCancel = true
-  var cancelTitle = "Cancel"
+  var cancelTitle: String? = nil
   var primaryHelp: String? = nil
   var cancelHelp: String? = nil
   var onCancel: () -> Void
   var onPrimary: () -> Void
   @ViewBuilder var content: () -> Content
+  /// Width a legacy (always-shown) scroll bar takes from the content. The
+  /// button bar adds it to its trailing inset so it keeps ending on the
+  /// cards' trailing edge; 0 with overlay scroll bars or no overflow.
+  @State private var scrollerReserve: CGFloat = 0
+  @Environment(\.designSheetMaxScrollHeight) private var maxScrollHeight
+  @State private var contentWidth: CGFloat = 0
+  @State private var viewportWidth: CGFloat = 0
+
+  private func updateScrollerReserve() {
+    let next = designScrollerReserve(viewport: viewportWidth, content: contentWidth)
+    if next != scrollerReserve { scrollerReserve = next }
+  }
 
   var body: some View {
     VStack(spacing: 0) {
@@ -678,13 +816,27 @@ struct DesignSheetHost<Content: View>: View {
             .frame(maxWidth: .infinity)
             .frame(maxWidth: .infinity, alignment: .topLeading)
             .fixedSize(horizontal: false, vertical: true)
+            .background(
+              GeometryReader { proxy in
+                Color.clear.preference(
+                  key: DesignSheetContentWidthKey.self, value: proxy.size.width)
+              })
         }
+        .background(
+          GeometryReader { proxy in
+            Color.clear.preference(
+              key: DesignSheetViewportWidthKey.self, value: proxy.size.width)
+          })
+        .onPreferenceChange(DesignSheetContentWidthKey.self) { contentWidth = $0 }
+        .onPreferenceChange(DesignSheetViewportWidthKey.self) { viewportWidth = $0 }
+        .onChange(of: contentWidth) { _, _ in updateScrollerReserve() }
+        .onChange(of: viewportWidth) { _, _ in updateScrollerReserve() }
         // Keep short states content-sized while retaining a cap for long
         // provider feedback. The outer scroll view owns overflow; content
         // must not force the sheet past this cap or overlap the action bar.
         .background(Color.clear)
         .scrollIndicators(.automatic)
-        .frame(maxWidth: .infinity, minHeight: 80, maxHeight: 560, alignment: .top)
+        .frame(maxWidth: .infinity, minHeight: 80, maxHeight: maxScrollHeight, alignment: .top)
       }
       .padding(.vertical)
 
@@ -694,8 +846,8 @@ struct DesignSheetHost<Content: View>: View {
         Spacer(minLength: 0)
         if showsCancel {
           DesignSheetButton(
-            title: cancelTitle,
-            help: cancelHelp ?? "Close this sheet without saving changes.",
+            title: cancelTitle ?? model.localized("desktop.common.cancel"),
+            help: cancelHelp ?? model.localized("desktop.common.cancel_help"),
             keyEquivalent: "\u{1b}",
             identifier: "sheet.cancel",
             action: onCancel
@@ -713,7 +865,9 @@ struct DesignSheetHost<Content: View>: View {
         )
         .fixedSize()
       }
-      .padding()
+      .padding(.vertical)
+      .designActionRowInsets()
+      .padding(.trailing, scrollerReserve)
     }
     .background(Color(nsColor: .windowBackgroundColor))
     .frame(minWidth: 320, idealWidth: width, maxWidth: 600)
@@ -800,14 +954,16 @@ extension View {
   /// to be marked consumed.
   func designConfirmation(
     _ pending: Binding<DesignConfirmation?>,
+    model: MacOSDesignModel,
     onDismiss: @escaping () -> Void = {}
   ) -> some View {
-    modifier(DesignConfirmationHost(pending: pending, onDismiss: onDismiss))
+    modifier(DesignConfirmationHost(pending: pending, model: model, onDismiss: onDismiss))
   }
 }
 
 private struct DesignConfirmationHost: ViewModifier {
   @Binding var pending: DesignConfirmation?
+  let model: MacOSDesignModel
   let onDismiss: () -> Void
 
   func body(content: Content) -> some View {
@@ -827,12 +983,12 @@ private struct DesignConfirmationHost: ViewModifier {
       // key to the last button, and the dismissing choice must own it.
       switch request.actions.count {
       case 0:
-        Button("Cancel", role: .cancel, action: {})
-          .help("Dismiss this confirmation.")
+        Button(model.localized("desktop.common.cancel"), role: .cancel, action: {})
+          .help(model.localized("desktop.confirm.dismiss_help"))
       case 1:
         answerButton(request.actions[0])
-        Button("Cancel", role: .cancel, action: {})
-          .help("Keep the current settings and close this confirmation.")
+        Button(model.localized("desktop.common.cancel"), role: .cancel, action: {})
+          .help(model.localized("desktop.confirm.cancel_help"))
       default:
         // Three or more answers take one full-width row each. That is the
         // platform's own rule — measured on `_NSAlertPanel`, even "No / Yes /
@@ -841,8 +997,8 @@ private struct DesignConfirmationHost: ViewModifier {
         // platform's layout, not a choice made here.
         answerButton(request.actions[0])
         answerButton(request.actions[1])
-        Button("Cancel", role: .cancel, action: {})
-          .help("Keep the current settings and close this confirmation.")
+        Button(model.localized("desktop.common.cancel"), role: .cancel, action: {})
+          .help(model.localized("desktop.confirm.cancel_help"))
       }
     } message: { request in
       Text(request.message)
@@ -851,7 +1007,7 @@ private struct DesignConfirmationHost: ViewModifier {
 
   private func answerButton(_ action: DesignConfirmation.Action) -> some View {
     Button(action.title, role: action.destructive ? .destructive : nil, action: action.perform)
-      .help(action.destructive ? "Confirm this change." : "Continue with this choice.")
+      .help(model.localized(action.destructive ? "desktop.confirm.destructive_help" : "desktop.confirm.continue_help"))
       .modifier(DesignOptionalAccessibilityIdentifier(identifier: action.identifier))
   }
 }

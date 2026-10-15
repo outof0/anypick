@@ -16,6 +16,7 @@ import (
 	"github.com/outof0/anypick/go/internal/anyerr"
 	"github.com/outof0/anypick/go/internal/config"
 	"github.com/outof0/anypick/go/internal/hub"
+	"github.com/outof0/anypick/go/internal/i18n"
 	"github.com/outof0/anypick/go/internal/lock"
 	"github.com/outof0/anypick/go/internal/profile"
 	"github.com/outof0/anypick/go/internal/provider"
@@ -507,6 +508,19 @@ func (s *Server) mutateQuotaGuard(ctx context.Context, m Mutate, result Result) 
 	return result
 }
 
+func (s *Server) mutateLanguage(ctx context.Context, m Mutate, result Result) Result {
+	if s.Deps.Config == nil {
+		return result.Fail(serviceUnavailableErr("config service"))
+	}
+	cfg, err := s.Deps.Config.SetLanguage(ctx, m.Language)
+	if err != nil {
+		return result.Fail(err)
+	}
+	i18n.SetLanguage(config.LanguageOf(cfg))
+	result.Message = i18n.T("desktop.settings.language_saved")
+	return result
+}
+
 // loginRejection is why a sign-in did not start.
 type loginRejection int
 
@@ -661,6 +675,8 @@ func (s *Server) routeMutation(ctx context.Context, payload json.RawMessage, m M
 		result = s.mutateShowQuota(ctx, m, result)
 	case "setting-quota-guard":
 		result = s.mutateQuotaGuard(ctx, m, result)
+	case "setting-language":
+		result = s.mutateLanguage(ctx, m, result)
 	default:
 		// Unknown operations must surface as structured errors, never crash
 		// or silently succeed.

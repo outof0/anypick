@@ -42,7 +42,11 @@ func newPoolTestService(t *testing.T, database *db.DB, resolver UpstreamResolver
 
 func openPoolTestDB(t *testing.T) (*db.DB, error) {
 	t.Helper()
-	return db.Open(t.TempDir())
+	database, err := db.Open(t.TempDir())
+	if err == nil {
+		t.Cleanup(func() { _ = database.Close() })
+	}
+	return database, err
 }
 
 // seedPoolAccount persists a minimal credential snapshot so the pool's primary

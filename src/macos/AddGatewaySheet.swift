@@ -48,7 +48,7 @@ struct AddGatewaySheet: View {
     _connectionState = State(initialValue: isErrorFlow ? .unavailable : .untested)
     _connectionMessage = State(
       initialValue: isErrorFlow
-        ? "endpoint unreachable: could not connect to the gateway server. Verify the endpoint URL is spelled correctly and includes https://."
+        ? model.localized("desktop.gateway.error_unreachable")
         : ""
     )
   }
@@ -76,18 +76,19 @@ struct AddGatewaySheet: View {
 
   var body: some View {
     DesignSheetHost(
-      title: "Add API Gateway",
+      model: model,
+      title: model.localized("desktop.gateway.add_title"),
       width: 456,
-      primaryTitle: "Add Gateway",
+      primaryTitle: model.localized("desktop.gateway.add_action"),
       primaryDisabled: !canSave || model.isBusy,
       primaryIdentifier: "gateway-flow.save",
-      primaryHelp: "Save this gateway with the provider details shown below.",
+      primaryHelp: model.localized("desktop.gateway.add_help"),
       onCancel: { dismiss() },
       onPrimary: save
     ) {
       Form {
           Section {
-            LabeledContent("Provider") {
+            LabeledContent(model.localized("desktop.account_detail.provider")) {
               if let inferredProvider {
                 Label {
                   Text(inferredProvider.label)
@@ -104,31 +105,32 @@ struct AddGatewaySheet: View {
                   options: providers,
                   selection: $provider,
                   accessibilityIdentifier: "gateway-flow.provider",
-                  groupsProviders: true
+                  groupsProviders: true,
+                  hostedGroupTitle: model.localized("desktop.gateway.hosted"),
+                  selfHostedGroupTitle: model.localized("desktop.gateway.self_hosted_custom")
                 )
-                .help("Choose the service that issued this gateway’s credentials.")
+                .help(model.localized("desktop.gateway.choose_provider_help"))
               }
             }
-            LabeledContent("Name") {
+            LabeledContent(model.localized("desktop.account_detail.name")) {
               TextField(
                 "", text: $gatewayName,
-                prompt: Text(usesCustomEndpoint ? "My Gateway" : "Production")
+                prompt: Text(model.localized(usesCustomEndpoint ? "desktop.gateway.name_example_custom" : "desktop.gateway.name_example"))
               )
               .labelsHidden()
               .focused($focusedField, equals: .name)
-              .help("A short label to recognize this gateway in Accounts & APIs.")
+              .help(model.localized("desktop.gateway.name_help"))
               .accessibilityIdentifier("gateway-flow.name")
             }
           } footer: {
             Text(
-              "Choose a provider to show only the fields it needs. "
-                + "This name is how the gateway appears in Accounts & APIs."
+              model.localized("desktop.gateway.provider_fields_help")
             )
           }
 
           Section {
             if requiresApiKey {
-              LabeledContent("API Key") {
+              LabeledContent(model.localized("desktop.common.api_key")) {
                 HStack(spacing: 8) {
                   Group {
                     if revealKey {
@@ -139,12 +141,12 @@ struct AddGatewaySheet: View {
                   }
                   .labelsHidden()
                   .focused($focusedField, equals: .apiKey)
-                  .help("Enter the API key issued by this provider.")
+                  .help(model.localized("desktop.gateway.enter_api_key_help"))
                   .accessibilityIdentifier("gateway-flow.api-key")
 
                   DesignIconButton(
                     symbol: revealKey ? "eye.slash" : "eye",
-                    label: revealKey ? "Hide API Key" : "Show API Key",
+                    label: model.localized(revealKey ? "desktop.gateway.hide_api_key" : "desktop.gateway.show_api_key"),
                     identifier: "gateway-flow.toggle-key-visibility"
                   ) {
                     revealKey.toggle()
@@ -152,38 +154,41 @@ struct AddGatewaySheet: View {
                 }
               }
             } else {
-              LabeledContent("Credentials") {
-                Text("Uses your Grok login session (~/.grok/auth.json).")
+              LabeledContent(model.localized("desktop.gateway.credentials")) {
+                Text(model.localized("desktop.gateway.grok_login_help"))
                   .font(.footnote)
                   .foregroundStyle(.secondary)
               }
-              LabeledContent("Setup") {
-                Text("Run: grok login")
+              LabeledContent(model.localized("desktop.gateway.setup")) {
+                Text(model.localized("desktop.gateway.grok_setup"))
                   .font(.footnote)
                   .foregroundStyle(.secondary)
               }
             }
             if requiresAccountId {
-              LabeledContent("Account ID") {
-                TextField("", text: $accountID, prompt: Text("32-character hex account id"))
+              LabeledContent(model.localized("desktop.gateway.account_id")) {
+                TextField("", text: $accountID, prompt: Text(model.localized("desktop.gateway.account_id_prompt")))
                   .labelsHidden()
                   .focused($focusedField, equals: .accountID)
                   .accessibilityIdentifier("gateway-flow.account-id")
                   .textContentType(.none)
                   .autocorrectionDisabled()
-                  .help("Enter the account ID shown in this provider’s dashboard.")
+                  .help(model.localized("desktop.gateway.account_id_help"))
               }
             }
             if selectedProvider?.requiresGatewayId == true {
-              LabeledContent("Gateway ID") {
-                TextField("", text: $gatewayID, prompt: Text("default"))
+              LabeledContent(model.localized("desktop.gateway.gateway_id")) {
+              TextField(
+                "", text: $gatewayID,
+                prompt: Text(model.localized("desktop.app_detail.default"))
+              )
                   .labelsHidden()
                   .accessibilityIdentifier("gateway-flow.gateway-id")
-                  .help("Enter the AI Gateway ID or name shown by this provider.")
+                  .help(model.localized("desktop.gateway.gateway_id_help"))
               }
             }
             if isAPIKeyAccount, !regionChoices.isEmpty {
-              LabeledContent("Region") {
+              LabeledContent(model.localized("desktop.gateway.region")) {
                 Picker(
                   "",
                   selection: Binding(
@@ -197,29 +202,29 @@ struct AddGatewaySheet: View {
                 }
                 .labelsHidden()
                 .accessibilityIdentifier("gateway-flow.region")
-                .help("Choose the region where this provider account is configured.")
+                .help(model.localized("desktop.gateway.region_help"))
               }
             } else if providerSuppliesEndpoint {
               LabeledContent(
-                "Endpoint",
-                value: suppliedEndpoint ?? "Provided by \(selectedProvider?.label ?? provider)"
+                model.localized("desktop.proxy_detail.endpoint"),
+                value: suppliedEndpoint ?? model.localized("desktop.gateway.provided_by", replacing: ["provider": selectedProvider?.label ?? provider])
               )
             } else {
-              LabeledContent("Endpoint") {
-                TextField("", text: $endpoint, prompt: Text("https://gateway.example/v1"))
+              LabeledContent(model.localized("desktop.proxy_detail.endpoint")) {
+                TextField("", text: $endpoint, prompt: Text(model.localized("desktop.gateway.endpoint_example")))
                   .labelsHidden()
                   .focused($focusedField, equals: .endpoint)
-                  .help("Enter the provider’s base URL, including https:// and any required path.")
+                  .help(model.localized("desktop.gateway.endpoint_help"))
                   .accessibilityIdentifier("gateway-flow.endpoint")
               }
             }
             if !isAPIKeyAccount {
-              LabeledContent("Connection") {
+              LabeledContent(model.localized("desktop.app_detail.connection")) {
                 connectionControl
               }
             }
           } header: {
-            Text("Credentials")
+            Text(model.localized("desktop.gateway.credentials"))
           } footer: {
             Text(connectionFooter)
           }
@@ -237,7 +242,7 @@ struct AddGatewaySheet: View {
         if ProcessInfo.processInfo.environment["ANYPICK_MACOS_FLOW"] == "add-gateway-error" {
           DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
             connectionState = .unavailable
-            connectionMessage = "endpoint unreachable: could not connect to the gateway server. Verify the endpoint URL is spelled correctly and includes https://."
+            connectionMessage = model.localized("desktop.gateway.error_unreachable")
           }
         }
       }
@@ -264,39 +269,39 @@ struct AddGatewaySheet: View {
       HStack(spacing: 6) {
         ProgressView()
           .controlSize(.small)
-          .accessibilityLabel("Testing connection")
-        Button("Test Connection", action: {})
+          .accessibilityLabel(model.localized("desktop.gateway.testing_connection"))
+        Button(model.localized("desktop.common.test_connection"), action: {})
           .buttonStyle(.bordered)
           .controlSize(.small)
-          .help("The connection test is already running.")
+          .help(model.localized("desktop.gateway.test_running_help"))
           .disabled(true)
       }
       .accessibilityIdentifier("gateway-flow.testing")
     case .available:
       HStack(spacing: 10) {
-        Label("Connected", systemImage: "checkmark.circle.fill")
+        Label(model.localized("desktop.gateway.connected"), systemImage: "checkmark.circle.fill")
           .foregroundStyle(.green)
-        Button("Test Again", action: testConnection)
+        Button(model.localized("desktop.gateway.test_again"), action: testConnection)
           .buttonStyle(.bordered)
           .controlSize(.small)
-          .help("Test again using the current provider details.")
+          .help(model.localized("desktop.gateway.test_again_help"))
       }
       .accessibilityIdentifier("gateway-flow.available")
     case .unavailable:
       HStack(spacing: 10) {
-        Label("Not Connected", systemImage: "exclamationmark.circle.fill")
+        Label(model.localized("desktop.gateway.not_connected"), systemImage: "exclamationmark.circle.fill")
           .foregroundStyle(.red)
-        Button("Try Again", action: testConnection)
+        Button(model.localized("desktop.common.try_again"), action: testConnection)
           .buttonStyle(.bordered)
           .controlSize(.small)
-          .help("Retry the connection test using the current details.")
+          .help(model.localized("desktop.gateway.retry_test_help"))
       }
       .accessibilityIdentifier("gateway-flow.unavailable")
     case .untested:
-      Button("Test Connection", action: testConnection)
+      Button(model.localized("desktop.common.test_connection"), action: testConnection)
         .buttonStyle(.bordered)
         .controlSize(.small)
-        .help("Check whether this gateway can connect with the current details.")
+        .help(model.localized("desktop.gateway.check_connection_help"))
         .disabled(
           !gatewayConnectionTestEnabled(
             requiresApiKey: requiresApiKey, apiKey: apiKey, isBusy: model.isBusy,
@@ -310,27 +315,27 @@ struct AddGatewaySheet: View {
     switch connectionState {
     case .testing:
       return resolvedEndpoint.isEmpty
-        ? "Contacting \(selectedProvider?.label ?? provider)…"
-        : "Contacting \(resolvedEndpoint)…"
+        ? model.localized("desktop.gateway.contacting_provider", replacing: ["provider": selectedProvider?.label ?? provider])
+        : model.localized("desktop.gateway.contacting_endpoint", replacing: ["endpoint": resolvedEndpoint])
     case .available:
       return connectionMessage.isEmpty
-        ? "Connected successfully. The gateway returned a live model catalog." : connectionMessage
+        ? model.localized("desktop.gateway.connected_success") : connectionMessage
     case .unavailable:
       return connectionMessage.isEmpty
-        ? "Could not connect to the gateway. Please check the endpoint URL and API key."
+        ? model.localized("desktop.gateway.could_not_connect")
         : connectionMessage
     case .untested:
       if isAPIKeyAccount {
-        return "AnyPick stores this key in the selected provider’s account store."
+        return model.localized("desktop.gateway.key_storage_help")
       }
       if requiresAccountId {
-        return "The endpoint is derived from your Account ID."
+        return model.localized("desktop.gateway.derived_endpoint_help")
       }
       if !usesCustomEndpoint {
         return
-          "\(selectedProvider?.label ?? provider) supplies the endpoint. Choose Custom to enter a different URL."
+          model.localized("desktop.gateway.provider_endpoint_help", replacing: ["provider": selectedProvider?.label ?? provider])
       }
-      return "AnyPick detects the API format automatically."
+      return model.localized("desktop.gateway.detect_format_help")
     }
   }
 
@@ -348,11 +353,11 @@ struct AddGatewaySheet: View {
       connectionState = accepted ? .available : .unavailable
       connectionMessage =
         accepted
-        ? "Connection available in the design fixture."
-        : "The design fixture rejected this API key."
+        ? model.localized("desktop.gateway.fixture_connected")
+        : model.localized("desktop.gateway.fixture_rejected_key")
     } else if !accepted {
       connectionState = .unavailable
-      connectionMessage = "AnyPick could not start the connection test."
+      connectionMessage = model.localized("desktop.gateway.test_could_not_start")
     }
   }
 

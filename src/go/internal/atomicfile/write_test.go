@@ -6,6 +6,7 @@ import (
 	"go/token"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"testing"
@@ -41,7 +42,8 @@ func TestWriteSetsModeAndLeavesNoStagingFile(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if perm := info.Mode().Perm(); perm != 0o600 {
+	if runtime.GOOS != "windows" && info.Mode().Perm() != 0o600 {
+		perm := info.Mode().Perm()
 		t.Fatalf("mode = %v, want 0600", perm)
 	}
 	leftovers, err := filepath.Glob(filepath.Join(dir, "nested", ".anypick-*"))
@@ -63,7 +65,8 @@ func TestWriteHonoursRequestedMode(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if perm := info.Mode().Perm(); perm != 0o644 {
+	if runtime.GOOS != "windows" && info.Mode().Perm() != 0o644 {
+		perm := info.Mode().Perm()
 		t.Fatalf("mode = %v, want 0644", perm)
 	}
 }
@@ -114,7 +117,7 @@ func TestNoHandRolledAtomicWrite(t *testing.T) {
 			return relErr
 		}
 		// This package owns the pattern.
-		if filepath.Dir(rel) == "internal/atomicfile" {
+		if filepath.ToSlash(filepath.Dir(rel)) == "internal/atomicfile" {
 			return nil
 		}
 		file, parseErr := parser.ParseFile(fset, path, nil, 0)

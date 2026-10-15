@@ -21,7 +21,7 @@ const nimbusConfig = defineNimbusConfig({
       // Apps is the product surface; keep it next to the intro, not in Guides.
       {
         label: "Apps & Terminal UI",
-        link: "docs/guides/terminal-ui",
+        link: "/docs/guides/terminal-ui",
       },
       "docs/guides/tray",
       "docs/concepts",
@@ -45,6 +45,20 @@ const nimbusConfig = defineNimbusConfig({
 
 export default defineConfig({
   output: "static",
+  i18n: {
+    locales: [
+      "en",
+      { path: "zh-cn", codes: ["zh-CN"] },
+      { path: "es", codes: ["es"] },
+      { path: "fr", codes: ["fr"] },
+      { path: "de", codes: ["de"] },
+      { path: "ja", codes: ["ja"] },
+      { path: "ko", codes: ["ko"] },
+      { path: "pt-br", codes: ["pt-BR"] },
+      { path: "vi", codes: ["vi"] },
+    ],
+    defaultLocale: "en",
+  },
   // Tailwind v4 via its Vite plugin (the integration Astro recommends for
   // Tailwind v4 — replaces the PostCSS plugin, which doesn't build under
   // Astro 7's Vite 8 bundler).

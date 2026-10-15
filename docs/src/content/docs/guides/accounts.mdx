@@ -204,6 +204,16 @@ yourself — Command Code receives an OpenAI-compatible `anypick-managed` provid
 in `~/.commandcode/providers.json`; its per-instance proxy token is kept in
 `~/.commandcode/auth.json`. See [Proxies](/docs/guides/proxies) if you want to.
 
+## Live usage and quota
+
+When a provider reports live usage, the macOS app shows it in the account and
+app details. Antigravity reports weekly and five-hour windows grouped by model
+family, such as **Gemini Models** and **Claude and GPT models**. AnyPick reads
+the current provider credential for this display; it does not refresh or write
+the login. Usage is available only when the provider account is active on this
+Mac. Codex Desktop keeps its own sign-in separate from Codex CLI, so AnyPick
+does not show a quota reading when those accounts do not match.
+
 ## Managing saved accounts
 
 ```bash

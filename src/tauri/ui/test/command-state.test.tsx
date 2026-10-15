@@ -248,7 +248,7 @@ describe('a copy command is spelled exactly once', () => {
  * The stylesheet is read here because jsdom never loads it.
  *
  * `@keyframes spin` was declared and `.spinner` never named it, so the
- * global "Connecting to the AnyPick service…" spinner stood still, and the
+ * global "Connecting to the service…" spinner stood still, and the
  * reduced-motion override set a duration on an animation that did not exist.
  * Nothing that renders in jsdom could have seen either.
  */

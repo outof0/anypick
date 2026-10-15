@@ -1,0 +1,40 @@
+---
+title: AnyPick 文档
+description: 将受支持的 AI 编程客户端连接到你已有的服务商账号。
+---
+
+AnyPick 为 **Claude Code** 和 **Codex** 解答一个问题：现在应该用哪个账号？你可以在原生 **Apps** 界面或终端界面中选择，AnyPick 会管理登录快照、本地代理和客户端配置。
+
+从[最新 GitHub Release](https://github.com/outof0/anypick/releases/latest)下载带校验和的 CLI 压缩包，也可以运行 `npm install --global anypick` 安装轻量启动器（需要 Node 18+；首次运行时会下载并校验对应的原生 CLI）。GitHub Releases 还提供 macOS 应用、Linux 和 Windows 桌面安装包，以及各平台 CLI 压缩包。macOS 应用尚未进行公证；首次启动方式见[安装指南](/zh-cn/docs/getting-started)。从 1.1.0 起，npm 包已取代旧的 JavaScript `anypick@1.0.x`。先阅读[开始使用](/zh-cn/docs/getting-started)，了解 macOS 应用和 CLI/TUI 流程。子命令与界面执行相同的操作，也可用于脚本和 CI。
+
+<CardGrid>
+  <Card title="开始使用" href="/zh-cn/docs/getting-started" headingLevel={2}>
+    从源码运行、打开 Apps、保存登录，并连接 Claude 或 Codex。
+  </Card>
+  <Card title="应用与终端界面" href="/zh-cn/docs/guides/terminal-ui" headingLevel={2}>
+    来源 → 模型 → 预览 → 启用，逐步了解路由构建流程。
+  </Card>
+  <Card title="macOS 应用与菜单栏" href="/zh-cn/docs/guides/tray" headingLevel={2}>
+    原生应用生命周期、内置 Go 服务、主窗口和快捷面板。
+  </Card>
+  <Card title="核心概念" href="/zh-cn/docs/concepts" headingLevel={2}>
+    客户端、来源、绑定和预设：CLI 中最重要的四个概念。
+  </Card>
+</CardGrid>
+
+## 指南
+
+<CardGrid>
+  <Card title="账户" href="/zh-cn/docs/guides/accounts">保存服务商登录，并在多个账号间切换。</Card>
+  <Card title="网关" href="/zh-cn/docs/guides/gateways">将客户端连接到兼容 OpenAI API 的端点和密钥。</Card>
+  <Card title="代理" href="/zh-cn/docs/guides/proxies">了解协议转换，以及负责代理的进程。</Card>
+  <Card title="项目绑定" href="/zh-cn/docs/guides/projects">为一个仓库指定来源，不影响全局默认值。</Card>
+  <Card title="插件" href="/zh-cn/docs/guides/plugins">登记本地插件包。原生构建不会执行插件代码。</Card>
+</CardGrid>
+
+## 参考
+
+<CardGrid>
+  <Card title="CLI 参考" href="/zh-cn/docs/reference/cli">全部命令、全局标志、退出码和环境变量。</Card>
+  <Card title="故障排查" href="/zh-cn/docs/reference/troubleshooting">查看 `doctor` 的检查项目、`--fix` 可修复内容和错误说明。</Card>
+</CardGrid>

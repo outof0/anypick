@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -112,6 +113,21 @@ func numberValue(v interface{}) float64 {
 		return n
 	case int:
 		return float64(n)
+	case int64:
+		return float64(n)
+	case json.Number:
+		f, err := n.Float64()
+		if err != nil {
+			return math.NaN()
+		}
+		return f
+	case string:
+		// Vendors sometimes encode fractions as JSON strings ("0.48").
+		f, err := strconv.ParseFloat(strings.TrimSpace(n), 64)
+		if err != nil {
+			return math.NaN()
+		}
+		return f
 	default:
 		return math.NaN()
 	}

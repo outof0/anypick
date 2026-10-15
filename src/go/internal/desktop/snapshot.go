@@ -9,6 +9,7 @@ import (
 	"github.com/outof0/anypick/go/internal/bindings"
 	"github.com/outof0/anypick/go/internal/client"
 	"github.com/outof0/anypick/go/internal/config"
+	"github.com/outof0/anypick/go/internal/i18n"
 	"github.com/outof0/anypick/go/internal/journal"
 	"github.com/outof0/anypick/go/internal/provider"
 	"github.com/outof0/anypick/go/internal/proxy"
@@ -184,16 +185,22 @@ type GatewayProviderRow struct {
 
 // Preferences is the desktop settings surface.
 type Preferences struct {
-	LaunchAtLogin       bool `json:"launchAtLogin"`
-	StartEnabledProxies bool `json:"startEnabledProxies"`
-	ShowQuota           bool `json:"showQuota"`
-	QuotaGuardEnabled   bool `json:"quotaGuardEnabled"`
+	LaunchAtLogin       bool                  `json:"launchAtLogin"`
+	StartEnabledProxies bool                  `json:"startEnabledProxies"`
+	ShowQuota           bool                  `json:"showQuota"`
+	QuotaGuardEnabled   bool                  `json:"quotaGuardEnabled"`
+	Language            string                `json:"language"`
+	ResolvedLanguage    string                `json:"resolvedLanguage"`
+	LanguageOptions     []i18n.LanguageOption `json:"languageOptions"`
 }
 
 // currentSettings reads tray preferences from the config service when wired,
 // falling back to defaults (showQuota/startEnabledProxies true).
 func (s *Server) currentSettings(ctx context.Context) Preferences {
-	prefs := Preferences{StartEnabledProxies: true, ShowQuota: true}
+	prefs := Preferences{
+		StartEnabledProxies: true, ShowQuota: true, Language: config.LanguageAuto,
+		LanguageOptions: i18n.LanguageOptions(),
+	}
 	// Login-item state is platform truth: only a wired host-state provider
 	// may report it (ADR 0020 §7). Absence reports disabled.
 	if enabled, reported := s.reportedLaunchAtLogin(); reported {
@@ -208,8 +215,10 @@ func (s *Server) currentSettings(ctx context.Context) Preferences {
 			prefs.StartEnabledProxies = p.StartEnabledProxies
 			prefs.ShowQuota = p.ShowQuota
 			prefs.QuotaGuardEnabled = p.QuotaGuardEnabled
+			prefs.Language = config.LanguageOf(cfg)
 		}
 	}
+	prefs.ResolvedLanguage = i18n.ResolvedLanguage(prefs.Language)
 	return prefs
 }
 
@@ -869,9 +878,13 @@ func (s *Server) buildSnapshot(ctx context.Context) (*Snapshot, error) {
 		Gateways:            []GatewayRow{},
 		AccountProviders:    []AccountProviderRow{},
 		GatewayProviders:    []GatewayProviderRow{},
-		Settings:            Preferences{ShowQuota: true},
-		Activity:            []map[string]any{},
-		DegradedConditions:  []DegradedCondition{},
+		Settings: Preferences{
+			ShowQuota: true, StartEnabledProxies: true, Language: config.LanguageAuto,
+			LanguageOptions:  i18n.LanguageOptions(),
+			ResolvedLanguage: i18n.ResolvedLanguage(config.LanguageAuto),
+		},
+		Activity:           []map[string]any{},
+		DegradedConditions: []DegradedCondition{},
 	}
 	b := &snapshotBuilder{
 		srv:        s,
@@ -982,6 +995,8 @@ func activityKind(e journal.Entry) string {
 	switch {
 	case strings.HasPrefix(t, "activate:"):
 		return "activation"
+	case strings.Contains(t, "account"):
+		return "account"
 	case strings.Contains(t, "gateway"):
 		return "gateway"
 	case strings.Contains(t, "proxy") || strings.Contains(t, "pool"):
@@ -1029,36 +1044,44 @@ func activityMessage(e journal.Entry) string {
 	if client != "" {
 		clientLabel = designAppName(client)
 	}
+	key := "desktop.activity.operation_in_progress"
 	switch e.State {
 	case journal.StateCommitted:
 		if clientLabel != "" && source != "" {
-			return clientLabel + " now uses " + source + "."
+			return strings.NewReplacer(
+				"{client}", clientLabel,
+				"{source}", source,
+			).Replace(i18n.T("desktop.activity.app_uses_source"))
 		}
 		if clientLabel != "" {
-			return clientLabel + " updated."
+			return strings.NewReplacer("{client}", clientLabel).Replace(i18n.T("desktop.activity.app_updated"))
 		}
-		return "Operation completed."
+		return i18n.T("desktop.activity.operation_completed")
 	case journal.StateFailed:
 		if clientLabel != "" {
-			return clientLabel + " change failed."
+			key = "desktop.activity.app_change_failed"
+			break
 		}
-		return "Operation failed."
+		return i18n.T("desktop.activity.operation_failed")
 	case journal.StateRolledBack:
 		if clientLabel != "" {
-			return clientLabel + " change was rolled back."
+			key = "desktop.activity.app_rolled_back"
+			break
 		}
-		return "Operation was rolled back."
+		return i18n.T("desktop.activity.operation_rolled_back")
 	case journal.StateRollingBack:
 		if clientLabel != "" {
-			return clientLabel + " change is rolling back."
+			key = "desktop.activity.app_rolling_back"
+			break
 		}
-		return "Operation is rolling back."
+		return i18n.T("desktop.activity.operation_rolling_back")
 	default:
 		if clientLabel != "" {
-			return clientLabel + " change in progress."
+			key = "desktop.activity.app_in_progress"
+			break
 		}
-		return "Operation in progress."
 	}
+	return strings.NewReplacer("{client}", clientLabel).Replace(i18n.T(key))
 }
 
 func splitAffected(affected []string) (client, source string) {
@@ -1193,6 +1216,9 @@ func (s *Server) buildUsage(ctx context.Context) []UsageSnapshotRow {
 			}
 			if w.LimitWindowSeconds != nil {
 				entry["limitWindowSeconds"] = *w.LimitWindowSeconds
+			}
+			if g := strings.TrimSpace(w.Group); g != "" {
+				entry["group"] = g
 			}
 			windows = append(windows, entry)
 		}

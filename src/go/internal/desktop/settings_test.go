@@ -102,6 +102,33 @@ func TestSettingLaunchAtLoginIsTypedHostEffect(t *testing.T) {
 	}
 }
 
+func TestSettingLanguagePersistsAndAppearsInSnapshot(t *testing.T) {
+	env := newTrayEnv(t)
+	var out syncedBuffer
+	srv := newWaitedServerOut(t, env.Deps, &out)
+	payload, _ := json.Marshal(Mutate{
+		Version: 1, RequestID: "language-vi", Operation: "setting-language",
+		Name: "settings", Language: "vi",
+	})
+	if err := srv.handle(context.Background(), &Command{Kind: "mutate", Payload: payload}); err != nil {
+		t.Fatal(err)
+	}
+	res := waitForResultFor(t, &out, "language-vi")
+	if res.Status != "success" {
+		t.Fatalf("language mutation: %+v", res)
+	}
+	cfg, err := env.Deps.Config.Read(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if config.LanguageOf(cfg) != "vi" {
+		t.Fatalf("persisted language = %q, want vi", config.LanguageOf(cfg))
+	}
+	if got := srv.currentSettings(context.Background()).Language; got != "vi" {
+		t.Fatalf("snapshot language = %q, want vi", got)
+	}
+}
+
 type staticHostState struct{ enabled bool }
 
 func (s staticHostState) LaunchAtLoginEnabled() bool { return s.enabled }

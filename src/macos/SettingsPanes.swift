@@ -6,34 +6,34 @@ struct SettingsGeneralPane: View {
   @ViewBuilder
   var body: some View {
     Section {
-      Toggle("Open at Login", isOn: $model.openAtLogin)
-        .help("Launch AnyPick automatically when you sign in to this Mac.")
+      Toggle(model.localized("desktop.settings.open_at_login"), isOn: $model.openAtLogin)
+        .help(model.localized("desktop.settings.open_at_login_help"))
         .disabled(model.isBusy)
         .accessibilityIdentifier("settings.open-at-login")
 
       Toggle(
-        "Start Enabled Proxies at Launch",
+        model.localized("desktop.settings.start_enabled_proxies"),
         isOn: Binding(
           get: { model.startProxiesAtLaunch },
           set: model.setStartProxiesAtLaunch
         )
       )
-      .help("Start enabled proxies on launch. Apps can start others as needed.")
+      .help(model.localized("desktop.settings.start_enabled_proxies_help"))
       .disabled(model.isBusy)
       .accessibilityIdentifier("settings.start-enabled-proxies")
     } header: {
-      Text("Startup")
+      Text(model.localized("desktop.settings.startup"))
     }
 
     Section {
-      LabeledContent("Setup Checklist") {
-        Button("Show", action: model.showGettingStartedAgain)
+      LabeledContent(model.localized("desktop.settings.setup_checklist")) {
+        Button(model.localized("desktop.settings.show"), action: model.showGettingStartedAgain)
           .accessibilityIdentifier("settings.show-getting-started")
       }
     } header: {
-      Text("Getting Started")
+      Text(model.localized("desktop.settings.getting_started"))
     } footer: {
-      Text("Show the setup checklist on Overview again.")
+      Text(model.localized("desktop.settings.setup_checklist_help"))
     }
   }
 }
@@ -44,23 +44,48 @@ struct SettingsUsagePane: View {
   @ViewBuilder
   var body: some View {
     Section {
-      Toggle("Show Usage Remaining", isOn: $model.showUsage)
-        .help("Show usage reported for the account active in its provider app.")
+      Toggle(model.localized("desktop.settings.show_usage"), isOn: $model.showUsage)
+        .help(model.localized("desktop.settings.show_usage_help"))
         .disabled(model.isBusy)
         .accessibilityIdentifier("settings.show-usage")
 
       Toggle(
-        "Skip Accounts That Reach Their Usage Limit",
+        model.localized("desktop.settings.quota_guard"),
         isOn: Binding(
           get: { model.warnBeforeLowUsage },
           set: model.setWarnBeforeLowUsage
         )
       )
       .disabled(model.isBusy)
-      .help("A confirmed limit cools that account down in proxy pools.")
+      .help(model.localized("desktop.settings.quota_guard_help"))
       .accessibilityIdentifier("settings.quota-guard")
     } header: {
-      Text("Usage")
+      Text(model.localized("desktop.settings.usage"))
+    }
+  }
+}
+
+struct SettingsLanguagePane: View {
+  @ObservedObject var model: MacOSDesignModel
+
+  var body: some View {
+    Section {
+      Picker(
+        model.localized("desktop.settings.language"),
+        selection: Binding(get: { model.selectedLanguage }, set: model.setLanguage)
+      ) {
+        ForEach(model.languageOptions) { option in
+          Text(option.value == "auto" ? model.localized("desktop.language.auto") : option.label)
+            .tag(option.value)
+        }
+      }
+      .pickerStyle(.menu)
+      .disabled(model.isBusy)
+      .accessibilityIdentifier("settings.language")
+    } header: {
+      Text(model.localized("desktop.settings.language"))
+    } footer: {
+      Text(model.localized("desktop.settings.language_detail"))
     }
   }
 }

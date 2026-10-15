@@ -84,10 +84,12 @@ same metrics in `ui/styles.css` with a named Swift counterpart beside
 each one.
 
 Settings is a regular sidebar destination and renders as one page with separate
-groups for startup and usage preferences. It contains no links to other panes
-or read-only status summaries; feature management stays in the related sidebar
-destination. Codex profiles are managed with the Codex app in Apps. The sidebar
-and native app-menu Settings… command route to that same page. It is a
+groups for startup, usage, and language preferences. Language defaults to
+Auto Detect, which follows the system locale. The selection updates app
+navigation and Settings labels as well as CLI/TUI copy. It contains no links to
+other panes or read-only status summaries; feature management stays in the related
+sidebar destination. Codex profiles are managed with the Codex app in Apps. The
+sidebar and native app-menu Settings… command route to that same page. It is a
 shell-only destination, so the engine contract remains the seven data-backed
 panes.
 

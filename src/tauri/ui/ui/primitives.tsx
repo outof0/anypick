@@ -1,5 +1,6 @@
 import { isValidElement, useCallback, useEffect, useRef, useState, type AriaAttributes, type ReactNode, type Ref } from 'react';
 
+import { detectLanguage, translate } from '../lib/i18n';
 import { STATUS_LABEL, type DesignStatus } from '../lib/model';
 import { Symbol } from '../shell/Symbol';
 
@@ -32,6 +33,8 @@ export function CopyButton({
   value,
   label,
   copy,
+  language = 'auto',
+  resolvedLanguage = 'en',
   disabled = false,
   testId,
 }: {
@@ -39,6 +42,8 @@ export function CopyButton({
   /** The help tag, and what the confirmation announces. */
   label: string;
   copy: (text: string) => Promise<boolean>;
+  language?: string;
+  resolvedLanguage?: string;
   disabled?: boolean;
   testId?: string;
 }) {
@@ -56,6 +61,8 @@ export function CopyButton({
   return (
     <IconButton
       label={label}
+      language={language}
+      resolvedLanguage={resolvedLanguage}
       phase={phase}
       confirmed={<Symbol name="checkmark" size={13} />}
       disabled={disabled || value === ''}
@@ -227,11 +234,15 @@ export function RowText({
   title,
   detail,
   issue,
+  language = 'auto',
+  resolvedLanguage = 'en',
   testId,
 }: {
   title?: ReactNode;
   detail?: ReactNode;
   issue?: ReactNode;
+  language?: string;
+  resolvedLanguage?: string;
   testId?: string;
 }) {
   return (
@@ -244,7 +255,7 @@ export function RowText({
       ) : null}
       {issue ? (
         <div className="flex items-baseline gap-1 text-[12px] leading-[1.3] text-secondary">
-          <WarningGlyph />
+          <WarningGlyph language={language} resolvedLanguage={resolvedLanguage} />
           <span>{issue}</span>
         </div>
       ) : null}
@@ -438,6 +449,8 @@ export function IconButton({
   onClick,
   label,
   phase = 'idle',
+  language = 'auto',
+  resolvedLanguage = 'en',
   disabled = false,
   ariaHasPopup,
   ariaExpanded,
@@ -454,6 +467,8 @@ export function IconButton({
    * control is a type error rather than something a review has to catch.
    */
   label: string;
+  language?: string;
+  resolvedLanguage?: string;
   phase?: IconCommandPhase;
   disabled?: boolean;
   ariaHasPopup?: AriaAttributes['aria-haspopup'];
@@ -464,7 +479,9 @@ export function IconButton({
 }) {
   const working = phase === 'working';
   const landed = phase === 'confirmed' && confirmed !== undefined;
-  const announced = landed ? CONFIRMED_LABEL : working ? `${label} — ${WORKING_LABEL}` : label;
+  const confirmedLabel = translate('desktop.common.copied', language, resolvedLanguage);
+  const workingLabel = translate('desktop.common.working', language, resolvedLanguage);
+  const announced = landed ? confirmedLabel : working ? `${label} — ${workingLabel}` : label;
   return (
     <button
       ref={buttonRef}
@@ -499,11 +516,24 @@ export function IconButton({
 }
 
 /** `DesignStatusLabel`. A 7pt dot plus the macOS label, verbatim. */
-export function StatusLabel({ status }: { status: DesignStatus }) {
+export function StatusLabel({
+  status,
+  labels,
+  language = 'en',
+  resolvedLanguage = language,
+}: {
+  status: DesignStatus;
+  labels?: Partial<Record<DesignStatus, string>>;
+  language?: string;
+  resolvedLanguage?: string;
+}) {
+  const label = labels?.[status]
+    || translate(`desktop.overview.status_${status}`, language, resolvedLanguage)
+    || STATUS_LABEL[status];
   return (
     <span className="inline-flex items-center gap-1.5 text-[12px] whitespace-nowrap text-secondary">
       <span className={`size-status-dot flex-none rounded-full ${STATUS_TONE[status]}`} aria-hidden="true" />
-      <span>{STATUS_LABEL[status]}</span>
+      <span>{label}</span>
     </span>
   );
 }
@@ -517,9 +547,19 @@ const STATUS_TONE: Record<DesignStatus, string> = {
   stopped: 'border-[1.5px] border-secondary/60 bg-transparent',
 };
 
-export function WarningGlyph() {
+export function WarningGlyph({
+  language = 'auto',
+  resolvedLanguage = 'en',
+}: {
+  language?: string;
+  resolvedLanguage?: string;
+} = {}) {
   return (
-    <span className="inline-flex items-center text-orange" role="img" aria-label="Warning">
+    <span
+      className="inline-flex items-center text-orange"
+      role="img"
+      aria-label={translate('desktop.common.warning', language, resolvedLanguage)}
+    >
       <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" focusable="false">
         <path
           d="M12 4 21 20H3L12 4z"
@@ -768,7 +808,7 @@ export function Switch({
   );
 }
 
-export function LoadingState({ label = 'Loading AnyPick…' }: { label?: string }) {
+export function LoadingState({ label = translate('desktop.main.loading', 'auto', detectLanguage()) }: { label?: string }) {
   return (
     <div
       className="flex items-center justify-center gap-2.5 px-5 py-12 text-[13px] text-secondary"

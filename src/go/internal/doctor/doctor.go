@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/outof0/anypick/go/internal/accounts"
@@ -262,15 +263,16 @@ func DiagnoseInstallation(ctx context.Context, deps InstallationDeps) Installati
 		add("database", StatusOK, "")
 	}
 
-	// Permission drift is diagnosed here and repaired by internal/doctor's
-	// fixes.go. The scan is read-only; the docs promise `doctor` inspects file
-	// permissions, and a check that never runs is a check nobody can trust.
-	if permissive, scanned := countPermissivePaths(deps.Root); !scanned {
-		add("permissions", "warn", "data root not readable; permission check skipped")
-	} else if permissive > 0 {
-		add("permissions", "warn", fmt.Sprintf("%d AnyPick-owned path(s) have overly permissive mode", permissive))
-	} else {
-		add("permissions", StatusOK, "")
+	// Windows FileMode permission bits do not describe the ACL that protects a
+	// file, so reporting or repairing them would give a false security result.
+	if runtime.GOOS != "windows" {
+		if permissive, scanned := countPermissivePaths(deps.Root); !scanned {
+			add("permissions", "warn", "data root not readable; permission check skipped")
+		} else if permissive > 0 {
+			add("permissions", "warn", fmt.Sprintf("%d AnyPick-owned path(s) have overly permissive mode", permissive))
+		} else {
+			add("permissions", StatusOK, "")
+		}
 	}
 
 	if deps.Providers != nil && deps.Accounts != nil {
@@ -430,7 +432,7 @@ func DiagnoseInstallation(ctx context.Context, deps InstallationDeps) Installati
 // other has any access at all. The repair consumes this same list, so the
 // fixed scope can never exceed the reported scope.
 func permissivePaths(root string) []string {
-	if root == "" {
+	if root == "" || runtime.GOOS == "windows" {
 		return nil
 	}
 	if _, err := os.Stat(root); err != nil {

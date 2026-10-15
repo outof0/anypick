@@ -6,6 +6,7 @@ package plugins
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
 	"os"
@@ -15,6 +16,7 @@ import (
 	"strings"
 
 	"github.com/outof0/anypick/go/internal/anyerr"
+	"github.com/outof0/anypick/go/internal/safepath"
 )
 
 const (
@@ -178,9 +180,21 @@ func ReadManifest(root string) (Manifest, error) {
 // deliberately the same lexical containment boundary as Node's path.resolve /
 // path.relative check; the package digest separately pins symlink targets.
 func ResolveEntry(root, main string) (string, error) {
-	if filepath.IsAbs(main) {
+	if err := safepath.ValidateKey(main); err != nil {
+		if errors.Is(err, safepath.ErrEmpty) || errors.Is(err, safepath.ErrBadName) {
+			return "", invalid("Plugin entry contains no usable name.")
+		}
+		if errors.Is(err, safepath.ErrReserved) {
+			return "", invalid("Plugin entry uses a Windows reserved name.")
+		}
+		if filepath.IsAbs(main) || filepath.VolumeName(main) != "" || strings.ContainsAny(main[:1], `/\\`) ||
+			(len(main) >= 2 && main[1] == ':') {
+			return "", invalid(fmt.Sprintf(
+				`Plugin entry %q must be a path relative to the plugin directory.`, main,
+			))
+		}
 		return "", invalid(fmt.Sprintf(
-			`Plugin entry %q must be a path relative to the plugin directory.`, main,
+			`Plugin entry %q resolves outside the plugin directory.`, main,
 		))
 	}
 	absRoot, err := filepath.Abs(root)
@@ -189,7 +203,7 @@ func ResolveEntry(root, main string) (string, error) {
 	}
 	entry := filepath.Clean(filepath.Join(absRoot, main))
 	rel, err := filepath.Rel(absRoot, entry)
-	if err != nil || strings.HasPrefix(rel, "..") || filepath.IsAbs(rel) {
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) || filepath.IsAbs(rel) {
 		return "", invalid(fmt.Sprintf(
 			`Plugin entry %q resolves outside the plugin directory.`, main,
 		))

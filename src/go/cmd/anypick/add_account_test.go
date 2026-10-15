@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/outof0/anypick/go/internal/anyerr"
+	"github.com/outof0/anypick/go/internal/testexec"
 )
 
 // The onboarding docs are the canonical CLI contract (README, getting-started):
@@ -248,18 +249,13 @@ func TestAddAccountNewPerformsFreshLogin(t *testing.T) {
 	isolateEnv(t)
 	clearGlobalsForParity()
 	defer resetGlobals()()
+	launcher := testexec.Build(t)
 	// Scrub PATH so a host-installed launcher cannot escape the fake.
 	t.Setenv("PATH", t.TempDir())
 
 	authPath := filepath.Join(os.Getenv("HOME"), ".grok", "auth.json")
 	t.Setenv("GROK_AUTH_PATH", authPath)
-	launcher := filepath.Join(t.TempDir(), "fake-grok-login.sh")
-	// Absolute tool paths: PATH is scrubbed below so a host-installed
-	// launcher cannot escape the fake, which also hides mkdir/dirname.
-	body := `/bin/mkdir -p "$(/usr/bin/dirname "` + authPath + `")" && /usr/bin/printf '%s' '{"s1":{"email":"fresh@example.com","access_token":"tok-fresh"}}' > "` + authPath + `"` + "\n"
-	if err := os.WriteFile(launcher, []byte("#!/bin/sh\n"+body), 0o755); err != nil {
-		t.Fatal(err)
-	}
+	testexec.SetWrite(t, authPath, `{"s1":{"email":"fresh@example.com","access_token":"tok-fresh"}}`)
 	t.Setenv("GROK_BINARY", launcher)
 
 	runAdd := func(args ...string) int {

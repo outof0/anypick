@@ -1,4 +1,5 @@
 import type { Snapshot } from '../lib/contract';
+import { translate } from '../lib/i18n';
 import { IconButton } from '../ui/primitives';
 import { Symbol } from './Symbol';
 
@@ -35,12 +36,17 @@ export function Toolbar({
   busy: ReadonlySet<string>;
   onBack?: () => void;
 }) {
+  const language = snapshot?.settings?.language ?? 'auto';
+  const resolvedLanguage = snapshot?.settings?.resolvedLanguage ?? 'en';
+  const t = (key: string) => translate(`desktop.${key}`, language, resolvedLanguage);
   return (
     <header className="flex min-h-11 items-center justify-between gap-4 bg-transparent px-5 pt-2.5 pb-1.5">
       <div className="flex min-w-0 flex-1 items-center gap-2">
         {onBack ? (
           <IconButton
-            label="Back"
+            label={t('common.back')}
+            language={language}
+            resolvedLanguage={resolvedLanguage}
             testId="toolbar-back"
             onClick={onBack}
           >
@@ -56,7 +62,7 @@ export function Toolbar({
           <label className="relative flex h-[22px] w-45 items-center gap-1.5 rounded-control border border-transparent bg-text/6 px-[7px] text-tertiary focus-within:border-accent focus-within:bg-group">
             {/* The label is spoken, not drawn. Without it the placeholder is
                 the only name and a screen reader reads a bare "edit". */}
-            <span className="sr-only">Search {title}</span>
+            <span className="sr-only">{`${t('common.search')} ${title}`}</span>
             <span className="flex-none text-tertiary" aria-hidden="true">
               <Symbol name="magnifyingglass" size={11} />
             </span>
@@ -65,7 +71,7 @@ export function Toolbar({
               type="search"
               value={query}
               onChange={(event) => onQuery(event.target.value)}
-              placeholder={`Search ${title}`}
+              placeholder={t('common.search')}
               data-testid="toolbar-search"
             />
             {query ? (
@@ -73,8 +79,8 @@ export function Toolbar({
                 type="button"
                 className="flex-none cursor-default text-tertiary hover:text-text"
                 onClick={() => onQuery('')}
-                aria-label="Clear search"
-                title="Clear the search text"
+                aria-label={t('common.clear_search')}
+                title={t('common.clear_search')}
               >
                 <Symbol name="xmark.circle" size={11} />
               </button>
@@ -82,7 +88,9 @@ export function Toolbar({
           </label>
         ) : null}
         <IconButton
-          label="Refresh"
+          label={t('common.refresh')}
+          language={language}
+          resolvedLanguage={resolvedLanguage}
           testId="toolbar-refresh"
           onClick={onRefresh}
           disabled={!snapshot || busy.size > 0}

@@ -6,16 +6,20 @@ Conventional Commits by `changelogithub`, are on
 
 This project follows [Semantic Versioning](https://semver.org/).
 
+## 1.1.1
+
+Fix backup import compatibility and path safety; add update checks, improve quota reporting and macOS settings, and stabilize cross-platform releases.
+
 ## 1.1.0
 
 First native release. **The project is now AnyPick**: it was `hotplug` up to
 1.0.0. Commands use `anypick`, and the data directory is `~/.anypick`.
 
 ### Added
-- Linux (AppImage, deb, rpm) and Windows (MSI, NSIS) desktop installers from
-  the shared Go engine (ADR 0020). Each desktop payload is smoke-tested on its
-  own OS before it is staged. The macOS desktop app remains deferred until
-  signing and notarization are configured.
+- macOS (universal app, ad-hoc signed and not notarized), Linux (AppImage, deb,
+  rpm) and Windows (MSI, NSIS) desktop installers, all from the shared Go
+  engine (ADR 0020). Each Linux and Windows desktop payload is smoke-tested on
+  its own OS before it is staged.
 - Native CLI and terminal UI archives for macOS Intel/Apple Silicon, Linux
   x64/arm64 and Windows x64/arm64, with build provenance attestations and an
   SBOM attached to the release.

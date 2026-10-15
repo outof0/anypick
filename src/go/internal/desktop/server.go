@@ -222,18 +222,26 @@ func New(deps Deps, in io.Reader, out io.Writer) *Server {
 }
 
 // recordClientConfigIssue publishes one client whose config AnyPick could not
-// restore or take over. The detail is the engine's own refusal text, run
-// through the same display rule as every other message that reaches the app.
+// restore or take over. The engine's refusal text is filtered before it
+// crosses the desktop boundary; a path that resembles a credential gets a
+// stable summary instead of hiding the useful warning behind the safety text.
 func (s *Server) recordClientConfigIssue(clientID string, err error) {
 	if clientID == "" || err == nil {
 		return
 	}
+	detail := displaySafeMessage(
+		err.Error() + " AnyPick did not change it; confirm the takeover to manage it.")
+	if detail == unsafeDisplayFallback && isForeignConfigRefusal(err) {
+		detail = fmt.Sprintf(
+			"%s config contains settings not managed by AnyPick. AnyPick did not change it; confirm the takeover to manage it.",
+			clientID,
+		)
+	}
 	condition := DegradedCondition{
-		ID:    "client-config:" + clientID,
-		Kind:  "client-config",
-		Title: "AnyPick left " + clientID + " config untouched",
-		Detail: displaySafeMessage(
-			err.Error() + " AnyPick did not change it; confirm the takeover to manage it."),
+		ID:     "client-config:" + clientID,
+		Kind:   "client-config",
+		Title:  "AnyPick left " + clientID + " config untouched",
+		Detail: detail,
 	}
 	s.clientConfigMu.Lock()
 	defer s.clientConfigMu.Unlock()
@@ -1569,12 +1577,7 @@ func (s *Server) handle(ctx context.Context, cmd *Command) error {
 		}
 		preview, err := s.inspections.Inspect(p.RequestID, p.Path)
 		if err != nil {
-			reason := inspectionFailureReason(err)
-			s.write(FrameBackupPreview(BackupPreviewResult{
-				Version: ProtocolVersion, RequestID: p.RequestID, Status: "error",
-				Error: "inspection-failed", Code: "BACKUP_INSPECT_FAILED", Reason: reason,
-				Message: inspectionFailureMessage(reason),
-			}))
+			s.write(FrameBackupPreview(inspectionFailure(p.RequestID, err)))
 			return nil
 		}
 		// The native app drops previews whose requestId does not match the

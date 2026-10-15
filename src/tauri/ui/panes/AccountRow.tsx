@@ -26,6 +26,10 @@ import { Button, RowActions, RowText } from '../ui/primitives';
  */
 export function AccountRowGrid({
   row,
+  t,
+  tr,
+  language,
+  resolvedLanguage,
   service,
   paused,
   revision,
@@ -34,6 +38,10 @@ export function AccountRowGrid({
   onDetails,
 }: {
   row: AccountRowView;
+  t: (key: string) => string;
+  tr: (source: string) => string;
+  language: string;
+  resolvedLanguage: string;
   service: ServicePort;
   paused: boolean;
   revision: number;
@@ -62,8 +70,10 @@ export function AccountRowGrid({
       <ProviderIcon provider={row.providerId} size={26} className="mr-1" />
       <RowText
         title={row.label}
-        detail={accountRowSubtitle(row)}
-        issue={issue}
+        detail={tr(accountRowSubtitle(row))}
+        issue={issue ? tr(issue) : undefined}
+        language={language}
+        resolvedLanguage={resolvedLanguage}
       />
       <RowActions>
         {/* Column 1 — the primary command. */}
@@ -73,10 +83,10 @@ export function AccountRowGrid({
               kind="secondary"
               disabled={paused || (!isGateway && !row.switchActionId)}
               testId={`${isGateway ? 'accounts.connect' : 'accounts.switch'}.${row.id}`}
-              ariaLabel={`${isGateway ? 'Connect to' : 'Switch to'} ${row.label}`}
+              ariaLabel={`${isGateway ? t('connect') : t('switch_account')}: ${row.label}`}
               onClick={isGateway ? onDetails : switchTo}
             >
-              {isGateway ? 'Connect' : 'Switch'}
+              {isGateway ? t('connect') : t('switch_account')}
             </Button>
           ) : null}
         </ReservedColumn>
@@ -84,7 +94,7 @@ export function AccountRowGrid({
         {/* Column 2 — the row's state. */}
         <ReservedColumn width={COLUMN_WIDTH.status}>
           {row.active ? (
-            <span className="text-green" role="img" aria-label="Current">
+            <span className="text-green" role="img" aria-label={t('current')}>
               <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true" focusable="false">
                 <circle cx="12" cy="12" r="9" fill="currentColor" opacity="0.18" />
                 <path
@@ -102,7 +112,12 @@ export function AccountRowGrid({
 
         {/* Column 3 — the row's other commands. */}
         <ReservedColumn width={COLUMN_WIDTH.menu}>
-          <RowMenu label={`More actions for ${row.label}`} testId={`accounts.more.${row.id}`}>
+          <RowMenu
+            label={t('more_actions_for').replace('{name}', row.label)}
+            language={language}
+            resolvedLanguage={resolvedLanguage}
+            testId={`accounts.more.${row.id}`}
+          >
             {(close) => (
               <>
                 <MenuItem
@@ -111,7 +126,7 @@ export function AccountRowGrid({
                     onDetails();
                   }}
                 >
-                  Show Details
+                  {t('show_details')}
                 </MenuItem>
                 {isGateway ? (
                   <MenuItem
@@ -121,7 +136,7 @@ export function AccountRowGrid({
                       onDetails();
                     }}
                   >
-                    Connect
+                    {t('connect')}
                   </MenuItem>
                 ) : null}
                 {!isGateway && !row.active ? (
@@ -132,7 +147,7 @@ export function AccountRowGrid({
                       switchTo();
                     }}
                   >
-                    Switch to Account
+                    {t('switch_account')}
                   </MenuItem>
                 ) : null}
                 <MenuItem
@@ -142,7 +157,7 @@ export function AccountRowGrid({
                     onEdit();
                   }}
                 >
-                  Edit…
+                  {t('edit')}
                 </MenuItem>
                 <MenuItem
                   disabled={paused || !row.canRefresh}
@@ -151,7 +166,7 @@ export function AccountRowGrid({
                     test();
                   }}
                 >
-                  {isGateway ? 'Test Connection' : 'Refresh Login'}
+                  {t(isGateway ? 'test_connection' : 'refresh_login')}
                 </MenuItem>
                 <MenuDivider />
                 <MenuItem
@@ -162,7 +177,7 @@ export function AccountRowGrid({
                     onRemove();
                   }}
                 >
-                  Remove…
+                  {t('remove_action')}
                 </MenuItem>
               </>
             )}
@@ -175,8 +190,8 @@ export function AccountRowGrid({
           <button
             type="button"
             className="flex size-full cursor-default items-center justify-center border-0 bg-transparent p-0 text-tertiary hover:bg-hover"
-            aria-label={`Show details for ${row.label}`}
-            title={`Show details for ${row.label}`}
+            aria-label={t('show_details_for').replace('{name}', row.label)}
+            title={t('show_details_for').replace('{name}', row.label)}
             data-testid={`accounts.detail-${row.id}`}
             onClick={onDetails}
           >

@@ -8,10 +8,10 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"unicode"
 
 	"github.com/outof0/anypick/go/internal/anyerr"
 	"github.com/outof0/anypick/go/internal/paths"
+	"github.com/outof0/anypick/go/internal/safepath"
 )
 
 func quote(s string) string {
@@ -29,21 +29,16 @@ func stagedFilePath(stagingRoot, relKey string) (string, error) {
 	abs := filepath.Join(stagingRoot, normalized)
 	rel, err := filepath.Rel(stagingRoot, abs)
 	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) || filepath.IsAbs(rel) {
-		return "", anyerr.Newf(
-			"Import file path escapes the staging root: "+relKey+".", "IMPORT_FORMAT")
+		return "", refusedImportPath(relKey, safepath.ErrNotLocal)
 	}
 	return abs, nil
 }
 
+// validateImportFileKey applies the shared path-key rules (safepath) to an
+// import or restore key; stagedFilePath keeps the folder check as a backstop.
 func validateImportFileKey(key string) error {
-	if key == "" || strings.ContainsRune(key, 0) {
-		return anyerr.Newf("Invalid import file path: "+quote(key)+".", "IMPORT_FORMAT")
-	}
-	if filepath.IsAbs(key) {
-		return anyerr.Newf("Import file path must be relative: "+key+".", "IMPORT_FORMAT")
-	}
-	if isWindowsAbsolute(key) {
-		return anyerr.Newf("Import file path must be relative: "+key+".", "IMPORT_FORMAT")
+	if err := safepath.ValidateKey(key); err != nil {
+		return refusedImportPath(key, err)
 	}
 	if strings.Contains(key, "\\") && strings.Contains(key, "/") {
 		return anyerr.Newf("Import file path mixes path separators: "+key+".", "IMPORT_FORMAT")
@@ -51,16 +46,11 @@ func validateImportFileKey(key string) error {
 	return nil
 }
 
-// isWindowsAbsolute rejects drive letters / UNC on every host, since
-// filepath.IsAbs only recognizes the current platform's form.
-func isWindowsAbsolute(key string) bool {
-	if len(key) >= 3 && isLetter(key[0]) && key[1] == ':' && (key[2] == '\\' || key[2] == '/') {
-		return true
-	}
-	return strings.HasPrefix(key, "\\\\")
+// refusedImportPath is the user-facing copy for a refused import key.
+func refusedImportPath(key string, cause error) error {
+	return anyerr.Newf(safepath.ImportRefusalMessage(key, cause), "IMPORT_FORMAT",
+		anyerr.WithDetails(map[string]any{"reason": "unsafe-path"}))
 }
-
-func isLetter(b byte) bool { return unicode.IsUpper(rune(b)) || unicode.IsLower(rune(b)) }
 
 // IngestSnapshotDir replaces this account's BLOB rows with the directory
 // contents. Caller runs inside a transaction.

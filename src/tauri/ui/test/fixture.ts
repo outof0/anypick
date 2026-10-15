@@ -207,6 +207,20 @@ export function snapshotFixture(overrides: Partial<Snapshot> = {}): Snapshot {
       startEnabledProxies: true,
       showQuota: true,
       quotaGuardEnabled: false,
+      language: 'auto',
+      resolvedLanguage: 'en',
+      languageOptions: [
+        { value: 'auto', label: 'Auto Detect' },
+        { value: 'en', label: 'English' },
+        { value: 'zh-CN', label: '简体中文' },
+        { value: 'es', label: 'Español' },
+        { value: 'fr', label: 'Français' },
+        { value: 'de', label: 'Deutsch' },
+        { value: 'ja', label: '日本語' },
+        { value: 'ko', label: '한국어' },
+        { value: 'pt-BR', label: 'Português (Brasil)' },
+        { value: 'vi', label: 'Tiếng Việt' },
+      ],
     },
     activity: [
       {

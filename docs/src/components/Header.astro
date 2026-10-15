@@ -4,8 +4,10 @@ import { Button } from "./ui/button";
 import { LinkButton } from "./ui/link-button";
 import { ThemeToggle } from "./ui/theme-toggle";
 import { SearchTrigger } from "./ui/search";
+import LanguageSwitcher from "./LanguageSwitcher.astro";
 import { config } from "virtual:nimbus/config";
 import { getSidebarSections } from "nimbus-docs";
+import { getTranslator, localeForPath, localePrefix, localizedPath, type Locale } from "@/i18n";
 
 interface Props {
   /** Astro collection id for the current page, forwarded from DocsLayout. */
@@ -19,61 +21,76 @@ interface Props {
    */
   showSidebar?: boolean;
   appearance?: "docs" | "landing";
+  locale?: Locale;
 }
 
 // `entryId` is part of Props as a forward-compat hook (the version-switcher
 // recipe reads it) but the base Header doesn't use it — leave it off the
 // destructure to avoid an unused-var warning.
 const { collection, showSidebar = true, appearance = "docs" } = Astro.props;
+const locale = Astro.props.locale ?? localeForPath(Astro.url.pathname);
+const t = await getTranslator(locale);
 
 // Normalize trailing slash so isActive matches sidebar hrefs.
 const currentSlug = Astro.url.pathname.replace(/\/$/, "") || "/";
-const sections = await getSidebarSections(currentSlug, { collection });
+const prefix = localePrefix(locale);
+const sourceSlug = prefix && (currentSlug === prefix || currentSlug.startsWith(`${prefix}/`))
+  ? currentSlug.slice(prefix.length) || "/"
+  : currentSlug;
+const sourceSections = await getSidebarSections(sourceSlug, { collection });
+const sections = sourceSections.map((section) => ({
+  ...section,
+  href: localizedPath(locale, section.href),
+}));
 const showSections = sections.length >= 2;
 const starBadgeUrl = "https://img.shields.io/github/stars/outof0/anypick?style=flat&logo=github&label=stars";
 
 // The docs live under /docs, so the landing page needs a way in. When the
 // sidebar has enough top-level sections to derive its own nav, that wins.
-const docsIsActive = currentSlug === "/docs" || currentSlug.startsWith("/docs/");
+const homeHref = localizedPath(locale, "/");
+const docsHref = localizedPath(locale, "/docs");
+const gettingStartedHref = localizedPath(locale, "/docs/getting-started");
+const docsIsActive = currentSlug === docsHref || currentSlug.startsWith(`${docsHref}/`);
 ---
 
 {appearance === "landing" ? (
   <header class="sticky top-0 z-30 border-b border-white/10 bg-[#0B0F19]/82 backdrop-blur-xl">
     <div class="mx-auto flex h-16 w-full max-w-7xl items-center justify-between px-5 sm:px-8">
       <a
-        href="/"
-        aria-label={`${config.title} home`}
+        href={homeHref}
+        aria-label={t("header.home", { title: config.title })}
         class="rounded-md no-underline outline-none focus-visible:ring-2 focus-visible:ring-[#A78BFA] focus-visible:ring-offset-4 focus-visible:ring-offset-[#0B0F19]"
       >
         <img src="/logo-dark.svg" alt={config.title} width="98" height="20" />
       </a>
 
-      <nav aria-label="Primary" class="flex items-center gap-1 sm:gap-2">
+      <nav aria-label={t("header.primaryNavigation")} class="flex items-center gap-1 sm:gap-2">
         <a
-          href="/docs"
+          href={docsHref}
           class="rounded-lg px-3 py-2 text-sm font-medium text-[#98A2B3] no-underline transition-colors hover:bg-white/5 hover:text-[#F8FAFC] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#A78BFA]"
         >
-          Docs
+          {t("header.docs")}
         </a>
         {config.github && (
           <a
             href={config.github}
             target="_blank"
             rel="noopener"
-            aria-label="★ Star on GitHub"
+            aria-label={`★ ${t("header.starOnGitHub")}`}
             class="header-star rounded-lg px-2 py-1.5 text-[#D6D9E0] no-underline transition-colors hover:bg-white/5 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#A78BFA]"
           >
-            <span class="header-star-short">★ Star</span>
-            <span class="header-star-long">★ Star on GitHub</span>
+            <span class="header-star-short">★ {t("header.starShort")}</span>
+            <span class="header-star-long">★ {t("header.starOnGitHub")}</span>
             <img src={starBadgeUrl} alt="GitHub stars" width="72" height="20" />
           </a>
         )}
         <a
-          href="/docs/getting-started"
+          href={gettingStartedHref}
           class="ml-1 rounded-lg bg-[#7C3AED] px-3.5 py-2 text-sm font-semibold text-white no-underline shadow-lg shadow-[#7C3AED]/20 transition-colors hover:bg-[#8B5CF6] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C4B5FD] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0B0F19]"
         >
-          Get started
+          {t("header.getStarted")}
         </a>
+        <LanguageSwitcher locale={locale} pathname={currentSlug} label={t("header.language")} appearance="landing" />
       </nav>
     </div>
   </header>
@@ -87,13 +104,13 @@ const docsIsActive = currentSlug === "/docs" || currentSlug.startsWith("/docs/")
             shape="square"
             size="sm"
             icon="ph:list"
-            aria-label="Open navigation"
+            aria-label={t("header.openNavigation")}
             data-menu-btn
             class="text-muted-foreground lg:hidden"
           />
         )}
 
-        <a href="/" class="group flex items-center gap-2 no-underline">
+        <a href={homeHref} class="group flex items-center gap-2 no-underline">
           <img src="/favicon.svg" alt="" width="20" height="20" class="shrink-0" />
           <span class="text-sm font-semibold text-foreground transition-colors group-hover:text-primary">
             {config.title}
@@ -101,9 +118,9 @@ const docsIsActive = currentSlug === "/docs" || currentSlug.startsWith("/docs/")
         </a>
 
         {!showSections && (
-          <nav aria-label="Sections" class="ml-4 hidden h-6 items-center gap-1 border-l border-border pl-4 md:flex">
+          <nav aria-label={t("header.sectionsNavigation")} class="ml-4 hidden h-6 items-center gap-1 border-l border-border pl-4 md:flex">
             <a
-              href="/docs"
+              href={docsHref}
               aria-current={docsIsActive ? "page" : undefined}
               class:list={[
                 "rounded-md px-2 py-1 text-[0.8125rem] font-medium no-underline transition-colors",
@@ -112,13 +129,13 @@ const docsIsActive = currentSlug === "/docs" || currentSlug.startsWith("/docs/")
                   : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
               ]}
             >
-              Docs
+              {t("header.docs")}
             </a>
           </nav>
         )}
 
         {showSections && (
-          <nav aria-label="Sections" class="ml-4 hidden h-6 items-center gap-1 border-l border-border pl-4 md:flex">
+          <nav aria-label={t("header.sectionsNavigation")} class="ml-4 hidden h-6 items-center gap-1 border-l border-border pl-4 md:flex">
             {sections.map((section) => (
               <a
                 href={section.href}
@@ -139,6 +156,7 @@ const docsIsActive = currentSlug === "/docs" || currentSlug.startsWith("/docs/")
 
       <div class="flex items-center gap-2">
         {config.search !== false && <SearchTrigger />}
+        <LanguageSwitcher locale={locale} pathname={currentSlug} label={t("header.language")} />
         {config.github && (
           <LinkButton
             href={config.github}

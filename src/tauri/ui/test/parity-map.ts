@@ -301,7 +301,23 @@ export const PARITY: ParityRow[] = [
   { macos: 'settings.start-enabled-proxies', tauri: 'setting-{x}', status: 'done' },
   { macos: 'settings.show-usage', tauri: 'setting-{x}', status: 'done' },
   { macos: 'settings.quota-guard', tauri: 'setting-{x}', status: 'done' },
+  { macos: 'settings.language', tauri: 'settings.language', status: 'done' },
   { macos: 'settings.show-getting-started', tauri: 'settings.show-getting-started', status: 'done' },
+  // This release's update surface is macOS-only. Tauri has no updater
+  // endpoint/signing key configured; Windows and Linux use their package
+  // managers or the GitHub Release assets.
+  { macos: 'settings.updates.changelog', tauri: '', status: 'skip', reason: 'The Tauri updater endpoint and signing key are not configured; Windows and Linux use package managers or GitHub Release assets.' },
+  { macos: 'settings.updates.check', tauri: '', status: 'skip', reason: 'The Tauri updater endpoint and signing key are not configured; Windows and Linux use package managers or GitHub Release assets.' },
+  { macos: 'settings.updates.command', tauri: '', status: 'skip', reason: 'The Tauri updater endpoint and signing key are not configured; Windows and Linux use package managers or GitHub Release assets.' },
+  { macos: 'settings.updates.copy-command', tauri: '', status: 'skip', reason: 'The Tauri updater endpoint and signing key are not configured; Windows and Linux use package managers or GitHub Release assets.' },
+  { macos: 'settings.updates.current', tauri: '', status: 'skip', reason: 'The Tauri updater endpoint and signing key are not configured; Windows and Linux use package managers or GitHub Release assets.' },
+  { macos: 'settings.updates.download', tauri: '', status: 'skip', reason: 'The Tauri updater endpoint and signing key are not configured; Windows and Linux use package managers or GitHub Release assets.' },
+  { macos: 'settings.updates.latest', tauri: '', status: 'skip', reason: 'The Tauri updater endpoint and signing key are not configured; Windows and Linux use package managers or GitHub Release assets.' },
+  { macos: 'settings.updates.message', tauri: '', status: 'skip', reason: 'The Tauri updater endpoint and signing key are not configured; Windows and Linux use package managers or GitHub Release assets.' },
+  { macos: 'settings.updates.progress', tauri: '', status: 'skip', reason: 'The Tauri updater endpoint and signing key are not configured; Windows and Linux use package managers or GitHub Release assets.' },
+  { macos: 'settings.updates.retry', tauri: '', status: 'skip', reason: 'The Tauri updater endpoint and signing key are not configured; Windows and Linux use package managers or GitHub Release assets.' },
+  { macos: 'settings.updates.reveal', tauri: '', status: 'skip', reason: 'The Tauri updater endpoint and signing key are not configured; Windows and Linux use package managers or GitHub Release assets.' },
+  { macos: 'settings.updates.view-on-github', tauri: '', status: 'skip', reason: 'The Tauri updater endpoint and signing key are not configured; Windows and Linux use package managers or GitHub Release assets.' },
 
   // ── Menu bar ───────────────────────────────────────────────────────────────
   {

@@ -27,6 +27,7 @@ extension TrayStore {
       defaultModel: nil,
       overwrite: overwrite,
       enabled: nil,
+      language: nil,
       kind: nil,
       profile: nil,
       transportPolicy: nil

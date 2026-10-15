@@ -14,6 +14,7 @@ import {
   gatewayConnectRoutes,
   gatewayFromSource,
   importBackup,
+  languageChange,
   loginAccount,
   missingCodexProfileSources,
   refreshGateway,
@@ -247,6 +248,13 @@ describe('desktop actions', () => {
     expect(settingChange('setting-show-quota', false)).toEqual({
       operation: 'setting-show-quota',
       extra: { name: 'settings', enabled: false },
+    });
+  });
+
+  it('sends a language preference with the settings sentinel', () => {
+    expect(languageChange('vi')).toEqual({
+      operation: 'setting-language',
+      extra: { name: 'settings', language: 'vi' },
     });
   });
 

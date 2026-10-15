@@ -10,6 +10,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -181,6 +182,9 @@ func TestDeleteTempOverlayRefusesTargetOutsideTemp(t *testing.T) {
 }
 
 func TestRepairPermissionsAppliesAndRefusesOutsideRoot(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Windows ACLs are not represented by POSIX mode bits")
+	}
 	f := newFixture(t)
 	looseFile := f.write(t, "providers/grok/accounts/work/meta.json", 0o644)
 	looseDir := filepath.Join(f.root, "providers", "grok", "accounts", "work")
@@ -226,6 +230,9 @@ func TestRepairPermissionsAppliesAndRefusesOutsideRoot(t *testing.T) {
 }
 
 func TestRepairPermissionsSkipsSymlinkOutsideRoot(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Windows ACLs are not represented by POSIX mode bits")
+	}
 	f := newFixture(t)
 	outside := filepath.Join(t.TempDir(), "secret")
 	if err := os.WriteFile(outside, []byte("s"), 0o644); err != nil {

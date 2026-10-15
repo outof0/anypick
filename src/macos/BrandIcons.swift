@@ -46,6 +46,8 @@ struct DesignProviderPicker: NSViewRepresentable {
   var iconSize: CGFloat = 16
   var accessibilityIdentifier = "account-flow.provider"
   var groupsProviders = false
+  var hostedGroupTitle = "Hosted"
+  var selfHostedGroupTitle = "Self-Hosted & Custom"
 
   func makeCoordinator() -> Coordinator {
     Coordinator(selection: $selection)
@@ -69,7 +71,7 @@ struct DesignProviderPicker: NSViewRepresentable {
     let dark = button.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
     if groupsProviders {
       appendGroup(
-        title: "Hosted",
+        title: hostedGroupTitle,
         options: options.filter { $0.kind != "custom" },
         to: button,
         dark: dark
@@ -77,7 +79,7 @@ struct DesignProviderPicker: NSViewRepresentable {
       let custom = options.filter { $0.kind == "custom" }
       if !custom.isEmpty {
         if button.numberOfItems > 0 { button.menu?.addItem(.separator()) }
-        appendGroup(title: "Self-Hosted & Custom", options: custom, to: button, dark: dark)
+        appendGroup(title: selfHostedGroupTitle, options: custom, to: button, dark: dark)
       }
     } else {
       append(options: options, to: button, dark: dark)

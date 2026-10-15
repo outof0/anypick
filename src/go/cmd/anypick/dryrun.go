@@ -61,10 +61,10 @@ func orderedJSON(fields []kv) string {
 // "[dry-run] <detail>". stdout only — stderr stays free for diagnostics.
 func printDryRunFields(action, detail string, fields ...kv) {
 	if globals.JSON {
-		fmt.Println(orderedJSON(append([]kv{{Key: "dryRun", Value: true}, {Key: "action", Value: action}}, fields...)))
+		cliPrintln(orderedJSON(append([]kv{{Key: "dryRun", Value: true}, {Key: "action", Value: action}}, fields...)))
 		return
 	}
-	fmt.Printf("[dry-run] %s\n", detail)
+	cliPrintf("[dry-run] %s\n", detail)
 }
 
 // strOrNil maps an unset flag to an omitted member.
@@ -96,7 +96,7 @@ func strOrJSONNull(s string) any {
 // gateway reset prefixes [dry-run], plain reset describes the global binding.
 func emitResetDryRun(clientID string, removedGlobal, gatewayStyle bool) {
 	if globals.JSON {
-		fmt.Println(orderedJSON([]kv{
+		cliPrintln(orderedJSON([]kv{
 			{Key: "client", Value: clientID},
 			{Key: "removedGlobal", Value: removedGlobal},
 			{Key: "dryRun", Value: true},
@@ -104,13 +104,13 @@ func emitResetDryRun(clientID string, removedGlobal, gatewayStyle bool) {
 		return
 	}
 	if gatewayStyle {
-		fmt.Printf("[dry-run] reset %s\n", clientID)
+		cliPrintf("[dry-run] reset %s\n", clientID)
 		return
 	}
 	if removedGlobal {
-		fmt.Printf("Would remove global binding for %s\n", clientID)
+		cliPrintf("Would remove global binding for %s\n", clientID)
 	} else {
-		fmt.Printf("No global binding for %s\n", clientID)
+		cliPrintf("No global binding for %s\n", clientID)
 	}
 }
 
@@ -135,12 +135,12 @@ func confirmDelete(label string, yes bool) error {
 	if globals.JSON {
 		output = os.Stderr
 	}
-	fmt.Fprintf(output, "Delete %s? [y/N] ", label)
+	cliFprintf(output, "Delete %s? [y/N] ", label)
 	answer, _ := bufio.NewReader(os.Stdin).ReadString('\n')
 	answer = strings.ToLower(strings.TrimSpace(answer))
 	if answer != "y" && answer != "yes" {
 		if !globals.JSON {
-			fmt.Fprintln(output, "Cancelled.")
+			cliFprintln(output, "Cancelled.")
 		}
 		return errDeclined
 	}
@@ -151,10 +151,10 @@ func confirmDelete(label string, yes bool) error {
 // unless --quiet. Invariant 7: stdout stays a single JSON value in JSON mode.
 func emitOK(human string, fields ...kv) {
 	if globals.JSON {
-		fmt.Println(orderedJSON(fields))
+		cliPrintln(orderedJSON(fields))
 		return
 	}
 	if !globals.Quiet && human != "" {
-		fmt.Println(human)
+		cliPrintln(human)
 	}
 }

@@ -50,10 +50,14 @@ struct AnyPickMenuBarLabel: View {
     }
     .accessibilityLabel(
       attentionCount > 0
-        ? "AnyPick, \(attentionCount) \(attentionCount == 1 ? "item needs" : "items need") attention"
+        ? model.localized(
+          "desktop.menu_bar.attention_accessibility",
+          count: attentionCount,
+          replacing: ["count": String(attentionCount)]
+        )
         : "AnyPick"
     )
-    .accessibilityHint(attentionCount > 0 ? "Open AnyPick to review routing" : "")
+    .accessibilityHint(attentionCount > 0 ? model.localized("desktop.menu_bar.review_routing_hint") : "")
   }
 }
 
@@ -65,44 +69,46 @@ struct AppCommands: Commands {
     // The standard panel appends CFBundleVersion as "(1)"; an empty `.version`
     // keeps the panel focused on the marketing version.
     CommandGroup(replacing: .appInfo) {
-      Button("About AnyPick") {
+      Button(model.localized("desktop.app_commands.about")) {
         NSApp.orderFrontStandardAboutPanel(options: [
           .applicationVersion: AppVersion.marketing,
           .version: "",
         ])
         NSApp.activate(ignoringOtherApps: true)
       }
-      .help("View the app version and product information.")
+      .help(model.localized("desktop.app_commands.about_help"))
     }
     CommandGroup(after: .appInfo) {
-      Button("Settings…") { open(.settings) }
+      Button(model.localized("desktop.nav.settings")) { open(.settings) }
         .keyboardShortcut(",", modifiers: .command)
-        .help("Open Settings in the main window.")
+        .help(model.localized("desktop.app_commands.settings_help"))
     }
     CommandGroup(after: .newItem) {
-      Button("Add Login…") {
+      Button(model.localized("desktop.menu_bar.add_login_action")) {
         model.requestAddLogin()
         open(.accounts)
       }
         .keyboardShortcut("n", modifiers: .command)
-        .help("Save a login or API key for an AI provider.")
+        .help(model.localized("desktop.app_commands.add_login_help"))
     }
     // No Edit → Undo: mutations apply server-side with no compensation
     // path, so a local undo would be reverted by the next snapshot.
     CommandGroup(replacing: .undoRedo) {}
     CommandGroup(after: .toolbar) {
-      Button("Refresh") { model.refresh() }
+      Button(model.localized("desktop.common.refresh")) { model.refresh() }
         .keyboardShortcut("r", modifiers: .command)
-        .help("Refresh accounts, apps, services, and usage.")
-      Button("Restart Proxies") { model.restartRunningProxies() }
+        .help(model.localized("desktop.app_commands.refresh_help"))
+      Button(model.localized("desktop.app_commands.restart_proxies")) { model.restartRunningProxies() }
         .keyboardShortcut("r", modifiers: [.command, .shift])
-        .help("Restart every running proxy service.")
+        .help(model.localized("desktop.app_commands.restart_proxies_help"))
     }
-    CommandMenu("Go") {
+    CommandMenu(model.localized("desktop.app_commands.go")) {
       ForEach(Array(DesignDestination.allCases.enumerated()), id: \.element.id) {
         index, destination in
-        Button(destination.title) { open(destination) }
-          .help("Open \(destination.title).")
+        Button(model.localized(destination.messageKey)) { open(destination) }
+          .help(model.localized("desktop.app_commands.open_destination", replacing: [
+            "destination": model.localized(destination.messageKey),
+          ]))
           .keyboardShortcut(
             KeyEquivalent(Character("\(index + 1)")),
             modifiers: .command

@@ -46,6 +46,9 @@ class MacOSDesignModel: ObservableObject {
   @Published var showUsage = true
   @Published var startProxiesAtLaunch = true
   @Published var warnBeforeLowUsage = true
+  @Published var selectedLanguage = "auto"
+  @Published var resolvedLanguage = DesktopMessageCatalog.systemLanguage
+  @Published var languageOptions = LanguageOptionSnapshot.defaultOptions
   @Published var lowUsageThreshold = 10
   @Published var showGettingStarted = false
   @Published var showFirstRunWelcome = false
@@ -443,6 +446,10 @@ class MacOSDesignModel: ObservableObject {
       ]
     }
     model.applyTrayScene(from: environment)
+    if let accountID = environment["ANYPICK_MACOS_ACCOUNT"], !accountID.isEmpty {
+      model.destination = .accounts
+      model.pendingAccountDetailID = accountID
+    }
     return model
   }
 
@@ -1646,6 +1653,12 @@ class MacOSDesignModel: ObservableObject {
     showFeedback(enabled ? "Low-usage warnings are on." : "Low-usage warnings are off.")
   }
 
+  func setLanguage(_ language: String) {
+    selectedLanguage = language
+    resolvedLanguage = language == "auto" ? DesktopMessageCatalog.systemLanguage : language
+    showFeedback(localized("desktop.settings.language_saved"))
+  }
+
   func dismissOnboarding() {
     onboardingDismissed = true
     showGettingStarted = false
@@ -1811,8 +1824,10 @@ class MacOSDesignModel: ObservableObject {
       DesignActivity(
         id: UUID().uuidString,
         time: formatter.string(from: Date()),
-        title: title,
-        detail: detail,
+        title: DesktopMessageCatalog.text(
+          source: title, preference: selectedLanguage, resolved: resolvedLanguage),
+        detail: DesktopMessageCatalog.text(
+          source: detail, preference: selectedLanguage, resolved: resolvedLanguage),
         symbol: symbol,
         status: status
       ),
@@ -1820,4 +1835,172 @@ class MacOSDesignModel: ObservableObject {
     )
   }
 
+}
+
+enum DesktopMessageCatalog {
+  private static let locales = ["en", "zh-CN", "es", "fr", "de", "ja", "ko", "pt-BR", "vi"]
+  private static let catalogs: [String: [String: [String: String]]] = loadCatalogs()
+  private static let sourcePatterns: [(key: String, source: String)] = {
+    guard let english = catalogs["en"] else { return [] }
+    return english.keys.sorted().compactMap { key in
+      guard let source = english[key]?["other"], !source.isEmpty else { return nil }
+      return (key, source)
+    }.sorted { left, right in
+      let leftSpecificity = left.source.filter { $0 != "{" && $0 != "}" }.count
+      let rightSpecificity = right.source.filter { $0 != "{" && $0 != "}" }.count
+      return leftSpecificity > rightSpecificity
+    }
+  }()
+
+  static var systemLanguage: String {
+    for candidate in Locale.preferredLanguages {
+      if let resolved = supportedCatalogID(candidate) { return resolved }
+    }
+    return "en"
+  }
+
+  static func text(
+    _ key: String,
+    preference: String,
+    resolved: String,
+    plural: String = "other"
+  ) -> String {
+    let locale = preference == "auto" ? catalogID(resolved) : catalogID(preference)
+    let messages = catalogs[locale]?[key] ?? catalogs["en"]?[key]
+    return messages?[plural] ?? messages?["other"] ?? key
+  }
+
+  /// Translate legacy user-facing copy by resolving it to its keyed English
+  /// catalog entry. New UI should call `text(_ key:)` directly; this adapter
+  /// keeps feedback and activity strings on the same catalogs while older
+  /// model actions are migrated incrementally.
+  static func text(source: String, preference: String, resolved: String) -> String {
+    for entry in sourcePatterns {
+      guard let captures = sourceCaptures(entry.source, from: source) else { continue }
+      var translated = text(entry.key, preference: preference, resolved: resolved)
+      for (name, value) in captures {
+        translated = translated.replacingOccurrences(of: "{\(name)}", with: value)
+      }
+      return translated
+    }
+    return source
+  }
+
+  private static func sourceCaptures(_ template: String, from source: String) -> [(String, String)]? {
+    let nsTemplate = template as NSString
+    let placeholderRegex = try! NSRegularExpression(pattern: #"\{([A-Za-z0-9_]+)\}"#)
+    let matches = placeholderRegex.matches(
+      in: template,
+      range: NSRange(location: 0, length: nsTemplate.length)
+    )
+    guard !matches.isEmpty else {
+      return template == source ? [] : nil
+    }
+    var expression = "^"
+    var names: [String] = []
+    var cursor = 0
+    for match in matches {
+      let literalRange = NSRange(location: cursor, length: match.range.location - cursor)
+      expression += NSRegularExpression.escapedPattern(for: nsTemplate.substring(with: literalRange))
+      expression += "(.+?)"
+      names.append(nsTemplate.substring(with: match.range(at: 1)))
+      cursor = NSMaxRange(match.range)
+    }
+    let suffixRange = NSRange(location: cursor, length: nsTemplate.length - cursor)
+    expression += NSRegularExpression.escapedPattern(for: nsTemplate.substring(with: suffixRange)) + "$"
+    guard let regex = try? NSRegularExpression(pattern: expression),
+      let match = regex.firstMatch(
+        in: source,
+        range: NSRange(location: 0, length: (source as NSString).length)
+      )
+    else { return nil }
+    let nsSource = source as NSString
+    return names.enumerated().compactMap { index, name in
+      let range = match.range(at: index + 1)
+      guard range.location != NSNotFound else { return nil }
+      return (name, nsSource.substring(with: range))
+    }
+  }
+
+  static func catalogID(_ raw: String) -> String {
+    supportedCatalogID(raw) ?? "en"
+  }
+
+  private static func supportedCatalogID(_ raw: String) -> String? {
+    let locale = raw.replacingOccurrences(of: "_", with: "-").lowercased()
+    if locale.hasPrefix("zh-hant") || locale.hasPrefix("zh-tw") || locale.hasPrefix("zh-hk")
+      || locale.hasPrefix("zh-mo")
+    {
+      return nil
+    }
+    for candidate in locales.reversed() {
+      if locale == candidate.lowercased() || locale.hasPrefix(candidate.lowercased() + "-") {
+        return candidate
+      }
+    }
+    if locale.hasPrefix("zh") { return "zh-CN" }
+    if locale.hasPrefix("pt") { return "pt-BR" }
+    return nil
+  }
+
+  private static func loadCatalogs() -> [String: [String: [String: String]]] {
+    let bundles = [Bundle.main, Bundle(for: AnyPickAppDelegate.self)]
+    return Dictionary(uniqueKeysWithValues: locales.compactMap { locale in
+      guard let url = catalogURL(locale, bundles: bundles),
+        let data = try? Data(contentsOf: url),
+        let raw = try? JSONSerialization.jsonObject(with: data) as? [String: [String: String]]
+      else { return nil }
+      return (locale, raw)
+    })
+  }
+
+  private static func catalogURL(_ locale: String, bundles: [Bundle]) -> URL? {
+    let filename = "messages.\(locale).json"
+    var roots = bundles.compactMap(\.resourceURL)
+    for bundle in bundles {
+      roots.append(
+        bundle.bundleURL.deletingLastPathComponent()
+          .appendingPathComponent("AnyPick.app/Contents/Resources", isDirectory: true)
+      )
+      var ancestor = bundle.bundleURL
+      for _ in 0..<5 {
+        roots.append(ancestor)
+        ancestor = ancestor.deletingLastPathComponent()
+      }
+    }
+    for root in roots {
+      for candidate in [root.appendingPathComponent("i18n/\(filename)"),
+        root.appendingPathComponent("Resources/i18n/\(filename)")]
+      {
+        if FileManager.default.fileExists(atPath: candidate.path) { return candidate }
+      }
+    }
+    return nil
+  }
+}
+
+extension MacOSDesignModel {
+  func localized(_ key: String) -> String {
+    DesktopMessageCatalog.text(key, preference: selectedLanguage, resolved: resolvedLanguage)
+  }
+
+  func localizedSource(_ source: String) -> String {
+    DesktopMessageCatalog.text(
+      source: source, preference: selectedLanguage, resolved: resolvedLanguage)
+  }
+
+  func localized(_ key: String, replacing values: [String: String]) -> String {
+    values.reduce(localized(key)) { result, entry in
+      result.replacingOccurrences(of: "{\(entry.key)}", with: entry.value)
+    }
+  }
+
+  func localized(_ key: String, count: Int, replacing values: [String: String] = [:]) -> String {
+    let plural = count == 1 ? "one" : "other"
+    let template = DesktopMessageCatalog.text(
+      key, preference: selectedLanguage, resolved: resolvedLanguage, plural: plural)
+    return values.reduce(template) { result, entry in
+      result.replacingOccurrences(of: "{\(entry.key)}", with: entry.value)
+    }
+  }
 }

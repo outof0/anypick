@@ -16,6 +16,7 @@ import {
   storedRemovedAppIDs,
 } from '../lib/app-preferences';
 import { isAppRouteConfigured } from '../lib/model';
+import { translate, translateSource } from '../lib/i18n';
 import type { ServicePort } from '../lib/service';
 import {
   Button,
@@ -34,7 +35,6 @@ import {
   appIssue,
   appSubtitle,
   appTrailing,
-  appsSectionTitle,
   type AppEntry,
 } from '../lib/app-entry';
 import { ConfirmDialog } from './ProxiesPane';
@@ -63,6 +63,12 @@ export function AppsPane({
   onSelectClient?: (clientId: string | null) => void;
 }) {
   const allAppIds = useMemo(() => uniqueClientIds(snapshot.actions), [snapshot.actions]);
+  const t = (key: string) =>
+    translate(`desktop.apps.${key}`, snapshot.settings.language, snapshot.settings.resolvedLanguage);
+  const tc = (key: string) =>
+    translate(`desktop.common.${key}`, snapshot.settings.language, snapshot.settings.resolvedLanguage);
+  const tr = (source: string) =>
+    translateSource(source, snapshot.settings.language, snapshot.settings.resolvedLanguage);
   const [preferences, setPreferences] = useState(() => ({
     configured: storedConfiguredAppIDs(),
     removed: storedRemovedAppIDs(),
@@ -140,22 +146,22 @@ export function AppsPane({
   }
 
   return (
-    <Pane title="Apps" testId="apps">
+    <Pane title={t('title')} testId="apps">
       {entries.length === 0 ? (
         <EmptyState
-          title={needle ? 'No Results' : 'No Apps Configured'}
+          title={needle ? t('no_results') : t('no_apps')}
           detail={
             needle
-              ? 'No apps match your search.'
-              : 'Add the coding apps you want to configure with AnyPick accounts and proxies.'
+              ? translate('desktop.apps.no_apps_match', snapshot.settings.language, snapshot.settings.resolvedLanguage)
+              : t('empty_detail')
           }
-          actionTitle={needle ? 'Clear Search' : undefined}
+          actionTitle={needle ? t('clear_search') : undefined}
           onAction={needle ? onClearQuery : undefined}
           testId="apps-empty"
           actions={
             needle || addable.length === 0 ? null : (
               <Button kind="primary" testId="apps.empty.add" onClick={() => setAdding(true)}>
-                Add App…
+                {t('add_app')}
               </Button>
             )
           }
@@ -163,11 +169,22 @@ export function AppsPane({
       ) : null}
 
       {entries.length > 0 ? (
-        <Group title={appsSectionTitle(entries.length, Boolean(needle))} testId="apps.list">
+        <Group
+          title={translate(
+            `desktop.apps.${needle ? 'matching_apps_count' : 'apps_count'}`,
+            snapshot.settings.language,
+            snapshot.settings.resolvedLanguage,
+          ).replace('{count}', String(entries.length))}
+          testId="apps.list"
+        >
           {entries.map((app) => (
             <AppListRow
               key={app.clientId}
               app={app}
+              t={t}
+              tr={tr}
+              language={snapshot.settings.language}
+              resolvedLanguage={snapshot.settings.resolvedLanguage}
               busy={busy}
               service={service}
               onClick={() => selectClient(app.clientId)}
@@ -186,7 +203,7 @@ export function AppsPane({
           testId="apps.add"
           onClick={() => setAdding(true)}
         >
-          Add App…
+          {t('add_app')}
         </Button>
       </PaneActions>
 
@@ -205,6 +222,7 @@ export function AppsPane({
       {adding ? (
         <AddAppSheet
           available={addable}
+          snapshot={snapshot}
           onClose={() => setAdding(false)}
           onAdd={(clientId) => {
             applyPreferences(addApp(preferences.configured ?? configured, preferences.removed, clientId));
@@ -215,9 +233,10 @@ export function AppsPane({
 
       {removingClientId ? (
         <ConfirmDialog
-          title={`Remove ${clientName(snapshot.actions, removingClientId)}?`}
-          message="AnyPick stops listing this app. Its own settings are untouched, and you can add it back at any time."
-          confirmTitle="Remove App"
+          title={t('remove_title').replace('{name}', clientName(snapshot.actions, removingClientId))}
+          message={t('remove_message')}
+          confirmTitle={t('remove_app')}
+          cancelTitle={tc('cancel')}
           destructive
           testId="app.remove.dialog"
           onCancel={() => setRemovingClientId(null)}
@@ -231,9 +250,10 @@ export function AppsPane({
 
       {resetClientId ? (
         <ConfirmDialog
-          title={`Disconnect ${resetClientId}?`}
-          message="AnyPick removes the route it wrote for this app."
-          confirmTitle="Disconnect"
+          title={t('disconnect_title').replace('{name}', resetClientId)}
+          message={t('disconnect_message')}
+          confirmTitle={translate('desktop.apps.disconnect_anypick', snapshot.settings.language, snapshot.settings.resolvedLanguage)}
+          cancelTitle={tc('cancel')}
           destructive
           testId="apps-disconnect-dialog"
           onCancel={() => setResetClientId(null)}
@@ -250,6 +270,10 @@ export function AppsPane({
 
 function AppListRow({
   app,
+  t,
+  tr,
+  language,
+  resolvedLanguage,
   busy,
   service,
   onClick,
@@ -258,6 +282,10 @@ function AppListRow({
   onRemove,
 }: {
   app: AppEntry;
+  t: (key: string) => string;
+  tr: (source: string) => string;
+  language: string;
+  resolvedLanguage: string;
   busy: ReadonlySet<string>;
   service: ServicePort;
   onClick: () => void;
@@ -280,22 +308,33 @@ function AppListRow({
         onClick={onClick}
       >
         <ProviderIcon provider={app.clientId} size={26} className="mr-1.5" />
-        <RowText title={app.client} detail={appSubtitle(app)} issue={appIssue(app)} />
+        <RowText
+          title={app.client}
+          detail={tr(appSubtitle(app))}
+          issue={tr(appIssue(app) ?? '')}
+          language={language}
+          resolvedLanguage={resolvedLanguage}
+        />
         <RowActions>
           {isManaged ? (
             <span className="rounded-control bg-badge px-1.5 py-0.5 text-[11px] font-medium text-secondary">
-              AnyPick proxy
+            {t('anypick_proxy')}
             </span>
           ) : !isConfigured ? (
             <span className="flex items-center gap-1.5 text-[12px] text-secondary">
               <span className="size-1.5 rounded-full bg-amber-500" />
-              Set Up…
+              {t('set_up')}
             </span>
           ) : (
-            <span className="text-[12px] text-secondary">Direct</span>
+            <span className="text-[12px] text-secondary">{t('direct')}</span>
           )}
 
-          <RowMenu label={`Actions for ${app.client}`} testId={`app.more-${app.clientId}`}>
+          <RowMenu
+            label={t('actions_for').replace('{name}', app.client)}
+            language={language}
+            resolvedLanguage={resolvedLanguage}
+            testId={`app.more-${app.clientId}`}
+          >
             {(close) => (
               <>
                 <MenuItem
@@ -305,7 +344,7 @@ function AppListRow({
                     onChangeConnection();
                   }}
                 >
-                  Change Connection…
+                  {t('change_connection')}
                 </MenuItem>
                 <MenuItem
                   testId="apps-refresh-menu"
@@ -316,7 +355,7 @@ function AppListRow({
                     if (refresh) service.mutate(refresh.operation, refresh.extra);
                   }}
                 >
-                  Refresh Models
+                  {t('refresh_models')}
                 </MenuItem>
                 <MenuDivider />
                 <MenuItem
@@ -328,7 +367,7 @@ function AppListRow({
                     onReset();
                   }}
                 >
-                  Disconnect from AnyPick
+                  {t('disconnect_anypick')}
                 </MenuItem>
                 <MenuItem
                   testId="app.remove-menu"
@@ -339,7 +378,7 @@ function AppListRow({
                     onRemove();
                   }}
                 >
-                  Remove App
+                  {t('remove_app')}
                 </MenuItem>
               </>
             )}
@@ -366,7 +405,7 @@ function AppListRow({
       </Row>
       {refreshOpen ? (
         <Row testId={`apps-refresh-note-${app.clientId}`}>
-          <RowText detail="Model list refreshed for the login this app is using." />
+          <RowText detail={t('models_refreshed')} />
         </Row>
       ) : null}
     </>

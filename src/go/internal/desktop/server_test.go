@@ -1,6 +1,7 @@
 package desktop
 
 import (
+	"bufio"
 	"context"
 	"encoding/base64"
 	"encoding/json"
@@ -10,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -278,36 +280,84 @@ func sendCommand(t *testing.T, w *os.File, line string) {
 	}
 }
 
+type frameReadResult struct {
+	line string
+	err  error
+}
+
+type frameReader struct{ lines chan frameReadResult }
+
+var frameReaders sync.Map // map[*os.File]*frameReader; one buffered reader per pipe
+
+func readerFor(t *testing.T, r *os.File) *frameReader {
+	t.Helper()
+	if cached, ok := frameReaders.Load(r); ok {
+		return cached.(*frameReader)
+	}
+	created := &frameReader{lines: make(chan frameReadResult, 128)}
+	cached, loaded := frameReaders.LoadOrStore(r, created)
+	if loaded {
+		return cached.(*frameReader)
+	}
+	t.Cleanup(func() {
+		frameReaders.CompareAndDelete(r, created)
+		_ = r.Close()
+	})
+	go func() {
+		reader := bufio.NewReader(r)
+		for {
+			line, err := reader.ReadString('\n')
+			if line != "" || err != nil {
+				created.lines <- frameReadResult{line: line, err: err}
+			}
+			if err != nil {
+				return
+			}
+		}
+	}()
+	return created
+}
+
 func readFrame(t *testing.T, r *os.File, wantPrefix string) string {
 	t.Helper()
-	buf := make([]byte, 0, 64*1024)
-	one := make([]byte, 1)
-	deadline := time.Now().Add(15 * time.Second)
-	for time.Now().Before(deadline) {
-		if err := r.SetReadDeadline(time.Now().Add(500 * time.Millisecond)); err != nil {
-			t.Fatal(err)
-		}
-		n, err := r.Read(one)
-		if n == 1 {
-			buf = append(buf, one[0])
-			if one[0] == '\n' {
-				line := strings.TrimRight(string(buf), "\n")
-				if wantPrefix != "" && !strings.HasPrefix(line, wantPrefix+"\t") {
-					continue // skip unrelated frames
-				}
-				return line
+	timer := time.NewTimer(15 * time.Second)
+	defer timer.Stop()
+	reader := readerFor(t, r)
+	for {
+		select {
+		case result := <-reader.lines:
+			line, err := completeFrame(result)
+			if err != nil {
+				t.Fatalf("read protocol frame: %v", err)
 			}
-			continue
-		}
-		if err != nil {
-			if os.IsTimeout(err) {
-				continue
+			if wantPrefix != "" && !strings.HasPrefix(line, wantPrefix+"\t") {
+				continue // skip unrelated frames
 			}
-			t.Fatalf("read: %v", err)
+			return line
+		case <-timer.C:
+			t.Fatal("timeout waiting for frame")
+			return ""
 		}
 	}
-	t.Fatal("timeout waiting for frame")
-	return ""
+}
+
+func completeFrame(result frameReadResult) (string, error) {
+	if result.err != nil {
+		if result.line != "" {
+			return "", fmt.Errorf("unterminated frame: %w", result.err)
+		}
+		return "", result.err
+	}
+	return strings.TrimRight(result.line, "\r\n"), nil
+}
+
+func TestCompleteFrameRejectsUnterminatedEOF(t *testing.T) {
+	if _, err := completeFrame(frameReadResult{line: "snapshot\t{}", err: io.EOF}); err == nil {
+		t.Fatal("unterminated frame was accepted")
+	}
+	if got, err := completeFrame(frameReadResult{line: "snapshot\t{}\n"}); err != nil || got != "snapshot\t{}" {
+		t.Fatalf("complete frame = %q, %v; want valid frame", got, err)
+	}
 }
 
 func encodePayload(v interface{}) string {

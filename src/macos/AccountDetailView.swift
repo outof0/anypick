@@ -13,6 +13,7 @@ struct AccountDetailView: View {
     guard let account else { return [] }
     return model.usageWindows(for: account)
   }
+  private var usageGroups: [DesignUsageGroup] { groupUsageWindows(usageWindows) }
 
   var body: some View {
     DesignGroupedPane(
@@ -31,7 +32,7 @@ struct AccountDetailView: View {
             VStack(alignment: .leading, spacing: 3) {
               Text(disambiguatedAccountName(for: account, in: model.accounts))
                 .font(.headline)
-              Text(account.detail.isEmpty ? "Identity not reported" : account.detail)
+              Text(account.detail.isEmpty ? model.localized("desktop.account_detail.identity_not_reported") : account.detail)
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
             }
@@ -39,18 +40,25 @@ struct AccountDetailView: View {
             accountStatus(account)
           }
           .accessibilityElement(children: .combine)
-          .accessibilityLabel(accountAccessibilityLabel(for: account, in: model.accounts))
+          .accessibilityLabel(
+            accountAccessibilityLabel(for: account, in: model.accounts) { index, total in
+              model.localized(
+                "desktop.accounts.position",
+                replacing: ["index": "\(index)", "total": "\(total)"]
+              )
+            }
+          )
         } header: {
-          Text("Account")
+          Text(model.localized("desktop.account_detail.account"))
         }
 
         if account.status == .attention || account.status == .unavailable {
           Section {
             Label {
               VStack(alignment: .leading, spacing: 2) {
-                Text("Needs Attention")
+                Text(model.localized("desktop.common.needs_attention"))
                   .fontWeight(.medium)
-                Text(account.status.rawValue)
+                Text(account.status.localizedLabel(using: model))
                   .font(.subheadline)
                   .foregroundStyle(.secondary)
               }
@@ -61,66 +69,83 @@ struct AccountDetailView: View {
         }
 
         Section {
-          LabeledContent(account.kind == .gateway ? "Endpoint" : "Email or ID") {
-            Text(account.detail.isEmpty ? "Not reported" : account.detail)
+          LabeledContent(model.localized(account.kind == .gateway ? "desktop.account_detail.endpoint" : "desktop.account_detail.email_or_id")) {
+            Text(account.detail.isEmpty ? model.localized("desktop.account_detail.not_reported") : account.detail)
               .foregroundStyle(account.detail.isEmpty ? .secondary : .primary)
               .textSelection(.enabled)
           }
-          LabeledContent("Provider", value: account.provider)
+          LabeledContent(model.localized("desktop.account_detail.provider"), value: account.provider)
           LabeledContent(
-            "Type",
-            value: account.kind == .gateway ? "API Gateway" : "Saved Login"
+            model.localized("desktop.account_detail.type"),
+            value: model.localized(account.kind == .gateway ? "desktop.account_detail.api_gateway" : "desktop.account_detail.saved_login")
           )
-          LabeledContent("Account Name", value: account.name)
-          LabeledContent("Last Used", value: account.lastUsed)
+          LabeledContent(model.localized("desktop.account_detail.account_name"), value: account.name)
+          LabeledContent(
+            model.localized("desktop.account_detail.last_used"),
+            value: model.localizedSource(account.lastUsed)
+          )
         } header: {
-          Text("Identity")
+          Text(model.localized("desktop.account_detail.identity"))
         }
 
         if model.showUsage {
-          Section {
-            if usageWindows.isEmpty {
+          if usageWindows.isEmpty {
+            Section {
               VStack(alignment: .leading, spacing: 8) {
                 Text(
                   model.isCurrentAccount(account)
-                    ? "This provider does not report remaining quota."
-                    : "Live quota is reported for the account currently active on this Mac."
+                    ? model.localized("desktop.account_detail.provider_no_quota")
+                    : model.localized("desktop.account_detail.live_quota_active")
                 )
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
 
                 if account.kind == .saved && !model.isCurrentAccount(account) {
-                  Button("Make Current to Check Quota") {
+                  Button(model.localized("desktop.account_detail.make_current_check_quota")) {
                     model.makeAccountCurrent(id: account.id)
                   }
                   .buttonStyle(.bordered)
                   .controlSize(.small)
-                  .help("Temporarily use this saved login on this Mac so AnyPick can read its quota.")
+                  .help(model.localized("desktop.account_detail.make_current_check_quota_help"))
                   .disabled(model.isBusy)
                 }
               }
-            } else {
-              ForEach(usageWindows) { window in
-                usageRow(window)
+            } header: {
+              Text(model.localized("desktop.account_detail.remaining_quota"))
+            } footer: {
+              Text(
+                model.isCurrentAccount(account)
+                  ? model.localized("desktop.account_detail.reported_by_active", replacing: ["provider": account.provider])
+                  : model.localized("desktop.account_detail.usage_active")
+              )
+            }
+          } else {
+            ForEach(usageGroups) { group in
+              Section {
+                ForEach(group.windows) { window in
+                  usageRow(window, grouped: group.title != nil)
+                }
+              } header: {
+                Text(group.title ?? model.localized("desktop.account_detail.remaining_quota"))
+              } footer: {
+                if group.id == usageGroups.last?.id {
+                  Text(
+                    model.isCurrentAccount(account)
+                      ? model.localized("desktop.account_detail.reported_by_active", replacing: ["provider": account.provider])
+                      : model.localized("desktop.account_detail.usage_active")
+                  )
+                }
               }
             }
-          } header: {
-            Text("Remaining Quota")
-          } footer: {
-            Text(
-              model.isCurrentAccount(account)
-                ? "Reported by \(account.provider) for the account currently active on this Mac."
-                : "Usage is available for the account currently active on this Mac."
-            )
           }
         }
       }
     }
-    .navigationTitle(account?.name ?? "Account")
+    .navigationTitle(account?.name ?? model.localized("desktop.account_detail.account"))
     .sheet(isPresented: $editing) {
       EditAccountSheet(model: model, accountID: accountID)
     }
-    .designConfirmation($confirmation)
+    .designConfirmation($confirmation, model: model)
     .onChange(of: model.accounts) { _, accounts in
       if removalRequested, !accounts.contains(where: { $0.id == accountID }) {
         dismiss()
@@ -136,11 +161,11 @@ struct AccountDetailView: View {
   @ViewBuilder
   private func accountStatus(_ account: DesignAccount) -> some View {
     if model.isCurrentAccount(account) {
-      Label("Current", systemImage: "checkmark.circle.fill")
+      Label(model.localized("desktop.common.current"), systemImage: "checkmark.circle.fill")
         .foregroundStyle(.green)
         .labelStyle(.titleAndIcon)
     } else {
-      Label(account.status.rawValue, systemImage: account.status.symbol)
+      Label(account.status.localizedLabel(using: model), systemImage: account.status.symbol)
         .foregroundStyle(account.status.color)
         .labelStyle(.titleAndIcon)
     }
@@ -148,16 +173,16 @@ struct AccountDetailView: View {
 
   private func detailActions(for account: DesignAccount) -> some View {
     DesignPaneActions {
-      DesignSheetButton(title: "Edit…") { editing = true }
+      DesignSheetButton(title: model.localized("desktop.common.edit")) { editing = true }
       if account.kind == .saved && !model.isCurrentAccount(account) {
         DesignSheetButton(
-          title: "Make Current",
+          title: model.localized("desktop.accounts.switch_account"),
           enabled: !model.isBusy,
           identifier: "accounts.inspector.make-current"
         ) { model.makeAccountCurrent(id: account.id) }
       }
       DesignSheetButton(
-        title: account.kind == .gateway ? "Test Connection" : "Refresh Login",
+        title: model.localized(account.kind == .gateway ? "desktop.common.test_connection" : "desktop.common.refresh_login"),
         enabled: !model.isBusy,
         identifier: "accounts.inspector.test"
       ) {
@@ -168,7 +193,7 @@ struct AccountDetailView: View {
         }
       }
       DesignSheetButton(
-        title: "Remove Account…",
+        title: model.localized("desktop.account_detail.remove_account"),
         enabled: !model.isBusy,
         destructive: true,
         identifier: "accounts.inspector.remove"
@@ -179,33 +204,39 @@ struct AccountDetailView: View {
   private func requestRemoval() {
     confirmation = DesignConfirmation(
       id: "remove-account",
-      title: account.map { "Remove “\($0.name)” from AnyPick?" } ?? "Remove Account?",
+      title: account.map { model.localized("desktop.account_detail.remove_title", replacing: ["name": $0.name]) } ?? model.localized("desktop.account_detail.remove_account_title"),
       message: removalMessage,
-      action: .confirm("Remove") {
+      action: .confirm(model.localized("desktop.common.remove")) {
         removalRequested = true
         model.removeAccount(id: accountID)
       }
     )
   }
 
-  private func usageRow(_ window: DesignUsageWindow) -> some View {
-    LabeledContent(quotaWindowLabel(window)) {
-      DesignQuotaView(window: window, isCompact: false, showsLabel: false)
+  private func usageRow(_ window: DesignUsageWindow, grouped: Bool) -> some View {
+    Group {
+      if grouped {
+        DesignQuotaView(model: model, window: window, showsLimitCard: true)
+      } else {
+        LabeledContent(localizedQuotaWindowLabel(window, using: model)) {
+          DesignQuotaView(model: model, window: window, isCompact: false, showsLabel: false)
+        }
+      }
     }
     .accessibilityIdentifier("accounts.inspector.usage.\(window.id)")
   }
 
   private var removalMessage: String {
     guard let account else {
-      return "This account will no longer be available in AnyPick."
+      return model.localized("desktop.account_detail.remove_unavailable")
     }
     if account.kind == .gateway {
-      return "Only “\(account.name)” is removed from AnyPick. The remote API key is not revoked."
+      return model.localized("desktop.account_detail.remove_gateway_message", replacing: ["name": account.name])
     }
     let app = anypickDisplayName(account.provider)
     if model.isCurrentAccount(account) {
-      return "“\(account.name)” is removed from AnyPick. \(app) stays signed in on this Mac."
+      return model.localized("desktop.account_detail.remove_current_message", replacing: ["name": account.name, "app": app])
     }
-    return "“\(account.name)” is removed from AnyPick. The \(app) login on this Mac does not change."
+    return model.localized("desktop.account_detail.remove_other_message", replacing: ["name": account.name, "app": app])
   }
 }

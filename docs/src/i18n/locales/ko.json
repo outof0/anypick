@@ -1,0 +1,76 @@
+{
+  "common": {
+    "skipToContent": "본문으로 건너뛰기"
+  },
+  "header": {
+    "home": "{{title}} 홈",
+    "primaryNavigation": "주요 탐색",
+    "sectionsNavigation": "섹션",
+    "docs": "문서",
+    "getStarted": "시작하기",
+    "openNavigation": "탐색 메뉴 열기",
+    "starOnGitHub": "GitHub에서 스타하기",
+    "starShort": "스타",
+    "switchLanguage": "언어 변경",
+    "language": "언어"
+  },
+  "docs": {
+    "deprecatedWithLatest": "This is the <strong>{{version}}</strong> version of the docs and is no longer maintained. The latest version of this page is at <a href=\"{{url}}\">{{url}}</a>.",
+    "deprecatedCurrent": "This version of the docs is no longer maintained. See the <a href=\"{{url}}\">current docs</a> for up-to-date content.",
+    "draft": "초안",
+    "audienceHuman": "사용자용",
+    "editThisPage": "이 페이지 편집",
+    "siteNavigation": "사이트 탐색",
+    "navigation": "탐색",
+    "closeSidebar": "사이드바 닫기",
+    "englishContent": "이 페이지의 콘텐츠는 현재 영어로 제공됩니다."
+  },
+  "search": {
+    "label": "문서 검색",
+    "trigger": "검색",
+    "placeholder": "문서 검색…",
+    "typeToSearch": "검색어 입력…",
+    "navigateHint": "↑↓ 이동",
+    "selectHint": "↵ 선택",
+    "closeHint": "Esc 닫기",
+    "productionBuild": "프로덕션 빌드 후 검색을 사용할 수 있습니다.",
+    "searching": "검색 중…",
+    "noResults": "검색 결과가 없습니다.",
+    "temporarilyUnavailable": "검색을 일시적으로 사용할 수 없습니다."
+  },
+  "pageActions": {
+    "updated": "업데이트",
+    "copyPage": "페이지 복사",
+    "copied": "복사됨",
+    "copyFailed": "복사하지 못했습니다",
+    "viewMarkdown": "Markdown으로 보기"
+  },
+  "pagination": {
+    "label": "페이지 탐색",
+    "previous": "이전",
+    "next": "다음"
+  },
+  "breadcrumbs": {
+    "label": "이동 경로",
+    "showMore": "경로 {{count}}개 더 표시"
+  },
+  "sidebar": {
+    "filterPlaceholder": "필터…  /",
+    "filterLabel": "탐색 필터"
+  },
+  "toc": {
+    "title": "이 페이지에서",
+    "label": "목차"
+  },
+  "theme": {
+    "toggle": "다크 모드 전환"
+  },
+  "banner": {
+    "dismiss": "안내 닫기"
+  },
+  "packageManager": {
+    "tabs": "패키지 관리자",
+    "copy": "클립보드에 복사",
+    "copied": "클립보드에 복사됨"
+  }
+}

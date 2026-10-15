@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type MutableRefObjec
 import { resolveBridge, type BridgeEvent, type TrayBridge } from './lib/bridge';
 import { planAutomaticCodexProfileSync } from './lib/codex-auto-profiles';
 import type { AppDestination, Destination, Snapshot } from './lib/contract';
+import { detectLanguage, translate, translateSource } from './lib/i18n';
 import { createService, type ServiceHandle, type ServicePort } from './lib/service';
 import {
   decodeFrame,
@@ -13,7 +14,6 @@ import {
   type ServiceFrame,
   type ServiceResult,
 } from './lib/wire';
-import { ui } from './i18n';
 import {
   AccountsPane,
   ActivityPane,
@@ -69,6 +69,11 @@ export function App({
 
   const [destination, setDestination] = useState<AppDestination>('overview');
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
+  const language = snapshot?.settings.language ?? 'auto';
+  const resolvedLanguage = snapshot?.settings.resolvedLanguage ?? detectLanguage();
+  const t = (key: string) => translate(key, language, resolvedLanguage);
+  const translateRef = useRef(t);
+  translateRef.current = t;
   const [state, setState] = useState<ServiceState>('starting');
   const [notice, setNotice] = useState<Notice | null>(null);
   const [copyKeyResult, setCopyKeyResult] = useState<CopyKeyResult | null>(null);
@@ -166,7 +171,7 @@ export function App({
         setDoctor(frame.report);
         setDoctorError(null);
         if (frame.report.status === 'ok') {
-          setNotice({ kind: 'info', text: 'All checks passed. Nothing needs attention.', suggestions: [] });
+          setNotice({ kind: 'info', text: translateRef.current('desktop.main.doctor_all_clear'), suggestions: [] });
         }
         return;
       }
@@ -184,7 +189,7 @@ export function App({
           // different action would be the takeover the refusal exists to stop.
           setTakeover({
             actionId: flight.actionId,
-            message: result.message || 'AnyPick needs confirmation before it replaces settings it does not own.',
+            message: result.message || translateRef.current('desktop.main.takeover_message'),
           });
           return;
         }
@@ -198,7 +203,7 @@ export function App({
           // action, never the key (ADR 0006).
           if (!key) {
             setCopyKeyResult({ requestId, success: false });
-            setNotice({ kind: 'error', text: result.message || 'Couldn’t copy API key.', suggestions: [] });
+            setNotice({ kind: 'error', text: result.message || translateRef.current('desktop.main.copy_api_key_failed'), suggestions: [] });
             return;
           }
           // `navigator.clipboard` is undefined when the context is not secure,
@@ -213,17 +218,17 @@ export function App({
           }
           if (!clipboard) {
             setCopyKeyResult({ requestId, success: false });
-            setNotice({ kind: 'error', text: 'Couldn’t copy API key.', suggestions: [] });
+            setNotice({ kind: 'error', text: translateRef.current('desktop.main.copy_api_key_failed'), suggestions: [] });
             return;
           }
           void Promise.resolve().then(() => clipboard.writeText(key)).then(
             () => {
               setCopyKeyResult({ requestId, success: true });
-              setNotice({ kind: 'info', text: 'Copied API key.', suggestions: [] });
+              setNotice({ kind: 'info', text: translateRef.current('desktop.main.copy_api_key_success'), suggestions: [] });
             },
             () => {
               setCopyKeyResult({ requestId, success: false });
-              setNotice({ kind: 'error', text: 'Couldn’t copy API key.', suggestions: [] });
+              setNotice({ kind: 'error', text: translateRef.current('desktop.main.copy_api_key_failed'), suggestions: [] });
             },
           );
           return;
@@ -232,11 +237,11 @@ export function App({
           setCopyKeyResult({ requestId: result.requestId, success: false });
         }
         if (result.status === 'success' && flight?.kind === 'doctor') {
-          setNotice({ kind: 'info', text: result.message || 'Doctor finished.', suggestions: [] });
+          setNotice({ kind: 'info', text: result.message || translateRef.current('desktop.main.doctor_finished'), suggestions: [] });
           return;
         }
         if (flight?.kind === 'doctor') {
-          setDoctorError(result.message || 'Doctor could not complete the check.');
+          setDoctorError(result.message || translateRef.current('desktop.main.doctor_failed'));
           return;
         }
         if (flight?.kind === 'mutate' && HUB_ROW_OPERATIONS.has(flight.operation)) {
@@ -264,7 +269,7 @@ export function App({
           }
           // A backup has no row of its own. The engine's sentence is the only
           // proof the write happened.
-          setNotice({ kind: 'info', text: result.message || 'Action completed.', suggestions: [] });
+          setNotice({ kind: 'info', text: result.message || translateRef.current('desktop.main.action_completed'), suggestions: [] });
           return;
         }
         if (flight?.kind === 'mutate' && ACCOUNT_FLOW.has(flight.operation)) {
@@ -276,7 +281,7 @@ export function App({
         if (result.status === 'error') {
           setNotice({
             kind: 'error',
-            text: result.message || 'Action failed.',
+            text: result.message || translateRef.current('desktop.main.action_failed'),
             suggestions: result.suggestions ?? [],
             code: result.code,
           });
@@ -399,12 +404,12 @@ export function App({
   }, [destination, selectedAppId, snapshot]);
 
   const activeTitle = publishedModelsOpen
-    ? 'Published Models'
+    ? t('desktop.published.title')
     : selectedApp
     ? selectedApp.client
     : destination === 'settings'
-    ? 'Settings'
-    : DestinationLabel[destination];
+    ? t('desktop.nav.settings')
+    : t(DestinationMessageKey[destination]);
 
   const activeBack = publishedModelsOpen
     ? () => setPublishedModelsOpen(false)
@@ -449,6 +454,8 @@ export function App({
         onSelect={setDestination}
         state={state}
         runningCount={runningCount}
+        language={language}
+        resolvedLanguage={resolvedLanguage}
       />
       <main className="flex min-h-0 min-w-0 flex-col bg-canvas">
         <Toolbar
@@ -465,12 +472,19 @@ export function App({
           ref={contentRef}
           className="min-h-0 flex-1 overflow-auto [scrollbar-color:var(--color-tertiary)_transparent] [scrollbar-width:thin]"
         >
-          {notice ? <NoticeBanner notice={notice} onDismiss={() => setNotice(null)} /> : null}
+          {notice ? (
+            <NoticeBanner
+              notice={notice}
+              onDismiss={() => setNotice(null)}
+              language={language}
+              resolvedLanguage={resolvedLanguage}
+            />
+          ) : null}
           {takeover ? (
             <ConfirmDialog
-              title="Manage with AnyPick?"
-              message={takeover.message}
-              confirmTitle="Manage with AnyPick"
+              title={t('desktop.main.manage_title')}
+              message={translateSource(takeover.message, language, resolvedLanguage)}
+              confirmTitle={t('desktop.main.manage_action')}
               onCancel={() => setTakeover(null)}
               onConfirm={() => {
                 const actionId = takeover.actionId;
@@ -528,13 +542,13 @@ export function App({
             // saying "Connecting to the service…" forever, with no way out and
             // nothing to tell the user what happened.
             <EmptyState
-              title={state === 'stopped' ? 'AnyPick service stopped' : 'AnyPick could not load'}
+              title={state === 'stopped' ? t('desktop.main.service_stopped') : t('desktop.main.load_failed_title')}
               detail={
                 state === 'stopped'
-                  ? 'The bundled AnyPick service is not running. Restart AnyPick to try again.'
-                  : 'The bundled AnyPick service did not provide a valid snapshot. Try again or reinstall AnyPick.'
+                  ? t('desktop.main.service_stopped_detail')
+                  : t('desktop.main.load_failed_production')
               }
-              actionTitle="Try Again"
+            actionTitle={t('desktop.common.try_again')}
               onAction={() => {
                 setState('starting');
                 void service.port.refresh();
@@ -542,7 +556,7 @@ export function App({
               testId="state.error"
             />
           ) : (
-            <LoadingState label={ui.connecting} />
+            <LoadingState label={t('desktop.sidebar.service_connecting')} />
           )}
         </div>
       </main>
@@ -550,14 +564,14 @@ export function App({
   );
 }
 
-const DestinationLabel: Record<Destination, string> = {
-  overview: 'Overview',
-  apps: 'Apps',
-  accounts: 'Accounts & APIs',
-  proxyHub: 'Proxy Hub',
-  proxies: 'Proxies',
-  activity: 'Activity',
-  backups: 'Backups',
+const DestinationMessageKey: Record<Destination, string> = {
+  overview: 'desktop.nav.overview',
+  apps: 'desktop.nav.apps',
+  accounts: 'desktop.nav.accounts',
+  proxyHub: 'desktop.nav.proxy_hub',
+  proxies: 'desktop.nav.proxies',
+  activity: 'desktop.nav.activity',
+  backups: 'desktop.nav.backups',
 };
 
 /**

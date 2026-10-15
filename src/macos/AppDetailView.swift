@@ -53,14 +53,14 @@ struct AppDetailView: View {
     DesignPaneActions {
       if supportsManagedRouting {
         DesignSheetButton(
-          title: "Disconnect AnyPick",
+          title: model.localized("desktop.app_detail.disconnect_anypick"),
           enabled: !model.isBusy,
           destructive: true,
           identifier: "app.reset"
         ) { requestReset() }
       }
       DesignSheetButton(
-        title: "Remove App",
+        title: model.localized("desktop.app_detail.remove_app"),
         enabled: !model.isBusy,
         destructive: true,
         identifier: "app.remove"
@@ -71,20 +71,20 @@ struct AppDetailView: View {
   private func requestReset() {
     confirmation = DesignConfirmation(
       id: "disconnect-app",
-      title: "Disconnect \(app?.name ?? "app") from AnyPick?",
+      title: model.localized("desktop.app_detail.disconnect_title", replacing: ["app": app?.name ?? model.localized("desktop.app_detail.app")]),
       message:
-        "The official direct login will be restored. AnyPick proxy routing and model overrides will be removed.",
-      action: .confirm("Disconnect") { model.resetAppConfiguration(appID: appID) }
+        model.localized("desktop.app_detail.disconnect_message"),
+      action: .confirm(model.localized("desktop.app_detail.disconnect")) { model.resetAppConfiguration(appID: appID) }
     )
   }
 
   private func requestRemoval() {
     confirmation = DesignConfirmation(
       id: "remove-app",
-      title: "Remove \(app?.name ?? "app") from AnyPick?",
+      title: model.localized("desktop.app_detail.remove_title", replacing: ["app": app?.name ?? model.localized("desktop.app_detail.app")]),
       message:
-        "This removes \(app?.name ?? "the app") from your configured apps list. If it was connected, AnyPick will disconnect and restore its official login.",
-      action: .confirm("Remove App") {
+        model.localized("desktop.app_detail.remove_message", replacing: ["app": app?.name ?? model.localized("desktop.app_detail.the_app")]),
+      action: .confirm(model.localized("desktop.app_detail.remove_app")) {
         model.removeApp(appID: appID)
         dismiss()
       }
@@ -94,10 +94,10 @@ struct AppDetailView: View {
   private func requestProfileRemoval(_ name: String) {
     confirmation = DesignConfirmation(
       id: "remove-codex-profile",
-      title: "Remove Codex profile \(name)?",
+      title: model.localized("desktop.app_detail.remove_profile_title", replacing: ["name": name]),
       message:
-        "AnyPick will remove this profile’s managed route, authentication copy, and proxy settings. Codex’s main login is kept.",
-      action: .confirm("Remove") { model.removeCodexProfile(name: name) }
+        model.localized("desktop.app_detail.remove_profile_message"),
+      action: .confirm(model.localized("desktop.common.remove")) { model.removeCodexProfile(name: name) }
     )
   }
 
@@ -123,11 +123,11 @@ struct AppDetailView: View {
           }
         }
 
-        if let issue = app.issue {
+        if let issue = app.issue(using: model) {
           Section {
             Label {
               VStack(alignment: .leading, spacing: 2) {
-                Text("Needs Attention")
+                Text(model.localized("desktop.common.needs_attention"))
                 Text(issue)
                   .font(.subheadline)
                   .foregroundStyle(.secondary)
@@ -139,23 +139,23 @@ struct AppDetailView: View {
         }
 
         Section {
-          LabeledContent("Uses", value: selectedName(app))
+          LabeledContent(model.localized("desktop.app_detail.uses"), value: selectedName(app))
           if let identity = resolvedIdentity(app), !identity.isEmpty {
-            LabeledContent("Identity", value: identity)
+            LabeledContent(model.localized("desktop.account_detail.identity"), value: identity)
           }
-          LabeledContent("Transport", value: transportDisplayName(for: app))
-          LabeledContent("Connection") {
+          LabeledContent(model.localized("desktop.app_detail.transport"), value: transportDisplayName(for: app, using: model))
+          LabeledContent(model.localized("desktop.app_detail.connection")) {
             HStack(spacing: 8) {
-              Button(isAppRouteConfigured(app) ? "Change…" : "Connect…") { showingRoutes = true }
+              Button(model.localized(isAppRouteConfigured(app) ? "desktop.app_detail.change" : "desktop.app_detail.connect")) { showingRoutes = true }
                 .buttonStyle(.bordered)
                 .controlSize(.small)
-                .help(isAppRouteConfigured(app) ? "Choose a different saved account or route for this app." : "Choose a saved login or gateway for this app.")
+                .help(model.localized(isAppRouteConfigured(app) ? "desktop.app_detail.change_help" : "desktop.app_detail.connect_help"))
                 .disabled(model.isBusy || app.routeOptions.isEmpty)
               if isAppManagedByAnyPick(app) {
-                Button("Disconnect…", role: .destructive) { requestReset() }
+                Button(model.localized("desktop.app_detail.disconnect_action"), role: .destructive) { requestReset() }
                   .buttonStyle(.bordered)
                   .controlSize(.small)
-                  .help("Stop managing this app with AnyPick and restore its previous connection.")
+                  .help(model.localized("desktop.app_detail.disconnect_help"))
                   .disabled(model.isBusy)
                   .accessibilityIdentifier("app.connection.disconnect")
               }
@@ -163,30 +163,30 @@ struct AppDetailView: View {
           }
           .accessibilityIdentifier("app.connection.change")
         } header: {
-          Text("Connection")
+          Text(model.localized("desktop.app_detail.connection"))
         }
 
         Section {
-          Toggle("Show in Quick Panel", isOn: quickPanelBinding(app))
+          Toggle(model.localized("desktop.app_detail.show_quick_panel"), isOn: quickPanelBinding(app))
             .disabled(model.isBusy)
         } footer: {
-          Text("When enabled, this app appears in the menu bar Quick Panel for quick switching.")
+          Text(model.localized("desktop.app_detail.quick_panel_help"))
         }
 
         if showsModelConfiguration {
           Section {
-            LabeledContent("Default", value: defaultModel(app))
-            LabeledContent("Overrides", value: overrideSummary(app))
-            LabeledContent("Manage Models") {
-              Button("Manage…") { showingModels = true }
+            LabeledContent(model.localized("desktop.app_detail.default"), value: defaultModel(app))
+            LabeledContent(model.localized("desktop.app_detail.overrides"), value: overrideSummary(app))
+            LabeledContent(model.localized("desktop.app_detail.manage_models")) {
+              Button(model.localized("desktop.app_detail.manage")) { showingModels = true }
                 .buttonStyle(.bordered)
                 .controlSize(.small)
-                .help("Choose the models this app uses for each role.")
+                .help(model.localized("desktop.app_detail.manage_models_help"))
                 .disabled(!app.modelEditingAvailable || model.isBusy)
             }
             .accessibilityIdentifier("app.models.manage")
           } header: {
-            Text("Models")
+            Text(model.localized("desktop.app_detail.models"))
           } footer: {
             VStack(alignment: .leading) {
               if !app.modelEditingAvailable, let reason = app.modelUnavailableReason,
@@ -203,8 +203,8 @@ struct AppDetailView: View {
             if model.codexProfiles.isEmpty {
               Text(
                 model.codexProfileSources.isEmpty
-                  ? "Add a compatible account or route to create a Codex CLI profile."
-                  : "No profiles yet. Add one to use a separate AnyPick connection in Codex CLI."
+                  ? model.localized("desktop.app_detail.add_source_for_profile")
+                  : model.localized("desktop.app_detail.no_profiles")
               )
                 .foregroundStyle(.secondary)
             } else {
@@ -213,47 +213,49 @@ struct AppDetailView: View {
               }
             }
           } header: {
-            Text("Codex Profiles")
+            Text(model.localized("desktop.app_detail.codex_profiles"))
           } footer: {
-            Text("Each profile has separate Codex CLI credentials and settings. Copy its command to launch it.")
+            Text(model.localized("desktop.app_detail.profile_detail"))
           }
 
           Section {
             Toggle(
-              "Create profiles automatically",
+              model.localized("desktop.app_detail.create_profiles_automatically"),
               isOn: automaticCodexProfileCreationBinding
             )
             .disabled(model.isBusy)
             if !missingCodexProfileSources.isEmpty {
-              Button("Create Missing Profiles…", systemImage: "person.crop.circle.badge.plus") {
+              Button(model.localized("desktop.app_detail.create_missing_profiles"), systemImage: "person.crop.circle.badge.plus") {
                 _ = model.createMissingCodexProfiles(
                   sourceIDs: missingCodexProfileSources.map(\.sourceID))
               }
-              .help("Create a separate Codex CLI profile for each compatible saved account.")
+              .help(model.localized("desktop.app_detail.create_missing_profiles_help"))
               .disabled(model.isBusy)
               .accessibilityIdentifier("codex-profile.create-missing")
             }
           } header: {
-            Text("Automation")
+            Text(model.localized("desktop.app_detail.automation"))
           } footer: {
-            Text("Automatically create a profile when you add a compatible saved account. Create Missing Profiles also backfills existing accounts.")
+            Text(model.localized("desktop.app_detail.automation_help"))
           }
         }
 
         if model.showUsage, !app.usageWindows.isEmpty {
-          Section {
-            ForEach(app.usageWindows) { window in
-              usageRow(window)
+          ForEach(groupUsageWindows(app.usageWindows)) { group in
+            Section {
+              ForEach(group.windows) { window in
+                usageRow(window, grouped: group.title != nil)
+              }
+            } header: {
+              Text(group.title ?? model.localized("desktop.settings.usage"))
             }
-          } header: {
-            Text("Usage")
           }
         } else if model.showUsage, isAppRouteConfigured(app) {
           Section {
-            Text("This login doesn’t report usage.")
+            Text(model.localized("desktop.app_detail.login_no_usage"))
               .foregroundStyle(.secondary)
           } header: {
-            Text("Usage")
+            Text(model.localized("desktop.settings.usage"))
           }
         }
       }
@@ -274,24 +276,24 @@ struct AppDetailView: View {
     .toolbar {
       if appID == "codex" {
         ToolbarItem(placement: .primaryAction) {
-          Button("Add Profile", systemImage: "plus", action: addCodexProfile)
-            .help("Create a named Codex CLI profile with separate model settings.")
+          Button(model.localized("desktop.app_detail.add_profile"), systemImage: "plus", action: addCodexProfile)
+            .help(model.localized("desktop.app_detail.add_profile_help"))
             .disabled(model.isBusy || model.codexProfileSources.isEmpty)
             .accessibilityIdentifier("codex-profile.add")
         }
       }
     }
     .onDisappear { copyFeedbackTask?.cancel() }
-    .navigationTitle(app?.name ?? "App")
-    .designConfirmation($confirmation)
+    .navigationTitle(app?.name ?? model.localized("desktop.app_detail.app"))
+    .designConfirmation($confirmation, model: model)
   }
 
   private func codexProfileSummary(_ profile: DesignCodexProfile) -> String {
-    let modelName = profile.modelID.isEmpty ? "Source default" : cleanModelDisplayName(profile.modelID)
+    let modelName = profile.modelID.isEmpty ? model.localized("desktop.app_detail.source_default") : cleanModelDisplayName(profile.modelID)
     let transport = switch profile.transportPolicy {
-    case "direct": "Direct"
-    case "proxy": "Proxy"
-    default: "Automatic"
+    case "direct": model.localized("desktop.app_detail.direct")
+    case "proxy": model.localized("desktop.app_detail.proxy")
+    default: model.localized("desktop.app_detail.automatic")
     }
     return "\(profile.sourceLabel) · \(modelName) · \(transport)"
   }
@@ -311,7 +313,8 @@ struct AppDetailView: View {
       Spacer(minLength: 8)
       DesignCopyButton(
         copied: copiedCodexProfileID == profile.id,
-        label: "Copy launch command for \(profile.name)",
+        label: model.localized("desktop.app_detail.copy_launch_command", replacing: ["name": profile.name]),
+        copiedLabel: model.localized("desktop.common.copied_to_clipboard"),
         identifier: "codex-profile.copy.\(profile.name)"
       ) {
         copyCodexProfileCommand(profile)
@@ -319,19 +322,19 @@ struct AppDetailView: View {
       .disabled(model.isBusy || profile.launchCommand.isEmpty)
 
       DesignMoreActionsMenu(
-        label: "Actions for \(profile.name)",
+        label: model.localized("desktop.app_detail.actions_for", replacing: ["name": profile.name]),
         identifier: "codex-profile.more.\(profile.name)",
         isDisabled: model.isBusy
       ) {
-        Button("Edit Profile…", systemImage: "slider.horizontal.3") {
+        Button(model.localized("desktop.app_detail.edit_profile"), systemImage: "slider.horizontal.3") {
           editingCodexProfile = profile
           showingCodexProfileSheet = true
         }
-        .help("Change this profile’s name, account, or model settings.")
-        Button("Remove Profile…", systemImage: "trash", role: .destructive) {
+        .help(model.localized("desktop.app_detail.edit_profile_help"))
+        Button(model.localized("desktop.app_detail.remove_profile"), systemImage: "trash", role: .destructive) {
           requestProfileRemoval(profile.name)
         }
-        .help("Remove this Codex CLI profile from AnyPick.")
+        .help(model.localized("desktop.app_detail.remove_profile_help"))
       }
     }
     .accessibilityIdentifier("codex-profile.row.\(profile.name)")
@@ -377,11 +380,11 @@ struct AppDetailView: View {
   private func headerSubtitle(_ app: DesignApp) -> String {
 // Without this a hub route reads as "<App> account" — the wrong transport.
     if selectedRoute?.kind == .hub {
-      return "Proxy Hub · \(app.status.rawValue)"
+      return "\(model.localized("desktop.nav.proxy_hub")) · \(app.status.localizedLabel(using: model))"
     }
     let provider = selectedRoute?.providerID.map(nativeProviderName) ?? nativeProviderName(app.id)
-    let kind = selectedRoute?.kind == .gateway ? "gateway" : "account"
-    return "\(provider) \(kind) · \(app.status.rawValue)"
+    let kind = selectedRoute?.kind == .gateway ? model.localized("desktop.account_detail.api_gateway") : model.localized("desktop.account_detail.account")
+    return "\(provider) \(kind) · \(app.status.localizedLabel(using: model))"
   }
 
   private func resolvedIdentity(_ app: DesignApp) -> String? {
@@ -407,7 +410,7 @@ struct AppDetailView: View {
       return selected
     }
     if app.detail.hasPrefix("Signed in as ") {
-      return "Direct Login"
+      return model.localized("desktop.app_detail.direct_login")
     }
     if app.detail.hasPrefix("Uses ") {
       let rest = String(app.detail.dropFirst("Uses ".count))
@@ -417,9 +420,9 @@ struct AppDetailView: View {
       return rest
     }
     if app.detail == "Current login" || isAppRouteConfigured(app) || app.status == .ready {
-      return "Current login"
+      return model.localized("desktop.app_detail.current_login")
     }
-    return "Not selected"
+    return model.localized("desktop.app_detail.not_selected")
   }
 
   private func defaultModel(_ app: DesignApp) -> String {
@@ -429,9 +432,9 @@ struct AppDetailView: View {
 
   private func overrideSummary(_ app: DesignApp) -> String {
     let roles = app.modelRoles.filter { $0.id != "default" }
-    guard !roles.isEmpty else { return "Same as Default" }
+    guard !roles.isEmpty else { return model.localized("desktop.app_detail.same_as_default") }
     return roles.map { role in
-      let clean = role.modelID.isEmpty ? "Same as Default" : cleanModelDisplayName(role.modelID)
+      let clean = role.modelID.isEmpty ? model.localized("desktop.app_detail.same_as_default") : cleanModelDisplayName(role.modelID)
       return "\(role.label): \(clean)"
     }.joined(separator: " · ")
   }
@@ -443,9 +446,15 @@ struct AppDetailView: View {
     )
   }
 
-  private func usageRow(_ window: DesignUsageWindow) -> some View {
-    LabeledContent(quotaWindowLabel(window)) {
-      DesignQuotaView(window: window, isCompact: false, showsLabel: false)
+  private func usageRow(_ window: DesignUsageWindow, grouped: Bool) -> some View {
+    Group {
+      if grouped {
+        DesignQuotaView(model: model, window: window, showsLimitCard: true)
+      } else {
+        LabeledContent(localizedQuotaWindowLabel(window, using: model)) {
+          DesignQuotaView(model: model, window: window, isCompact: false, showsLabel: false)
+        }
+      }
     }
     .accessibilityIdentifier("app.usage.\(window.id)")
   }

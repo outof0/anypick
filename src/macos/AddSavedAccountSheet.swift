@@ -2,11 +2,11 @@ import SwiftUI
 
 struct AddSavedAccountSheet: View {
   private enum SourceMode: String, CaseIterable, Identifiable {
-    case thisMac = "On This Mac"
-    case newAccount = "New Account"
-    case credential = "API Key"
-    case paste = "Paste Auth JSON"
-    var id: String { rawValue }
+    case thisMac
+    case newAccount
+    case credential
+    case paste
+    var id: Self { self }
   }
 
   @ObservedObject var model: MacOSDesignModel
@@ -227,26 +227,41 @@ struct AddSavedAccountSheet: View {
     addAccountBlockerMessage(
       provider: selectedProvider,
       method: selectedLoginMethod,
-      isNewAccountMode: sourceMode == .newAccount
+      isNewAccountMode: sourceMode == .newAccount,
+      using: model
     )
   }
 
   private var primaryTitle: String {
-    if isDetecting || isVerifying { return "Checking" }
+    if isDetecting || isVerifying { return model.localized("desktop.common.checking") }
     if sourceMode == .paste, replaceExisting {
       let typed = accountName.trimmingCharacters(in: .whitespacesAndNewlines)
-      return typed.isEmpty ? "Replace Account" : "Replace \(typed)"
+      return typed.isEmpty
+        ? model.localized("desktop.add_account.replace_account")
+        : model.localized("desktop.add_account.replace_named", replacing: ["name": typed])
     }
-    if sourceMode == .newAccount, !hasIdentity { return "Sign In with \(providerLabel)" }
-    return "Add Login"
+    if sourceMode == .newAccount, !hasIdentity {
+      return model.localized("desktop.add_account.sign_in_with", replacing: ["provider": providerLabel])
+    }
+    return model.localized("desktop.accounts.add_login")
   }
 
   private var primaryHelp: String {
-    if isDetecting || isVerifying { return "Wait for the account check to finish." }
-    if sourceMode == .paste, replaceExisting { return "Replace this saved account with the pasted auth file." }
-    if sourceMode == .paste { return "Save the auth file without changing this Mac’s login." }
-    if isKeyInputMode { return "Save this API key for supported apps to use through AnyPick." }
-    return "Save this provider login for compatible apps."
+    if isDetecting || isVerifying { return model.localized("desktop.add_account.checking_help") }
+    if sourceMode == .paste, replaceExisting { return model.localized("desktop.add_account.replace_auth_help") }
+    if sourceMode == .paste { return model.localized("desktop.add_account.save_auth_help") }
+    if isKeyInputMode { return model.localized("desktop.add_account.save_key_help") }
+    return model.localized("desktop.add_account.save_login_help")
+  }
+
+  private func sourceModeTitle(_ mode: SourceMode) -> String {
+    let key = switch mode {
+    case .thisMac: "desktop.add_account.mode_this_mac"
+    case .newAccount: "desktop.add_account.mode_new_account"
+    case .credential: "desktop.add_account.mode_api_key"
+    case .paste: "desktop.add_account.mode_paste_auth"
+    }
+    return model.localized(key)
   }
 
   private var autoDetectionKey: String {
@@ -255,7 +270,8 @@ struct AddSavedAccountSheet: View {
 
   var body: some View {
     DesignSheetHost(
-      title: "Add Login",
+      model: model,
+      title: model.localized("desktop.accounts.add_login"),
       width: 440,
       primaryTitle: primaryTitle,
       primaryDisabled: !canSubmit || model.isBusy || awaitingSaveResult,
@@ -267,33 +283,33 @@ struct AddSavedAccountSheet: View {
       Form {
         Section {
           if availableSourceModes.count > 1 {
-            Picker("Source", selection: $sourceMode) {
+            Picker(model.localized("desktop.add_account.source"), selection: $sourceMode) {
               ForEach(availableSourceModes) { mode in
-                Text(mode.rawValue).tag(mode)
+                Text(sourceModeTitle(mode)).tag(mode)
               }
             }
             .pickerStyle(.segmented)
             .labelsHidden()
-            .help("Choose how AnyPick gets this login.")
+            .help(model.localized("desktop.add_account.source_help"))
             .accessibilityIdentifier("account-flow.source")
           }
 
-          LabeledContent("Provider") {
+          LabeledContent(model.localized("desktop.account_detail.provider")) {
             DesignProviderPicker(options: providers, selection: $provider)
               .fixedSize()
-              .help("Choose the provider for this saved login.")
+              .help(model.localized("desktop.add_account.provider_help"))
               .accessibilityIdentifier("account-flow.provider")
           }
 
           if showsLocalSourcePicker {
-            Picker("App", selection: $localSourceID) {
+            Picker(model.localized("desktop.nav.apps"), selection: $localSourceID) {
               ForEach(localLoginMethods) { method in
                 Text(method.sourceLabel ?? method.label)
                   .tag(method.sourceID ?? "")
               }
             }
             .accessibilityIdentifier("account-flow.local-source")
-            .help("Choose which local app's login AnyPick should read.")
+            .help(model.localized("desktop.add_account.local_app_help"))
           }
 
           if sourceMode == .paste {
@@ -303,7 +319,7 @@ struct AddSavedAccountSheet: View {
           } else {
             currentLoginRow
             if sourceMode == .newAccount, loginMethods.count > 1 {
-              Picker("Sign-in method", selection: $loginMethod) {
+              Picker(model.localized("desktop.add_account.sign_in_method"), selection: $loginMethod) {
                 ForEach(loginMethods) { method in
                   Text(method.label).tag(method.id)
                 }
@@ -320,12 +336,12 @@ struct AddSavedAccountSheet: View {
             }
           }
           TextField(
-            "Account Name",
+            model.localized("desktop.account_detail.account_name"),
             text: accountNameBinding,
-            prompt: Text(sourceMode == .paste ? "Optional" : "Personal")
+            prompt: Text(model.localized(sourceMode == .paste ? "desktop.common.optional" : "desktop.add_account.personal_example"))
           )
             .focused($nameFocused)
-            .help("Choose a label that helps you recognize this login.")
+            .help(model.localized("desktop.add_account.name_help"))
             .accessibilityIdentifier("account-flow.name")
           loginErrorContent
         } footer: {
@@ -344,7 +360,7 @@ struct AddSavedAccountSheet: View {
         nameFocused = true
         if ProcessInfo.processInfo.environment["ANYPICK_MACOS_FLOW"] == "add-account-error" {
           DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-            saveError = "Account 'Personal' already exists for Codex. Choose a different name or use the existing account."
+            saveError = model.localized("desktop.add_account.fixture_duplicate", replacing: ["name": accountName, "provider": providerLabel])
           }
         }
       }
@@ -415,11 +431,10 @@ struct AddSavedAccountSheet: View {
           } else if let message = result?.message, !message.isEmpty {
             saveError = displaySafeFeedback(
               message,
-              fallback: "The browser sign-in returned an unreadable response. Try again."
+              fallback: model.localized("desktop.add_account.browser_unreadable")
             )
           } else {
-            saveError =
-              "The browser sign-in did not finish. Try again or use an account already signed in on this Mac."
+            saveError = model.localized("desktop.add_account.browser_did_not_finish")
           }
         } else if result?.operation == "account-save-input" {
           isVerifying = false
@@ -430,10 +445,10 @@ struct AddSavedAccountSheet: View {
             if let message = result?.message, !message.isEmpty {
               saveError = displaySafeFeedback(
                 message,
-                fallback: "The provider returned an unreadable response. Try again."
+              fallback: model.localized("desktop.add_account.provider_unreadable")
               )
             } else {
-              saveError = "Couldn’t save that key. Try again."
+              saveError = model.localized("desktop.add_account.key_save_error")
             }
           }
         } else if result?.operation == "account-save-auth" {
@@ -444,18 +459,18 @@ struct AddSavedAccountSheet: View {
           } else if result?.code == "ACCOUNT_EXISTS" {
             replaceExisting = true
             saveError = displaySafeFeedback(
-              result?.message ?? "An account with that name already exists.",
-              fallback: "An account with that name already exists."
+              result?.message ?? model.localized("desktop.add_account.account_exists"),
+              fallback: model.localized("desktop.add_account.account_exists")
             )
           } else if let message = result?.message, !message.isEmpty {
             replaceExisting = false
             saveError = displaySafeFeedback(
               message,
-              fallback: "The pasted auth JSON could not be saved."
+              fallback: model.localized("desktop.add_account.auth_save_error")
             )
           } else {
             replaceExisting = false
-            saveError = "The pasted auth JSON could not be saved."
+            saveError = model.localized("desktop.add_account.auth_save_error")
           }
         } else if result?.operation == "account-save", awaitingSaveResult {
           awaitingSaveResult = false
@@ -464,10 +479,10 @@ struct AddSavedAccountSheet: View {
           } else if let message = result?.message, !message.isEmpty {
             saveError = displaySafeFeedback(
               message,
-              fallback: "The account could not be saved safely. Try again."
+              fallback: model.localized("desktop.add_account.save_error_safe")
             )
           } else {
-            saveError = "Couldn’t save that account. Try again."
+            saveError = model.localized("desktop.add_account.save_error")
           }
         } else if result?.operation == "account-detect" {
           isDetecting = false
@@ -477,8 +492,8 @@ struct AddSavedAccountSheet: View {
             detectedIdentity = ""
             detectedSource = ""
             saveError = displaySafeFeedback(
-              result?.message ?? "No \(sourceAppName) login was found on this Mac.",
-              fallback: "No readable login was found on this Mac."
+              result?.message ?? model.localized("desktop.add_account.no_app_login", replacing: ["app": sourceAppName]),
+              fallback: model.localized("desktop.add_account.no_readable_login")
             )
           }
         }
@@ -488,17 +503,17 @@ struct AddSavedAccountSheet: View {
         loginTask?.cancel()
         if isVerifying { model.cancelAccountLogin() }
       }
-      .designConfirmation($confirmation)
+      .designConfirmation($confirmation, model: model)
     }
   }
 
   private func requestSignOut() {
     confirmation = DesignConfirmation(
       id: "sign-out",
-      title: "Sign Out of \(sourceAppName)?",
+      title: model.localized("desktop.add_account.sign_out_title", replacing: ["app": sourceAppName]),
       message:
-        "AnyPick backs up this account before signing out on this Mac. Remote sessions stay active.",
-      action: .confirm("Sign Out", identifier: "account-flow.sign-out") {
+        model.localized("desktop.add_account.sign_out_message"),
+      action: .confirm(model.localized("desktop.add_account.sign_out"), identifier: "account-flow.sign-out") {
         detectedIdentity = ""
         detectedSource = ""
         model.clearLiveLogin(provider: provider)
@@ -522,14 +537,14 @@ struct AddSavedAccountSheet: View {
             .padding(.top, 1)
 
           VStack(alignment: .leading, spacing: 4) {
-            Text("Unable to Complete")
+            Text(model.localized("desktop.add_account.unable_to_complete"))
               .font(.subheadline.weight(.semibold))
               .foregroundStyle(.primary)
 
             Text(
               displaySafeFeedback(
                 saveError,
-                fallback: "The provider returned an unreadable response. Try again."
+                fallback: model.localized("desktop.add_account.provider_unreadable")
               )
             )
             .font(.footnote)
@@ -541,16 +556,16 @@ struct AddSavedAccountSheet: View {
         if sourceMode == .newAccount {
           HStack(spacing: 8) {
             if currentLogin != nil {
-              Button("Use Account on This Mac", action: useCurrentLoginFallback)
+              Button(model.localized("desktop.add_account.use_account_this_mac"), action: useCurrentLoginFallback)
                 .buttonStyle(.bordered)
                 .controlSize(.small)
-                .help("Use this Mac’s detected login instead of browser sign-in.")
+                .help(model.localized("desktop.add_account.use_detected_login_help"))
             }
             if !credentialKinds.isEmpty {
-              Button("Use API Key", action: useCredentialFallback)
+              Button(model.localized("desktop.add_account.use_api_key"), action: useCredentialFallback)
                 .buttonStyle(.bordered)
                 .controlSize(.small)
-                .help("Switch to the API-key form for this provider.")
+                .help(model.localized("desktop.add_account.switch_api_key_help"))
             }
           }
           .padding(.leading, 24)
@@ -567,7 +582,7 @@ struct AddSavedAccountSheet: View {
         .font(.system(.body, design: .monospaced))
         .frame(minHeight: 140)
         .accessibilityIdentifier("account-flow.auth-json")
-      Text("Paste the provider's own auth file. This does not change the login already on this Mac.")
+      Text(model.localized("desktop.add_account.paste_auth_help"))
         .font(.footnote)
         .foregroundStyle(.secondary)
         .fixedSize(horizontal: false, vertical: true)
@@ -577,53 +592,53 @@ struct AddSavedAccountSheet: View {
   private var sourceFooter: String {
     if sourceMode == .paste {
       return
-        "Paste the provider's own auth file. AnyPick saves it as an account and leaves the login on this Mac unchanged."
+        model.localized("desktop.add_account.paste_auth_footer")
     }
     if isKeyInputMode {
       return
-        "AnyPick stores this key so supported apps can use \(providerLabel) through a local proxy."
+        model.localized("desktop.add_account.api_key_footer", replacing: ["provider": providerLabel])
     }
-    if isDetecting { return "AnyPick will fill in the account when it appears." }
+    if isDetecting { return model.localized("desktop.add_account.detecting_footer") }
     if sourceMode == .thisMac, selectedLocalLoginMethod != nil {
       return
-        "This reads the local \(sourceAppName) login on this Mac. It does not read the account currently open in your browser."
+        model.localized("desktop.add_account.local_login_footer", replacing: ["app": sourceAppName])
     }
     if isVerifying || (sourceMode == .newAccount && !hasIdentity) {
-      return "AnyPick saves the account when the browser flow finishes."
+      return model.localized("desktop.add_account.browser_save_footer")
     }
-    return "AnyPick saves this account so you can switch back anytime."
+    return model.localized("desktop.add_account.switch_back_footer")
   }
 
   private var identityTitle: String {
-    if isDetecting || isVerifying { return "Checking \(sourceAppName)" }
+    if isDetecting || isVerifying { return model.localized("desktop.add_account.checking_app", replacing: ["app": sourceAppName]) }
     if hasIdentity { return detectedIdentity }
     if sourceMode == .newAccount { return sourceAppName }
-    return "No login on this Mac"
+    return model.localized("desktop.add_account.no_login_this_mac")
   }
 
   private var identityDetail: String {
-    if isDetecting || isVerifying { return "This usually takes a few seconds." }
+    if isDetecting || isVerifying { return model.localized("desktop.add_account.checking_wait") }
     if hasIdentity {
-      if sourceMode == .thisMac { return "\(detectedSourceText) on this Mac" }
+      if sourceMode == .thisMac { return model.localized("desktop.add_account.detected_on_this_mac", replacing: ["source": detectedSourceText]) }
       return detectedSourceText
     }
     if sourceMode == .newAccount {
       return isCommunityFlow
-        ? "Opens \(providerLabel)’s community-supported browser flow"
-        : "Opens \(providerLabel)’s official browser flow"
+        ? model.localized("desktop.add_account.community_browser_flow", replacing: ["provider": providerLabel])
+        : model.localized("desktop.add_account.official_browser_flow", replacing: ["provider": providerLabel])
     }
     // WorkBuddy shares its login with its desktop app through the session
     // file, so "On This Mac" sees the app's current login — first-timers
     // without one use New Account.
     if isWorkBuddyProvider {
       return workBuddyAppInstalled
-        ? "WorkBuddy app is on this Mac — its current login is available here"
-        : "Use New Account to sign in with WorkBuddy in the browser"
+        ? model.localized("desktop.add_account.workbuddy_installed")
+        : model.localized("desktop.add_account.workbuddy_new_account")
     }
     if isZaiProvider {
       return zcodeAppInstalled
-        ? "ZCode login was not detected — try New Account to sign in in the browser"
-        : "Use New Account to sign in with Z.ai in the browser"
+        ? model.localized("desktop.add_account.zcode_not_detected")
+        : model.localized("desktop.add_account.zai_new_account")
     }
     return sourceAppName
   }
@@ -635,10 +650,10 @@ struct AddSavedAccountSheet: View {
   private var checkAgainHelp: String {
     if sourceMode == .newAccount, !hasIdentity {
       return isCommunityFlow
-        ? "Opens \(providerLabel)’s community-supported browser flow"
-        : "Opens \(providerLabel)’s official browser flow"
+        ? model.localized("desktop.add_account.community_browser_flow", replacing: ["provider": providerLabel])
+        : model.localized("desktop.add_account.official_browser_flow", replacing: ["provider": providerLabel])
     }
-    return "Checks the \(sourceAppName) account currently active on this Mac."
+    return model.localized("desktop.add_account.check_current_account", replacing: ["app": sourceAppName])
   }
 
   private var currentLoginRow: some View {
@@ -669,43 +684,43 @@ struct AddSavedAccountSheet: View {
   private var keyInputRows: some View {
     Group {
       if credentialKinds.count > 1 {
-        Picker("Credential", selection: $credentialKind) {
+        Picker(model.localized("desktop.add_account.credential"), selection: $credentialKind) {
           ForEach(credentialKinds) { kind in
             Text(kind.label).tag(kind.kind)
           }
         }
         .accessibilityIdentifier("account-flow.credential-kind")
-        .help("Choose which credential type to save for this provider.")
+        .help(model.localized("desktop.add_account.credential_help"))
         .onChange(of: credentialKind) { _, _ in credentialProfile = "" }
       }
       if availableProfiles.count > 1 {
-        Picker("Profile", selection: $credentialProfile) {
+        Picker(model.localized("desktop.add_account.profile"), selection: $credentialProfile) {
           ForEach(availableProfiles) { profile in
             Text(profile.label).tag(profile.id)
           }
         }
         .accessibilityIdentifier("account-flow.credential-profile")
-        .help("Choose the provider profile this credential belongs to.")
+        .help(model.localized("desktop.add_account.profile_help"))
       }
       if isCloudflareProvider {
         // The gateway base URL embeds the Cloudflare account id, so no fixed
         // profile preset can name it. Collect the routing pair as typed input
         // and send it as the credential profile.
-        LabeledContent("Account / Gateway") {
+        LabeledContent(model.localized("desktop.add_account.account_gateway")) {
           TextField("<account_id>/<gateway_id>", text: $cloudflareRouting)
             .labelsHidden()
-            .help("Enter the Cloudflare account ID and AI Gateway name, separated by /.")
+            .help(model.localized("desktop.add_account.cloudflare_route_help"))
             .accessibilityIdentifier("account-flow.cloudflare-routing")
         }
         Text(
-          "Find the account ID with wrangler whoami. The gateway is the AI Gateway name — default works without setup."
+          model.localized("desktop.add_account.cloudflare_hint")
         )
         .font(.footnote)
         .foregroundStyle(.secondary)
         .fixedSize(horizontal: false, vertical: true)
         .accessibilityIdentifier("account-flow.cloudflare-hint")
       }
-      LabeledContent(selectedCredentialKind?.label ?? "API Key") {
+      LabeledContent(selectedCredentialKind?.label ?? model.localized("desktop.common.api_key")) {
         HStack(spacing: 8) {
           Group {
             if revealSecret {
@@ -715,12 +730,12 @@ struct AddSavedAccountSheet: View {
             }
           }
           .labelsHidden()
-          .help("Enter the credential issued by this provider.")
+          .help(model.localized("desktop.add_account.credential_input_help"))
           .accessibilityIdentifier("account-flow.api-key")
 
           DesignIconButton(
             symbol: revealSecret ? "eye.slash" : "eye",
-            label: revealSecret ? "Hide API Key" : "Show API Key",
+            label: model.localized(revealSecret ? "desktop.gateway.hide_api_key" : "desktop.gateway.show_api_key"),
             identifier: "account-flow.toggle-key-visibility"
           ) {
             revealSecret.toggle()
@@ -732,7 +747,7 @@ struct AddSavedAccountSheet: View {
         // subscription sign-in are also available as separate source modes.
         Text(
           zcodePlanWarning
-            ?? "Use On This Mac to read the ZCode login, or choose New Account to sign in with Z.ai in the browser."
+            ?? model.localized("desktop.add_account.zcode_plan_hint")
         )
         .font(.footnote)
         .foregroundStyle(.secondary)
@@ -747,7 +762,7 @@ struct AddSavedAccountSheet: View {
       if isDetecting || isVerifying {
         ProgressView()
           .controlSize(.small)
-          .accessibilityLabel("Checking")
+          .accessibilityLabel(model.localized("desktop.common.checking"))
       } else {
         Button {
           if sourceMode == .newAccount, !hasIdentity { signIn() } else { detectLogin() }
@@ -763,18 +778,18 @@ struct AddSavedAccountSheet: View {
         .disabled(model.isBusy)
         .help(checkAgainHelp)
         .accessibilityLabel(
-          sourceMode == .newAccount && !hasIdentity ? "Start Sign In" : "Check Again"
+          model.localized(sourceMode == .newAccount && !hasIdentity ? "desktop.add_account.start_sign_in" : "desktop.add_account.check_again")
         )
         .accessibilityIdentifier("account-flow.detect")
       }
       if showsSignOutMenu {
         DesignMoreActionsMenu(
-          label: "Account actions",
+          label: model.localized("desktop.add_account.account_actions"),
           identifier: "account-flow.clear",
           isDisabled: model.isBusy
         ) {
-          Button("Sign Out on This Mac", role: .destructive) { requestSignOut() }
-            .help("Back up and remove this provider’s login from this Mac.")
+          Button(model.localized("desktop.add_account.sign_out_this_mac"), role: .destructive) { requestSignOut() }
+            .help(model.localized("desktop.add_account.sign_out_help"))
         }
       }
     }
@@ -782,12 +797,14 @@ struct AddSavedAccountSheet: View {
 
   private func syncCurrentLogin(detectionMessage: String? = nil) {
     if let login = currentLogin {
-      detectedIdentity = displaySafeIdentity(login.identity ?? "Current login") ?? "Current login"
+      let currentLoginLabel = model.localized("desktop.app_detail.current_login")
+      detectedIdentity = displaySafeIdentity(login.identity ?? currentLoginLabel) ?? currentLoginLabel
       detectedSource = localLoginSourceName ?? login.appName
       return
     }
+    let detected = accountIdentity(fromDetectionMessage: detectionMessage) ?? ""
     detectedIdentity = displaySafeIdentity(
-      accountIdentity(fromDetectionMessage: detectionMessage) ?? ""
+      detected == "Current login" ? model.localized("desktop.app_detail.current_login") : detected
     ) ?? ""
     detectedSource = detectedIdentity.isEmpty ? "" : sourceAppName
   }
@@ -839,13 +856,15 @@ struct AddSavedAccountSheet: View {
     let existing = model.accounts.filter {
       $0.kind == .saved && $0.provider.caseInsensitiveCompare(provider) == .orderedSame
     }.map(\.name)
-    if !existing.contains(where: { $0.caseInsensitiveCompare("Work") == .orderedSame }) {
-      return "Work"
+    let workName = model.localized("desktop.add_account.work_example")
+    let personalName = model.localized("desktop.add_account.personal_example")
+    if !existing.contains(where: { $0.caseInsensitiveCompare(workName) == .orderedSame }) {
+      return workName
     }
-    if !existing.contains(where: { $0.caseInsensitiveCompare("Personal") == .orderedSame }) {
-      return "Personal"
+    if !existing.contains(where: { $0.caseInsensitiveCompare(personalName) == .orderedSame }) {
+      return personalName
     }
-    return "Account \(existing.count + 1)"
+    return model.localized("desktop.add_account.account_number", replacing: ["number": String(existing.count + 1)])
   }
 
   private func detectLogin() {
@@ -966,7 +985,7 @@ struct AddSavedAccountSheet: View {
   private func signIn() {
     guard let method = selectedLoginMethod else {
       isVerifying = false
-      saveError = "Choose an available sign-in method, then try again."
+      saveError = model.localized("desktop.add_account.choose_sign_in_method")
       return
     }
     saveError = nil
@@ -981,7 +1000,7 @@ struct AddSavedAccountSheet: View {
       ) {
         isVerifying = false
         saveError = loginFailureMessage(
-          fallback: "AnyPick could not start the browser sign-in. Try again."
+          fallback: model.localized("desktop.add_account.browser_start_error")
         )
       }
       return
@@ -1009,7 +1028,7 @@ struct AddSavedAccountSheet: View {
         dismiss()
       } else {
         saveError = loginFailureMessage(
-          fallback: "The browser sign-in could not be saved. Try again."
+          fallback: model.localized("desktop.add_account.browser_save_error")
         )
       }
     }
@@ -1033,8 +1052,11 @@ struct AddSavedAccountSheet: View {
         forgetStagedAuth()
         path = try AuthPasteFiles.stage(body)
         stagedAuthPath = path
+      } catch let error as AuthPasteWriteError {
+        saveError = model.localized(error.localizationKey)
+        return
       } catch {
-        saveError = error.localizedDescription
+        saveError = model.localized("desktop.add_account.auth_write_error")
         return
       }
     }
@@ -1088,7 +1110,7 @@ struct AddSavedAccountSheet: View {
   private func save() {
     let identity =
       detectedIdentity.isEmpty
-      ? "Current \(providerLabel) login"
+      ? model.localized("desktop.add_account.current_provider_login", replacing: ["provider": providerLabel])
       : detectedIdentity
     saveError = nil
     if model.isProduction {
@@ -1128,12 +1150,12 @@ enum AuthPasteFiles {
   static func stage(_ text: String) throws -> String {
     let data = Data(text.utf8)
     if data.count > maxBytes {
-      throw AuthPasteWriteError(message: "Pasted auth JSON is larger than 256 KiB.")
+      throw AuthPasteWriteError(localizationKey: "desktop.add_account.auth_too_large")
     }
     let directory = try directoryURL()
     let file = directory.appendingPathComponent(UUID().uuidString + ".json")
     guard FileManager.default.createFile(atPath: file.path, contents: data) else {
-      throw AuthPasteWriteError(message: "AnyPick could not store the pasted auth JSON.")
+      throw AuthPasteWriteError(localizationKey: "desktop.add_account.auth_write_error")
     }
     try FileManager.default.setAttributes(
       [.posixPermissions: NSNumber(value: Int16(0o600))],
@@ -1171,7 +1193,6 @@ enum AuthPasteFiles {
   }
 }
 
-struct AuthPasteWriteError: LocalizedError {
-  let message: String
-  var errorDescription: String? { message }
+struct AuthPasteWriteError: Error {
+  let localizationKey: String
 }

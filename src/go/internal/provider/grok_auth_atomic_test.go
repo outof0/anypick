@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -69,7 +70,8 @@ func TestWriteGrokSessionReplacesAtomically(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if perm := info.Mode().Perm(); perm != 0o600 {
+	if runtime.GOOS != "windows" && info.Mode().Perm() != 0o600 {
+		perm := info.Mode().Perm()
 		t.Fatalf("auth.json mode = %v, want 0600", perm)
 	}
 }

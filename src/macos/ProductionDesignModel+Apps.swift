@@ -42,7 +42,7 @@ extension ProductionDesignModel {
           name: $0.routeKind == "direct-account"
             ? ($0.upstreamSourceLabel ?? $0.label)
             : $0.label,
-          detail: friendlyRouteDetail($0.detail, routeKind: $0.routeKind),
+          detail: friendlyRouteDetail($0.detail, routeKind: $0.routeKind, using: self),
           symbol: routeSymbol($0.routeKind),
           kind: appRouteKind(
             routeKind: $0.routeKind,
@@ -97,7 +97,8 @@ extension ProductionDesignModel {
           label: $0.label,
           remainingPercent: $0.remainingPercent,
           resetsAtMs: $0.resetsAtMs,
-          limitWindowSeconds: $0.limitWindowSeconds
+          limitWindowSeconds: $0.limitWindowSeconds,
+          group: $0.group
         )
       } ?? []
     return DesignApp(

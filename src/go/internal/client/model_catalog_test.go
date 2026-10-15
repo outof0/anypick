@@ -46,7 +46,7 @@ func TestCodexApplyPublishesSourceModelCatalog(t *testing.T) {
 	configPath := filepath.Join(home, ".codex", "config.toml")
 	config := string(mustRead(t, configPath))
 	catalogPath := filepath.Join(home, ".codex", codexCatalogFile)
-	if !containsAll(config, "model = \"catalog-second\"", "model_catalog_json = \""+catalogPath+"\"") {
+	if !containsAll(config, "model = \"catalog-second\"", "model_catalog_json = "+quoteTOML(catalogPath)) {
 		t.Fatalf("config does not point at the selected model and catalog:\n%s", config)
 	}
 	var doc codexCatalogDocument

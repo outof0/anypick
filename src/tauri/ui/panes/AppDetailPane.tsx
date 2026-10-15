@@ -21,14 +21,17 @@ import {
 import {
   cleanModelDisplayName,
   friendlyRouteKindLabel,
+  groupUsageWindows,
   isAppRouteConfigured,
+  localizedQuotaResetFormatted,
+  localizedQuotaWindowLabel,
   nativeProviderName,
-  quotaResetFormatted,
   quotaWindowLabel,
   transportDisplayName,
   usageForClient,
 } from '../lib/model';
 import type { ServicePort } from '../lib/service';
+import { translate, translateSource } from '../lib/i18n';
 import {
   Button,
   CopyButton,
@@ -85,6 +88,10 @@ export function AppDetailPane({
   onReset: () => void;
   onRemove: () => void;
 }) {
+  const language = snapshot.settings.language;
+  const resolvedLanguage = snapshot.settings.resolvedLanguage;
+  const t = (key: string) => translate(`desktop.app_detail.${key}`, language, resolvedLanguage);
+  const tr = (source: string) => translateSource(source, language, resolvedLanguage);
   const [changingRoutes, setChangingRoutes] = useState(false);
   const [modelsOpen, setModelsOpen] = useState(false);
   const [quickPanelEnabled, setQuickPanelEnabled] = useState(true);
@@ -106,6 +113,10 @@ export function AppDetailPane({
       : undefined;
 
   const usageWindows = usageForClient(snapshot.usage, app.clientId)?.windows ?? [];
+  const usageGroups = groupUsageWindows(usageWindows).map((group) => ({
+    ...group,
+    rows: group.windows.map((window) => ({ window, index: usageWindows.indexOf(window) })),
+  }));
 
   return (
     <Pane
@@ -116,7 +127,7 @@ export function AppDetailPane({
       <Group>
         <Row>
           <ProviderIcon provider={app.clientId} size={28} className="mr-1.5" />
-          <RowText title={app.client} detail={appSubtitle(app)} />
+          <RowText title={app.client} detail={tr(appSubtitle(app))} />
         </Row>
       </Group>
 
@@ -124,29 +135,29 @@ export function AppDetailPane({
       {app.issue ? (
         <Group>
           <Row warning>
-            <WarningGlyph />
-            <RowText title="Needs Attention" detail={appIssue(app)} />
+            <WarningGlyph language={language} resolvedLanguage={resolvedLanguage} />
+            <RowText title={translate('desktop.common.needs_attention', language, resolvedLanguage)} detail={tr(appIssue(app) ?? '')} />
           </Row>
         </Group>
       ) : null}
 
       {/* Connection Section */}
-      <Group title="Connection">
-        <LabeledRow label="Uses" value={app.selected?.label || 'None'} />
+      <Group title={t('connection')}>
+        <LabeledRow label={t('uses')} value={app.selected?.label || t('not_selected')} />
         {app.selected?.detail ? (
-          <LabeledRow label="Identity" value={app.selected.detail} />
+          <LabeledRow label={translate('desktop.account_detail.identity', language, resolvedLanguage)} value={tr(app.selected.detail)} />
         ) : null}
         <LabeledRow
-          label="Transport"
-          value={transportDisplayName(app.selected?.routeKind, isConfigured)}
+          label={t('transport')}
+          value={tr(transportDisplayName(app.selected?.routeKind, isConfigured))}
         />
-        <LabeledRow label="Connection" testId="app.connection.change">
+        <LabeledRow label={t('connection')} testId="app.connection.change">
           <Button
             kind="secondary"
             disabled={busy.size > 0 || changingRows.length === 0}
             onClick={() => setChangingRoutes(true)}
           >
-            {isConfigured ? 'Change…' : 'Connect…'}
+            {t(isConfigured ? 'change' : 'connect')}
           </Button>
           {isManaged ? (
             <Button
@@ -155,7 +166,7 @@ export function AppDetailPane({
               testId="app.connection.disconnect"
               onClick={onReset}
             >
-              Disconnect…
+              {t('disconnect_action')}
             </Button>
           ) : null}
         </LabeledRow>
@@ -163,13 +174,13 @@ export function AppDetailPane({
 
       {/* Quick Panel Section */}
       <Group
-        footer="When enabled, this app appears in the menu bar Quick Panel for quick switching."
+        footer={t('quick_panel_help')}
       >
         <Row>
-          <RowText title="Show in Quick Panel" />
+          <RowText title={t('show_quick_panel')} />
           <RowActions>
             <Switch
-              label="Show in Quick Panel"
+              label={t('show_quick_panel')}
               checked={quickPanelEnabled}
               disabled={busy.size > 0}
               onChange={setQuickPanelEnabled}
@@ -181,32 +192,33 @@ export function AppDetailPane({
       {/* Models Section */}
       {config && (isManaged || Boolean(config.unavailableReason)) ? (
         <Group
-          title="Models"
-          footer={!config.editable && config.unavailableReason ? config.unavailableReason : undefined}
+          title={t('models')}
+          footer={!config.editable && config.unavailableReason ? tr(config.unavailableReason) : undefined}
         >
           {isManaged ? (
             <>
               <LabeledRow
-                label="Default"
-                value={cleanModelDisplayName(config.defaultModel ?? '') || 'None'}
+                label={t('default')}
+                value={cleanModelDisplayName(config.defaultModel ?? '') || t('not_selected')}
               />
               <LabeledRow
-                label="Overrides"
+                label={t('overrides')}
                 value={
                   Object.keys(config.modelRoles).length > 0
-                    ? `${Object.keys(config.modelRoles).length} models pinned`
-                    : 'None'
+                    ? translate('desktop.app_detail.models_pinned', language, resolvedLanguage)
+                        .replace('{count}', String(Object.keys(config.modelRoles).length))
+                    : t('not_selected')
                 }
               />
-              <LabeledRow label="Manage Models" testId={`app.models.row-${app.clientId}`}>
+              <LabeledRow label={t('manage_models')} testId={`app.models.row-${app.clientId}`}>
                 <Button
                   kind="secondary"
                   testId="app.models.manage"
                   disabled={busy.size > 0 || !config.editable}
-                  ariaLabel={`Manage models for ${config.client}`}
+                  ariaLabel={t('manage_models')}
                   onClick={() => setModelsOpen((v) => !v)}
                 >
-                  {modelsOpen ? 'Done' : 'Manage…'}
+                  {modelsOpen ? translate('desktop.common.done', language, resolvedLanguage) : t('manage')}
                 </Button>
               </LabeledRow>
               {modelsOpen ? (
@@ -216,6 +228,8 @@ export function AppDetailPane({
                   revision={snapshot.revision}
                   busy={busy}
                   error={modelRolesError}
+                  language={language}
+                  resolvedLanguage={resolvedLanguage}
                 />
               ) : null}
             </>
@@ -225,52 +239,68 @@ export function AppDetailPane({
 
       {/* Codex Profiles Section (ONLY for Codex app) */}
       {app.clientId === 'codex' ? (
-        <CodexProfilesBlock service={service} snapshot={snapshot} busy={busy} />
+        <CodexProfilesBlock
+          service={service}
+          snapshot={snapshot}
+          busy={busy}
+          language={language}
+          resolvedLanguage={resolvedLanguage}
+        />
       ) : null}
 
       {/* Usage Section */}
       {snapshot.settings.showQuota ? (
-        <Group title="Usage">
-          {usageWindows.length > 0 ? (
-            usageWindows.map((window, index) => {
-              const percent = Math.max(0, Math.min(100, window.remainingPercent));
-              const tint =
-                percent <= 5
-                  ? 'bg-red'
-                  : percent <= 20
-                    ? 'bg-orange'
-                    : 'bg-accent';
-              const reset = quotaResetFormatted(window);
-              return (
-                <Row
-                  key={`${app.clientId}-quota-${index}`}
-                  testId={`apps-quota-${app.clientId}-${index}`}
-                >
-                  <RowText title={quotaWindowLabel(window)} />
-                  <RowActions>
-                    <div className="flex items-center gap-3">
-                      <div className="h-1.5 w-24 overflow-hidden rounded-full bg-separator-soft">
-                        <div
-                          className={`h-full rounded-full ${tint}`}
-                          style={{ width: `${percent}%` }}
-                        />
-                      </div>
-                      <span className="w-24 text-right text-[12px] font-mono text-secondary">
-                        {window.remainingPercent}% remaining
-                      </span>
-                      {reset ? (
-                        <span className="w-16 text-right text-[12px] text-secondary">
-                          {reset}
-                        </span>
-                      ) : null}
-                    </div>
-                  </RowActions>
-                </Row>
-              );
-            })
+        <Group title={translate('desktop.settings.usage', language, resolvedLanguage)}>
+          {usageGroups.length > 0 ? (
+            usageGroups.map((group) => (
+              <div key={group.id}>
+                {group.title ? (
+                  <h3 className="mb-1 ml-1 mt-2 text-[11px] font-semibold text-secondary">{group.title}</h3>
+                ) : null}
+                {group.rows.map(({ window, index }) => {
+                  const percent = Math.max(0, Math.min(100, window.remainingPercent));
+                  const tint =
+                    percent <= 5
+                      ? 'bg-red'
+                      : percent <= 20
+                        ? 'bg-orange'
+                        : 'bg-accent';
+                  const reset = localizedQuotaResetFormatted(window, language, resolvedLanguage);
+                  return (
+                    <Row
+                      key={`${app.clientId}-quota-${index}`}
+                      testId={`apps-quota-${app.clientId}-${index}`}
+                    >
+                      <RowText title={localizedQuotaWindowLabel(window, language, resolvedLanguage)} />
+                      <RowActions>
+                        <div className="flex items-center gap-3">
+                          <div className="h-1.5 w-24 overflow-hidden rounded-full bg-separator-soft">
+                            <div
+                              className={`h-full rounded-full ${tint}`}
+                              style={{ width: `${percent}%` }}
+                            />
+                          </div>
+                          <span className="w-24 text-right text-[12px] font-mono text-secondary">
+                            {translate('desktop.quota.remaining_accessibility', language, resolvedLanguage)
+                              .replace('{label}', '')
+                              .replace(': ', '')
+                              .replace('{percent}', String(window.remainingPercent))}
+                          </span>
+                          {reset ? (
+                            <span className="w-16 text-right text-[12px] text-secondary">
+                              {reset}
+                            </span>
+                          ) : null}
+                        </div>
+                      </RowActions>
+                    </Row>
+                  );
+                })}
+              </div>
+            ))
           ) : (
             <Row>
-              <RowText detail="This login doesn’t report usage." />
+              <RowText detail={t('login_no_usage')} />
             </Row>
           )}
         </Group>
@@ -285,7 +315,7 @@ export function AppDetailPane({
             testId="app.reset"
             onClick={onReset}
           >
-            Disconnect AnyPick
+            {t('disconnect_anypick')}
           </Button>
         ) : null}
         <Button
@@ -294,7 +324,7 @@ export function AppDetailPane({
           testId="app.remove"
           onClick={onRemove}
         >
-          Remove App
+            {t('remove_app')}
         </Button>
       </PaneActions>
 
@@ -339,39 +369,45 @@ export function ModelEditor({
   revision,
   busy,
   error,
+  language,
+  resolvedLanguage,
 }: {
   config: ClientModelConfig;
   service: ServicePort;
   revision: number;
   busy: ReadonlySet<string>;
   error?: string;
+  language: string;
+  resolvedLanguage: string;
 }) {
+  const t = (key: string) => translate(`desktop.models.${key}`, language, resolvedLanguage);
+  const tr = (source: string) => translateSource(source, language, resolvedLanguage);
   const providerId = config.options.find((option) => option.providerId)?.providerId ?? '';
   const providerName = providerId ? nativeProviderName(providerId) : '';
   const provenance = provenanceOf(config);
   const [scope, setScope] = useState<'connection' | 'provider'>(
     provenance === 'custom' || !providerName ? 'connection' : 'provider',
   );
-  const caption = modelProvenanceCaption(provenance, providerName);
+  const caption = tr(modelProvenanceCaption(provenance, providerName));
 
   return (
     <>
       {config.editable && config.options.length > 0 ? (
         <Row testId={`models-scope-${config.clientId}`}>
-          <RowText title="Applies to" detail={caption} />
+          <RowText title={t('applies_to')} detail={caption} />
           <RowActions>
             {providerName ? (
               <select
                 className="min-h-control max-w-55 min-w-40 rounded-control border border-control-border bg-control px-2 text-[12px] text-text"
-                aria-label={`Applies to ${config.client}`}
+                aria-label={tr(`Applies to ${config.client}`)}
                 value={scope}
                 disabled={busy.size > 0}
                 onChange={(event) =>
                   setScope(event.target.value === 'provider' ? 'provider' : 'connection')
                 }
               >
-                <option value="connection">This connection</option>
-                <option value="provider">All {providerName} accounts</option>
+                <option value="connection">{t('this_connection')}</option>
+                <option value="provider">{t('all_provider_accounts').replace('{provider}', providerName)}</option>
               </select>
             ) : null}
             {provenance === 'custom' && providerName ? (
@@ -381,7 +417,7 @@ export function ModelEditor({
                 testId={`models-reset-${config.clientId}`}
                 onClick={() => service.setModelRoles(config.clientId, {}, revision, 'connection')}
               >
-                Use {providerName} Default
+                {tr(`Use ${providerName} Default`)}
               </Button>
             ) : null}
           </RowActions>
@@ -389,12 +425,12 @@ export function ModelEditor({
       ) : null}
       {modelRows(config).map((row) => (
         <Row key={`${config.clientId}-${row.roleId}`} testId={`model-${config.clientId}-${row.roleId}`}>
-          <RowText title={row.title} detail={row.detail} />
+          <RowText title={tr(row.title)} detail={tr(row.detail)} />
           <RowActions>
             {row.options.length > 0 ? (
               <select
                 className="min-h-control max-w-55 min-w-40 rounded-control border border-control-border bg-control px-2 text-[12px] text-text"
-                aria-label={row.selectLabel}
+                aria-label={tr(row.selectLabel)}
                 value={row.selectedActionId}
                 disabled={busy.size > 0}
                 onChange={(event) => {
@@ -402,7 +438,7 @@ export function ModelEditor({
                   if (next) service.setModelRoles(config.clientId, next, revision, scope);
                 }}
               >
-                <option value="">Choose model…</option>
+                <option value="">{t('choose_model')}</option>
                 {row.options.map((option) => (
                   <option key={option.actionId} value={option.actionId}>
                     {cleanModelDisplayName(option.modelId)}
@@ -410,15 +446,15 @@ export function ModelEditor({
                 ))}
               </select>
             ) : (
-              <span className="text-[12px] whitespace-nowrap text-secondary">{row.trailing}</span>
+              <span className="text-[12px] whitespace-nowrap text-secondary">{tr(row.trailing)}</span>
             )}
           </RowActions>
         </Row>
       ))}
       {error ? (
         <Row testId="app-models.error" warning>
-          <WarningGlyph />
-          <RowText detail={error} />
+          <WarningGlyph language={language} resolvedLanguage={resolvedLanguage} />
+          <RowText detail={tr(error)} />
         </Row>
       ) : null}
     </>
@@ -438,7 +474,9 @@ function modelRows(config: ClientModelConfig) {
       detail: unavailable || config.sourceLabel || cleanModelDisplayName(current) || 'No model selected',
       trailing: 'Not configurable',
       selectLabel:
-        roleIds.length > 1 ? `Model for ${config.client} · ${roleId}` : `Model for ${config.client}`,
+        roleIds.length > 1
+          ? `Model for ${config.client} · ${roleId}`
+          : `Model for ${config.client}`,
       selectedActionId: config.options.find((option) => option.modelId === current)?.actionId ?? '',
       options: config.editable ? config.options : [],
     };
@@ -464,14 +502,19 @@ function roleActionIdsFor(
   return Object.keys(result).length > 0 ? result : null;
 }
 
-function codexProfileSummary(profile: CodexProfileRowContract): string {
-  const modelName = profile.modelId ? cleanModelDisplayName(profile.modelId) : 'Source default';
+function codexProfileSummary(
+  profile: CodexProfileRowContract,
+  language: string,
+  resolvedLanguage: string,
+): string {
+  const t = (key: string) => translate(`desktop.app_detail.${key}`, language, resolvedLanguage);
+  const modelName = profile.modelId ? cleanModelDisplayName(profile.modelId) : t('source_default');
   const transport =
     profile.transportPolicy === 'direct'
-      ? 'Direct'
+      ? t('direct')
       : profile.transportPolicy === 'proxy'
-        ? 'Proxy'
-        : 'Automatic';
+        ? t('proxy')
+        : t('automatic');
   return `${profile.sourceLabel || profile.name} · ${modelName} · ${transport}`;
 }
 
@@ -490,11 +533,16 @@ function CodexProfilesBlock({
   service,
   snapshot,
   busy,
+  language,
+  resolvedLanguage,
 }: {
   service: ServicePort;
   snapshot: Snapshot;
   busy: ReadonlySet<string>;
+  language: string;
+  resolvedLanguage: string;
 }) {
+  const t = (key: string) => translate(`desktop.app_detail.${key}`, language, resolvedLanguage);
   const missing = missingCodexProfileSources(snapshot);
   const [sheetProfile, setSheetProfile] = useState<CodexProfileRowContract | null | undefined>(undefined);
   const [autoCreate, setAutoCreate] = useState(() => codexAutoProfilesEnabled());
@@ -502,8 +550,8 @@ function CodexProfilesBlock({
   return (
     <>
       <Group
-        title="Codex Profiles"
-        footer="Each profile has separate Codex CLI credentials and settings. Copy its command to launch it."
+        title={t('codex_profiles')}
+        footer={t('profile_detail')}
         testId="codex-profiles"
       >
         {snapshot.codexProfiles.length === 0 ? (
@@ -511,8 +559,8 @@ function CodexProfilesBlock({
             <RowText
               detail={
                 snapshot.codexProfileSources.length === 0
-                  ? 'Add a compatible account or route to create a Codex CLI profile.'
-                  : 'No profiles yet. Add one to use a separate AnyPick connection in Codex CLI.'
+                  ? t('add_source_for_profile')
+                  : t('no_profiles')
               }
             />
           </Row>
@@ -523,6 +571,8 @@ function CodexProfilesBlock({
               profile={profile}
               service={service}
               busy={busy}
+              language={language}
+              resolvedLanguage={resolvedLanguage}
               onEdit={() => setSheetProfile(profile)}
               onRemove={() => {
                 const action = removeCodexProfile(profile.name);
@@ -538,21 +588,21 @@ function CodexProfilesBlock({
             disabled={busy.size > 0 || snapshot.codexProfileSources.length === 0}
             onClick={() => setSheetProfile(null)}
           >
-            Add Profile…
+            {t('add_profile')}…
           </Button>
         </RowActions>
       </Group>
 
       {/* Automation Group */}
       <Group
-        title="Automation"
-        footer="Automatically create a profile when you add a compatible saved account. Create Missing Profiles also backfills existing accounts."
+        title={t('automation')}
+        footer={t('automation_help')}
       >
         <Row>
-          <RowText title="Create profiles automatically" />
+          <RowText title={t('create_profiles_automatically')} />
           <RowActions>
             <Switch
-              label="Create profiles automatically"
+              label={t('create_profiles_automatically')}
               checked={autoCreate}
               disabled={busy.size > 0}
               onChange={(enabled) => {
@@ -576,8 +626,8 @@ function CodexProfilesBlock({
         {missing.length > 0 ? (
           <Row>
             <RowText
-              title="Missing Profiles"
-              detail={`${missing.length} compatible saved accounts don’t have Codex profiles yet.`}
+              title={translate('desktop.codex_profile.missing_profiles', language, resolvedLanguage)}
+              detail={translate('desktop.codex_profile.missing_profiles_detail', language, resolvedLanguage).replace('{count}', String(missing.length))}
             />
             <RowActions>
               <Button
@@ -589,7 +639,7 @@ function CodexProfilesBlock({
                   service.mutate(action.operation, action.extra);
                 }}
               >
-                Create Missing Profiles…
+                {t('create_missing_profiles')}
               </Button>
             </RowActions>
           </Row>
@@ -603,6 +653,8 @@ function CodexProfilesBlock({
           sources={snapshot.codexProfileSources}
           existingProfiles={snapshot.codexProfiles}
           busy={busy}
+          language={language}
+          resolvedLanguage={resolvedLanguage}
           onClose={() => setSheetProfile(undefined)}
           onSave={({ name, sourceId, modelId, transportPolicy, isUpdate }) => {
             if (isUpdate) {
@@ -634,16 +686,21 @@ function CodexProfileRow({
   profile,
   service,
   busy,
+  language,
+  resolvedLanguage,
   onEdit,
   onRemove,
 }: {
   profile: CodexProfileRowContract;
   service: ServicePort;
   busy: ReadonlySet<string>;
+  language: string;
+  resolvedLanguage: string;
   onEdit: () => void;
   onRemove: () => void;
 }) {
   const provider = codexProfileProvider(profile.sourceId);
+  const t = (key: string) => translate(`desktop.app_detail.${key}`, language, resolvedLanguage);
 
   return (
     <Row
@@ -651,31 +708,38 @@ function CodexProfileRow({
       data-testid={`codex-profile.row.${profile.name}`}
     >
       <ProviderIcon provider={provider} size={24} className="mr-1.5 flex-none" />
-      <RowText title={profile.name} detail={codexProfileSummary(profile)} />
+      <RowText title={profile.name} detail={codexProfileSummary(profile, language, resolvedLanguage)} />
       <RowActions>
         <CopyButton
           value={profile.launchCommand}
-          label={`Copy launch command for ${profile.name}`}
+          label={t('copy_launch_command').replace('{name}', profile.name)}
           copy={service.copy}
+          language={language}
+          resolvedLanguage={resolvedLanguage}
           disabled={busy.size > 0}
           testId={`codex-profile.copy.${profile.name}`}
         />
 
-        <RowMenu label={`Actions for ${profile.name}`} testId={`codex-profile.more.${profile.name}`}>
+        <RowMenu
+          label={t('actions_for').replace('{name}', profile.name)}
+          language={language}
+          resolvedLanguage={resolvedLanguage}
+          testId={`codex-profile.more.${profile.name}`}
+        >
           {(close) => (
             <>
               <MenuItem onSelect={() => {
                   close();
                   onEdit();
                 }}>
-                Edit Profile…
+                {t('edit_profile')}
               </MenuItem>
               <MenuDivider />
               <MenuItem destructive onSelect={() => {
                   close();
                   onRemove();
                 }}>
-                Remove Profile…
+                {t('remove_profile')}
               </MenuItem>
             </>
           )}

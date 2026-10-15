@@ -789,7 +789,11 @@ func prepareBackup(st *store.AccountStore, reg *provider.Registry, path string) 
 		}
 		env, derr := DecodeEnvelope(envRaw, acct.Envelope.Meta.Provider)
 		if derr != nil {
-			return nil, derr
+			if IsUnsafePath(derr) {
+				// Keep the Design copy and the unsafe-path reason intact.
+				return nil, derr
+			}
+			return nil, backupError("BACKUP_FORMAT", "Backup entry %d failed validation: %v", i+1, derr)
 		}
 		outerName, nameErr := slug.AccountName(acct.Name)
 		if nameErr != nil {

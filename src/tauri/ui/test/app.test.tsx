@@ -207,7 +207,7 @@ describe('App shell', () => {
     // An empty pane looks like "you have no accounts". Saying nothing until
     // the engine has spoken is the difference between those two.
     mount();
-    expect(screen.getByRole('status')).toHaveTextContent('Connecting to the AnyPick service…');
+    expect(screen.getByRole('status')).toHaveTextContent('Connecting to the service…');
     expect(screen.queryByTestId('overview')).not.toBeInTheDocument();
   });
 
@@ -254,7 +254,7 @@ describe('App shell', () => {
     // attached. Without the replay the window sits on "connecting" until the
     // next mutation, which looks like a hang.
     const snapshot = snapshotFixture();
-    const line = `snapshot\t${btoa(JSON.stringify(snapshot))}`;
+    const line = `snapshot\t${Buffer.from(JSON.stringify(snapshot), 'utf8').toString('base64')}`;
     const { bridge } = mount({ lastLine: line });
     expect(await screen.findByTestId('overview')).toBeInTheDocument();
     expect(bridge.commandKinds()).not.toContain('refresh');
@@ -418,14 +418,14 @@ describe('App shell', () => {
     // points the window at accounts the engine has already replaced.
     const { bridge } = mount();
     bridge.push('snapshot', snapshotFixture({ revision: 7 }));
-    expect(await screen.findByText('A login is saved on this machine.')).toBeInTheDocument();
+    expect(await screen.findByText('A login is saved on this Mac.')).toBeInTheDocument();
 
     bridge.push('snapshot', snapshotFixture({ revision: 3, accounts: [] }));
     await act(async () => {
       await Promise.resolve();
     });
-    expect(screen.getByText('A login is saved on this machine.')).toBeInTheDocument();
-    expect(screen.queryByText('Use a login already on this machine.')).not.toBeInTheDocument();
+    expect(screen.getByText('A login is saved on this Mac.')).toBeInTheDocument();
+    expect(screen.queryByText('Use a login already on this Mac.')).not.toBeInTheDocument();
   });
 
   it('copies an API key from the proxy-token result and never renders it', async () => {
@@ -541,6 +541,50 @@ describe('App shell', () => {
 
     expect(await screen.findByText('One file needs safer permissions.')).toBeInTheDocument();
     await waitFor(() => expect(pending()).toBe(0));
+  });
+
+  it('uses the current language for an event callback registered before the locale changed', async () => {
+    const originalLanguages = Object.getOwnPropertyDescriptor(navigator, 'languages');
+    Object.defineProperty(navigator, 'languages', {
+      configurable: true,
+      value: ['de-DE'],
+    });
+
+    try {
+      const { bridge, user } = mount();
+      const initial = snapshotFixture();
+      bridge.push('snapshot', snapshotFixture({
+        ...initial,
+        settings: { ...initial.settings, language: 'de', resolvedLanguage: 'de' },
+      }));
+      await screen.findByTestId('overview');
+
+      bridge.push('snapshot', snapshotFixture({
+        ...initial,
+        revision: initial.revision + 1,
+        settings: { ...initial.settings, language: 'vi', resolvedLanguage: 'vi' },
+      }));
+      expect(await screen.findByText('Cài đặt')).toBeInTheDocument();
+
+      await user.click(screen.getByTestId('overview.run-doctor'));
+      const command = bridge.commands().find((entry) => entry.kind === 'doctor');
+      bridge.push('doctor', {
+        version: 1,
+        requestId: command?.payload?.requestId,
+        status: 'ok',
+        findings: [],
+      });
+
+      expect(await screen.findByTestId('notice')).toHaveTextContent(
+        'Tất cả kiểm tra đều đạt. Không có vấn đề nào cần xử lý.',
+      );
+    } finally {
+      if (originalLanguages) {
+        Object.defineProperty(navigator, 'languages', originalLanguages);
+      } else {
+        Reflect.deleteProperty(navigator, 'languages');
+      }
+    }
   });
 
   it('shows Doctor request failures on Overview', async () => {

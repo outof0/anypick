@@ -1,4 +1,5 @@
 import { mount } from "nimbus-docs/client";
+import { getTranslator, type Locale } from "@/i18n";
 
 function initPageActions(root: HTMLElement): () => void {
   const copyBtn = root.querySelector<HTMLButtonElement>("[data-nb-page-actions-copy]");
@@ -6,25 +7,28 @@ function initPageActions(root: HTMLElement): () => void {
   const checkIcon = root.querySelector<SVGElement>("[data-nb-page-actions-check-icon]");
   const label = root.querySelector<HTMLSpanElement>("[data-nb-page-actions-label]");
   const mdUrl = root.dataset.mdUrl;
+  const locale = (root.dataset.locale ?? "en") as Locale;
+  const translator = getTranslator(locale);
 
   if (!copyBtn || !mdUrl) return () => {};
 
   let resetTimer: number | undefined;
 
-  function showState(state: "copied" | "error") {
+  async function showState(state: "copied" | "error") {
     if (!copyIcon || !checkIcon || !label) return;
+    const t = await translator;
     if (state === "copied") {
       copyIcon.classList.add("hidden");
       checkIcon.classList.remove("hidden");
-      label.textContent = "Copied";
+      label.textContent = t("pageActions.copied");
     } else {
-      label.textContent = "Couldn't copy";
+      label.textContent = t("pageActions.copyFailed");
     }
     if (resetTimer) window.clearTimeout(resetTimer);
     resetTimer = window.setTimeout(() => {
       copyIcon.classList.remove("hidden");
       checkIcon.classList.add("hidden");
-      label.textContent = "Copy page";
+      label.textContent = t("pageActions.copyPage");
     }, 1500);
   }
 
@@ -32,14 +36,14 @@ function initPageActions(root: HTMLElement): () => void {
     try {
       const res = await fetch(mdUrl!);
       if (!res.ok) {
-        showState("error");
+        await showState("error");
         return;
       }
       const text = await res.text();
       await navigator.clipboard.writeText(text);
-      showState("copied");
+      await showState("copied");
     } catch {
-      showState("error");
+      await showState("error");
     }
   }
 

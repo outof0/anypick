@@ -4,6 +4,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 )
@@ -18,6 +19,9 @@ import (
 // as "the proxy is gone", and a grandchild still flushing logs into the data
 // directory is what made teardown race a write.
 func TestStopWaitsForTheWholeProcessGroup(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("the SIGTERM grandchild behavior is POSIX-specific")
+	}
 	if _, err := exec.LookPath("sh"); err != nil {
 		t.Skip("no POSIX shell available")
 	}

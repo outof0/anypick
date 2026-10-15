@@ -74,6 +74,8 @@ Environment Variables**), then Run:
 | `ANYPICK_MACOS_FLOW` | `add-account`, `add-gateway`, `remove-account`, `published-models`, `hub-overlap`, `create-backup`, `restore-backup`, `import-backup`, `getting-started`, `tray`, `tray-attention`, `tray-use-with`, `tray-switching`, `tray-recovery`, `tray-first-run` | — |
 | `ANYPICK_MACOS_APPEARANCE` | `system`, `light`, `dark` | `system` |
 | `ANYPICK_MACOS_ACTIVITY_MODE` | `events`, `logs` | `events` |
+| `ANYPICK_MACOS_ACCOUNT` | account id (e.g. `google-pro`) — opens Accounts → account detail | — |
+| `ANYPICK_MACOS_UPDATE_FIXTURE` | `checking`, `upToDate`, `availableDirect`, `availablePackageManager`, `downloading`, `verifying`, `ready`, `offline`, `badChecksum`, `hostBlocked`, `rateLimited`, `notWritable`, `storageUnavailable` — pins Settings > Updates to that state (buttons do nothing) | — |
 | `ANYPICK_MACOS_RENDER_PATH` | path — renders the window to a PNG and exits | — |
 | `ANYPICK_MACOS_RENDER_SIZE` | `WIDTHxHEIGHT` in points, for renders | saved window size |
 
@@ -402,13 +404,16 @@ Main window sidebar (pane destinations, System Settings style):
 | Proxy Hub | One local endpoint, its sources, published models, and service lifecycle. |
 | Proxies | Per-account translation processes and their service lifecycle. |
 | Activity | Searchable events and live logs in a bounded, independently scrolling region. |
-| Account Backups | Export / import saved accounts. |
-| Settings | App-wide startup and usage preferences. |
+| Backups | Export / import saved accounts. |
+| Settings | App-wide startup, usage, and language preferences. |
 
-Settings groups related controls into Startup and Usage. It contains only
-preferences; each feature's management, status, and recovery actions stay in
-their own sidebar destination. The sidebar row, app-menu command, and ⌘,
-shortcut all select this same main-window destination.
+Settings groups related controls into Startup, Usage, and Language. The
+language picker updates the app shell and Settings labels alongside CLI/TUI
+copy; it defaults to Auto Detect, which follows the system language. Settings
+contains only preferences; each feature's management, status, and recovery
+actions stay in their own sidebar destination.
+The sidebar row, app-menu command, and ⌘, shortcut all select this same
+main-window destination.
 
 Do not duplicate a toggle across General and a specialized pane.
 Do not put appearance, scrolling, or other **system** preferences here.

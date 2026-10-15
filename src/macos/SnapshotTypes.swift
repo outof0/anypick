@@ -269,6 +269,29 @@ struct TraySettingsSnapshot: Decodable {
   let startEnabledProxies: Bool
   let showQuota: Bool
   let quotaGuardEnabled: Bool
+  let language: String?
+  let resolvedLanguage: String?
+  let languageOptions: [LanguageOptionSnapshot]?
+}
+
+struct LanguageOptionSnapshot: Decodable, Identifiable, Equatable {
+  let value: String
+  let label: String
+
+  var id: String { value }
+
+  static let defaultOptions = [
+    LanguageOptionSnapshot(value: "auto", label: "Auto Detect"),
+    LanguageOptionSnapshot(value: "en", label: "English"),
+    LanguageOptionSnapshot(value: "zh-CN", label: "简体中文"),
+    LanguageOptionSnapshot(value: "es", label: "Español"),
+    LanguageOptionSnapshot(value: "fr", label: "Français"),
+    LanguageOptionSnapshot(value: "de", label: "Deutsch"),
+    LanguageOptionSnapshot(value: "ja", label: "日本語"),
+    LanguageOptionSnapshot(value: "ko", label: "한국어"),
+    LanguageOptionSnapshot(value: "pt-BR", label: "Português (Brasil)"),
+    LanguageOptionSnapshot(value: "vi", label: "Tiếng Việt"),
+  ]
 }
 
 struct ActivityEvent: Decodable, Identifiable, Equatable {
@@ -295,6 +318,8 @@ struct UsageWindow: Decodable {
   /// Vendor window cadence in seconds (e.g. 18000 for a 5-hour Codex
   /// window). Answers "which limit" from data, never inferred.
   let limitWindowSeconds: Int?
+  /// Optional vendor section title (Antigravity quota summary group).
+  let group: String?
 }
 
 struct UsageSnapshot: Decodable, Identifiable {
@@ -396,6 +421,7 @@ struct Mutation: Encodable {
   let defaultModel: String?
   let overwrite: Bool?
   let enabled: Bool?
+  let language: String?
   /// account-save-input: the credential product kind (e.g. api-key).
   let kind: String?
   /// account-save-input: the endpoint profile id within the kind.

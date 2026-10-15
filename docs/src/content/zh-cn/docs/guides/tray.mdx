@@ -1,0 +1,123 @@
+---
+title: 桌面应用
+description: 了解 AnyPick 在 macOS、Linux 和 Windows 上的桌面应用、内置 Go 服务，以及 macOS 菜单栏快捷面板。
+---
+
+AnyPick 使用一个 Go 引擎和两个原生界面（ADR 0020）：
+
+| 平台 | 界面 | 源码 |
+| --- | --- | --- |
+| macOS | SwiftUI 应用和菜单栏快捷面板 | `src/macos/` |
+| Linux、Windows | Tauri 2 应用 | `src/tauri/` |
+
+两者都是界面，不是引擎。它们不会读取凭据，也不拥有 AnyPick 数据；各自负责启动内置 Go 服务、完成握手、监督服务并在退出时将其关闭，然后显示服务返回的内容（ADR 0019 §1）。
+
+<Aside type="caution" title="从正式发布渠道安装">
+GitHub Releases 提供 macOS `.dmg`/`.zip`、Linux 和 Windows 安装包，以及 CLI 压缩包。macOS 应用尚未公证。首次启动时，在 Finder 中右键 `AnyPick.app` 并选择 **打开**，或前往 **系统设置 → 隐私与安全性 → 仍要打开**。也可运行 `xattr -dr com.apple.quarantine /Applications/AnyPick.app`。
+</Aside>
+
+## 应用管理自己的服务
+
+生命周期由应用负责：
+
+```text
+AnyPick.app（或 Tauri 应用）
+├── 主窗口
+├── 仅 macOS：菜单栏快捷面板
+└── 内置 Go 服务，以如下方式启动：
+    anypick desktop-service --stdio
+```
+
+启动时，应用会根据自身 bundle 路径定位 Go 可执行文件，并将其作为子进程启动。版本和能力握手完成后才允许执行变更。协议帧有大小上限，标准输出只用于协议通信。
+
+应用不会从 `PATH` 查找服务，不连接永久后台守护进程，也不会启动 Node 进程。当前没有 localhost HTTP API、socket 或 gRPC；若要增加这些接口，需要新的已接受 ADR。
+
+意外退出时会按有上限的策略重启。helper 不兼容或反复失败时，界面会进入降级状态，不会悄悄切换到另一个引擎。
+
+## macOS
+
+关闭主窗口后，应用和本地服务仍在运行，菜单栏项目也会保留。选择 **Quit AnyPick** 或快捷面板中的 **Quit**，才能优雅停止内置服务并退出应用。
+
+Linux 和 Windows 没有菜单栏项目；关闭窗口会同时退出应用和 sidecar。
+
+### 主窗口
+
+macOS 应用使用类似系统设置的管理窗口，侧边栏包含：
+
+| 页面 | 用途 |
+| --- | --- |
+| **Overview** | 设置进度、安装诊断、需处理项目和服务状态摘要 |
+| **Apps** | 当前客户端路由和来源选择 |
+| **Accounts & APIs** | 已保存原生登录和 API 网关 |
+| **Proxy Hub** | 统一本地端点、来源、模型及生命周期 |
+| **Proxies** | 每个账户的协议代理及生命周期 |
+| **Activity** | 最近事件和有限长度的实时日志 |
+| **Backups** | 导出、检查、导入和恢复已保存账户 |
+
+应用级选项位于侧边栏中的 **Settings**（<kbd>⌘,</kbd>）。其中按组显示启动和用量偏好，并可在 **Updates** 中检查 GitHub Releases。直接安装渠道会下载文件并根据 Release 校验和验证，然后在 Finder 中打开供手动安装；包管理器安装则会显示升级命令。Settings 还提供重新显示 Getting Started 检查清单的操作，安装诊断可在 Overview 中查看。
+
+在 **Accounts & APIs → Add Login** 中，服务商可以提供由其负责的浏览器登录方式。AnyPick 会启动该方式并验证保存服务商生成的原生凭据，不会仿造 OAuth 页面，也不会询问账户密码。
+
+### 菜单栏快捷面板
+
+菜单栏项目是同一个运行中应用的紧凑面板，不是第二个应用，**仅 macOS 提供**。它可以：
+
+- 显示就绪/需处理状态，并搜索已保存账户和页面。
+- 显示活动应用路由以及服务商支持的用量信息。
+- 将受支持的应用切换到其他兼容来源。
+- 展开 Proxy Hub 和账户代理行，执行启动、停止和重启。
+- 打开 AnyPick 主窗口或退出应用。
+
+详细配置仍在主窗口中完成。路由或服务需要处理时，菜单栏图标可能显示提示标记。首次运行和降级状态与正常状态共用同一生产视图结构。
+
+### 登录时启动
+
+原生 Settings 开关使用 macOS `SMAppService`。如果 macOS 要求手动批准，AnyPick 会引导你前往 **系统设置 → 通用 → 登录项**。界面不会自行安装 LaunchAgent。
+
+## 从源码运行
+
+**macOS** 需要 macOS 14+、Xcode，以及能够选择 `src/go/go.mod` 所需工具链的 Go 启动器：
+
+```bash
+open src/macos/AnyPick.xcodeproj
+```
+
+选择共享的 **AnyPick** scheme 并运行。构建阶段会将 Go 可执行文件放入 `AnyPick.app/Contents/Helpers/anypick-core`。也可运行 `make build-macos`；`make test-macos` 会运行单元测试和内置 helper 契约检查；`make verify-macos` 还会检查 bundle 中没有 Node runtime。
+
+**Linux 和 Windows** 在仓库根目录中运行：
+
+```bash
+make run-tauri     # 使用真实 Go 服务启动
+make build-tauri   # 为当前平台打包
+```
+
+### 不使用真实账户预览界面
+
+在 Xcode scheme 的 **Product → Scheme → Edit Scheme → Run → Arguments → Environment Variables** 中设置下列变量，然后运行应用。它们驱动内存 fixture，无需账户或凭据：
+
+| 变量 | 可用值 |
+| --- | --- |
+| `ANYPICK_MACOS_FIXTURE` | `ready`、`loading`、`empty`、`error` |
+| `ANYPICK_MACOS_DESTINATION` | `overview`、`apps`、`accounts`、`proxyHub`、`proxies`、`activity`、`backups` |
+| `ANYPICK_MACOS_FLOW` | `add-account`、`add-gateway`、`tray`、`tray-attention`、`tray-use-with`、`tray-switching`、`tray-recovery` 等 |
+| `ANYPICK_MACOS_APPEARANCE` | `system`、`light`、`dark` |
+| `ANYPICK_MACOS_RENDER_PATH` | 文件路径；将窗口渲染为 PNG 后退出 |
+
+请预览 fixture，而不是沿用旧截图：截图只冻结拍摄时的状态，fixture 会使用当前实现重新绘制。
+
+## 终端界面
+
+终端界面是独立入口，不属于桌面应用。构建 CLI 后运行：
+
+```bash
+make build          # 输出 src/go/bin/anypick-dev
+./src/go/bin/anypick-dev tui
+```
+
+也可运行 `make run ARGS="tui"`。TUI 使用同一个 Go 服务，但不会启动、监督或关闭另外打开的桌面应用；退出 TUI 不会退出应用，退出应用也不会关闭 TUI。
+
+## 安全边界
+
+凭据和每个实例的代理 bearer token 都留在 Go 服务中。桌面快照只携带适合显示的状态和不透明操作 ID，不包含原始凭据。helper 的 stdio 连接仅供所属应用使用，不是公开集成 API。
+
+终端流程见[应用与终端界面](/zh-cn/docs/guides/terminal-ui)，代理和 Hub 行为见[代理指南](/zh-cn/docs/guides/proxies)。
