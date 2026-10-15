@@ -1,0 +1,113 @@
+---
+title: 核心概念
+description: 客户端、来源、绑定和预设：理解 AnyPick 命令的基本模型。
+---
+
+CLI 中最重要的是四个概念。理解它们后，命令语法会很直观。
+
+| 概念 | 含义 |
+| --- | --- |
+| **客户端（Client）** | AnyPick 能配置的 CLI，例如 `claude`、`codex`、`commandcode`、`gemini`、`kiro`、`opencode`、`workbuddy`、`zcode`、`dsh`、`pi`、`omp` |
+| **来源（Source）** | 为客户端提供模型服务的对象，例如账户 `grok/work`、网关 `openrouter-work`、账号池 `pool:gemini`、可选 Hub `hub:default` 或预设 `@work` |
+| **绑定（Binding）** | 一份具体配置快照：客户端 → 来源，以及模型角色配置 |
+| **预设（Preset）** | 可按名称重复使用的存储模板，例如 `@name`；CLI 可以解析预设，但目前还没有创建预设的命令 |
+
+命令语法保持一致：
+
+```bash
+anypick use|run <client> --with <source|@preset>
+```
+
+## 客户端
+
+`anypick clients` 会列出 AnyPick 认识的客户端以及对应配置方式：
+
+- `claude`：Claude Code，通过 `ANTHROPIC_*` 变量配置；`run` 使用隔离的临时目录。
+- `codex`：Codex CLI。
+- `gemini`：Gemini CLI，通过 `GEMINI_API_KEY`、`GEMINI_MODEL` 配置。
+- `kiro`：Kiro。
+- `opencode`：OpenCode，在 `opencode.json` 中写入 `anypick-managed` provider。
+- `workbuddy`：WorkBuddy AI / CodeBuddy 订阅账号可通过内置代理服务上述客户端。WorkBuddy 应用本身使用原生登录；切换保存账号时，AnyPick 会恢复它的会话文件。
+- `zcode`：ZCode，在 `~/.zcode/cli/config.json` 和/或 `~/.zcode/v2/config.json` 中登记 `anypick` provider。
+- `dsh`：DeepSeek Harness。AnyPick 在 `~/.dsh/.env` 中保存代理密钥，在 `~/.dsh/settings.yaml` 中设置代理地址、默认模型和来源的模型目录。
+- `commandcode`：Command Code 的兼容 OpenAI BYOK provider，配置位于 `~/.commandcode/providers.json`，代理凭据位于 `auth.json`。
+- `pi`：Pi 的 `anypick` provider 位于 `~/.pi/agent/models.json`；默认 provider/model 写入 `settings.json`，`auth.json` 仍由 Pi 管理。
+- `omp`：Omp 的 `anypick` provider 位于 `~/.omp/agent/models.yml`；默认模型仍由 Omp 自己的界面选择，`agent.db` 凭据不会被修改。
+
+每个客户端都有隔离清单，记录哪些文件和环境变量归它管理，因此 `anypick reset <client>` 和回滚可以精确执行。
+
+<Aside type="caution" title="ZCode 桌面应用的模型选择由 ZCode 管理">
+ZCode 桌面应用从 `~/.zcode/v2/setting.json` 读取所选模型，这个文件不归 AnyPick 管理。AnyPick 会登记 `anypick` provider，并为 CLI 配置 `model.main`。在桌面应用中，需要先在 ZCode 自己的模型选择器中选择 **AnyPick**；之后会一直使用该路由，直到运行 `anypick reset zcode`。
+</Aside>
+
+<Aside type="note" title="哪些客户端支持跨服务商来源">
+`claude`、`codex`、`opencode`、`zcode`、`dsh`、`commandcode`、`pi` 和 `omp` 可以绑定到不同服务商的来源。支持矩阵由 `internal/transport/adapter_matrix_test.go` 强制检查。`gemini` 和 `kiro` 只接受各自服务商的登录，因此 `gemini --with grok/work` 会被拒绝，不会悄悄改用代理。WorkBuddy 应用自身直接使用自己的登录；WorkBuddy 账户仍可通过代理服务上述客户端，且切换账户会原生恢复其会话文件。
+</Aside>
+
+上述规则说明的是**绑定**。切换正在使用的账号范围更广，因为 AnyPick 会恢复工具自己的凭据文件；读取该文件的其他程序也会看到切换结果。Claude 账户也适用于 Claude Code CLI 和 IDE 扩展。Gemini 登录可以来自 Gemini CLI OAuth 或 Antigravity。
+
+<Aside type="caution" title="Codex 桌面应用使用独立会话">
+AnyPick 可以备份和恢复 Codex CLI 使用的 `~/.codex/auth.json`。Codex 桌面应用单独跟踪 ChatGPT 登录账号，所以不会随 CLI 切换。AnyPick 检测到账号不一致时会隐藏用量读数，避免把一个账号的用量显示到另一个账号上。
+</Aside>
+
+## 来源
+
+来源是能够处理模型请求的对象：
+
+- **账户**：由其他工具创建的原生登录，例如 Codex `auth.json`、Grok 凭据或 Gemini OAuth token。AnyPick 保存快照，让多个账户能够共存，并在启用绑定时恢复所选账户。详见[账户指南](/zh-cn/docs/guides/accounts)。
+- **网关**：你自行配置的端点、密钥和可选模型目录，不需要登录。详见[网关指南](/zh-cn/docs/guides/gateways)。
+- **账号池**：将同一服务商的多个账户放在一个端口后，按需故障转移。详见[代理指南](/zh-cn/docs/guides/proxies#多账户池)。
+- **Proxy Hub**：另一个可选端点，可通过一个本地地址提供多个已保存账户，并按模型路由，例如 `hub:default`。详见[代理指南](/zh-cn/docs/guides/proxies)。
+
+在 `--with` 位置上，这些来源可以互换。客户端不需要知道它使用的是哪一种。
+
+## 绑定
+
+绑定是一个**配置快照**，不是动态引用。运行：
+
+```bash
+anypick use claude --with grok/work
+```
+
+AnyPick 会解析来源、选择模型默认值、规划启用步骤并记录结果。之后修改账户或预设，不会悄悄改写已有绑定；此前启用的路由会保持不变。
+
+运行 `run` 时，绑定按以下顺序解析：
+
+1. **临时绑定**：`run --with <source>` 仅对本次启动生效。
+2. **项目绑定**：`anypick link` 将绑定保存到当前目录。
+3. **全局绑定**：`anypick use` 设置默认值。
+
+```text
+use   = 设置持久的全局默认来源
+run   = 使用当前有效绑定启动；不会改写默认值
+link  = 设置当前项目目录的绑定
+```
+
+运行 `anypick current` 可检查当前生效配置，也可以指定一个客户端。
+
+## 预设
+
+预设是可重复使用和修改的命名模板。CLI 可以查看和解析预设：
+
+```bash
+anypick use claude --with @work-stack
+anypick preset list
+anypick preset show work-stack
+anypick preset remove work-stack
+```
+
+目前没有创建预设的命令。文档曾提到 `use … --save <name>`，但该命令并未实现，因此不会写入 `presets` 表；新安装上的 `preset list` 为空。由于绑定本身已经是快照，预设只是跨客户端复用同一配置的便利方式，并非必要功能。创建流程加入前，请直接运行 `use <client> --with <source>` 绑定来源。
+
+<Aside type="note" title="为什么绑定使用快照">
+如果绑定实时跟随来源，一个地方的修改就会悄悄改变所有客户端的启动配置。AnyPick 要求显式重新启用。
+</Aside>
+
+## 启用
+
+将绑定应用到客户端是一项有计划的操作，而不是一串未经记录的副作用。AnyPick 会构建步骤列表，把有写入的步骤及备份路径记入操作日志，然后执行。某一步失败时会恢复此前状态，包括客户端配置、原生授权信息和刚启动的代理。
+
+`--dry-run` 只打印计划，不写入文件；`--trace` 会显示执行步骤，但不会显示密钥。
+
+## 非交互行为
+
+没有 TTY 时 AnyPick 不会提示输入，也不会猜测来源。`use <client>` 必须带 `--with`，否则以退出码 `2` 结束，适合在 CI 和脚本中运行。`--no-input` 即使处于 TTY 也会拒绝提示；`--json` 会在标准输出写入一个 JSON 值。

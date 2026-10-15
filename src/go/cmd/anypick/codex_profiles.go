@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"os"
 
 	"github.com/outof0/anypick/go/internal/accounts"
@@ -195,7 +194,7 @@ func cmdCodexProfileList(ctx context.Context, a *appView, args []string) int {
 		return int(anyerr.Success)
 	}
 	if len(profiles) == 0 {
-		fmt.Println("No Codex profiles.")
+		cliPrintln("No Codex profiles.")
 		return int(anyerr.Success)
 	}
 	for _, p := range profiles {
@@ -207,7 +206,7 @@ func cmdCodexProfileList(ctx context.Context, a *appView, args []string) int {
 		if transportPolicy == "" {
 			transportPolicy = "auto"
 		}
-		fmt.Printf("%s\t%s\t%s\t%s\n", p.Name, refs.DisplayRef(p.Spec.Source), model, transportPolicy)
+		cliPrintf("%s\t%s\t%s\t%s\n", p.Name, refs.DisplayRef(p.Spec.Source), model, transportPolicy)
 	}
 	return int(anyerr.Success)
 }
@@ -262,10 +261,10 @@ func cmdCodexProfileShow(ctx context.Context, a *appView, args []string) int {
 		emitOK("", fields...)
 		return int(anyerr.Success)
 	}
-	fmt.Printf("Codex profile %s\n", p.Name)
-	fmt.Printf("  source: %s\n  model: %s\n  transport: %s\n", refs.DisplayRef(p.Spec.Source),
+	cliPrintf("Codex profile %s\n", p.Name)
+	cliPrintf("  source: %s\n  model: %s\n  transport: %s\n", refs.DisplayRef(p.Spec.Source),
 		orDefaultStr(model, "(native default)"), transportPolicy)
-	fmt.Printf("  CODEX_HOME: %s\n  auth: %s\n  config: %s\n  launch: %s\n",
+	cliPrintf("  CODEX_HOME: %s\n  auth: %s\n  config: %s\n  launch: %s\n",
 		profileHome, authPath, configPath,
 		client.CodexProfileLaunchCommand(a.Root, name, sourceEnv))
 	return int(anyerr.Success)

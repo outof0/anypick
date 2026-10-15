@@ -1,0 +1,43 @@
+---
+title: 中文安装说明
+---
+
+<Aside type="caution" title="使用正式发布渠道安装">
+GitHub Releases 提供 macOS `.dmg`/`.zip`、Linux 和 Windows 安装包，以及 CLI 压缩包。macOS 应用尚未公证。首次启动时，在 Finder 中右键 `AnyPick.app` 并选择 **打开**；也可以在 **系统设置 → 隐私与安全性** 中选择 **仍要打开**。还可以运行 `xattr -dr com.apple.quarantine /Applications/AnyPick.app`。轻量 npm 启动器（`npm install --global anypick`，需要 Node 18+）会在首次运行时下载并校验匹配的原生 CLI。从 1.1.0 起，该包已取代 npm 上旧版 JavaScript `anypick@1.0.x`。测试尚未发布的更改时，请从此仓库构建。
+</Aside>
+
+使用 Homebrew 安装 CLI 或 macOS 应用：
+
+```bash
+brew install outof0/tap/anypick
+brew install --cask outof0/tap/anypick
+```
+
+使用 Scoop 安装 Windows CLI：
+
+```powershell
+scoop bucket add outof0 https://github.com/outof0/scoop-bucket
+scoop install anypick
+```
+
+从源码构建 macOS 原生应用需要 macOS 14+、Xcode 和 Go：
+
+```bash
+open src/macos/AnyPick.xcodeproj
+```
+
+选择共享的 **AnyPick** scheme 并运行。构建过程会将 Go 服务打包进应用；应用启动时不会编译 Swift 或 Go。
+
+从源码使用 CLI 和终端界面需要 Go 1.26+：
+
+```bash
+make build
+./src/go/bin/anypick-dev --help
+./src/go/bin/anypick-dev tui
+```
+
+## 无界面 Linux 服务器
+
+CLI 是静态 Go 二进制；非交互命令不需要 GUI 工具包或 TTY。没有终端时，`anypick tui` 会以 `NO_TTY` 退出；可以运行 `anypick list`、`anypick use`、`anypick status`、`anypick serve` 等 CLI 命令。
+
+数据保存在 `~/.anypick`（可用 `ANYPICK_HOME` 覆盖）。`anypick serve` 只监听 `127.0.0.1`；从其他主机访问时请使用 SSH 隧道。可以下载新版 Release 压缩包、运行 `npm install --global anypick@latest`，或使用 `anypick update` 检查 GitHub Releases。

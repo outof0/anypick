@@ -166,7 +166,7 @@ final class AnyPickAppDelegate: NSObject, NSApplicationDelegate {
     menu.autoenablesItems = false
 
     let open = NSMenuItem(
-      title: "Open AnyPick",
+      title: designModel.localized("desktop.menu_bar.open_anypick"),
       action: #selector(openAnyPickFromTray(_:)),
       keyEquivalent: ""
     )
@@ -174,7 +174,7 @@ final class AnyPickAppDelegate: NSObject, NSApplicationDelegate {
     menu.addItem(open)
 
     let settings = NSMenuItem(
-      title: "Settings…",
+      title: designModel.localized("desktop.nav.settings"),
       action: #selector(openSettingsFromTray(_:)),
       keyEquivalent: ""
     )
@@ -184,7 +184,7 @@ final class AnyPickAppDelegate: NSObject, NSApplicationDelegate {
     menu.addItem(.separator())
 
     let quit = NSMenuItem(
-      title: "Quit AnyPick",
+      title: designModel.localized("desktop.menu_bar.quit"),
       action: #selector(quitAnyPickFromTray(_:)),
       keyEquivalent: "q"
     )

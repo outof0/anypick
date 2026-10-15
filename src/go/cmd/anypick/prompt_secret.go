@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"os"
 
 	"golang.org/x/term"
@@ -21,9 +20,9 @@ func promptSecret(label string) (string, error) {
 			anyerr.WithExitCode(anyerr.InvalidUsage),
 			anyerr.WithSuggestions("Pass --secret, or set ANYPICK_SECRET in the environment."))
 	}
-	fmt.Fprintf(os.Stderr, "%s: ", label)
+	cliFprintf(os.Stderr, "%s: ", label)
 	b, err := term.ReadPassword(int(os.Stdin.Fd()))
-	fmt.Fprintln(os.Stderr)
+	cliFprintln(os.Stderr)
 	if err != nil {
 		return "", anyerr.Wrapf(err, "read "+label, "OPERATIONAL")
 	}

@@ -30,7 +30,7 @@ func jsonOut(v interface{}) {
 	if err != nil {
 		return
 	}
-	fmt.Println(string(data))
+	cliPrintln(string(data))
 }
 
 func wantJSON(args []string) bool {
@@ -46,7 +46,7 @@ func wantJSON(args []string) bool {
 }
 
 func usageError(format string, args ...interface{}) int {
-	fmt.Fprintf(os.Stderr, format+"\n", args...)
+	cliFprintf(os.Stderr, format+"\n", args...)
 	return int(anyerr.InvalidUsage)
 }
 
@@ -112,7 +112,7 @@ func cmdAccountRemove(ctx context.Context, a *appView, args []string) int {
 	prunedMsg := ""
 	if a.ProxyHub != nil {
 		if pruned, perr := a.ProxyHub.PruneAccount(ctx, providerID, name); perr != nil {
-			fmt.Fprintf(os.Stderr, "warning: hub cleanup for %s/%s failed: %s\n", providerID, name, perr)
+			cliFprintf(os.Stderr, "warning: hub cleanup for %s/%s failed: %s\n", providerID, name, perr)
 		} else if len(pruned) > 0 {
 			prunedMsg = fmt.Sprintf(" Hub references dropped: %s.", strings.Join(pruned, ", "))
 		}
@@ -149,11 +149,11 @@ func refreshUnsyncedHubs(ctx context.Context, a *appView, providerID, name strin
 	}
 	configs, err := a.ProxyHub.ListConfigsContext(ctx)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "warning: hub refresh for %s/%s failed: %s\n", providerID, name, err)
+		cliFprintf(os.Stderr, "warning: hub refresh for %s/%s failed: %s\n", providerID, name, err)
 		return
 	}
 	if err := hub.ReloadUnsynced(configs, a.Deps.SpawnHubChild); err != nil {
-		fmt.Fprintf(os.Stderr, "warning: hub refresh for %s/%s failed: %s\n", providerID, name, err)
+		cliFprintf(os.Stderr, "warning: hub refresh for %s/%s failed: %s\n", providerID, name, err)
 	}
 }
 
@@ -240,9 +240,9 @@ func cmdAccountRefresh(ctx context.Context, a *appView, args []string) int {
 		jsonOut(results)
 	} else {
 		for _, r := range results {
-			fmt.Printf("%s/%s: %s\n", r.Provider, r.Name, r.Status)
+			cliPrintf("%s/%s: %s\n", r.Provider, r.Name, r.Status)
 			for _, suggestion := range r.Suggestions {
-				fmt.Printf("  %s\n", suggestion)
+				cliPrintf("  %s\n", suggestion)
 			}
 		}
 	}
@@ -310,7 +310,7 @@ func cmdAccountExport(ctx context.Context, a *appView, args []string) int {
 		jsonOut(map[string]string{"file": outPath})
 		return int(anyerr.Success)
 	}
-	fmt.Printf("exported %s/%s → %s\n", providerID, name, outPath)
+	cliPrintf("exported %s/%s → %s\n", providerID, name, outPath)
 	return int(anyerr.Success)
 }
 
@@ -345,7 +345,7 @@ func cmdAccountExportAll(ctx context.Context, a *appView, args []string, provide
 		jsonOut(map[string]interface{}{"file": outPath, "accounts": count})
 		return int(anyerr.Success)
 	}
-	fmt.Printf("exported %d account(s) → %s\n", count, outPath)
+	cliPrintf("exported %d account(s) → %s\n", count, outPath)
 	return int(anyerr.Success)
 }
 
@@ -438,7 +438,7 @@ func reportImportedAccounts(metas []store.Meta, jsonMode bool) int {
 		return int(anyerr.Success)
 	}
 	for _, meta := range metas {
-		fmt.Printf("imported %s/%s\n", meta.Provider, meta.Name)
+		cliPrintf("imported %s/%s\n", meta.Provider, meta.Name)
 	}
 	return int(anyerr.Success)
 }
@@ -579,11 +579,11 @@ func cmdGatewayShow(ctx context.Context, a *appView, args []string) int {
 		})
 		return int(anyerr.Success)
 	}
-	fmt.Println(pr.Meta.Name)
-	fmt.Printf("  provider  %s\n", pr.Meta.Provider)
-	fmt.Printf("  endpoint  %s\n", pr.Meta.Endpoint)
-	fmt.Printf("  apiKey    %s\n", shown)
-	fmt.Printf("  model     %s\n", pr.Meta.DefaultModel)
+	cliPrintlnRaw(pr.Meta.Name)
+	cliPrintf("  provider  %s\n", pr.Meta.Provider)
+	cliPrintf("  endpoint  %s\n", pr.Meta.Endpoint)
+	cliPrintf("  apiKey    %s\n", shown)
+	cliPrintf("  model     %s\n", pr.Meta.DefaultModel)
 	return int(anyerr.Success)
 }
 

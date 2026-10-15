@@ -2,10 +2,12 @@
 /** SidebarFilter — text input that filters the adjacent Sidebar. Press "/" to focus. */
 import { cn } from "@/lib/cn";
 import type { HTMLAttributes } from "astro/types";
+import { getTranslator, localeForPath } from "@/i18n";
 
 interface Props extends HTMLAttributes<"div"> {}
 
 const { class: className, ...attrs } = Astro.props;
+const t = await getTranslator(localeForPath(Astro.url.pathname));
 ---
 
 <div class={cn("mb-3", className)} {...attrs}>
@@ -13,9 +15,9 @@ const { class: className, ...attrs } = Astro.props;
     data-nb-sidebar-filter-input
     name="docs-navigation-filter"
     type="search"
-    placeholder="Filter…  /"
+    placeholder={t("sidebar.filterPlaceholder")}
     class="w-full rounded-md border border-border bg-card px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground transition-colors focus-visible:border-brand focus-visible:outline-2 focus-visible:outline-ring"
-    aria-label="Filter navigation"
+    aria-label={t("sidebar.filterLabel")}
     autocomplete="off"
   />
 </div>

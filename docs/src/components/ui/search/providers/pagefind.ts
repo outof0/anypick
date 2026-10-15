@@ -56,7 +56,22 @@ export const provider: SearchProvider = {
     const baseUrl = new URL(import.meta.env.BASE_URL ?? "/", window.location.origin);
     const pagefindUrl = new URL("pagefind/pagefind.js", baseUrl);
     pagefind = (await import(/* @vite-ignore */ pagefindUrl.href)) as PagefindApi;
-    await pagefind.init();
+    const root = document.documentElement;
+    const pageLanguage = root.lang;
+    const indexLanguage = root.dataset.pagefindLanguage;
+    if (indexLanguage && indexLanguage !== pageLanguage) {
+      // Pagefind picks its language index from <html lang> when init() runs.
+      // Fallback articles keep the UI's real language but search the English
+      // index because those article bodies are still English.
+      root.lang = indexLanguage;
+      try {
+        await pagefind.init();
+      } finally {
+        root.lang = pageLanguage;
+      }
+    } else {
+      await pagefind.init();
+    }
   },
 
   async search(query) {

@@ -56,19 +56,19 @@ struct AccountsView: View {
     Group {
       if model.accounts.isEmpty {
         DesignEmptyState(
-          title: "No Accounts",
-          message: "Add the login already on this Mac, sign in, or add an API gateway.",
+          title: model.localized("desktop.accounts.no_accounts"),
+          message: model.localized("desktop.accounts.empty_detail"),
           symbol: "person.badge.plus",
-          actionTitle: "Add Login…",
+          actionTitle: model.localized("desktop.accounts.add_login"),
           actionIdentifier: "accounts.empty.add-login",
           action: { activeSheet = .addAccount }
         )
       } else if savedAccounts.isEmpty && gateways.isEmpty {
         DesignEmptyState(
-          title: "No Results",
+          title: model.localized("desktop.accounts.no_results"),
           message: emptyFilterMessage,
           symbol: "magnifyingglass",
-          actionTitle: hasActiveFilter ? "Clear Filters" : nil,
+          actionTitle: hasActiveFilter ? model.localized("desktop.accounts.clear_filters") : nil,
           action: hasActiveFilter ? clearFilters : nil
         )
       } else {
@@ -91,7 +91,7 @@ struct AccountsView: View {
           if providers.count > 1 {
             providerPicker
           }
-          DesignToolbarSearch(text: $searchQuery, prompt: "Search Accounts")
+          DesignToolbarSearch(text: $searchQuery, prompt: model.localized("desktop.accounts.search"))
             .frame(minWidth: 160, idealWidth: 180, maxWidth: 220)
         }
       }
@@ -113,7 +113,7 @@ struct AccountsView: View {
       model.pendingGatewayConnectID = nil
       connectingGateway = gateway
     }
-    .designConfirmation($confirmation, onDismiss: consumeStartupFlow)
+    .designConfirmation($confirmation, model: model, onDismiss: consumeStartupFlow)
     .onChange(of: model.addLoginRequested) { _, requested in
       if requested { consumeAddLoginRequest() }
     }
@@ -146,12 +146,12 @@ struct AccountsView: View {
       // in the body), and a Return binding would make any keystroke in the
       // pane add an account.
       DesignSheetButton(
-        title: "Add Login…",
+        title: model.localized("desktop.accounts.add_login"),
         enabled: !model.isBusy,
         identifier: "accounts.save-login"
       ) { activeSheet = .addAccount }
       DesignSheetButton(
-        title: "Add API Gateway…",
+        title: model.localized("desktop.accounts.add_gateway"),
         enabled: canAddGateway(
           isBusy: model.isBusy,
           gatewayProviderCount: model.gatewayProviderOptions.count
@@ -183,9 +183,10 @@ struct AccountsView: View {
   private func requestRemoval(of account: DesignAccount) {
     confirmation = DesignConfirmation(
       id: "remove-account",
-      title: "Remove “\(account.name)” from AnyPick?",
+      title: model.localized("desktop.accounts.remove_title")
+        .replacingOccurrences(of: "{name}", with: account.name),
       message: removalMessage(for: account),
-      action: .confirm("Remove") { model.removeAccount(id: account.id) }
+      action: .confirm(model.localized("desktop.common.remove")) { model.removeAccount(id: account.id) }
     )
   }
 
@@ -211,7 +212,10 @@ struct AccountsView: View {
             }
           }
         } header: {
-          Text(savedAccounts.isEmpty ? "Accounts" : "Accounts (\(savedAccounts.count))")
+          Text(savedAccounts.isEmpty
+            ? model.localized("desktop.accounts.accounts")
+            : model.localized("desktop.accounts.accounts_count")
+              .replacingOccurrences(of: "{count}", with: String(savedAccounts.count)))
         }
       }
 
@@ -234,7 +238,10 @@ struct AccountsView: View {
             }
           }
         } header: {
-          Text(gateways.isEmpty ? "API Gateways" : "API Gateways (\(gateways.count))")
+          Text(gateways.isEmpty
+            ? model.localized("desktop.accounts.api_gateways")
+            : model.localized("desktop.accounts.gateways_count")
+              .replacingOccurrences(of: "{count}", with: String(gateways.count)))
         }
       }
     }
@@ -295,39 +302,48 @@ private struct AccountListRow: View {
     }
     .frame(maxWidth: .infinity, alignment: .leading)
     .accessibilityIdentifier("accounts.row.\(account.id)")
-    .accessibilityLabel(accountAccessibilityLabel(for: account, in: allAccounts))
+    .accessibilityLabel(
+      accountAccessibilityLabel(for: account, in: allAccounts) { index, total in
+        model.localized(
+          "desktop.accounts.position",
+          replacing: ["index": "\(index)", "total": "\(total)"]
+        )
+      }
+    )
     .contextMenu {
       if canMakeCurrent {
-        Button("Switch to Account") { model.makeAccountCurrent(id: account.id) }
-          .help("Make this saved login current for compatible apps.")
+        Button(model.localized("desktop.accounts.switch_account")) { model.makeAccountCurrent(id: account.id) }
+          .help(model.localized("desktop.accounts.switch_help"))
           .disabled(model.isBusy)
       }
       if account.kind == .gateway {
-        Button("Connect") { onConnect(account) }
-          .help("Connect this API gateway to AnyPick.")
+        Button(model.localized("desktop.common.connect")) { onConnect(account) }
+          .help(model.localized("desktop.accounts.connect_help"))
           .disabled(model.isBusy || account.status == .unavailable)
       }
-      Button("Show Details") { model.pendingAccountDetailID = account.id }
-        .help("View this account’s identity, usage, and connection details.")
-      Button("Edit…") { onEdit(account) }
-        .help("Change this account’s name or saved configuration.")
-      Button(account.kind == .gateway ? "Test Connection" : "Refresh Login") {
+      Button(model.localized("desktop.common.show_details")) { model.pendingAccountDetailID = account.id }
+        .help(model.localized("desktop.accounts.details_help"))
+      Button(model.localized("desktop.common.edit")) { onEdit(account) }
+        .help(model.localized("desktop.accounts.edit_help"))
+      Button(model.localized(account.kind == .gateway ? "desktop.common.test_connection" : "desktop.common.refresh_login")) {
         if account.kind == .gateway {
           model.testSavedGateway(id: account.id)
         } else {
           model.refreshAccount(id: account.id)
         }
       }
-      .help(account.kind == .gateway ? "Check whether this API gateway is reachable." : "Refresh the saved login from its provider.")
+      .help(model.localized(account.kind == .gateway ? "desktop.accounts.test_help" : "desktop.accounts.refresh_help"))
       .disabled(model.isBusy)
       Divider()
-      Button("Remove…", role: .destructive) { onRemove(account) }
-        .help("Remove this saved login from AnyPick.")
+      Button(model.localized("desktop.common.remove_action"), role: .destructive) { onRemove(account) }
+        .help(model.localized("desktop.accounts.remove_help"))
     }
     .modifier(
       AccountRowAccessibilityActions(
         showsSwitch: canMakeCurrent,
         showsConnect: account.kind == .gateway,
+        switchTitle: model.localized("desktop.accounts.switch"),
+        connectTitle: model.localized("desktop.common.connect"),
         onSwitch: { model.makeAccountCurrent(id: account.id) },
         onConnect: { onConnect(account) }
       )
@@ -350,19 +366,19 @@ private struct AccountListRow: View {
     }
 
     if account.kind == .gateway {
-      return identity.isEmpty ? "API Gateway" : identity
+      return identity.isEmpty ? model.localized("desktop.account_detail.api_gateway") : identity
     }
 
     if !identity.isEmpty {
       return "\(account.provider) · \(identity)"
     }
-    return "\(account.provider) · Saved login"
+    return "\(account.provider) · \(model.localized("desktop.account_detail.saved_login"))"
   }
 
   private func accountIssue(_ account: DesignAccount) -> String? {
     switch account.status {
     case .attention, .unavailable:
-      return account.status.rawValue
+      return account.status.localizedLabel(using: model)
     case .ready, .running, .stopped:
       return nil
     }
@@ -435,8 +451,8 @@ struct AccountRowTrailing: View {
     if isCurrent {
       Image(systemName: "checkmark.circle.fill")
         .foregroundStyle(.green)
-        .accessibilityLabel("Current")
-        .help("Current active account on this Mac")
+        .accessibilityLabel(model.localized("desktop.common.current"))
+        .help(model.localized("desktop.accounts.current_help"))
     }
   }
 
@@ -451,7 +467,7 @@ struct AccountRowTrailing: View {
       }
     } label: {
       ZStack {
-        Text(account.kind == .saved ? "Switch" : "Connect")
+        Text(model.localized(account.kind == .saved ? "desktop.accounts.switch" : "desktop.common.connect"))
           .opacity(switching ? 0 : 1)
         if switching {
           ProgressView().controlSize(.small)
@@ -462,12 +478,13 @@ struct AccountRowTrailing: View {
     .buttonStyle(.bordered)
     .controlSize(.small)
     .disabled(model.isBusy)
-    .help(account.kind == .saved ? "Make this saved login current for compatible apps." : "Connect to this saved API gateway.")
+    .help(model.localized(account.kind == .saved ? "desktop.accounts.switch_help" : "desktop.accounts.connect_help"))
     .accessibilityIdentifier(
       account.kind == .saved ? "accounts.switch.\(account.id)" : "accounts.connect.\(account.id)"
     )
     .accessibilityLabel(
-      account.kind == .saved ? "Switch to \(displayName)" : "Connect to \(displayName)"
+      model.localized(account.kind == .saved ? "desktop.accounts.switch_to" : "desktop.accounts.connect_to")
+        .replacingOccurrences(of: "{name}", with: displayName)
     )
   }
 
@@ -477,25 +494,26 @@ struct AccountRowTrailing: View {
   /// minus the primary one that already has its own button.
   private var moreMenu: some View {
     DesignMoreActionsMenu(
-      label: "More actions for \(displayName)",
+      label: model.localized("desktop.accounts.more_actions_for")
+        .replacingOccurrences(of: "{name}", with: displayName),
       identifier: "accounts.more.\(account.id)"
     ) {
-      Button("Show Details") { model.pendingAccountDetailID = account.id }
-        .help("View this account’s identity, usage, and connection details.")
-      Button("Edit…") { onEdit() }
-        .help("Change this account’s name or saved configuration.")
-      Button(account.kind == .gateway ? "Test Connection" : "Refresh Login") {
+      Button(model.localized("desktop.common.show_details")) { model.pendingAccountDetailID = account.id }
+        .help(model.localized("desktop.accounts.details_help"))
+      Button(model.localized("desktop.common.edit")) { onEdit() }
+        .help(model.localized("desktop.accounts.edit_help"))
+      Button(model.localized(account.kind == .gateway ? "desktop.common.test_connection" : "desktop.common.refresh_login")) {
         if account.kind == .gateway {
           model.testSavedGateway(id: account.id)
         } else {
           model.refreshAccount(id: account.id)
         }
       }
-      .help(account.kind == .gateway ? "Check whether this API gateway is reachable." : "Refresh the saved login from its provider.")
+      .help(model.localized(account.kind == .gateway ? "desktop.accounts.test_help" : "desktop.accounts.refresh_help"))
       .disabled(model.isBusy)
       Divider()
-      Button("Remove…", role: .destructive) { onRemove() }
-        .help("Remove this saved login from AnyPick.")
+      Button(model.localized("desktop.common.remove_action"), role: .destructive) { onRemove() }
+        .help(model.localized("desktop.accounts.remove_help"))
     }
     .fixedSize()
     .opacity(isHovered ? 1.0 : 0.0)
@@ -506,8 +524,8 @@ struct AccountRowTrailing: View {
 extension AccountsView {
 
   private var providerPicker: some View {
-    Picker("Provider", selection: $filter) {
-      Text("All Providers").tag(AccountProviderFilter.all)
+    Picker(model.localized("desktop.accounts.provider"), selection: $filter) {
+      Text(model.localized("desktop.accounts.all_providers")).tag(AccountProviderFilter.all)
       Divider()
       ForEach(providers, id: \.self) { provider in
         Label(provider, systemImage: DesignBrandAsset.fallbackSymbol(for: provider))
@@ -521,13 +539,18 @@ extension AccountsView {
 
   private func removalMessage(for account: DesignAccount) -> String {
     if account.kind == .gateway {
-      return "Only “\(account.name)” is removed from AnyPick. The remote API key is not revoked."
+      return model.localized("desktop.accounts.gateway_remove_message")
+        .replacingOccurrences(of: "{name}", with: account.name)
     }
     let app = anypickDisplayName(account.provider)
     if model.isCurrentAccount(account) {
-      return "“\(account.name)” is removed from AnyPick. \(app) stays signed in on this Mac."
+      return model.localized("desktop.accounts.current_remove_message")
+        .replacingOccurrences(of: "{name}", with: account.name)
+        .replacingOccurrences(of: "{app}", with: app)
     }
-    return "“\(account.name)” is removed from AnyPick. The \(app) login on this Mac does not change."
+    return model.localized("desktop.accounts.other_remove_message")
+      .replacingOccurrences(of: "{name}", with: account.name)
+      .replacingOccurrences(of: "{app}", with: app)
   }
 
   private var hasActiveFilter: Bool {
@@ -542,19 +565,22 @@ extension AccountsView {
 
   private var gatewayEmptyMessage: String {
     if !searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-      return "No gateways match \(searchQuery)\"."
+      return model.localized("desktop.accounts.no_gateways_match")
+        .replacingOccurrences(of: "{query}", with: searchQuery)
     }
-    return "No API gateways yet."
+    return model.localized("desktop.accounts.no_gateways")
   }
 
   private var emptyFilterMessage: String {
     if !searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-      return "No accounts match \"\(searchQuery)\"."
+      return model.localized("desktop.accounts.no_accounts_match")
+        .replacingOccurrences(of: "{query}", with: searchQuery)
     }
     if case .provider(let provider) = filter {
-      return "No \(provider) accounts."
+      return model.localized("desktop.accounts.no_provider_accounts")
+        .replacingOccurrences(of: "{provider}", with: provider)
     }
-    return "No accounts match this filter."
+    return model.localized("desktop.accounts.no_filter_match")
   }
 
   private func searched(_ accounts: [DesignAccount]) -> [DesignAccount] {
@@ -578,14 +604,16 @@ extension AccountsView {
 private struct AccountRowAccessibilityActions: ViewModifier {
   let showsSwitch: Bool
   let showsConnect: Bool
+  let switchTitle: String
+  let connectTitle: String
   let onSwitch: () -> Void
   let onConnect: () -> Void
 
   func body(content: Content) -> some View {
     if showsSwitch {
-      content.accessibilityAction(named: "Switch", onSwitch)
+      content.accessibilityAction(named: Text(switchTitle), onSwitch)
     } else if showsConnect {
-      content.accessibilityAction(named: "Connect", onConnect)
+      content.accessibilityAction(named: Text(connectTitle), onConnect)
     } else {
       content
     }

@@ -1,4 +1,5 @@
 import type { SearchProvider, SearchResult } from "nimbus-docs/types";
+import { getTranslator, type Locale } from "@/i18n";
 
 export interface SearchConfig {
   input: HTMLInputElement;
@@ -13,15 +14,17 @@ export interface SearchInstance {
   destroy(): void;
 }
 
-export function initSearch(config: SearchConfig): SearchInstance {
+export async function initSearch(config: SearchConfig): Promise<SearchInstance> {
   const { input, resultsContainer, emptyState, provider, onNavigate } = config;
+  const dialog = input.closest<HTMLElement>("[data-search-dialog]");
+  const locale = (dialog?.dataset.locale ?? "en") as Locale;
+  const t = await getTranslator(locale);
 
   let initialized = false;
   let activeIndex = -1;
   let resultIdCounter = 0;
   let debounceTimer: ReturnType<typeof setTimeout> | undefined;
   let activeController: AbortController | undefined;
-
   function getOptions(): HTMLElement[] {
     return Array.from(resultsContainer.querySelectorAll<HTMLElement>("[role='option']"));
   }
@@ -101,7 +104,7 @@ export function initSearch(config: SearchConfig): SearchInstance {
       initialized = true;
       return true;
     } catch {
-      emptyState.textContent = "Search is available after a production build.";
+      emptyState.textContent = t("search.productionBuild");
       return false;
     }
   }
@@ -112,7 +115,7 @@ export function initSearch(config: SearchConfig): SearchInstance {
     const signal = activeController.signal;
 
     emptyState.style.display = "";
-    emptyState.textContent = "Searching…";
+    emptyState.textContent = t("search.searching");
     clearResults();
 
     if (!(await ensureInitialized()) || signal.aborted) return;
@@ -126,7 +129,7 @@ export function initSearch(config: SearchConfig): SearchInstance {
 
       if (results.length === 0) {
         emptyState.style.display = "";
-        emptyState.textContent = "No results found.";
+        emptyState.textContent = t("search.noResults");
         return;
       }
 
@@ -137,7 +140,7 @@ export function initSearch(config: SearchConfig): SearchInstance {
       if (signal.aborted) return;
       clearResults();
       emptyState.style.display = "";
-      emptyState.textContent = "Search is temporarily unavailable.";
+      emptyState.textContent = t("search.temporarilyUnavailable");
     }
   }
 
@@ -149,7 +152,7 @@ export function initSearch(config: SearchConfig): SearchInstance {
         activeController?.abort();
         clearResults();
         emptyState.style.display = "";
-        emptyState.textContent = "Type to search…";
+        emptyState.textContent = t("search.typeToSearch");
         return;
       }
       void runSearch(query);
@@ -188,7 +191,7 @@ export function initSearch(config: SearchConfig): SearchInstance {
       activeIndex = -1;
       clearResults();
       emptyState.style.display = "";
-      emptyState.textContent = "Type to search…";
+      emptyState.textContent = t("search.typeToSearch");
       await ensureInitialized();
     },
     destroy() {

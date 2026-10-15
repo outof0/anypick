@@ -405,12 +405,15 @@ Main window sidebar (pane destinations, System Settings style):
 | Proxies | Per-account translation processes and their service lifecycle. |
 | Activity | Searchable events and live logs in a bounded, independently scrolling region. |
 | Backups | Export / import saved accounts. |
-| Settings | App-wide startup and usage preferences. |
+| Settings | App-wide startup, usage, and language preferences. |
 
-Settings groups related controls into Startup and Usage. It contains only
-preferences; each feature's management, status, and recovery actions stay in
-their own sidebar destination. The sidebar row, app-menu command, and ⌘,
-shortcut all select this same main-window destination.
+Settings groups related controls into Startup, Usage, and Language. The
+language picker updates the app shell and Settings labels alongside CLI/TUI
+copy; it defaults to Auto Detect, which follows the system language. Settings
+contains only preferences; each feature's management, status, and recovery
+actions stay in their own sidebar destination.
+The sidebar row, app-menu command, and ⌘, shortcut all select this same
+main-window destination.
 
 Do not duplicate a toggle across General and a specialized pane.
 Do not put appearance, scrolling, or other **system** preferences here.

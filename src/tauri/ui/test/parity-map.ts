@@ -301,6 +301,7 @@ export const PARITY: ParityRow[] = [
   { macos: 'settings.start-enabled-proxies', tauri: 'setting-{x}', status: 'done' },
   { macos: 'settings.show-usage', tauri: 'setting-{x}', status: 'done' },
   { macos: 'settings.quota-guard', tauri: 'setting-{x}', status: 'done' },
+  { macos: 'settings.language', tauri: 'settings.language', status: 'done' },
   { macos: 'settings.show-getting-started', tauri: 'settings.show-getting-started', status: 'done' },
   // This release's update surface is macOS-only. Tauri has no updater
   // endpoint/signing key configured; Windows and Linux use their package

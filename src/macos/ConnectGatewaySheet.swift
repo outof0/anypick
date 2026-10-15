@@ -17,9 +17,10 @@ struct ConnectGatewaySheet: View {
 
   var body: some View {
     DesignSheetHost(
-      title: gateway.map { "Connect \($0.name)" } ?? "Connect API Gateway",
+      model: model,
+      title: gateway.map { model.localized("desktop.gateway.connect_title", replacing: ["name": $0.name]) } ?? model.localized("desktop.gateway.connect_api_gateway"),
       width: 440,
-      primaryTitle: "Connect",
+      primaryTitle: model.localized("desktop.common.connect"),
       primaryDisabled: model.isBusy || compatibleApps.isEmpty,
       primaryIdentifier: "gateway-connect.save",
       onCancel: { dismiss() },
@@ -28,7 +29,7 @@ struct ConnectGatewaySheet: View {
       Form {
         if compatibleApps.isEmpty {
           Section {
-            Text("This gateway can be used with Claude Code, Codex, or OpenCode.")
+            Text(model.localized("desktop.gateway.compatible_clients"))
               .foregroundStyle(.secondary)
           }
         } else {
@@ -48,9 +49,9 @@ struct ConnectGatewaySheet: View {
               .accessibilityIdentifier("gateway-connect.app.\(app.id)")
             }
           } header: {
-            Text("Apps")
+            Text(model.localized("desktop.nav.apps"))
           } footer: {
-            Text("Choose which apps use this gateway.")
+            Text(model.localized("desktop.gateway.choose_apps"))
           }
         }
       }
@@ -71,7 +72,7 @@ struct ConnectGatewaySheet: View {
     guard let gateway, let route = model.gatewayRoute(in: app, matching: gateway) else {
       return app.detail
     }
-    return app.selectedRouteID == route.id ? "Uses this gateway" : app.detail
+    return app.selectedRouteID == route.id ? model.localized("desktop.gateway.uses_gateway") : app.detail
   }
 
   private func hydrateSelection() {

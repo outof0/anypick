@@ -2,8 +2,6 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 
 import type { AccountProviderRow, LoginMethodRow } from '../lib/contract';
 import {
-  CLOUDFLARE_HINT,
-  SIGN_OUT_MESSAGE,
   SOURCE_LABEL,
   accountIdentityFromDetection,
   availableSourceModes,
@@ -35,6 +33,7 @@ import {
 import type { ServicePort } from '../lib/service';
 import type { ServiceResult } from '../lib/wire';
 import { savePastedAuth } from '../lib/desktop-actions';
+import { translate, translateSource } from '../lib/i18n';
 import { Dialog } from '../ui/Dialog';
 import { MenuSelect } from '../ui/MenuSelect';
 import { Field, Group, Row, RowActions, RowText, Select, StatusLabel } from '../ui/primitives';
@@ -57,6 +56,8 @@ export type AccountFlowResult = { operation: string; result: ServiceResult };
  */
 export function AddAccountSheet({
   providers,
+  language,
+  resolvedLanguage,
   service,
   busy = false,
   flowResult,
@@ -65,6 +66,8 @@ export function AddAccountSheet({
   onClose,
 }: {
   providers: readonly AccountProviderRow[];
+  language: string;
+  resolvedLanguage: string;
   service: ServicePort;
   busy?: boolean;
   /** The engine's answer to the last command this sheet sent. */
@@ -73,6 +76,10 @@ export function AddAccountSheet({
   onClear: (providerId: string, sourceId?: string) => void;
   onClose: () => void;
 }) {
+  const t = (key: string) => translate(`desktop.add_account.${key}`, language, resolvedLanguage);
+  const tc = (key: string) => translate(`desktop.common.${key}`, language, resolvedLanguage);
+  const tg = (key: string) => translate(`desktop.gateway.${key}`, language, resolvedLanguage);
+  const tr = (source: string) => translateSource(source, language, resolvedLanguage);
   const usable = providers.filter((provider) => provider.installed);
   const [providerId, setProviderId] = useState(usable[0]?.id ?? '');
   const provider = providers.find((row) => row.id === providerId);
@@ -157,11 +164,11 @@ export function AddAccountSheet({
       setPending('');
       if (result.status === 'success') {
         setDetectedSource(detectedSourceFrom(result.message));
-        setIdentity(accountIdentityFromDetection(result.message) ?? 'Current login');
+        setIdentity(accountIdentityFromDetection(result.message) ?? tr('Current login'));
         setFailure(null);
         return;
       }
-      setFailure({ title: 'No login found', message: loginFailureMessage(result.message) });
+      setFailure({ title: t('no_login_found'), message: tr(loginFailureMessage(result.message)) });
       return;
     }
     if (operation === 'account-save-auth') {
@@ -174,14 +181,14 @@ export function AddAccountSheet({
       // the same document without staging a second copy.
       setReplaceExisting(result.code === 'ACCOUNT_EXISTS');
       setFailure({
-        title: result.code === 'ACCOUNT_EXISTS' ? 'This account already exists' : 'Couldn’t save that file',
-        message: loginFailureMessage(result.message),
+        title: t(result.code === 'ACCOUNT_EXISTS' ? 'this_account_exists' : 'could_not_save_file'),
+        message: tr(loginFailureMessage(result.message)),
       });
       return;
     }
     setPending('');
     if (result.status === 'error') {
-      setFailure({ title: 'Unable to Complete', message: loginFailureMessage(result.message) });
+      setFailure({ title: t('unable_to_complete'), message: tr(loginFailureMessage(result.message)) });
       return;
     }
     setFailure(null);
@@ -285,7 +292,7 @@ export function AddAccountSheet({
         setStagedPath('');
         setPending('');
         setReplaceExisting(false);
-        setFailure({ title: 'Couldn’t read that file', message: pasteError(thrown) });
+        setFailure({ title: t('could_not_read_file'), message: tr(pasteError(thrown)) });
         return;
       }
       setStagedPath(path);
@@ -319,17 +326,17 @@ export function AddAccountSheet({
 
   return (
     <Dialog
-      title="Add Login"
+      title={tr('Add Login')}
       onCancel={onClose}
       testId="account-flow.provider"
       width="form"
       actions={
         <>
           <Button kind="quiet" onClick={onClose}>
-            Cancel
+            {tc('cancel')}
           </Button>
           <Button kind="primary" testId="account-flow.save" disabled={!canSubmit} onClick={submit}>
-            {primaryTitle({
+            {tr(primaryTitle({
               mode: activeMode,
               providerLabel: provider?.label ?? '',
               accountName: name,
@@ -337,20 +344,20 @@ export function AddAccountSheet({
               hasIdentity,
               blocked,
               replacing: replaceExisting,
-            })}
+            }))}
           </Button>
         </>
       }
     >
       <Group
-        footer={sourceFooterFor({
+        footer={tr(sourceFooterFor({
           mode: activeMode,
           providerLabel: provider?.label ?? '',
           appName,
           isChecking: checking,
           isNewAccountMode: activeMode === 'newAccount',
           hasIdentity,
-        })}
+        }))}
       >
         {modes.length > 1 ? (
           <Row testId="account-flow.source">
@@ -359,17 +366,17 @@ export function AddAccountSheet({
               value={activeMode}
               testId="account-flow.source.picker"
               onChange={(next) => setMode(next as SourceMode)}
-              options={modes.map((mode) => ({ value: mode, label: SOURCE_LABEL[mode] }))}
+              options={modes.map((mode) => ({ value: mode, label: tr(SOURCE_LABEL[mode]) }))}
             />
           </Row>
         ) : null}
 
         <Row testId={`account-flow.provider-group.${providerId}`}>
-          <RowText title="Provider" detail={provider?.detail} />
+          <RowText title={tr('Provider')} detail={tr(provider?.detail ?? '')} />
           <RowActions>
             <MenuSelect
               label=""
-              ariaLabel={`Provider for ${provider?.label ?? 'the new account'}`}
+              ariaLabel={t('provider_for').replace('{account}', provider?.label ?? t('new_account'))}
               value={providerId}
               testId="account-flow.provider.picker"
               onChange={(next) => {
@@ -395,11 +402,11 @@ export function AddAccountSheet({
 
         {showsLocalSourcePicker(provider) && activeMode === 'thisMac' ? (
           <Row testId="account-flow.local-source">
-            <RowText title="App" detail="Choose which local app's login AnyPick should read." />
+            <RowText title={tr('App')} detail={t('local_app_help')} />
             <RowActions>
               <Select
                 label=""
-                ariaLabel="Local app"
+                ariaLabel={t('local_app')}
                 value={localMethod?.sourceId ?? ''}
                 testId="account-flow.local-source.picker"
                 onChange={setLocalSourceId}
@@ -416,7 +423,7 @@ export function AddAccountSheet({
             <div className="flex min-w-0 flex-1 flex-col gap-1.5 py-1">
               <textarea
                 className="min-h-[7.5rem] w-full rounded-control border border-control-border bg-field p-2 font-mono text-[12px] text-text placeholder:text-tertiary focus:border-accent"
-                placeholder="Paste auth JSON here…"
+                placeholder={t('paste_auth_placeholder')}
                 value={authJSON}
                 spellCheck={false}
                 data-testid="account-flow.auth-json.input"
@@ -431,7 +438,7 @@ export function AddAccountSheet({
                 }}
               />
               <p className="text-[11px] text-secondary">
-                Paste the provider&rsquo;s own auth file. This does not change the login already on this Mac.
+                {t('paste_auth_help')}
               </p>
             </div>
           </Row>
@@ -439,11 +446,11 @@ export function AddAccountSheet({
           <div className="contents" data-testid="account-flow.api-key">
             {(provider?.credentialKinds?.length ?? 0) > 1 ? (
               <Row testId="account-flow.credential-kind">
-                <RowText title="Credential" />
+                <RowText title={t('credential')} />
                 <RowActions>
                   <Select
                     label=""
-                    ariaLabel="Credential kind"
+                    ariaLabel={t('credential')}
                     value={credentialKind?.kind ?? ''}
                     testId="account-flow.credential-kind.picker"
                     onChange={(next) => {
@@ -463,25 +470,25 @@ export function AddAccountSheet({
               <>
                 <Row testId="account-flow.cloudflare-routing">
                   <Field
-                    label="Account / Gateway"
+                    label={t('account_gateway')}
                     value={routing}
                     placeholder="<account_id>/<gateway_id>"
-                    help="Enter the Cloudflare account ID and AI Gateway name, separated by /."
+                    help={t('cloudflare_route_help')}
                     onChange={setRouting}
                     testId="account-flow.cloudflare-routing.input"
                   />
                 </Row>
                 <Row>
-                  <RowText detail={CLOUDFLARE_HINT} testId="account-flow.cloudflare-hint" />
+              <RowText detail={t('cloudflare_hint')} testId="account-flow.cloudflare-hint" />
                 </Row>
               </>
             ) : null}
 
             <Row testId="account-flow.secret">
               <Field
-                label={credentialKind?.label ?? 'API Key'}
+                label={credentialKind?.label ?? tc('api_key')}
                 value={secret}
-                help="Enter the credential issued by this provider."
+                help={t('credential_input_help')}
                 onChange={setSecret}
                 type={revealSecret ? 'text' : 'password'}
                 testId="account-flow.api-key.input"
@@ -489,22 +496,22 @@ export function AddAccountSheet({
               <RowActions>
                 <Button
                   kind="secondary"
-                  ariaLabel={revealSecret ? 'Hide API Key' : 'Show API Key'}
+                  ariaLabel={tg(revealSecret ? 'hide_api_key' : 'show_api_key')}
                   testId="account-flow.api-key.reveal"
                   onClick={() => setRevealSecret((current) => !current)}
                 >
-                  {revealSecret ? 'Hide' : 'Show'}
+                  {revealSecret ? tc('hide') : tc('show')}
                 </Button>
               </RowActions>
             </Row>
 
             {(credentialKind?.profiles.length ?? 0) > 1 && !needsCloudflareRouting(provider) ? (
               <Row testId="account-flow.credential-profile">
-                <RowText title="Profile" />
+                <RowText title={t('profile')} />
                 <RowActions>
                   <Select
                     label=""
-                    ariaLabel="Profile"
+                    ariaLabel={t('profile')}
                     value={profileId}
                     testId="account-flow.credential-profile.picker"
                     onChange={setProfile}
@@ -519,7 +526,7 @@ export function AddAccountSheet({
 
             {isZaiProvider(provider) ? (
               <Row>
-                <RowText detail={zcodeHint(zcode?.planWarning)} testId="account-flow.zcode-hint" />
+                <RowText detail={tr(zcodeHint(zcode?.planWarning))} testId="account-flow.zcode-hint" />
               </Row>
             ) : null}
           </div>
@@ -527,13 +534,13 @@ export function AddAccountSheet({
           <>
             <Row testId="account-flow.identity">
               <RowText
-                title={identityTitle({
+                title={tr(identityTitle({
                   identity,
                   appName,
                   isChecking: checking,
                   isNewAccountMode: activeMode === 'newAccount',
-                })}
-                detail={identityDetail({
+                }))}
+                detail={tr(identityDetail({
                   identity,
                   detectedSource,
                   appName,
@@ -542,25 +549,29 @@ export function AddAccountSheet({
                   providerLabel: provider?.label ?? '',
                   isCommunityFlow: isCommunityFlow(method),
                   zcodeAppInstalled: zcodeAppInstalled({ provider, context: zcode ?? undefined }),
-                })}
-                issue={provider?.livePresent && !identity && !checking ? 'Not checked yet.' : undefined}
+                }))}
+                issue={provider?.livePresent && !identity && !checking ? t('not_checked_yet') : undefined}
+                language={language}
+                resolvedLanguage={resolvedLanguage}
               />
               <RowActions>
-                {provider?.livePresent && identity ? <StatusLabel status="ready" /> : null}
+                {provider?.livePresent && identity
+                  ? <StatusLabel status="ready" language={language} resolvedLanguage={resolvedLanguage} />
+                  : null}
                 <Button
                   kind="secondary"
                   disabled={blocked}
                   testId="account-flow.detect"
-                  title={checkAgainHelp({
+                    title={tr(checkAgainHelp({
                     appName,
                     isNewAccountMode: activeMode === 'newAccount',
                     hasIdentity,
                     providerLabel: provider?.label ?? '',
                     isCommunityFlow: isCommunityFlow(method),
-                  })}
+                    }))}
                   onClick={detect}
                 >
-                  {identity || provider?.liveIdentity ? 'Check Again' : 'Detect'}
+                  {identity || provider?.liveIdentity ? t('check_again') : t('detect')}
                 </Button>
                 {provider?.canClear && provider?.livePresent && activeMode === 'thisMac' ? (
                   <Button
@@ -569,7 +580,7 @@ export function AddAccountSheet({
                     testId="account-flow.clear"
                     onClick={() => setSignOutOpen(true)}
                   >
-                    Sign Out…
+                    {t('sign_out')}…
                   </Button>
                 ) : null}
               </RowActions>
@@ -577,11 +588,11 @@ export function AddAccountSheet({
 
             {activeMode === 'newAccount' && (provider?.loginMethods.length ?? 0) > 1 ? (
               <Row testId="account-flow.method">
-                <RowText title="Sign-in method" detail={method?.detail} />
+                <RowText title={t('sign_in_method')} detail={tr(method?.detail ?? '')} />
                 <RowActions>
                   <Select
                     label=""
-                    ariaLabel="Sign-in method"
+                    ariaLabel={t('sign_in_method')}
                     value={method?.id ?? ''}
                     testId="account-flow.method.picker"
                     onChange={setMethodId}
@@ -593,7 +604,7 @@ export function AddAccountSheet({
 
             {blocker ? (
               <Row testId="account-flow.blocker" warning>
-                <RowText title="Can’t add this account" issue={blocker} />
+            <RowText title={t('cannot_add_account')} issue={tr(blocker ?? '')} language={language} resolvedLanguage={resolvedLanguage} />
               </Row>
             ) : null}
           </>
@@ -601,10 +612,10 @@ export function AddAccountSheet({
 
         <Row testId="account-flow.name-group">
           <Field
-            label="Account Name"
+            label={t('account_name')}
             value={name}
-            placeholder={activeMode === 'paste' ? 'Optional' : 'Personal'}
-            help="Choose a label that helps you recognize this saved login."
+            placeholder={activeMode === 'paste' ? tc('optional') : t('personal_example')}
+            help={t('name_help')}
             onChange={setName}
             testId="account-flow.name"
           />
@@ -612,10 +623,10 @@ export function AddAccountSheet({
 
         {failure ? (
           <Row testId="account-flow.error" warning>
-            <WarningGlyph />
+            <WarningGlyph language={language} resolvedLanguage={resolvedLanguage} />
             <div className="flex min-w-0 flex-1 flex-col gap-row-stack">
-              <div className="text-[12px] font-semibold text-text">{failure.title}</div>
-              <div className="text-[12px] leading-[1.3] text-secondary">{failure.message}</div>
+              <div className="text-[12px] font-semibold text-text">{tr(failure.title)}</div>
+              <div className="text-[12px] leading-[1.3] text-secondary">{tr(failure.message)}</div>
               {fallbacks.currentLogin ? (
                 <RowActions>
                   <Button
@@ -627,7 +638,7 @@ export function AddAccountSheet({
                       detect();
                     }}
                   >
-                    Use Account on This Mac
+                    {t('use_account_this_mac')}
                   </Button>
                 </RowActions>
               ) : null}
@@ -643,7 +654,7 @@ export function AddAccountSheet({
                       setFailure(null);
                     }}
                   >
-                    Use API Key
+                    {t('use_api_key')}
                   </Button>
                 </RowActions>
               ) : null}
@@ -654,14 +665,14 @@ export function AddAccountSheet({
 
       {signOutOpen ? (
         <Dialog
-          title="Sign Out?"
-          message={SIGN_OUT_MESSAGE}
+          title={t('sign_out_title').replace('{app}', provider?.label ?? '')}
+          message={t('sign_out_message')}
           onCancel={() => setSignOutOpen(false)}
           testId="account-flow.sign-out.dialog"
           actions={
             <>
               <Button kind="quiet" onClick={() => setSignOutOpen(false)}>
-                Cancel
+                {tc('cancel')}
               </Button>
               <Button
                 kind="destructive"
@@ -674,7 +685,7 @@ export function AddAccountSheet({
                   onClear(provider.providerId, localMethod?.sourceId ?? provider.sourceId);
                 }}
               >
-                Sign Out
+                {t('sign_out')}
               </Button>
             </>
           }

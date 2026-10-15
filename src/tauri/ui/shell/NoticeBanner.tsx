@@ -1,3 +1,5 @@
+import { translate, translateSource } from '../lib/i18n';
+
 export type NoticeSuggestion = { text: string; action?: string };
 
 export type Notice = {
@@ -30,8 +32,19 @@ const ACCENT = {
  * The engine's `suggestions` ride along because they are the recovery step it
  * already knows about, and a user should not have to guess it.
  */
-export function NoticeBanner({ notice, onDismiss }: { notice: Notice; onDismiss: () => void }) {
+export function NoticeBanner({
+  notice,
+  onDismiss,
+  language,
+  resolvedLanguage,
+}: {
+  notice: Notice;
+  onDismiss: () => void;
+  language: string;
+  resolvedLanguage: string;
+}) {
   const suggestions = notice.suggestions ?? [];
+  const t = (key: string) => translate(`desktop.${key}`, language, resolvedLanguage);
   return (
     <div
       className={`mx-5 mt-4 mb-4 flex items-start gap-2 rounded-group border px-3 py-2 text-[13px] leading-[1.35] ${TONE[notice.kind]}`}
@@ -41,11 +54,13 @@ export function NoticeBanner({ notice, onDismiss }: { notice: Notice; onDismiss:
       <span className="mt-0.5 flex-none">
         <WarningOrInfo kind={notice.kind} />
       </span>
-      <span className="min-w-0 flex-1 [overflow-wrap:anywhere]">{notice.text}</span>
+      <span className="min-w-0 flex-1 [overflow-wrap:anywhere]">
+        {translateSource(notice.text, language, resolvedLanguage)}
+      </span>
       {suggestions.length > 0 ? (
         <ul className="m-0 flex list-none flex-col gap-0.5 pl-0 text-[12px] text-secondary">
           {suggestions.map((suggestion) => (
-            <li key={suggestion.text}>{suggestion.text}</li>
+            <li key={suggestion.text}>{translateSource(suggestion.text, language, resolvedLanguage)}</li>
           ))}
         </ul>
       ) : null}
@@ -53,8 +68,8 @@ export function NoticeBanner({ notice, onDismiss }: { notice: Notice; onDismiss:
         type="button"
         className="-mt-1 -mr-0.5 flex-none cursor-default rounded-full border-0 bg-transparent p-1 text-tertiary hover:text-text"
         onClick={onDismiss}
-        aria-label="Dismiss notification"
-        title="Dismiss notification"
+        aria-label={t('common.dismiss_notification')}
+        title={t('common.dismiss_notification')}
       >
         ×
       </button>

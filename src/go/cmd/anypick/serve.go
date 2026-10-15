@@ -29,7 +29,7 @@ import (
 
 func cmdServe(ctx context.Context, a *app.App, args []string) int {
 	if cli.WantsHelp(args) {
-		fmt.Print("usage: anypick serve [--port <n>] [--detach] [--stop]\n\n" +
+		cliPrint("usage: anypick serve [--port <n>] [--detach] [--stop]\n\n" +
 			"Runs the local status server: /health, /status, /agents on loopback.\n" +
 			"--detach runs it as a background child; --stop stops that child.\n")
 		return int(anyerr.Success)
@@ -121,8 +121,8 @@ func serveRun(ctx context.Context, a *app.App, port int) int {
 			kv{Key: "addr", Value: "http://" + addr},
 			kv{Key: "pid", Value: os.Getpid()})
 	} else {
-		fmt.Printf("anypick-go serve → http://%s  (Ctrl-C to stop)\n", addr)
-		fmt.Printf("  /health   liveness\n  /status   accounts + proxies\n  /agents   redacted worker manifest\n")
+		cliPrintf("anypick-go serve → http://%s  (Ctrl-C to stop)\n", addr)
+		cliPrintf("  /health   liveness\n  /status   accounts + proxies\n  /agents   redacted worker manifest\n")
 	}
 	if err := srv.Serve(ln); err != nil && err != http.ErrServerClosed {
 		return reportErr(err)
@@ -134,7 +134,7 @@ func serveMux(a *app.App, instanceID string) *http.ServeMux {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprintf(w, `{"ok":true,"pid":%d,"instanceId":%q}`, os.Getpid(), instanceID)
+		cliFprintf(w, `{"ok":true,"pid":%d,"instanceId":%q}`, os.Getpid(), instanceID)
 	})
 	mux.HandleFunc("/status", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -168,7 +168,7 @@ func serveDetach(a *app.App, port int) int {
 				kv{Key: "pid", Value: current.PID},
 				kv{Key: "endpoint", Value: serveEndpoint(current)})
 		} else {
-			fmt.Printf("serve already running (pid %d)\n%s\n", current.PID, serveEndpoint(current))
+			cliPrintf("serve already running (pid %d)\n%s\n", current.PID, serveEndpoint(current))
 		}
 		return int(anyerr.Success)
 	}
@@ -204,7 +204,7 @@ func serveDetach(a *app.App, port int) int {
 				kv{Key: "pid", Value: record.PID},
 				kv{Key: "endpoint", Value: serveEndpoint(record)})
 		} else {
-			fmt.Printf("serve already running (pid %d)\n%s\n", record.PID, serveEndpoint(record))
+			cliPrintf("serve already running (pid %d)\n%s\n", record.PID, serveEndpoint(record))
 		}
 		return int(anyerr.Success)
 	}
@@ -215,7 +215,7 @@ func serveDetach(a *app.App, port int) int {
 			kv{Key: "pid", Value: pid},
 			kv{Key: "endpoint", Value: serveEndpoint(record)})
 	} else {
-		fmt.Printf("anypick-go serve detached (pid %d)\n%s\nstop: anypick-go serve --stop\n",
+		cliPrintf("anypick-go serve detached (pid %d)\n%s\nstop: anypick-go serve --stop\n",
 			pid, serveEndpoint(record))
 	}
 	return int(anyerr.Success)

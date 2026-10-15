@@ -1,17 +1,20 @@
 ---
 /** Button that opens the search dialog. Cmd+K on macOS, Ctrl+K elsewhere. */
 import { Icon } from "astro-icon/components";
+import { getTranslator, localeForPath } from "@/i18n";
+
+const t = await getTranslator(localeForPath(Astro.url.pathname));
 ---
 
 <button
   data-search-trigger
   type="button"
   class="hidden sm:flex items-center gap-2 rounded-md border border-border bg-card px-2.5 py-1.5 text-sm text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground"
-  aria-label="Search documentation"
+  aria-label={t("search.label")}
   aria-keyshortcuts="Control+K"
 >
   <Icon name="ph:magnifying-glass" class="h-4 w-4" />
-  <span class="hidden md:inline">Search</span>
+  <span class="hidden md:inline">{t("search.trigger")}</span>
   <kbd class="inline-flex items-center gap-0.5 rounded border border-border bg-muted px-1.5 py-0.5 text-[0.625rem] font-medium text-muted-foreground">
     <span data-shortcut-key>Ctrl</span>K
   </kbd>

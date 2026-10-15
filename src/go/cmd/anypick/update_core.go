@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -28,13 +27,13 @@ func cmdUpdateCore(ctx context.Context, verb string, args []string) int {
 		case "--json":
 		case "--current":
 			if i+1 >= len(args) || args[i+1] == "" {
-				fmt.Fprintln(os.Stderr, "--current needs a version")
+				cliFprintln(os.Stderr, "--current needs a version")
 				return int(anyerr.InvalidUsage)
 			}
 			current = args[i+1]
 			i++
 		default:
-			fmt.Fprintf(os.Stderr, "unknown flag %q for update %s\n", args[i], verb)
+			cliFprintf(os.Stderr, "unknown flag %q for update %s\n", args[i], verb)
 			return int(anyerr.InvalidUsage)
 		}
 	}
@@ -75,15 +74,15 @@ func cmdUpdateCore(ctx context.Context, verb string, args []string) int {
 		if msg == "" {
 			msg = final.Lead
 		}
-		fmt.Printf("%s: %s\n", final.Kind, msg)
+		cliPrintf("%s: %s\n", final.Kind, msg)
 		if final.Latest != "" && final.Kind != "upToDate" {
-			fmt.Printf("latest: %s\n", final.Latest)
+			cliPrintf("latest: %s\n", final.Latest)
 		}
 		if final.Command != "" {
-			fmt.Println(final.Command)
+			cliPrintlnRaw(final.Command)
 		}
 		if final.FilePath != "" {
-			fmt.Println(final.FilePath)
+			cliPrintlnRaw(final.FilePath)
 		}
 	}
 	return int(anyerr.Success)

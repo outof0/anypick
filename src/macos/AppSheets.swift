@@ -8,12 +8,6 @@ enum ModelRoleScope: String, CaseIterable, Identifiable {
 
   var id: String { rawValue }
 
-  var title: String {
-    switch self {
-    case .connection: return "This connection"
-    case .provider: return "All accounts"
-    }
-  }
 }
 
 enum ModelRolesProvenance {
@@ -42,17 +36,22 @@ func modelScopeProviderName(app: DesignApp?, model: MacOSDesignModel) -> String?
   }
 }
 
-func modelProvenanceCaption(provenance: ModelRolesProvenance, providerName: String?) -> String {
+@MainActor
+func modelProvenanceCaption(
+  provenance: ModelRolesProvenance,
+  providerName: String?,
+  model: MacOSDesignModel
+) -> String {
   switch provenance {
   case .custom:
-    return "Custom models for this connection."
+    return model.localized("desktop.models.custom_for_connection")
   case .inherited:
     if let providerName {
-      return "Using the \(providerName) default for all accounts."
+      return model.localized("desktop.models.using_provider_default", replacing: ["provider": providerName])
     }
-    return "Using a shared default."
+    return model.localized("desktop.models.using_shared_default")
   case .none:
-    return "No models pinned yet."
+    return model.localized("desktop.models.none_pinned")
   }
 }
 
@@ -61,11 +60,12 @@ func modelProvenanceCaption(provenance: ModelRolesProvenance, providerName: Stri
 struct ModelScopePicker: View {
   @Binding var scope: ModelRoleScope
   var providerName: String
+  @ObservedObject var model: MacOSDesignModel
 
   var body: some View {
-    Picker("Applies to", selection: $scope) {
-      Text("This connection").tag(ModelRoleScope.connection)
-      Text("All \(providerName) accounts").tag(ModelRoleScope.provider)
+    Picker(model.localized("desktop.models.applies_to"), selection: $scope) {
+      Text(model.localized("desktop.models.this_connection")).tag(ModelRoleScope.connection)
+      Text(model.localized("desktop.models.all_provider_accounts", replacing: ["provider": providerName])).tag(ModelRoleScope.provider)
     }
     .pickerStyle(.segmented)
     .labelsHidden()
@@ -181,18 +181,19 @@ struct AppRouteSheet: View {
 
   private var primaryTitle: String {
     switch stage {
-    case .connection: "Review Change"
-    case .models: "Save Models"
-    case .review: "Apply Changes"
-    case .applying: "Applying…"
-    case .success: needsModelChoice ? "Choose Models" : "Done"
-    case .recovery: "Try Again"
+    case .connection: model.localized("desktop.app_route.review_change")
+    case .models: model.localized("desktop.app_route.save_models")
+    case .review: model.localized("desktop.app_route.apply_changes")
+    case .applying: model.localized("desktop.app_route.applying")
+    case .success: needsModelChoice ? model.localized("desktop.app_route.choose_models") : model.localized("desktop.app_route.done")
+    case .recovery: model.localized("desktop.common.try_again")
     }
   }
 
   var body: some View {
     DesignSheetHost(
-      title: app.map { "Change \($0.name) Connection" } ?? "Choose a Connection",
+      model: model,
+      title: app.map { model.localized("desktop.app_route.change_title", replacing: ["app": $0.name]) } ?? model.localized("desktop.app_route.choose_connection"),
       width: 480,
       primaryTitle: primaryTitle,
       primaryDisabled: routeID.isEmpty
@@ -242,7 +243,7 @@ struct AppRouteSheet: View {
         } else if let message = result?.message, !message.isEmpty {
           modelSaveError = message
         } else {
-          modelSaveError = "Couldn’t save those models. Try again."
+          modelSaveError = model.localized("desktop.models.save_error")
         }
       }
     }
@@ -252,7 +253,7 @@ struct AppRouteSheet: View {
   private var connectionForm: some View {
     if showsConnectionSearch {
       Section {
-        TextField("Search connections", text: $routeSearch)
+        TextField(model.localized("desktop.app_route.search_connections"), text: $routeSearch)
           .accessibilityIdentifier("app-route.search")
       }
     }
@@ -261,9 +262,9 @@ struct AppRouteSheet: View {
       Section {
         connectionOptionRow(currentRoute, isCurrent: true)
       } header: {
-        Text("Current Connection")
+        Text(model.localized("desktop.app_route.current_connection"))
       } footer: {
-        Text("Choose another source below to review a connection change.")
+        Text(model.localized("desktop.app_route.choose_source_help"))
       }
     }
 
@@ -273,7 +274,7 @@ struct AppRouteSheet: View {
           connectionOptionRow(route)
         }
       } header: {
-        Text("Accounts")
+        Text(model.localized("desktop.nav.accounts"))
       }
     }
 
@@ -281,7 +282,7 @@ struct AppRouteSheet: View {
       Section {
         connectionOptionRow(hub)
       } header: {
-        Text("Proxy Hub")
+        Text(model.localized("desktop.nav.proxy_hub"))
       }
     }
 
@@ -291,17 +292,17 @@ struct AppRouteSheet: View {
           connectionOptionRow(route)
         }
       } header: {
-        Text("API Gateways")
+        Text(model.localized("desktop.accounts.api_gateways"))
       }
     }
 
     if !hasMatchingConnection {
       Section {
         Text(connectionRoutes.isEmpty
-          ? "No compatible connections are available."
+          ? model.localized("desktop.app_route.no_compatible_connections")
           : normalizedRouteSearch.isEmpty
-            ? "No other compatible connections are available."
-            : "No other connections match “\(normalizedRouteSearch)”.")
+            ? model.localized("desktop.app_route.no_other_connections")
+            : model.localized("desktop.app_route.no_matching_connections", replacing: ["query": normalizedRouteSearch]))
           .foregroundStyle(.secondary)
       }
     }
@@ -310,8 +311,8 @@ struct AppRouteSheet: View {
   private func connectionOptionRow(_ route: DesignRoute, isCurrent: Bool = false) -> some View {
     let isSelected = route.id == routeID
     let spokenState = [
-      isCurrent ? "Current connection" : "",
-      isSelected ? "Selected" : "",
+      isCurrent ? model.localized("desktop.app_route.current_connection") : "",
+      isSelected ? model.localized("desktop.app_route.selected") : "",
     ].filter { !$0.isEmpty }.joined(separator: ", ")
 
     return Button {
@@ -334,7 +335,7 @@ struct AppRouteSheet: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         if isCurrent {
-          Text("Current")
+          Text(model.localized("desktop.common.current"))
             .font(.caption)
             .foregroundStyle(.secondary)
             .fixedSize()
@@ -348,12 +349,12 @@ struct AppRouteSheet: View {
       }
       .contentShape(Rectangle())
     }
-    .help(isCurrent ? "Keep the current connection for this app." : "Use \(route.name) as this app’s connection.")
+    .help(isCurrent ? model.localized("desktop.app_route.keep_current_help") : model.localized("desktop.app_route.use_connection_help", replacing: ["route": route.name]))
     .buttonStyle(.plain)
     .disabled(model.isBusy)
     .accessibilityLabel(route.detail.isEmpty ? route.name : "\(route.name), \(route.detail)")
     .accessibilityValue(spokenState)
-    .accessibilityHint(isCurrent ? "This is the app’s current connection." : "Select this connection.")
+    .accessibilityHint(isCurrent ? model.localized("desktop.app_route.current_hint") : model.localized("desktop.app_route.select_hint"))
     .accessibilityIdentifier("app-route.option.\(route.id)")
   }
 
@@ -379,7 +380,7 @@ struct AppRouteSheet: View {
     if let app {
       Section {
         if let providerName = modelScopeProviderName(app: app, model: model) {
-          ModelScopePicker(scope: $modelScope, providerName: providerName)
+          ModelScopePicker(scope: $modelScope, providerName: providerName, model: model)
         }
         ForEach(app.modelRoles) { role in
           Picker(
@@ -389,18 +390,19 @@ struct AppRouteSheet: View {
               set: { modelValues[role.id] = $0 }
             )
           ) {
-            if role.id != "default" { Text("Same as Default").tag("") }
+            if role.id != "default" { Text(model.localized("desktop.app_detail.same_as_default")).tag("") }
             ForEach(app.modelOptions, id: \.self) { Text(cleanModelDisplayName($0)).tag($0) }
           }
         }
       } header: {
-        Text("Models")
+        Text(model.localized("desktop.app_detail.models"))
       } footer: {
         Text(
-          "Published by \(selectedRoute?.name ?? "the current connection"). Changing models doesn’t switch the account. " +
+          model.localized("desktop.app_route.models_published_by", replacing: ["route": selectedRoute?.name ?? model.localized("desktop.app_route.current_connection")]) + " " +
             modelProvenanceCaption(
               provenance: model.modelRolesProvenance(appID: appID),
-              providerName: modelScopeProviderName(app: app, model: model))
+              providerName: modelScopeProviderName(app: app, model: model),
+              model: model)
         )
       }
     }
@@ -422,20 +424,20 @@ struct AppRouteSheet: View {
 
   @ViewBuilder
   private var reviewForm: some View {
-    Section("Connection") {
-      LabeledContent("From", value: currentRoute?.name ?? "Not selected")
-      LabeledContent("To", value: selectedRoute?.name ?? "Not selected")
+    Section(model.localized("desktop.app_detail.connection")) {
+      LabeledContent(model.localized("desktop.app_route.from"), value: currentRoute?.name ?? model.localized("desktop.app_detail.not_selected"))
+      LabeledContent(model.localized("desktop.app_route.to"), value: selectedRoute?.name ?? model.localized("desktop.app_detail.not_selected"))
     }
-    Section("AnyPick Will") {
-      Label("Back up the app’s current settings", systemImage: "externaldrive.badge.timemachine")
+    Section(model.localized("desktop.app_route.anypick_will")) {
+      Label(model.localized("desktop.app_route.backup_settings"), systemImage: "externaldrive.badge.timemachine")
         .symbolRenderingMode(.hierarchical)
-      Label("Start a required local proxy", systemImage: "server.rack")
+      Label(model.localized("desktop.app_route.start_proxy"), systemImage: "server.rack")
         .symbolRenderingMode(.hierarchical)
-      Label("Write the new app settings atomically", systemImage: "checkmark.shield")
+      Label(model.localized("desktop.app_route.write_settings"), systemImage: "checkmark.shield")
         .symbolRenderingMode(.hierarchical)
     }
     Section {
-      Text("Compatible model choices are preserved. You choose the models for the new connection on the next step.")
+      Text(model.localized("desktop.app_route.models_preserved"))
         .foregroundStyle(.secondary)
     }
     if let routeApplyError {
@@ -458,8 +460,8 @@ struct AppRouteSheet: View {
         ProgressView()
           .controlSize(.small)
         VStack(alignment: .leading, spacing: 2) {
-          Text("Applying changes…")
-          Text("Keep AnyPick open while settings and required services are updated.")
+          Text(model.localized("desktop.app_route.applying"))
+          Text(model.localized("desktop.app_route.keep_open_help"))
             .foregroundStyle(.secondary)
         }
       }
@@ -471,11 +473,11 @@ struct AppRouteSheet: View {
     Section {
       Label {
         VStack(alignment: .leading, spacing: 2) {
-          Text(succeeded ? "Connection updated" : "Previous settings restored")
+          Text(model.localized(succeeded ? "desktop.app_route.connection_updated" : "desktop.app_route.previous_settings_restored"))
           Text(
             succeeded
-              ? "\(app?.name ?? "The app") now uses \(selectedRoute?.name ?? "the selected connection")."
-              : "The requested connection could not be applied. The app still uses \(currentRoute?.name ?? "its previous connection")."
+              ? model.localized("desktop.app_route.now_uses", replacing: ["app": app?.name ?? model.localized("desktop.app_detail.app"), "route": selectedRoute?.name ?? model.localized("desktop.app_route.selected_connection")])
+              : model.localized("desktop.app_route.apply_failed", replacing: ["route": currentRoute?.name ?? model.localized("desktop.app_route.previous_connection")])
           )
           .foregroundStyle(.secondary)
         }
@@ -486,7 +488,7 @@ struct AppRouteSheet: View {
     }
     if !succeeded {
       Section {
-        Text("Review the connection and try again. No partial app settings were kept.")
+        Text(model.localized("desktop.app_route.recovery_help"))
           .foregroundStyle(.secondary)
       }
     }
@@ -548,7 +550,7 @@ struct AppRouteSheet: View {
   private func saveModels() {
     guard let app else { return }
     guard !model.isBusy else {
-      modelSaveError = "Another change is in progress. Try again in a moment."
+          modelSaveError = model.localized("desktop.models.change_in_progress")
       return
     }
     modelSaveError = nil
@@ -564,7 +566,7 @@ struct AppRouteSheet: View {
         dismiss()
       }
     } else {
-      modelSaveError = "Another change is in progress. Try again in a moment."
+      modelSaveError = model.localized("desktop.models.change_in_progress")
     }
   }
 }
@@ -588,9 +590,10 @@ struct AppModelsSheet: View {
 
   var body: some View {
     DesignSheetHost(
-      title: app.map { "Models for \($0.name)" } ?? "Models",
+      model: model,
+      title: app.map { model.localized("desktop.models.title_for_app", replacing: ["app": $0.name]) } ?? model.localized("desktop.app_detail.models"),
       width: 480,
-      primaryTitle: "Save",
+      primaryTitle: model.localized("desktop.common.save"),
       primaryDisabled: values["default", default: ""].isEmpty || model.isBusy
         || awaitingSaveResult,
       onCancel: { dismiss() },
@@ -600,44 +603,44 @@ struct AppModelsSheet: View {
         if let app {
           Section {
             if providerName != nil {
-              ModelScopePicker(scope: $scope, providerName: providerName ?? "")
+              ModelScopePicker(scope: $scope, providerName: providerName ?? "", model: model)
             }
             ForEach(app.modelRoles) { role in
               Picker(
-                role.label,
+                role.id == "default" ? model.localized("desktop.app_detail.default") : role.label,
                 selection: Binding(
                   get: { values[role.id] ?? role.modelID },
                   set: { values[role.id] = $0 }
                 )
               ) {
-                if role.id != "default" { Text("Same as Default").tag("") }
+                if role.id != "default" { Text(model.localized("desktop.app_detail.same_as_default")).tag("") }
                 ForEach(app.modelOptions, id: \.self) { Text(cleanModelDisplayName($0)).tag($0) }
               }
             }
-            LabeledContent("Available Models") {
-              Button("Refresh") { model.refreshAppModels(appID: appID) }
+            LabeledContent(model.localized("desktop.models.available")) {
+              Button(model.localized("desktop.common.refresh")) { model.refreshAppModels(appID: appID) }
                 .buttonStyle(.bordered)
                 .controlSize(.small)
                 .disabled(model.isBusy)
-                .help("Reload the available models for this app.")
+                .help(model.localized("desktop.models.refresh_help"))
                 .accessibilityIdentifier("app.models.refresh")
             }
             if provenance == .custom, let providerName {
-              LabeledContent("Customization") {
-                Button("Use \(providerName) Default", role: .destructive) { reset() }
+              LabeledContent(model.localized("desktop.models.customization")) {
+                Button(model.localized("desktop.models.use_provider_default", replacing: ["provider": providerName]), role: .destructive) { reset() }
                   .buttonStyle(.bordered)
                   .controlSize(.small)
                   .disabled(model.isBusy || awaitingSaveResult)
-                  .help("Remove this override and use the provider’s default model.")
+                  .help(model.localized("desktop.models.reset_help"))
                   .accessibilityIdentifier("app.models.reset")
               }
             }
           } header: {
-            Text("Models")
+            Text(model.localized("desktop.app_detail.models"))
           } footer: {
             Text(
-              "Changing models doesn’t switch the account. " +
-                modelProvenanceCaption(provenance: provenance, providerName: providerName)
+              model.localized("desktop.models.changing_does_not_switch") + " " +
+                modelProvenanceCaption(provenance: provenance, providerName: providerName, model: model)
             )
           }
         }
@@ -665,7 +668,7 @@ struct AppModelsSheet: View {
         } else if let message = result?.message, !message.isEmpty {
           saveError = message
         } else {
-          saveError = "Couldn’t save those models. Try again."
+          saveError = model.localized("desktop.models.save_error")
         }
       }
     }
@@ -705,7 +708,7 @@ struct AppModelsSheet: View {
       ) {
         awaitingSaveResult = true
       } else {
-        saveError = "Another change is in progress. Try again in a moment."
+        saveError = model.localized("desktop.models.change_in_progress")
       }
       return
     }
@@ -731,9 +734,10 @@ struct AddAppSheet: View {
 
   var body: some View {
     DesignSheetHost(
-      title: "Add Coding App",
+      model: model,
+      title: model.localized("desktop.apps.add_coding_app"),
       width: 480,
-      primaryTitle: "Add App",
+      primaryTitle: model.localized("desktop.apps.add_app"),
       primaryDisabled: selectedAppID.isEmpty,
       primaryIdentifier: "app.add.primary",
       showsCancel: true,
@@ -747,18 +751,18 @@ struct AddAppSheet: View {
       Form {
         if availableApps.isEmpty {
           Section {
-            Text("All supported coding apps have already been added.")
+            Text(model.localized("desktop.apps.all_supported_added"))
               .foregroundStyle(.secondary)
           }
         } else {
           Section {
-            Picker("Coding App", selection: $selectedAppID) {
+            Picker(model.localized("desktop.apps.coding_app"), selection: $selectedAppID) {
               ForEach(availableApps) { app in
                 Label {
                   VStack(alignment: .leading, spacing: 2) {
                     Text(app.name)
                       .font(.body)
-                    Text(appShortDescription(app.id))
+                    Text(appShortDescription(app.id, using: model))
                       .font(.caption)
                       .foregroundStyle(.secondary)
                   }
@@ -776,9 +780,9 @@ struct AddAppSheet: View {
             .labelsHidden()
             .accessibilityIdentifier("app.add.picker")
           } header: {
-            Text("Supported Coding Tools")
+            Text(model.localized("desktop.apps.supported_tools"))
           } footer: {
-            Text("Choose an app to configure its AI credentials, models, and proxy connections in AnyPick.")
+            Text(model.localized("desktop.apps.add_app_help"))
           }
         }
       }
@@ -833,9 +837,10 @@ struct CodexProfileSheet: View {
 
   var body: some View {
     DesignSheetHost(
-      title: profile == nil ? "Add Codex Profile" : "Edit Codex Profile",
+      model: model,
+      title: model.localized(profile == nil ? "desktop.codex_profile.add_title" : "desktop.codex_profile.edit_title"),
       width: 480,
-      primaryTitle: awaitingSave ? "Saving…" : (profile == nil ? "Add Profile" : "Save Changes"),
+      primaryTitle: model.localized(awaitingSave ? "desktop.codex_profile.saving" : (profile == nil ? "desktop.app_detail.add_profile" : "desktop.codex_profile.save_changes")),
       primaryDisabled: !canSave,
       primaryIdentifier: "codex-profile.save",
       onCancel: { dismiss() },
@@ -844,37 +849,37 @@ struct CodexProfileSheet: View {
       Form {
         Section {
           if profile == nil {
-            TextField("Name", text: $name)
+            TextField(model.localized("desktop.account_detail.name"), text: $name)
               .autocorrectionDisabled()
               .accessibilityIdentifier("codex-profile.name")
-            Text("Use 1–64 letters, numbers, hyphens, or underscores.")
+            Text(model.localized("desktop.codex_profile.name_rules"))
               .font(.footnote)
               .foregroundStyle(.secondary)
             if invalidName {
               Label(
-                "Use 1–64 letters, numbers, hyphens, or underscores.",
+                model.localized("desktop.codex_profile.name_rules"),
                 systemImage: "exclamationmark.triangle"
               )
               .font(.footnote)
               .foregroundStyle(.red)
             } else if nameAlreadyExists {
-              Label("That profile name is already in use.", systemImage: "exclamationmark.triangle")
+              Label(model.localized("desktop.codex_profile.name_exists"), systemImage: "exclamationmark.triangle")
                 .font(.footnote)
                 .foregroundStyle(.red)
             }
           } else {
-            LabeledContent("Name", value: name)
+            LabeledContent(model.localized("desktop.account_detail.name"), value: name)
           }
         } header: {
-          Text("Profile")
+          Text(model.localized("desktop.codex_profile.profile"))
         } footer: {
           if profile != nil {
-            Text("A profile’s name can’t be changed after creation.")
+            Text(model.localized("desktop.codex_profile.name_immutable"))
           }
         }
 
         Section {
-          Picker("Account or Route", selection: $sourceID) {
+          Picker(model.localized("desktop.codex_profile.account_or_route"), selection: $sourceID) {
             ForEach(model.codexProfileSources) { source in
               VStack(alignment: .leading, spacing: 2) {
                 Text(source.label)
@@ -887,12 +892,12 @@ struct CodexProfileSheet: View {
           }
           .accessibilityIdentifier("codex-profile.source")
         } header: {
-          Text("Connection")
+          Text(model.localized("desktop.app_detail.connection"))
         }
 
         Section {
-          Picker("Model", selection: $modelID) {
-            Text("Source default").tag("")
+          Picker(model.localized("desktop.app_detail.models"), selection: $modelID) {
+            Text(model.localized("desktop.app_detail.source_default")).tag("")
             ForEach(selectedSource?.models ?? [], id: \.self) { model in
               Text(cleanModelDisplayName(model))
                 .tag(model)
@@ -900,14 +905,14 @@ struct CodexProfileSheet: View {
             }
           }
           .accessibilityIdentifier("codex-profile.model")
-          Picker("Transport", selection: $transportPolicy) {
-            Text("Automatic").tag("auto")
-            Text("Direct").tag("direct")
-            Text("Proxy").tag("proxy")
+          Picker(model.localized("desktop.codex_profile.transport"), selection: $transportPolicy) {
+            Text(model.localized("desktop.app_detail.automatic")).tag("auto")
+            Text(model.localized("desktop.app_detail.direct")).tag("direct")
+            Text(model.localized("desktop.app_detail.proxy")).tag("proxy")
           }
           .accessibilityIdentifier("codex-profile.transport")
         } footer: {
-          Text("Each profile uses its own CODEX_HOME and account settings. Source default uses the selected connection’s first available model.")
+          Text(model.localized("desktop.codex_profile.profile_settings_help"))
         }
 
         if let saveError, !saveError.isEmpty {
@@ -927,7 +932,7 @@ struct CodexProfileSheet: View {
         if result?.succeeded == true {
           dismiss()
         } else {
-          saveError = result?.message ?? "Couldn’t add this Codex profile. Try again."
+          saveError = result?.message ?? model.localized("desktop.codex_profile.save_error")
         }
       }
     }

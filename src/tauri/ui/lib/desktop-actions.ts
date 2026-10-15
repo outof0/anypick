@@ -336,6 +336,10 @@ export function settingChange(operation: string, enabled: boolean): DesktopActio
   return { operation, extra: { name: 'settings', enabled } };
 }
 
+export function languageChange(language: string): DesktopAction {
+  return { operation: 'setting-language', extra: { name: 'settings', language } };
+}
+
 /**
  * The wire form of one hub source switch.
  *

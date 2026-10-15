@@ -1,0 +1,76 @@
+{
+  "common": {
+    "skipToContent": "Aller au contenu"
+  },
+  "header": {
+    "home": "Accueil de {{title}}",
+    "primaryNavigation": "Navigation principale",
+    "sectionsNavigation": "Sections",
+    "docs": "Documentation",
+    "getStarted": "Commencer",
+    "openNavigation": "Ouvrir la navigation",
+    "starOnGitHub": "Ajouter une étoile sur GitHub",
+    "starShort": "Étoile",
+    "switchLanguage": "Changer de langue",
+    "language": "Langue"
+  },
+  "docs": {
+    "deprecatedWithLatest": "This is the <strong>{{version}}</strong> version of the docs and is no longer maintained. The latest version of this page is at <a href=\"{{url}}\">{{url}}</a>.",
+    "deprecatedCurrent": "This version of the docs is no longer maintained. See the <a href=\"{{url}}\">current docs</a> for up-to-date content.",
+    "draft": "Brouillon",
+    "audienceHuman": "Pour les utilisateurs",
+    "editThisPage": "Modifier cette page",
+    "siteNavigation": "Navigation du site",
+    "navigation": "Navigation",
+    "closeSidebar": "Fermer la barre latérale",
+    "englishContent": "Le contenu de cette page est actuellement disponible en anglais."
+  },
+  "search": {
+    "label": "Rechercher dans la documentation",
+    "trigger": "Rechercher",
+    "placeholder": "Rechercher dans la documentation…",
+    "typeToSearch": "Saisir pour rechercher…",
+    "navigateHint": "↑↓ naviguer",
+    "selectHint": "↵ sélectionner",
+    "closeHint": "Échap fermer",
+    "productionBuild": "La recherche sera disponible après une compilation de production.",
+    "searching": "Recherche…",
+    "noResults": "Aucun résultat trouvé.",
+    "temporarilyUnavailable": "La recherche est temporairement indisponible."
+  },
+  "pageActions": {
+    "updated": "Mis à jour",
+    "copyPage": "Copier la page",
+    "copied": "Copié",
+    "copyFailed": "Échec de la copie",
+    "viewMarkdown": "Voir en Markdown"
+  },
+  "pagination": {
+    "label": "Pagination",
+    "previous": "Précédent",
+    "next": "Suivant"
+  },
+  "breadcrumbs": {
+    "label": "Fil d’Ariane",
+    "showMore": "Afficher {{count}} segments supplémentaires"
+  },
+  "sidebar": {
+    "filterPlaceholder": "Filtrer…  /",
+    "filterLabel": "Filtrer la navigation"
+  },
+  "toc": {
+    "title": "Sur cette page",
+    "label": "Table des matières"
+  },
+  "theme": {
+    "toggle": "Activer/désactiver le mode sombre"
+  },
+  "banner": {
+    "dismiss": "Fermer le message"
+  },
+  "packageManager": {
+    "tabs": "Gestionnaire de paquets",
+    "copy": "Copier dans le presse-papiers",
+    "copied": "Copié dans le presse-papiers"
+  }
+}

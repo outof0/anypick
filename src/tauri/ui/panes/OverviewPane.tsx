@@ -4,25 +4,95 @@ import type { Destination, Snapshot } from '../lib/contract';
 import type { DoctorFrame } from '../lib/wire';
 import {
   isOnboardingCoreComplete,
-  onboardingFooter,
   overviewApps,
-  overviewConnectionSummary,
   overviewTransportLabel,
 } from '../lib/overview';
 import {
-  attentionCopy,
   disambiguatedProxyNames,
   overviewAttentionTarget,
   overviewServiceTotal,
   proxyStatus,
-  STATUS_LABEL,
 } from '../lib/model';
+import { translate, translateSource } from '../lib/i18n';
 import { Chevron } from '../ui/Chevron';
 import { ProviderIcon } from '../shell/ProviderIcon';
 import { Symbol } from '../shell/Symbol';
 import { Button, Group, Pane, PaneActions, Row, RowActions, RowText, WarningGlyph } from '../ui/primitives';
 
 export const ONBOARDING_KEY = 'anypick.onboardingDismissed';
+
+type OverviewMessage = (key: string) => string;
+type OverviewAppRow = ReturnType<typeof overviewApps>['listed'][number];
+
+function localizedConnectionSummary(
+  app: OverviewAppRow,
+  t: OverviewMessage,
+  tr: (source: string) => string,
+): string {
+  if (app.selected?.label) return t('uses_account').replace('{name}', app.selected.label);
+  if (app.selected?.detail) return tr(app.selected.detail);
+  return t('no_login_chosen');
+}
+
+function localizedTransportLabel(label: string, t: OverviewMessage): string {
+  const key = label === 'Not Configured'
+    ? 'not_configured'
+    : label === 'Gateway'
+    ? 'gateway'
+    : label === 'Proxy Hub'
+    ? 'hub_transport'
+    : label === 'AnyPick proxy'
+    ? 'anypick_proxy'
+    : label === 'Direct'
+    ? 'direct'
+    : null;
+  return key ? t(key) : label;
+}
+
+function localizedStatusLabel(status: string, t: OverviewMessage): string {
+  const key = status === 'running'
+    ? 'status_running'
+    : status === 'attention'
+    ? 'status_attention'
+    : status === 'unavailable'
+    ? 'status_unavailable'
+    : status === 'stopped'
+    ? 'status_stopped'
+    : 'status_ready';
+  return t(key);
+}
+
+function localizedDoctorStatusLabel(status: string, t: OverviewMessage): string {
+  const key = status === 'ok'
+    ? 'status_ok'
+    : status === 'degraded'
+    ? 'status_warn'
+    : status === 'unhealthy'
+    ? 'status_fail'
+    : status === 'not-set'
+    ? 'status_not_set'
+    : null;
+  return key ? t(key) : status;
+}
+
+function localizedDoctorCheck(check: string, t: OverviewMessage): string {
+  const keys: Record<string, string> = {
+    client: 'check_client',
+    route: 'check_route',
+    proxy: 'check_proxy',
+    'proxy-environment': 'check_proxy_environment',
+    database: 'check_database',
+    permissions: 'check_permissions',
+    'active-binding': 'check_active_binding',
+    'duplicate-snapshot': 'check_duplicate_snapshot',
+    'named-profile': 'check_named_profile',
+    'plugin-host': 'check_plugin_host',
+  };
+  const key = keys[check];
+  if (key) return t(key);
+  if (check.startsWith('plugin:')) return t('check_plugin').replace('{name}', check.slice('plugin:'.length));
+  return check.replaceAll('-', ' ');
+}
 
 /**
  * Overview: attention first, then the checklist, then a summary.
@@ -57,6 +127,12 @@ export function OverviewPane({
   /** Any command in flight; the Refresh greys rather than spinning. */
   busy?: ReadonlySet<string>;
 }) {
+  const t = (key: string) =>
+    translate(`desktop.overview.${key}`, snapshot.settings.language, snapshot.settings.resolvedLanguage);
+  const tr = (source: string) =>
+    translateSource(source, snapshot.settings.language, snapshot.settings.resolvedLanguage);
+  const activityKindLabel = (kind: string) =>
+    translate(`desktop.activity.kind_${kind}`, snapshot.settings.language, snapshot.settings.resolvedLanguage);
   const [onboardingDismissed, setOnboardingDismissed] = useState(
     () => globalThis.localStorage?.getItem(ONBOARDING_KEY) === '1',
   );
@@ -87,38 +163,59 @@ export function OverviewPane({
 
   // Named the same way the Proxies pane names it, so the two panes never point
   // at different things with the same words.
-  const proxyNames = disambiguatedProxyNames(accountProxies);
+  const proxyNames = new Map(
+    [...disambiguatedProxyNames(accountProxies)].map(([id, name]) => [id, tr(name)]),
+  );
 
   const attention = target
-    ? attentionCopy(target, {
-        proxyName: target.kind === 'proxy' ? proxyNames.get(target.id) : undefined,
-        appName: target.kind === 'app'
-          ? snapshot.actions.find((row) => row.clientId === target.id)?.client
-          : undefined,
-        accountName: target.kind === 'account'
-          ? snapshot.accounts.find((row) => row.id === target.id)?.label
-          : undefined,
-        conflictTitle: target.kind === 'conflict'
-          ? snapshot.hubConflicts.find((row) => row.id === target.id)?.title
-          : undefined,
-      })
+    ? (() => {
+        const name = target.kind === 'proxy'
+          ? proxyNames.get(target.id) ?? tr('A service')
+          : target.kind === 'app'
+          ? snapshot.actions.find((row) => row.clientId === target.id)?.client ?? tr('An app')
+          : target.kind === 'account'
+          ? snapshot.accounts.find((row) => row.id === target.id)?.label ?? tr('An account')
+          : snapshot.hubConflicts.find((row) => row.id === target.id)?.title ?? tr('A model');
+        const prefix = target.kind === 'proxy'
+          ? 'attention_proxy'
+          : target.kind === 'app'
+          ? 'attention_app'
+          : target.kind === 'account'
+          ? 'attention_account'
+          : 'attention_conflict';
+        const actionKey = target.kind === 'proxy'
+          ? 'open_proxies'
+          : target.kind === 'app'
+          ? 'open_apps'
+          : target.kind === 'account'
+          ? 'open_accounts'
+          : 'open_proxy_hub';
+        const titleKey = `${prefix}_title`;
+        const detailKey = target.kind === 'conflict' ? 'attention_conflict_detail' : `${prefix}_detail`;
+        return {
+          title: t(titleKey).replace('{name}', name),
+          detail: t(detailKey).replace('{name}', name),
+          action: t(actionKey),
+        };
+      })()
     : null;
 
-  const destinationFor = (action: string): Destination => {
-    if (action.includes('Proxies')) return 'proxies';
-    if (action.includes('Apps')) return 'apps';
-    if (action.includes('Accounts')) return 'accounts';
-    return 'proxyHub';
-  };
+  const attentionDestination: Destination = target?.kind === 'proxy'
+    ? 'proxies'
+    : target?.kind === 'app'
+    ? 'apps'
+    : target?.kind === 'account'
+    ? 'accounts'
+    : 'proxyHub';
 
   return (
-    <Pane title="Overview" testId="overview">
+    <Pane title={translate('desktop.nav.overview', snapshot.settings.language, snapshot.settings.resolvedLanguage)} testId="overview">
       {snapshot.degradedConditions.length > 0 ? (
-        <Group title="Needs Attention" testId="overview-degraded">
+        <Group title={t('needs_attention')} testId="overview-degraded">
           {snapshot.degradedConditions.map((condition) => (
             <Row key={condition.id} warning testId={`degraded-${condition.id}`}>
-              <WarningGlyph />
-              <RowText title={condition.title} detail={condition.detail} />
+              <WarningGlyph language={snapshot.settings.language} resolvedLanguage={snapshot.settings.resolvedLanguage} />
+              <RowText title={tr(condition.title)} detail={tr(condition.detail)} />
             </Row>
           ))}
         </Group>
@@ -127,10 +224,10 @@ export function OverviewPane({
       {attention ? (
         <Group testId="overview-attention">
           <Row warning testId="overview-attention-row">
-            <WarningGlyph />
+            <WarningGlyph language={snapshot.settings.language} resolvedLanguage={snapshot.settings.resolvedLanguage} />
             <RowText title={attention.title} detail={attention.detail} />
             <RowActions>
-              <Button onClick={() => onNavigate?.(destinationFor(attention.action))}>
+              <Button onClick={() => onNavigate?.(attentionDestination)}>
                 {attention.action}
               </Button>
             </RowActions>
@@ -139,16 +236,16 @@ export function OverviewPane({
       ) : null}
 
       <Group
-        title="Installation Health"
-        footer="Doctor checks the installation without changing files."
+        title={t('installation_health')}
+        footer={t('doctor_footer')}
         testId="overview-doctor"
       >
         <Row>
           <RowText
-            title="Check Installation"
+            title={t('check_installation')}
             detail={doctor
-              ? `Last check: ${doctor.status}. Run it again to refresh.`
-              : 'Run read-only checks for AnyPick’s local installation.'}
+              ? t('doctor_last_check').replace('{status}', localizedDoctorStatusLabel(doctor.status, t))
+              : t('doctor_help')}
           />
           <RowActions>
             <Button
@@ -156,27 +253,27 @@ export function OverviewPane({
               onClick={onRunDoctor}
               disabled={(busy?.size ?? 0) > 0 || !onRunDoctor}
             >
-              Run Doctor
+              {t('run_doctor')}
             </Button>
           </RowActions>
         </Row>
         {doctorError ? (
           <Row warning testId="overview.doctor-error">
-            <WarningGlyph />
-            <RowText title={doctorError} />
+            <WarningGlyph language={snapshot.settings.language} resolvedLanguage={snapshot.settings.resolvedLanguage} />
+            <RowText title={tr(doctorError)} />
           </Row>
         ) : null}
         {doctor?.findings.length === 0 ? (
           <Row testId="overview.doctor-summary">
-            <RowText title="All checks passed." />
+            <RowText title={t('all_checks_passed')} />
           </Row>
         ) : null}
         {doctor?.findings.map((finding, index) => (
           <Row key={`${finding.check}-${index}`} testId={`overview.doctor-finding.${finding.check}`}>
-            <RowText title={finding.check.replaceAll('-', ' ')} detail={finding.detail || finding.status} />
+              <RowText title={localizedDoctorCheck(finding.check, t)} detail={tr(finding.detail || finding.status)} />
             <RowActions>
               <span className={`text-[12px] whitespace-nowrap ${finding.status === 'fail' ? 'text-red' : finding.status === 'warn' ? 'text-orange' : 'text-secondary'}`}>
-                {finding.status}
+                {t(finding.status === 'fail' ? 'status_fail' : finding.status === 'warn' ? 'status_warn' : 'status_ok')}
               </span>
             </RowActions>
           </Row>
@@ -185,70 +282,70 @@ export function OverviewPane({
 
       {onboardingDismissed ? null : (
       <Group
-        title="Get Started"
-        footer={onboardingFooter(isOnboardingCoreComplete(snapshot))}
+        title={t('get_started')}
+        footer={t(isOnboardingCoreComplete(snapshot) ? 'footer_complete' : 'footer_incomplete')}
         testId="overview-get-started"
       >
         <Row testId="onboarding-save-login">
           <RowText
-            title="Save a Login"
+            title={t('add_login')}
             detail={
               snapshot.accounts.length > 0
-                ? 'A login is saved on this machine.'
-                : 'Use a login already on this machine.'
+                ? t('login_saved')
+                : t('use_existing_login')
             }
           />
           <RowActions>
             {snapshot.accounts.length > 0 ? (
-              <span className="text-[12px] whitespace-nowrap text-secondary">Done</span>
+              <span className="text-[12px] whitespace-nowrap text-secondary">{t('done')}</span>
             ) : (
-              <Button onClick={() => onNavigate?.('accounts')}>Save…</Button>
+              <Button onClick={() => onNavigate?.('accounts')}>{t('add_login_action')}</Button>
             )}
           </RowActions>
         </Row>
         <Row testId="onboarding-use-app">
           <RowText
-            title="Use an App"
+            title={t('use_app')}
             detail={
               installedApp
-                ? 'Claude Code, Codex, or another supported app is available.'
-                : 'Install Claude Code or Codex, then refresh.'
+                ? t('app_available')
+                : t('install_clients')
             }
           />
           <RowActions>
             {installedApp ? (
-              <span className="text-[12px] whitespace-nowrap text-secondary">Done</span>
+              <span className="text-[12px] whitespace-nowrap text-secondary">{t('done')}</span>
             ) : (
               <Button onClick={() => onRefresh?.()} disabled={(busy?.size ?? 0) > 0}>
-                Refresh
+                {t('refresh')}
               </Button>
             )}
           </RowActions>
         </Row>
         <Row testId="onboarding-choose-route">
           <RowText
-            title="Point an App"
+            title={t('point_app')}
             detail={
               snapshot.actions.some((row) => row.selected)
-                ? 'An app is using a saved login.'
-                : 'Point Claude or Codex at a saved login.'
+                ? t('app_using_login')
+                : t('point_client')
             }
           />
           <RowActions>
-            <Button onClick={() => onNavigate?.('apps')}>Choose…</Button>
+              <Button onClick={() => onNavigate?.('apps')}>{t('choose')}</Button>
           </RowActions>
         </Row>
         <Row testId="onboarding-hub">
           <RowText
-            title="Set Up Proxy Hub (Optional)"
+            title={t('hub_optional')}
             detail={
               snapshot.hubPublishedModels.length > 0
-                ? 'Hub sources are ready.'
-                : 'One local endpoint for many models. Skip it if unsure.'
+                ? t('hub_sources_ready')
+                : t('hub_endpoint_detail')
             }
           />
           <RowActions>
-            <Button onClick={() => onNavigate?.('proxyHub')}>Set Up…</Button>
+              <Button onClick={() => onNavigate?.('proxyHub')}>{t('set_up')}</Button>
           </RowActions>
         </Row>
         <PaneActions>
@@ -260,7 +357,7 @@ export function OverviewPane({
               setOnboardingDismissed(true);
             }}
           >
-            Hide Getting Started
+            {t('hide_getting_started')}
           </Button>
         </PaneActions>
       </Group>
@@ -272,7 +369,11 @@ export function OverviewPane({
         behind the ones that are already fine.
       */}
       {apps.listed.length > 0 ? (
-        <Group title={apps.title} footer={apps.footer} testId="overview-apps">
+        <Group
+          title={t(apps.title === 'Active Apps' ? 'active_apps' : 'apps')}
+          footer={apps.footer ? t('choose_login_each_app') : undefined}
+          testId="overview-apps"
+        >
           {apps.listed.map((app) => (
             <Row key={app.clientId} testId={`overview.app.${app.clientId}`}>
               {/* `DesignProviderIcon` (`OverviewView.swift:180`): the app's own
@@ -281,8 +382,10 @@ export function OverviewPane({
               <ProviderIcon provider={app.clientId} size={24} className="mr-1" />
               <RowText
                 title={app.client}
-                detail={overviewConnectionSummary(app)}
-                issue={app.needsAttention ? 'Needs a login before it can run.' : undefined}
+                detail={localizedConnectionSummary(app, t, tr)}
+                issue={app.needsAttention ? t('needs_login_before_run') : undefined}
+                language={snapshot.settings.language}
+                resolvedLanguage={snapshot.settings.resolvedLanguage}
               />
               <RowActions>
                 <span
@@ -290,14 +393,14 @@ export function OverviewPane({
                     app.needsAttention ? 'text-orange' : 'text-secondary'
                   }`}
                 >
-                  {overviewTransportLabel(app)}
+                  {localizedTransportLabel(overviewTransportLabel(app), t)}
                 </span>
               </RowActions>
             </Row>
           ))}
           {apps.hasMore ? (
             <Row testId="overview.apps.see-all" onClick={() => onNavigate?.('apps')}>
-              <RowText title={`All Apps (${apps.total})…`} />
+              <RowText title={t('all_apps').replace('{count}', String(apps.total))} />
               <RowActions>
                 <Chevron />
               </RowActions>
@@ -305,14 +408,14 @@ export function OverviewPane({
           ) : null}
         </Group>
       ) : (
-        <Group title="Apps" testId="overview-apps">
+        <Group title={t('apps')} testId="overview-apps">
           <Row>
-            <RowText detail="No app routes are available yet." />
+            <RowText detail={t('no_routes')} />
           </Row>
         </Group>
       )}
 
-      <Group title="Services" testId="overview-services">
+      <Group title={t('services')} testId="overview-services">
         <Row testId="overview-services-row" onClick={() => onNavigate?.('proxies')}>
           <span
             className={`mr-2.5 flex-none ${
@@ -323,11 +426,11 @@ export function OverviewPane({
             <Symbol name="server.rack" size={18} />
           </span>
           <RowText
-            title="Proxies"
+            title={t('proxies')}
             detail={
               running === 0
-                ? 'Services are stopped.'
-                : `${running} service${running === 1 ? '' : 's'} running`
+                ? t('services_stopped')
+                : t(running === 1 ? 'services_one_running' : 'services_many_running').replace('{count}', String(running))
             }
           />
           <RowActions>
@@ -336,7 +439,7 @@ export function OverviewPane({
                 <span className="inline-block size-[7px] rounded-full bg-green flex-none" />
               ) : null}
               <span className="text-[12px] whitespace-nowrap text-secondary font-mono">
-                {running} of {total} running
+                {t('services_ratio').replace('{running}', String(running)).replace('{total}', String(total))}
               </span>
               <Chevron />
             </div>
@@ -345,7 +448,7 @@ export function OverviewPane({
       </Group>
 
       {snapshot.activity.length > 0 ? (
-        <Group title="Recent Activity" testId="overview-activity">
+        <Group title={t('recent_activity')} testId="overview-activity">
           {snapshot.activity.slice(0, 3).map((event) => (
             <Row key={event.id} testId={`overview-activity-${event.id}`}>
               {/* macOS wears the event's provider mark at 18pt
@@ -358,22 +461,24 @@ export function OverviewPane({
                   <Symbol name="clock.arrow.circlepath" size={15} />
                 </span>
               )}
-              <RowText title={event.message} detail={event.kind} />
+              <RowText title={tr(event.message)} detail={activityKindLabel(event.kind)} />
             </Row>
           ))}
         </Group>
       ) : null}
 
       {hub ? (
-        <Group title="Proxy Hub" testId="overview-hub">
+        <Group title={t('hub_transport')} testId="overview-hub">
           <Row onClick={() => onNavigate?.('proxyHub')}>
             <span className="mr-2.5 flex-none text-accent" aria-hidden="true">
               <Symbol name="point.3.connected.trianglepath.dotted" size={18} />
             </span>
-            <RowText title="Proxy Hub" detail={hub.address ?? hub.detail} />
+            <RowText title={t('hub_transport')} detail={tr(hub.address ?? hub.detail ?? '')} />
             <RowActions>
               <div className="flex items-center gap-1.5">
-                <span className="text-[12px] whitespace-nowrap text-secondary">{STATUS_LABEL[proxyStatus(hub)]}</span>
+                <span className="text-[12px] whitespace-nowrap text-secondary">
+                  {localizedStatusLabel(proxyStatus(hub), t)}
+                </span>
                 <Chevron />
               </div>
             </RowActions>

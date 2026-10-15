@@ -27,6 +27,19 @@ enum DesignDestination: String, CaseIterable, Identifiable, Hashable {
     }
   }
 
+  var messageKey: String {
+    switch self {
+    case .overview: "desktop.nav.overview"
+    case .apps: "desktop.nav.apps"
+    case .accounts: "desktop.nav.accounts"
+    case .proxyHub: "desktop.nav.proxy_hub"
+    case .proxies: "desktop.nav.proxies"
+    case .activity: "desktop.nav.activity"
+    case .backups: "desktop.nav.backups"
+    case .settings: "desktop.nav.settings"
+    }
+  }
+
   /// Toolbar / back label — keep the sidebar title, shorten the chrome.
   var shortTitle: String {
     switch self {
@@ -86,6 +99,19 @@ enum DesignStatus: String, CaseIterable {
     case .stopped: .secondary
     }
   }
+
+  @MainActor
+  func localizedLabel(using model: MacOSDesignModel) -> String {
+    let suffix: String
+    switch self {
+    case .ready: suffix = "ready"
+    case .running: suffix = "running"
+    case .attention: suffix = "attention"
+    case .unavailable: suffix = "unavailable"
+    case .stopped: suffix = "stopped"
+    }
+    return model.localized("desktop.overview.status_\(suffix)")
+  }
 }
 
 enum DesignLoadPhase: String {
@@ -104,11 +130,12 @@ enum DesignBackupInspectionState: String {
 enum DesignServiceOperation: String {
   case starting, stopping, restarting
 
-  var label: String {
+  @MainActor
+  func localizedLabel(using model: MacOSDesignModel) -> String {
     switch self {
-    case .starting: "Starting…"
-    case .stopping: "Stopping…"
-    case .restarting: "Restarting…"
+    case .starting: model.localized("desktop.common.starting")
+    case .stopping: model.localized("desktop.common.stopping")
+    case .restarting: model.localized("desktop.common.restarting")
     }
   }
 }
@@ -488,6 +515,47 @@ struct DesignActivity: Identifiable, Hashable {
   /// Provider identity for the row's brand mark; nil when the event isn't
   /// tied to one (e.g. Proxy Hub lifecycle events).
   var provider: String? = nil
+  /// Optional catalog copy for fixture events. Live journal messages arrive
+  /// localized from the engine and leave these fields empty.
+  var titleKey: String? = nil
+  var titleArguments: [String: String] = [:]
+  var detailKey: String? = nil
+  var detailArguments: [String: String] = [:]
+  var kind: String? = nil
+}
+
+extension DesignActivity {
+  @MainActor
+  func localizedDay(using model: MacOSDesignModel) -> String {
+    switch day {
+    case "Today": model.localized("desktop.activity.today")
+    case "Yesterday": model.localized("desktop.activity.yesterday")
+    default: day
+    }
+  }
+
+  @MainActor
+  func localizedTitle(using model: MacOSDesignModel) -> String {
+    localized(title, key: titleKey, arguments: titleArguments, using: model)
+  }
+
+  @MainActor
+  func localizedDetail(using model: MacOSDesignModel) -> String {
+    localized(detail, key: detailKey, arguments: detailArguments, using: model)
+  }
+
+  @MainActor
+  private func localized(
+    _ fallback: String,
+    key: String?,
+    arguments: [String: String],
+    using model: MacOSDesignModel
+  ) -> String {
+    guard let key else { return model.localizedSource(fallback) }
+    return arguments.reduce(model.localized(key)) { value, argument in
+      value.replacingOccurrences(of: "{\(argument.key)}", with: argument.value)
+    }
+  }
 }
 
 func nativeFirstRoutes(_ routes: [DesignRoute]) -> [DesignRoute] {

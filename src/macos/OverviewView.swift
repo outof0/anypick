@@ -5,33 +5,34 @@ struct FirstRunWelcomeSheet: View {
 
   var body: some View {
     DesignSheetHost(
-      title: "Welcome to AnyPick",
+      model: model,
+      title: model.localized("desktop.overview.welcome_title"),
       width: 480,
-      primaryTitle: "Add Login…",
-      cancelTitle: "Not Now",
+      primaryTitle: model.localized("desktop.overview.add_login_action"),
+      cancelTitle: model.localized("desktop.overview.not_now"),
       onCancel: model.dismissFirstRunWelcome,
       onPrimary: model.addLoginFromWelcome
     ) {
       Form {
         Section {
-          Text("Use the AI accounts you already have with the coding apps you use. Logins are stored on this Mac.")
+          Text(model.localized("desktop.overview.welcome_detail"))
             .font(.subheadline)
             .foregroundStyle(.secondary)
         }
 
         Section {
           welcomeRow(
-            title: "Local by default",
-            detail: "Credentials stay on this Mac",
+            title: model.localized("desktop.overview.local_default"),
+            detail: model.localized("desktop.overview.credentials_local"),
             symbol: "lock.laptopcomputer"
           )
           welcomeRow(
-            title: "Flexible connections",
-            detail: "Provider accounts and API gateways",
+            title: model.localized("desktop.overview.flexible_connections"),
+            detail: model.localized("desktop.overview.providers_gateways"),
             symbol: "arrow.triangle.branch"
           )
         } footer: {
-          Text("You can add or change connections at any time.")
+          Text(model.localized("desktop.overview.connections_anytime"))
         }
       }
     }
@@ -63,13 +64,13 @@ struct OverviewView: View {
   var body: some View {
     DesignGroupedPane {
       if !model.degradedConditions.isEmpty {
-        Section("Needs Attention") {
+        Section(model.localized("desktop.overview.needs_attention")) {
           ForEach(model.degradedConditions) { condition in
             Label {
               VStack(alignment: .leading, spacing: 2) {
-                Text(condition.title)
+                Text(model.localizedSource(condition.title))
                   .fontWeight(.medium)
-                Text(condition.detail)
+                Text(model.localizedSource(condition.detail))
                   .font(.subheadline)
                   .foregroundStyle(.secondary)
               }
@@ -91,9 +92,9 @@ struct OverviewView: View {
           } label: {
             Label {
               VStack(alignment: .leading, spacing: 2) {
-                Text(attention.title)
+                Text(model.localizedSource(attention.title))
                   .fontWeight(.medium)
-                Text(attention.message)
+                Text(model.localizedSource(attention.message))
                   .font(.subheadline)
                   .foregroundStyle(.secondary)
               }
@@ -107,7 +108,11 @@ struct OverviewView: View {
 
       Section {
         LabeledContent {
-          Button(model.doctorIsRunning ? "Checking…" : "Run Doctor") {
+          Button(
+            model.localized(
+              model.doctorIsRunning ? "desktop.overview.checking" : "desktop.overview.run_doctor"
+            )
+          ) {
             model.runDoctor()
           }
           .buttonStyle(.bordered)
@@ -116,9 +121,14 @@ struct OverviewView: View {
           .accessibilityIdentifier("overview.run-doctor")
         } label: {
           VStack(alignment: .leading, spacing: 2) {
-            Text("Check Installation")
+            Text(model.localized("desktop.overview.check_installation"))
               .fontWeight(.medium)
-            Text("Run read-only checks for AnyPick's local installation.")
+            Text(
+              model.doctorReport.map {
+                model.localized("desktop.overview.doctor_last_check")
+                  .replacingOccurrences(of: "{status}", with: doctorReportStatusLabel($0.status))
+              } ?? model.localized("desktop.overview.doctor_help")
+            )
               .font(.subheadline)
               .foregroundStyle(.secondary)
           }
@@ -133,18 +143,18 @@ struct OverviewView: View {
 
         if let report = model.doctorReport {
           if report.findings.isEmpty {
-            Label("All checks passed.", systemImage: "checkmark.circle.fill")
+            Label(model.localized("desktop.overview.all_checks_passed"), systemImage: "checkmark.circle.fill")
               .foregroundStyle(.secondary)
               .accessibilityIdentifier("overview.doctor-summary")
           } else {
             ForEach(report.findings) { finding in
               LabeledContent {
-                Text(finding.status.capitalized)
+                Text(doctorStatusLabel(finding.status))
                   .font(.subheadline)
                   .foregroundStyle(doctorColor(finding.status))
               } label: {
                 VStack(alignment: .leading, spacing: 2) {
-                  Text(finding.check.replacingOccurrences(of: "-", with: " ").capitalized)
+                  Text(doctorCheckLabel(finding.check))
                     .fontWeight(.medium)
                   if let detail = finding.detail, !detail.isEmpty {
                     Text(detail)
@@ -158,67 +168,69 @@ struct OverviewView: View {
           }
         }
       } header: {
-        Text("Installation Health")
+        Text(model.localized("desktop.overview.installation_health"))
           .accessibilityIdentifier("overview.doctor")
       } footer: {
-        Text("Doctor checks the installation without changing files.")
+        Text(model.localized("desktop.overview.doctor_footer"))
       }
 
       if model.shouldShowOnboarding {
         Section {
           setupRow(
             done: model.hasSavedLogin,
-            title: "Add a Login",
+            title: model.localized("desktop.overview.add_login"),
             detail: model.hasSavedLogin
-              ? "A login is saved on this Mac."
-              : "Use a login already on this Mac.",
-            actionTitle: "Add Login…",
+              ? model.localized("desktop.overview.login_saved")
+              : model.localized("desktop.overview.use_existing_login"),
+            actionTitle: model.localized("desktop.overview.add_login_action"),
             identifier: "overview.onboarding.save-login"
           ) {
             model.requestAddLogin()
           }
           setupRow(
             done: model.hasInstalledApp,
-            title: "Use an App",
+            title: model.localized("desktop.overview.use_app"),
             detail: model.hasInstalledApp
-              ? "Claude Code, Codex, or another supported app is available."
-              : "Install Claude Code or Codex, then refresh.",
-            actionTitle: "Refresh",
+              ? model.localized("desktop.overview.app_available")
+              : model.localized("desktop.overview.install_clients"),
+            actionTitle: model.localized("desktop.overview.refresh"),
             identifier: "overview.onboarding.use-app"
           ) {
             model.refresh()
           }
           setupRow(
             done: model.hasChosenRoute,
-            title: "Point an App",
+            title: model.localized("desktop.overview.point_app"),
             detail: model.hasChosenRoute
-              ? "An app is using a saved login."
-              : "Point Claude or Codex at a saved login.",
-            actionTitle: "Choose…",
+              ? model.localized("desktop.overview.app_using_login")
+              : model.localized("desktop.overview.point_client"),
+            actionTitle: model.localized("desktop.overview.choose"),
             identifier: "overview.onboarding.choose-route"
           ) {
             model.destination = .apps
           }
           setupRow(
             done: model.isHubReady,
-            title: "Set Up Proxy Hub (Optional)",
+            title: model.localized("desktop.overview.hub_optional"),
             detail: model.isHubReady
-              ? "Hub sources are ready."
-              : "One local endpoint for many models. Skip it if unsure.",
-            actionTitle: "Set Up…",
+              ? model.localized("desktop.overview.hub_sources_ready")
+              : model.localized("desktop.overview.hub_endpoint_detail"),
+            actionTitle: model.localized("desktop.overview.set_up"),
             identifier: "overview.onboarding.proxy-hub"
           ) {
             model.destination = .proxyHub
           }
-          Button("Hide Getting Started") { model.dismissOnboarding() }
+          Button(model.localized("desktop.overview.hide_getting_started")) {
+            model.dismissOnboarding()
+          }
             .font(.subheadline)
             .foregroundStyle(.secondary)
-            .help("Hide this checklist from Overview. You can show it again in Settings.")
+            .help(model.localized("desktop.overview.hide_getting_started_help"))
             .accessibilityIdentifier("overview.hide-onboarding")
         } header: {
           // Identify the header only: an identifier on the Section would
           // overwrite every row's own overview.onboarding.* identifier.
-          Text("Get Started")
+          Text(model.localized("desktop.overview.get_started"))
             .accessibilityIdentifier("overview.get-started")
         } footer: {
           Text(onboardingFooter)
@@ -250,7 +262,11 @@ struct OverviewView: View {
               }
             }
             .accessibilityIdentifier("overview.app.\(app.id)")
-            .accessibilityLabel("\(app.name), \(connectionSummary(app)), \(transportLabel(app))")
+            .accessibilityLabel(model.localized("desktop.overview.app_accessibility", replacing: [
+              "app": app.name,
+              "connection": connectionSummary(app),
+              "transport": transportLabel(app),
+            ]))
           }
 
           if model.apps.count > overviewApps.count {
@@ -258,7 +274,10 @@ struct OverviewView: View {
               model.destination = .apps
             } label: {
               HStack {
-                Text("All Apps (\(model.apps.count))…")
+                Text(
+                  model.localized("desktop.overview.all_apps")
+                    .replacingOccurrences(of: "{count}", with: String(model.apps.count))
+                )
                   .foregroundStyle(Color.accentColor)
                 Spacer()
                 Image(systemName: "chevron.right")
@@ -271,18 +290,22 @@ struct OverviewView: View {
             .accessibilityIdentifier("overview.apps.see-all")
           }
         } header: {
-          Text(hasActiveOverviewApps ? "Active Apps" : "Apps")
+          Text(
+            model.localized(
+              hasActiveOverviewApps ? "desktop.overview.active_apps" : "desktop.overview.apps"
+            )
+          )
         } footer: {
           if model.apps.contains(where: { !isAppRouteConfigured($0) }) {
-            Text("Choose a login for each app before it can run.")
+            Text(model.localized("desktop.overview.choose_login_each_app"))
           }
         }
-            .help("Open the full list of configured apps.")
+            .help(model.localized("desktop.overview.open_apps_help"))
       }
 
       Section {
         DesignIdentityRow(
-          title: "Proxies",
+          title: model.localized("desktop.overview.proxies"),
           detail: servicesSummary
         ) {
           Image(systemName: DesignDestination.proxies.symbol)
@@ -304,7 +327,7 @@ struct OverviewView: View {
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("overview.services-summary")
       } header: {
-        Text("Services")
+        Text(model.localized("desktop.overview.services"))
       }
 
       // While the checklist is visible, defer an empty activity section until
@@ -312,9 +335,11 @@ struct OverviewView: View {
       if !model.activity.isEmpty || !model.shouldShowOnboarding {
         Section {
           if model.activity.isEmpty {
-            DesignEmptyRow(text: "Recent events will appear here.")
+            DesignEmptyRow(text: model.localized("desktop.overview.recent_empty"))
           } else {
             ForEach(model.activity.prefix(3)) { item in
+              let title = item.localizedTitle(using: model)
+              let detail = item.localizedDetail(using: model)
               HStack(alignment: .center, spacing: 12) {
                 if let provider = item.provider {
                   DesignProviderIcon(provider: provider, fallbackSymbol: item.symbol, size: 18)
@@ -328,11 +353,11 @@ struct OverviewView: View {
                   .frame(width: 18)
                 }
                 VStack(alignment: .leading, spacing: 2) {
-                  Text(item.title)
+                  Text(title)
                     .font(.body.weight(.medium))
                     .lineLimit(1)
-                  if !item.detail.isEmpty {
-                    Text(item.detail)
+                  if !detail.isEmpty {
+                    Text(detail)
                       .font(.caption)
                       .foregroundStyle(.secondary)
                       .lineLimit(1)
@@ -350,7 +375,7 @@ struct OverviewView: View {
             }
           }
         } header: {
-          Text("Recent Activity")
+          Text(model.localized("desktop.overview.recent_activity"))
         }
       }
     }
@@ -365,9 +390,9 @@ struct OverviewView: View {
 
   private var onboardingFooter: String {
     if model.isOnboardingCoreComplete {
-      return "Proxy Hub is optional — you can hide this list."
+      return model.localized("desktop.overview.footer_complete")
     }
-    return "Save a login, then point an app at it. Proxy Hub is optional."
+    return model.localized("desktop.overview.footer_incomplete")
   }
 
   private func doctorColor(_ status: String) -> Color {
@@ -378,12 +403,68 @@ struct OverviewView: View {
     }
   }
 
+  private func doctorStatusLabel(_ status: String) -> String {
+    switch status.lowercased() {
+    case "ok", "pass", "passed": model.localized("desktop.overview.status_ok")
+    case "warn", "warning": model.localized("desktop.overview.status_warn")
+    case "fail", "failed", "error": model.localized("desktop.overview.status_fail")
+    default: status.capitalized
+    }
+  }
+
+  private func doctorCheckLabel(_ check: String) -> String {
+    let key: String
+    switch check {
+    case "client": key = "check_client"
+    case "route": key = "check_route"
+    case "proxy": key = "check_proxy"
+    case "proxy-environment": key = "check_proxy_environment"
+    case "database": key = "check_database"
+    case "permissions": key = "check_permissions"
+    case "active-binding": key = "check_active_binding"
+    case "duplicate-snapshot": key = "check_duplicate_snapshot"
+    case "named-profile": key = "check_named_profile"
+    case "plugin-host": key = "check_plugin_host"
+    default:
+      if check.hasPrefix("plugin:") {
+        return model.localized("desktop.overview.check_plugin")
+          .replacingOccurrences(of: "{name}", with: String(check.dropFirst("plugin:".count)))
+      }
+      return check.replacingOccurrences(of: "-", with: " ").capitalized
+    }
+    return model.localized("desktop.overview.\(key)")
+  }
+
+  private func doctorReportStatusLabel(_ status: String) -> String {
+    switch status.lowercased() {
+    case "ok": model.localized("desktop.overview.status_ok")
+    case "degraded": model.localized("desktop.overview.status_warn")
+    case "unhealthy": model.localized("desktop.overview.status_fail")
+    case "not-set": model.localized("desktop.overview.status_not_set")
+    default: status
+    }
+  }
+
   private func connectionSummary(_ app: DesignApp) -> String {
-    overviewConnectionSummary(app)
+    if let selected = app.routeOptions.first(where: { $0.id == app.selectedRouteID }) {
+      return model.localized("desktop.overview.uses_account")
+        .replacingOccurrences(of: "{name}", with: selected.name)
+    }
+    return app.detail.isEmpty ? model.localized("desktop.overview.no_login_chosen") : app.detail
   }
 
   private func transportLabel(_ app: DesignApp) -> String {
-    transportDisplayName(for: app)
+    guard let selected = app.routeOptions.first(where: { $0.id == app.selectedRouteID }) else {
+      return model.localized("desktop.overview.not_configured")
+    }
+    let key: String
+    switch selected.kind {
+    case .gateway: key = "desktop.overview.gateway"
+    case .hub: key = "desktop.overview.hub_transport"
+    case .account: key = "desktop.overview.anypick_proxy"
+    case .native: key = "desktop.overview.direct"
+    }
+    return model.localized(key)
   }
 
   private var hasActiveOverviewApps: Bool {
@@ -411,13 +492,8 @@ struct OverviewView: View {
 
   private var servicesSummary: String {
     let names = runningServiceNames
-    guard !names.isEmpty else { return "Services are stopped." }
-    switch names.count {
-    case 1: return names[0]
-    case 2: return "\(names[0]) and \(names[1])"
-    default:
-      return names.dropLast().joined(separator: ", ") + ", and " + names[names.count - 1]
-    }
+    guard !names.isEmpty else { return model.localized("desktop.overview.services_stopped") }
+    return names.joined(separator: " · ")
   }
 
   private var serviceStatusText: String {
@@ -427,7 +503,9 @@ struct OverviewView: View {
       hubSourcesEmpty: model.hubSources.isEmpty,
       hubEnabled: model.proxyHubEnabled
     )
-    return "\(running) of \(total) running"
+    return model.localized("desktop.overview.services_ratio")
+      .replacingOccurrences(of: "{running}", with: String(running))
+      .replacingOccurrences(of: "{total}", with: String(total))
   }
 
   @ViewBuilder
@@ -441,7 +519,7 @@ struct OverviewView: View {
   ) -> some View {
     LabeledContent {
       if done {
-        Label("Done", systemImage: "checkmark")
+        Label(model.localized("desktop.overview.done"), systemImage: "checkmark")
           .labelStyle(.titleAndIcon)
           .font(.subheadline)
           .foregroundStyle(.secondary)
@@ -468,14 +546,16 @@ struct OverviewView: View {
     }
     .padding(.vertical, 1)
     .accessibilityIdentifier(identifier)
-    .accessibilityValue(done ? "Done" : "Not done")
+    .accessibilityValue(
+      model.localized(done ? "desktop.overview.done" : "desktop.overview.not_done")
+    )
   }
 
   private func appIssue(_ app: DesignApp) -> String? {
     if !isAppRouteConfigured(app) {
-      return "No login chosen. Open the app to choose one."
+      return model.localized("desktop.overview.no_login_chosen")
     }
-    return app.issue
+    return app.issue(using: model)
   }
 
   private var actionableRoutingConflicts: [DesignRoutingConflict] {
@@ -502,36 +582,41 @@ struct OverviewView: View {
     case .proxy(let id):
       guard let proxy = model.proxies.first(where: { $0.id == id }) else { return nil }
       return (
-        "\(proxy.name) is unavailable",
-        "Apps using \(proxy.name) cannot connect.",
-        "Open Proxies",
+        model.localized("desktop.overview.attention_proxy_title")
+          .replacingOccurrences(of: "{name}", with: proxy.name),
+        model.localized("desktop.overview.attention_proxy_detail")
+          .replacingOccurrences(of: "{name}", with: proxy.name),
+        model.localized("desktop.overview.open_proxies"),
         { model.destination = .proxies }
       )
     case .app(let id):
       guard let app = model.apps.first(where: { $0.id == id }) else { return nil }
       return (
-        "\(app.name) doesn’t have a working login",
-        "Choose a login on Apps.",
-        "Open Apps",
+        model.localized("desktop.overview.attention_app_title")
+          .replacingOccurrences(of: "{name}", with: app.name),
+        model.localized("desktop.overview.attention_app_detail"),
+        model.localized("desktop.overview.open_apps"),
         { model.destination = .apps }
       )
     case .account(let id):
       guard let account = model.accounts.first(where: { $0.id == id }) else { return nil }
       return (
-        "\(account.name) isn’t working",
-        "Check the login on Accounts & APIs.",
-        "Open Accounts",
+        model.localized("desktop.overview.attention_account_title")
+          .replacingOccurrences(of: "{name}", with: account.name),
+        model.localized("desktop.overview.attention_account_detail"),
+        model.localized("desktop.overview.open_accounts"),
         { model.destination = .accounts }
       )
     case .conflict(let kind):
       guard let conflict = actionableRoutingConflicts.first(where: { $0.kind == kind }) ?? actionableRoutingConflicts.first else {
         return nil
       }
-      let (infoTitle, infoSubtitle) = hubConflictDisplayInfo(conflict)
+      let (infoTitle, _) = hubConflictDisplayInfo(conflict, using: model)
       return (
-        "Model conflict: \(infoTitle)",
-        infoSubtitle,
-        "Open Proxy Hub",
+        model.localized("desktop.overview.attention_conflict_title")
+          .replacingOccurrences(of: "{name}", with: infoTitle),
+        model.localized("desktop.overview.attention_conflict_detail"),
+        model.localized("desktop.overview.open_proxy_hub"),
         { model.destination = .proxyHub }
       )
     }

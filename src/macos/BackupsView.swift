@@ -65,9 +65,9 @@ struct BackupsView: View {
       Section {
         Label {
           VStack(alignment: .leading, spacing: 3) {
-            Text("Backup files contain working credentials")
+            Text(model.localized("desktop.backups.warning_title"))
               .font(.body.weight(.medium))
-            Text("They are readable JSON and are not encrypted. Store them securely and don’t share them.")
+            Text(model.localized("desktop.backups.warning_detail"))
               .font(.subheadline)
               .foregroundStyle(.secondary)
           }
@@ -79,13 +79,13 @@ struct BackupsView: View {
       Section {
         if model.backups.isEmpty {
           DesignEmptyRow(
-            text: "No reviewed backups. Choose a backup file to review it before importing."
+            text: model.localized("desktop.backups.empty_reviewed")
           )
         } else {
           ForEach(model.backups) { backup in
             LabeledContent {
               HStack(spacing: 8) {
-                Button("Review") {
+                Button(model.localized("desktop.backups.review")) {
                   // Backups born in this list are restored, not imported:
                   // only a package picked via Choose/pendingImport carries
                   // importedPackage: true (presentImportedBackup).
@@ -93,25 +93,25 @@ struct BackupsView: View {
                 }
                 .controlSize(.small)
                 .buttonStyle(.bordered)
-                .help("Open this saved backup and review the accounts it contains.")
+                .help(model.localized("desktop.backups.review_help"))
 
                 DesignMoreActionsMenu(
-                  label: "More backup options",
+                  label: model.localized("desktop.backups.more_options"),
                   identifier: "backups.more.\(backup.id)"
                 ) {
-                  Button("Review Backup…") {
+                  Button(model.localized("desktop.backups.review_backup")) {
                     activeSheet = .review(BackupPresentation(id: backup.id, importedPackage: false))
                   }
-                  .help("Review the accounts in this backup before importing.")
-                  Button("Copy File Path") {
+                  .help(model.localized("desktop.backups.review_backup_help"))
+                  Button(model.localized("desktop.backups.copy_path")) {
                     copyLocation(backup.location)
                   }
-                  .help("Copy the backup’s full file path.")
+                  .help(model.localized("desktop.backups.copy_path_help"))
                   Divider()
-                  Button("Forget Review…", role: .destructive) {
+                  Button(model.localized("desktop.backups.forget_review"), role: .destructive) {
                     requestForget(backup)
                   }
-                  .help("Forget this review and discard its staged copy.")
+                  .help(model.localized("desktop.backups.forget_review_help"))
                 }
                 .fixedSize()
 
@@ -123,7 +123,7 @@ struct BackupsView: View {
             } label: {
               Label {
                 VStack(alignment: .leading, spacing: 2) {
-                  Text(backup.createdAt)
+                  Text(backupCreatedAt(backup.createdAt))
                     .font(.body.weight(.medium))
                   Text(backupSubtitle(for: backup))
                     .font(.subheadline)
@@ -137,30 +137,30 @@ struct BackupsView: View {
               }
             }
             .contextMenu {
-              Button("Review Backup…") {
+              Button(model.localized("desktop.backups.review_backup")) {
                 activeSheet = .review(BackupPresentation(id: backup.id, importedPackage: false))
               }
-              .help("Review the accounts in this backup before importing.")
-              Button("Copy File Path") {
+              .help(model.localized("desktop.backups.review_backup_help"))
+              Button(model.localized("desktop.backups.copy_path")) {
                 copyLocation(backup.location)
               }
-              .help("Copy the backup’s full file path.")
+              .help(model.localized("desktop.backups.copy_path_help"))
               Divider()
-              Button("Forget Review…", role: .destructive) {
+              Button(model.localized("desktop.backups.forget_review"), role: .destructive) {
                 requestForget(backup)
               }
-              .help("Forget this review and discard its staged copy.")
+              .help(model.localized("desktop.backups.forget_review_help"))
             }
             .accessibilityIdentifier("backups.inventory.\(backup.id)")
           }
         }
       } header: {
-        Text("Reviewed Backups")
+        Text(model.localized("desktop.backups.reviewed_title"))
       } footer: {
         // Saved accounts only, and forgetting also discards the staged server
         // copy; TTL remains the backstop if the forget frame is lost.
         Text(
-          "Saved accounts only. API gateways, app settings, activity, and AnyPick settings are not included. For imported files, AnyPick stages a protected copy that is discarded when you forget the review."
+          model.localized("desktop.backups.reviewed_footer")
         )
       }
     }
@@ -179,7 +179,7 @@ struct BackupsView: View {
     .onChange(of: model.pendingImportBackupID) { _, id in
       if id != nil { presentImportedBackup() }
     }
-    .designConfirmation($confirmation)
+    .designConfirmation($confirmation, model: model)
     .onAppear {
       // Same mechanism as AccountsView's startup sheets (add-account,
       // add-gateway): read the flow from the model on appear, present after
@@ -211,28 +211,71 @@ struct BackupsView: View {
 
   private func copyLocation(_ location: String) {
     if model.pasteString(location) {
-      model.announceOnly("Copied backup file path.")
+      model.announceOnly(model.localized("desktop.backups.copied_path"))
     } else {
-      model.announceOnly("Couldn’t copy backup file path.")
+      model.announceOnly(model.localized("desktop.backups.copy_path_failed"))
     }
   }
 
   private func requestForget(_ backup: DesignBackup) {
     confirmation = DesignConfirmation(
       id: "forget-backup-review",
-      title: "Forget This Backup Review?",
-      message:
-        "AnyPick discards this review and its staged copy. The original backup file is not deleted.",
-      action: .confirm("Forget") { model.deleteBackup(id: backup.id) }
+      title: model.localized("desktop.backups.forget_title"),
+      message: model.localized("desktop.backups.forget_message"),
+      action: .confirm(model.localized("desktop.backups.forget_confirm")) {
+        model.deleteBackup(id: backup.id)
+      }
     )
   }
 
   private func backupSubtitle(for backup: DesignBackup) -> String {
-    let accountsText = backup.accountCount == 1 ? "1 account" : "\(backup.accountCount) accounts"
+    let countKey = backup.accountCount == 1
+      ? "desktop.backups.account_one" : "desktop.backups.account_many"
+    let accountsText = String(format: model.localized(countKey), backup.accountCount)
     if !backup.size.isEmpty {
       return "\(accountsText) · \(backup.size) · \(backup.location)"
     }
     return "\(accountsText) · \(backup.location)"
+  }
+
+  private func backupCreatedAt(_ value: String) -> String {
+    let localeID = model.selectedLanguage == "auto" ? model.resolvedLanguage : model.selectedLanguage
+    let locale = Locale(identifier: localeID)
+    let display = DateFormatter()
+    display.locale = locale
+    display.dateStyle = .medium
+    display.timeStyle = .short
+
+    if value.hasPrefix("Today at ") {
+      return String(
+        format: model.localized("desktop.backups.today_at"),
+        arguments: [String(value.dropFirst("Today at ".count))]
+      )
+    }
+    if value.hasPrefix("Yesterday at ") {
+      return String(
+        format: model.localized("desktop.backups.yesterday_at"),
+        arguments: [String(value.dropFirst("Yesterday at ".count))]
+      )
+    }
+
+    let iso = ISO8601DateFormatter()
+    iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+    if let date = iso.date(from: value) ?? ISO8601DateFormatter().date(from: value) {
+      return display.string(from: date)
+    }
+
+    let source = DateFormatter()
+    source.locale = Locale(identifier: ["en", "US", "POSIX"].joined(separator: "_"))
+    source.isLenient = true
+    source.defaultDate = Date()
+    for format in ["MMMM d 'at' HH:mm", "d MMM yyyy 'at' HH:mm"] {
+      source.dateFormat = format
+      if let date = source.date(from: value) {
+        return display.string(from: date)
+      }
+    }
+    return value
   }
 
   private func chooseBackup() {
@@ -248,12 +291,12 @@ struct BackupsView: View {
   private var paneActions: some View {
     DesignPaneActions {
       DesignSheetButton(
-        title: "Export Accounts…",
+        title: model.localized("desktop.backups.export_accounts"),
         enabled: !model.isBusy && model.accounts.contains { $0.kind == .saved },
         identifier: "backups.choose-accounts"
       ) { activeSheet = .create }
       DesignSheetButton(
-        title: "Review Backup…",
+        title: model.localized("desktop.backups.review_backup"),
         enabled: !model.isBusy,
         identifier: "backups.import"
       ) { chooseBackup() }
@@ -270,57 +313,57 @@ struct BackupsView: View {
         HStack(spacing: 8) {
           ProgressView()
             .controlSize(.small)
-          Text(model.backupInspectionMessage ?? "Reading Backup…")
+          Text(model.backupInspectionMessage ?? model.localized("desktop.backups.reading"))
             .foregroundStyle(.secondary)
         }
         .accessibilityIdentifier("backups.inspection.\(model.backupInspectionState.rawValue)")
       }
     case .damaged:
       backupIssue(
-        title: "Backup Is Damaged or Incomplete",
-        message: model.backupInspectionMessage ?? "Nothing was imported.",
-        actionTitle: "Choose Another File…",
+        title: model.localized("desktop.backups.damaged_title"),
+        message: model.backupInspectionMessage ?? model.localized("desktop.backups.nothing_imported"),
+        actionTitle: model.localized("desktop.backups.choose_another"),
         action: chooseBackup
       )
     case .newerVersion:
       backupIssue(
-        title: "Created by a Newer AnyPick Version",
-        message: model.backupInspectionMessage ?? "Update AnyPick, then review the file again.",
-        actionTitle: "Choose Another File…",
+        title: model.localized("desktop.backups.newer_version_title"),
+        message: model.backupInspectionMessage ?? model.localized("desktop.backups.newer_version_detail"),
+        actionTitle: model.localized("desktop.backups.choose_another"),
         action: chooseBackup
       )
     case .permissionDenied:
       backupIssue(
-        title: "Can’t Read This File",
-        message: model.backupInspectionMessage ?? "AnyPick does not have permission to open it.",
-        actionTitle: "Choose Another File…",
+        title: model.localized("desktop.backups.permission_title"),
+        message: model.backupInspectionMessage ?? model.localized("desktop.backups.permission_detail"),
+        actionTitle: model.localized("desktop.backups.choose_another"),
         action: chooseBackup
       )
     case .missing:
       backupIssue(
-        title: "Can’t Find This File",
-        message: model.backupInspectionMessage ?? "It may have been moved or deleted.",
-        actionTitle: "Choose Another File…",
+        title: model.localized("desktop.backups.missing_title"),
+        message: model.backupInspectionMessage ?? model.localized("desktop.backups.missing_detail"),
+        actionTitle: model.localized("desktop.backups.choose_another"),
         action: chooseBackup
       )
     case .expired:
       backupIssue(
-        title: "Review Expired",
-        message: model.backupInspectionMessage ?? "Review the backup again before importing.",
-        actionTitle: "Review Again…",
+        title: model.localized("desktop.backups.expired_title"),
+        message: model.backupInspectionMessage ?? model.localized("desktop.backups.expired_detail"),
+        actionTitle: model.localized("desktop.backups.review_again"),
         action: chooseBackup
       )
     case .success:
       backupResult(
-        title: model.backupInspectionMessage ?? "Accounts Imported",
-        message: "Only the accounts selected in the protected review copy were changed.",
+        title: model.backupInspectionMessage ?? model.localized("desktop.backups.imported_title"),
+        message: model.localized("desktop.backups.imported_detail"),
         symbol: "checkmark.circle.fill"
       )
     case .atomicFailure:
       backupIssue(
-        title: "Couldn’t Import Accounts",
-        message: model.backupInspectionMessage ?? "No saved accounts were changed.",
-        actionTitle: "Review Again…",
+        title: model.localized("desktop.backups.import_failed_title"),
+        message: model.backupInspectionMessage ?? model.localized("desktop.backups.no_accounts_changed"),
+        actionTitle: model.localized("desktop.backups.review_again"),
         action: chooseBackup
       )
     }

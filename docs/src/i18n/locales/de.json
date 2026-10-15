@@ -1,0 +1,76 @@
+{
+  "common": {
+    "skipToContent": "Zum Inhalt springen"
+  },
+  "header": {
+    "home": "{{title}} Startseite",
+    "primaryNavigation": "Hauptnavigation",
+    "sectionsNavigation": "Abschnitte",
+    "docs": "Dokumentation",
+    "getStarted": "Erste Schritte",
+    "openNavigation": "Navigation öffnen",
+    "starOnGitHub": "Auf GitHub mit einem Stern markieren",
+    "starShort": "Stern",
+    "switchLanguage": "Sprache wechseln",
+    "language": "Sprache"
+  },
+  "docs": {
+    "deprecatedWithLatest": "This is the <strong>{{version}}</strong> version of the docs and is no longer maintained. The latest version of this page is at <a href=\"{{url}}\">{{url}}</a>.",
+    "deprecatedCurrent": "This version of the docs is no longer maintained. See the <a href=\"{{url}}\">current docs</a> for up-to-date content.",
+    "draft": "Entwurf",
+    "audienceHuman": "Für Nutzer",
+    "editThisPage": "Diese Seite bearbeiten",
+    "siteNavigation": "Seitennavigation",
+    "navigation": "Navigation",
+    "closeSidebar": "Seitenleiste schließen",
+    "englishContent": "Der Inhalt dieser Seite ist derzeit auf Englisch verfügbar."
+  },
+  "search": {
+    "label": "Dokumentation durchsuchen",
+    "trigger": "Suchen",
+    "placeholder": "Dokumentation durchsuchen…",
+    "typeToSearch": "Suchbegriff eingeben…",
+    "navigateHint": "↑↓ navigieren",
+    "selectHint": "↵ auswählen",
+    "closeHint": "Esc schließen",
+    "productionBuild": "Die Suche ist nach einem Produktionsbuild verfügbar.",
+    "searching": "Suche…",
+    "noResults": "Keine Ergebnisse gefunden.",
+    "temporarilyUnavailable": "Die Suche ist vorübergehend nicht verfügbar."
+  },
+  "pageActions": {
+    "updated": "Aktualisiert",
+    "copyPage": "Seite kopieren",
+    "copied": "Kopiert",
+    "copyFailed": "Kopieren fehlgeschlagen",
+    "viewMarkdown": "Als Markdown anzeigen"
+  },
+  "pagination": {
+    "label": "Seitennavigation",
+    "previous": "Zurück",
+    "next": "Weiter"
+  },
+  "breadcrumbs": {
+    "label": "Brotkrumennavigation",
+    "showMore": "{{count}} weitere Pfadabschnitte anzeigen"
+  },
+  "sidebar": {
+    "filterPlaceholder": "Filtern…  /",
+    "filterLabel": "Navigation filtern"
+  },
+  "toc": {
+    "title": "Auf dieser Seite",
+    "label": "Inhaltsverzeichnis"
+  },
+  "theme": {
+    "toggle": "Dunkelmodus umschalten"
+  },
+  "banner": {
+    "dismiss": "Hinweis schließen"
+  },
+  "packageManager": {
+    "tabs": "Paketmanager",
+    "copy": "In die Zwischenablage kopieren",
+    "copied": "In die Zwischenablage kopiert"
+  }
+}

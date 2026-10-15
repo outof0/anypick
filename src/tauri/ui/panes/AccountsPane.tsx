@@ -46,6 +46,7 @@ import { AddGatewaySheet, type GatewayFlowResult } from './AddGatewaySheet';
 import { ConfirmDialog } from './ProxiesPane';
 import { AccountDetailSheet } from './AccountDetailSheet';
 import { AccountRowGrid } from './AccountRow';
+import { translate, translateSource } from '../lib/i18n';
 
 /**
  * Accounts and API endpoints.
@@ -81,6 +82,15 @@ export function AccountsPane({
   /** The Add API Gateway sheet's last `gateway-test` answer. */
   gatewayFlowResult?: GatewayFlowResult | null;
 }) {
+  const t = (key: string) => {
+    const accountMessage = `desktop.accounts.${key}`;
+    const accountText = translate(accountMessage, snapshot.settings.language, snapshot.settings.resolvedLanguage);
+    return accountText === accountMessage
+      ? translate(`desktop.common.${key}`, snapshot.settings.language, snapshot.settings.resolvedLanguage)
+      : accountText;
+  };
+  const tr = (source: string) =>
+    translateSource(source, snapshot.settings.language, snapshot.settings.resolvedLanguage);
   const [pendingRemove, setPendingRemove] = useState<AccountRowContract | null>(null);
   const [pendingGatewayRemove, setPendingGatewayRemove] = useState<GatewayRow | null>(null);
   // The row's Show Details target. A dialog rather than an inline expansion,
@@ -170,18 +180,18 @@ export function AccountsPane({
   }, [accountFlowResult, pasteFlight, service]);
 
   return (
-    <Pane title="Accounts & APIs" testId="accounts">
+    <Pane title={t('title')} testId="accounts">
       {providers.length > 0 || loginRequest ? (
         <div className="flex items-center justify-end gap-2 px-0.5 pb-1">
           {providers.length > 0 ? (
             <MenuSelect
               label=""
-              ariaLabel="Filter accounts by provider"
+              ariaLabel={t('filter_provider')}
               value={activeFilter.kind === 'all' ? '' : activeFilter.provider}
               testId="accounts.filter"
               onChange={(value) => setProviderFilter(value === '' ? ALL_PROVIDERS : { kind: 'provider', provider: value })}
               options={[
-                { value: '', label: providerFilterLabel(ALL_PROVIDERS) },
+                { value: '', label: t('all_providers') },
                 ...providers.map((provider) => ({
                   value: provider,
                   label: nativeProviderName(provider),
@@ -199,7 +209,7 @@ export function AccountsPane({
                 setLoginRequest('');
               }}
             >
-              Cancel Sign-In
+              {t('cancel_signin')}
             </Button>
           ) : null}
         </div>
@@ -207,8 +217,8 @@ export function AccountsPane({
 
       {groups.length === 0 && gateways.length === 0 ? (
         <EmptyState
-          title={query ? 'No Results' : 'No Saved Accounts'}
-          detail={query ? 'No accounts match your search.' : 'Saved logins will appear here.'}
+          title={t(query ? 'no_results' : 'no_saved_accounts')}
+          detail={t(query ? 'no_accounts_match' : 'saved_logins_here')}
           testId="accounts-empty"
         />
       ) : null}
@@ -221,8 +231,12 @@ export function AccountsPane({
               testId={`accounts.row.${account.id}`}
               onClick={() => setInspecting(account)}
             >
-              <AccountRowGrid
+                <AccountRowGrid
                 row={accountView(account)}
+                  t={t}
+                  tr={tr}
+                  language={snapshot.settings.language}
+                  resolvedLanguage={snapshot.settings.resolvedLanguage}
                 service={service}
                 paused={paused}
                 revision={snapshot.revision}
@@ -236,7 +250,7 @@ export function AccountsPane({
       ))}
 
       {gateways.length > 0 ? (
-        <Group title="API Gateways" testId="accounts-gateways">
+        <Group title={t('api_gateways')} testId="accounts-gateways">
           {gateways.map((gateway) => (
             <Row
               key={gateway.id}
@@ -245,6 +259,10 @@ export function AccountsPane({
             >
               <AccountRowGrid
                   row={gatewayView(gateway)}
+                t={t}
+                  tr={tr}
+                language={snapshot.settings.language}
+                resolvedLanguage={snapshot.settings.resolvedLanguage}
                   service={service}
                   paused={paused}
                   revision={snapshot.revision}
@@ -259,7 +277,7 @@ export function AccountsPane({
 
       <PaneActions>
         <Button kind="secondary" disabled={paused} testId="accounts-add" onClick={() => setAdding(true)}>
-          Add Login…
+          {t('add_login')}
         </Button>
         {snapshot.gatewayProviders.length > 0 ? (
           <Button
@@ -268,7 +286,7 @@ export function AccountsPane({
             testId="accounts.add-gateway"
             onClick={() => setAddingGateway(true)}
           >
-            Add API Gateway…
+            {t('add_gateway')}
           </Button>
         ) : null}
       </PaneActions>
@@ -285,6 +303,8 @@ export function AccountsPane({
           service={service}
           paused={paused}
           revision={snapshot.revision}
+          language={snapshot.settings.language}
+          resolvedLanguage={snapshot.settings.resolvedLanguage}
           onEdit={() => {
             setEditing(inspecting);
             setInspecting(null);
@@ -304,6 +324,8 @@ export function AccountsPane({
       {adding ? (
         <AddAccountSheet
           providers={snapshot.accountProviders}
+          language={snapshot.settings.language}
+          resolvedLanguage={snapshot.settings.resolvedLanguage}
           service={service}
           busy={paused}
           flowResult={accountFlowResult}
@@ -319,6 +341,8 @@ export function AccountsPane({
       {addingGateway ? (
         <AddGatewaySheet
           providers={snapshot.gatewayProviders}
+          language={snapshot.settings.language}
+          resolvedLanguage={snapshot.settings.resolvedLanguage}
           accounts={snapshot.accounts}
           busy={paused}
           flowResult={gatewayFlowResult}
@@ -329,7 +353,8 @@ export function AccountsPane({
 
       {editing ? (
         <LabelSheet
-          title={`Edit ${editing.label}`}
+          title={t('edit_title').replace('{name}', editing.label)}
+          t={t}
           initial={editing.label}
           allowClear
           testId="account-edit-label"
@@ -344,7 +369,8 @@ export function AccountsPane({
 
       {editingGateway ? (
         <LabelSheet
-          title={`Edit ${editingGateway.name}`}
+          title={t('edit_title').replace('{name}', editingGateway.name)}
+          t={t}
           initial={gatewayEditLabel(editingGateway)}
           testId="gateway-edit-label"
           onCancel={() => setEditingGateway(null)}
@@ -360,6 +386,7 @@ export function AccountsPane({
         <ConnectSheet
           gateway={connecting}
           snapshot={snapshot}
+          t={t}
           busy={paused}
           onCancel={() => setConnecting(null)}
           onConnect={(clientIds) => {
@@ -372,9 +399,9 @@ export function AccountsPane({
 
       {pendingRemove ? (
         <ConfirmDialog
-          title={`Remove ${pendingRemove.label}?`}
-          message="AnyPick removes this saved login. Apps using it stop until you choose another."
-          confirmTitle="Remove"
+          title={t('remove_title').replace('{name}', pendingRemove.label)}
+          message={t('account_remove_message')}
+          confirmTitle={t('remove')}
           destructive
           onCancel={() => setPendingRemove(null)}
           onConfirm={() => {
@@ -387,9 +414,9 @@ export function AccountsPane({
 
       {pendingGatewayRemove ? (
         <ConfirmDialog
-          title={`Remove ${pendingGatewayRemove.name}?`}
-          message="Apps using this gateway stop until you choose another route."
-          confirmTitle="Remove"
+          title={t('gateway_remove_title').replace('{name}', pendingGatewayRemove.name)}
+          message={t('gateway_remove_message')}
+          confirmTitle={t('remove')}
           destructive
           testId="gateway-remove-dialog"
           onCancel={() => setPendingGatewayRemove(null)}
@@ -407,6 +434,7 @@ export function AccountsPane({
 
 function LabelSheet({
   title,
+  t,
   initial,
   allowClear = false,
   testId,
@@ -414,6 +442,7 @@ function LabelSheet({
   onSave,
 }: {
   title: string;
+  t: (key: string) => string;
   initial: string;
   /** An account label may be cleared. A gateway label may not. Saving the text already shown would store it again. */
   allowClear?: boolean;
@@ -433,15 +462,15 @@ function LabelSheet({
       actions={
         <>
           <Button kind="secondary" onClick={onCancel}>
-            Cancel
+            {t('cancel')}
           </Button>
           <Button kind="primary" disabled={unchanged || (!allowClear && cleaned === '')} onClick={() => onSave(label)}>
-            Save
+            {t('save')}
           </Button>
         </>
       }
     >
-      <Field label="Label" value={label} onChange={setLabel} testId={testId} />
+      <Field label={t('label')} value={label} onChange={setLabel} testId={testId} />
     </Dialog>
   );
 }
@@ -455,12 +484,14 @@ function gatewayEditLabel(gateway: GatewayRow): string {
 function ConnectSheet({
   gateway,
   snapshot,
+  t,
   busy,
   onCancel,
   onConnect,
 }: {
   gateway: GatewayRow;
   snapshot: Snapshot;
+  t: (key: string) => string;
   busy: boolean;
   onCancel: () => void;
   onConnect: (clientIds: string[]) => void;
@@ -470,7 +501,7 @@ function ConnectSheet({
   const invokes = gatewayConnectInvokes(snapshot, gateway.name, chosen);
   return (
     <Dialog
-      title={`Connect ${gateway.name}`}
+      title={t('connect_title').replace('{name}', gateway.name)}
       onCancel={onCancel}
       testId="gateway-connect-dialog"
       width="form"
@@ -478,7 +509,7 @@ function ConnectSheet({
       actions={
         <>
           <Button kind="secondary" onClick={onCancel}>
-            Cancel
+            {t('cancel')}
           </Button>
           <Button
             kind="primary"
@@ -486,7 +517,7 @@ function ConnectSheet({
             testId="gateway-connect-submit"
             onClick={() => onConnect(chosen)}
           >
-            Connect
+            {t('connect')}
           </Button>
         </>
       }
@@ -494,8 +525,8 @@ function ConnectSheet({
       {routes.length === 0 ? (
         <Row>
           <RowText
-            title="No compatible apps"
-            detail="This gateway can be used with Claude Code, Codex, or OpenCode once one of those apps has a route for it."
+            title={t('no_compatible_apps')}
+            detail={t('compatible_detail')}
           />
         </Row>
       ) : (

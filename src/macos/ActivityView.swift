@@ -10,6 +10,19 @@ enum ActivityCategory: String, CaseIterable, Identifiable {
 
   var id: String { rawValue }
 
+  @MainActor
+  func localizedTitle(using model: MacOSDesignModel) -> String {
+    let key: String
+    switch self {
+    case .all: key = "desktop.activity.category_all"
+    case .routing: key = "desktop.activity.category_routing"
+    case .accounts: key = "desktop.activity.category_accounts"
+    case .proxies: key = "desktop.activity.category_proxies"
+    case .issues: key = "desktop.activity.category_issues"
+    }
+    return model.localized(key)
+  }
+
   var symbol: String {
     switch self {
     case .all: return "clock.arrow.circlepath"
@@ -25,12 +38,15 @@ enum ActivityCategory: String, CaseIterable, Identifiable {
     case .all:
       return true
     case .routing:
+      if let kind = item.kind { return kind == "activation" }
       let lower = "\(item.title) \(item.detail)".lowercased()
       return lower.contains("uses") || lower.contains("routing") || lower.contains("switched") || lower.contains("route")
     case .accounts:
+      if let kind = item.kind { return ["account", "gateway", "quota"].contains(kind) }
       let lower = "\(item.title) \(item.detail)".lowercased()
       return lower.contains("account") || lower.contains("login") || lower.contains("gateway") || lower.contains("backup")
     case .proxies:
+      if let kind = item.kind { return kind == "proxy" }
       let lower = "\(item.title) \(item.detail)".lowercased()
       return lower.contains("proxy") || lower.contains("hub") || lower.contains("service") || lower.contains("port")
     case .issues:
@@ -71,7 +87,7 @@ struct ActivityView: View {
     .onDisappear {
       model.setLogPolling(false)
     }
-    .designConfirmation($confirmation)
+    .designConfirmation($confirmation, model: model)
   }
 
   /// One question, two subjects: the pane's segmented control decides whether
@@ -79,9 +95,9 @@ struct ActivityView: View {
   private func requestClear() {
     confirmation = DesignConfirmation(
       id: "clear-activity",
-      title: model.activityShowsLogs ? "Clear Visible Logs?" : "Clear Visible Events?",
-      message: "Accounts, apps, and proxies are unchanged.",
-      action: .confirm("Clear") { model.clearActivity() }
+      title: model.localized(model.activityShowsLogs ? "desktop.activity.clear_visible_logs" : "desktop.activity.clear_visible_events"),
+      message: model.localized("desktop.activity.clear_message"),
+      action: .confirm(model.localized("desktop.common.clear")) { model.clearActivity() }
     )
   }
 
@@ -93,14 +109,14 @@ struct ActivityView: View {
       if model.activityShowsLogs {
         Menu {
           Picker(
-            "Log Source",
+            model.localized("desktop.activity.log_source"),
             selection: Binding(
               get: { model.selectedLogSourceID },
               set: { model.selectLogSource($0) }
             )
           ) {
             if model.logSources.isEmpty {
-              Text("No Sources").tag("")
+              Text(model.localized("desktop.activity.no_sources")).tag("")
             } else {
               ForEach(model.logSources) { source in
                 Text(source.label).tag(source.id)
@@ -111,37 +127,37 @@ struct ActivityView: View {
           // on the selected one — no nested "Log Source >" submenu.
           .pickerStyle(.inline)
         } label: {
-          Label("Filter Logs", systemImage: "line.3.horizontal.decrease")
+          Label(model.localized("desktop.activity.filter_logs"), systemImage: "line.3.horizontal.decrease")
         }
         .labelStyle(.iconOnly)
-        .help("Filter logs by provider")
+        .help(model.localized("desktop.activity.filter_logs_help"))
         .disabled(model.logSources.isEmpty)
         .accessibilityIdentifier("activity.logs.filter")
       } else {
         Menu {
-          Picker("Category", selection: $selectedCategory) {
+          Picker(model.localized("desktop.activity.filter_events"), selection: $selectedCategory) {
             ForEach(ActivityCategory.allCases) { cat in
-              Text(cat.rawValue).tag(cat)
+              Text(cat.localizedTitle(using: model)).tag(cat)
             }
           }
           .pickerStyle(.inline)
         } label: {
           Label(
-            "Filter Events",
+            model.localized("desktop.activity.filter_events"),
             systemImage: selectedCategory == .all
               ? "line.3.horizontal.decrease"
               : "line.3.horizontal.decrease.circle.fill"
           )
         }
         .labelStyle(.iconOnly)
-        .help("Filter events by category")
+        .help(model.localized("desktop.activity.filter_events_help"))
         .accessibilityIdentifier("activity.logs.filter")
       }
     }
     ToolbarItem(placement: .primaryAction) {
       DesignToolbarSearch(
         text: $searchQuery,
-        prompt: model.activityShowsLogs ? "Search logs" : "Search events"
+        prompt: model.localized(model.activityShowsLogs ? "desktop.activity.search_logs" : "desktop.activity.search_events")
       )
       .frame(minWidth: 180, idealWidth: 220, maxWidth: 280)
     }
@@ -164,16 +180,16 @@ struct ActivityView: View {
             symbol: "clock.arrow.circlepath",
             message: searchQuery.isEmpty
               ? (selectedCategory == .all
-                  ? "Changes to accounts and app settings will appear here."
-                  : "No \(selectedCategory.rawValue.lowercased()) match your filter.")
-              : "No events match your search."
+                  ? model.localized("desktop.activity.no_events")
+                  : model.localized("desktop.activity.no_results_detail"))
+              : model.localized("desktop.activity.no_results_detail")
           )
         } else {
           eventsWell(height: contentHeight)
         }
       } footer: {
         if model.activityShowsLogs {
-          Text("Sensitive values are redacted before logs reach this window.")
+          Text(model.localized("desktop.activity.sensitive_redacted"))
         }
       }
     }
@@ -183,14 +199,14 @@ struct ActivityView: View {
     DesignPaneActions {
       if model.activityShowsLogs {
         DesignSheetButton(
-          title: "Clear Log…",
+          title: model.localized("desktop.activity.clear_log"),
           enabled: !filteredLogLines.isEmpty,
           destructive: true,
           identifier: "activity.clear-log"
         ) { requestClear() }
       } else {
         DesignSheetButton(
-          title: "Clear Events…",
+          title: model.localized("desktop.activity.clear_events"),
           enabled: !filteredActivity.isEmpty,
           destructive: true,
           identifier: "activity.clear-events"
@@ -200,7 +216,7 @@ struct ActivityView: View {
   }
 
   private var paneHeader: some View {
-    Text("Recent changes and recovery information")
+    Text(model.localized("desktop.activity.changes_header"))
       .font(.subheadline)
       .foregroundStyle(.secondary)
       .frame(maxWidth: .infinity, alignment: .leading)
@@ -213,14 +229,14 @@ struct ActivityView: View {
 /// Segmented control only — the category filter belongs in the toolbar, not
 /// beside the tabs.
   private var modeControl: some View {
-    Picker("View", selection: $model.activityShowsLogs) {
-      Text("Events").tag(false)
-      Text("Live Logs").tag(true)
+    Picker(model.localized("desktop.activity.view"), selection: $model.activityShowsLogs) {
+      Text(model.localized("desktop.activity.events")).tag(false)
+      Text(model.localized("desktop.activity.live_logs")).tag(true)
     }
     .pickerStyle(.segmented)
     .labelsHidden()
     .controlSize(.regular)
-    .accessibilityLabel("Activity view")
+    .accessibilityLabel(model.localized("desktop.activity.view"))
     .accessibilityIdentifier("activity.mode")
     .accessibilityIdentifier("activity.mode.picker")
   }
@@ -261,7 +277,9 @@ struct ActivityView: View {
   }
 
   private func eventRow(_ item: DesignActivity) -> some View {
-    HStack(alignment: .center, spacing: 10) {
+    let title = item.localizedTitle(using: model)
+    let detail = item.localizedDetail(using: model)
+    return HStack(alignment: .center, spacing: 10) {
       Text(item.time)
         .foregroundStyle(.secondary)
         .monospacedDigit()
@@ -280,12 +298,12 @@ struct ActivityView: View {
             DesignProviderIcon(provider: provider, fallbackSymbol: item.symbol, size: 16)
               .accessibilityHidden(true)
           }
-          Text(item.title)
+          Text(title)
             .fontWeight(.medium)
             .lineLimit(1)
         }
-        if !item.detail.isEmpty {
-          Text(item.detail)
+        if !detail.isEmpty {
+          Text(detail)
             .font(.caption)
             .foregroundStyle(.secondary)
             .lineLimit(2)
@@ -294,35 +312,36 @@ struct ActivityView: View {
     }
     .listRowInsets(rowInsets)
     .contextMenu {
-      Button("Copy Message") {
-        if model.pasteString(item.title) {
-          model.announceOnly("Copied activity message.")
+      Button(model.localized("desktop.activity.copy_message")) {
+        if model.pasteString(title) {
+          model.announceOnly(model.localized("desktop.activity.copied_message"))
         } else {
-          model.announceOnly("Couldn’t copy activity message.")
+          model.announceOnly(model.localized("desktop.activity.copy_message_failed"))
         }
       }
-      .help("Copy only the activity message.")
-      Button("Copy Full Details") {
-        if model.pasteString("\(item.day) \(item.time): \(item.title) - \(item.detail)") {
-          model.announceOnly("Copied activity details.")
+      .help(model.localized("desktop.activity.copy_message_help"))
+      Button(model.localized("desktop.activity.copy_details")) {
+        if model.pasteString("\(item.localizedDay(using: model)) \(item.time): \(title) - \(detail)") {
+          model.announceOnly(model.localized("desktop.activity.copied_details"))
         } else {
-          model.announceOnly("Couldn’t copy activity details.")
+          model.announceOnly(model.localized("desktop.activity.copy_details_failed"))
         }
       }
-      .help("Copy the timestamp, message, and details.")
+      .help(model.localized("desktop.activity.copy_details_help"))
     }
     .accessibilityElement(children: .combine)
-    .accessibilityLabel(activityAccessibilityLabel(for: item))
+    .accessibilityLabel(activityAccessibilityLabel(for: item, title: title, detail: detail, model: model))
     .accessibilityIdentifier("activity.event.\(item.id)")
   }
 
   private var eventSections: [(key: String, items: [DesignActivity])] {
     var sections: [(String, [DesignActivity])] = []
     for item in filteredActivity {
-      if sections.last?.0 == item.day {
+      let day = item.localizedDay(using: model)
+      if sections.last?.0 == day {
         sections[sections.count - 1].1.append(item)
       } else {
-        sections.append((item.day, [item]))
+        sections.append((day, [item]))
       }
     }
     return sections.map { (key: $0.0, items: $0.1) }
@@ -331,7 +350,7 @@ struct ActivityView: View {
   @ViewBuilder
   private func logsRows(height: CGFloat) -> some View {
     if model.logState == .ready {
-      LabeledContent("Status", value: "Live")
+      LabeledContent(model.localized("desktop.activity.status"), value: model.localized("desktop.activity.live"))
         .accessibilityIdentifier("activity.logs.live")
         .listRowInsets(rowInsets)
     }
@@ -343,15 +362,15 @@ struct ActivityView: View {
   private var logPlaceholder: String? {
     guard filteredLogLines.isEmpty else { return nil }
     if !searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-      return "No log lines match your search."
+      return model.localized("desktop.activity.no_matching_lines")
     }
     switch model.logState {
-    case .loading: return "Loading logs…"
-    case .stopped: return "Proxy is not running — start it to stream new entries."
-    case .empty: return "No log entries yet."
-    case .error: return "Couldn’t load logs."
-    case .unavailable: return "No log source available."
-    case .idle, .ready: return "Output appears here while the selected provider is running."
+    case .loading: return model.localized("desktop.activity.loading_logs")
+    case .stopped: return model.localized("desktop.activity.proxy_not_running")
+    case .empty: return model.localized("desktop.activity.no_entries")
+    case .error: return model.localized("desktop.activity.could_not_load")
+    case .unavailable: return model.localized("desktop.activity.no_log_source")
+    case .idle, .ready: return model.localized("desktop.activity.log_output_hint")
     }
   }
 
@@ -380,29 +399,29 @@ struct ActivityView: View {
       HStack(spacing: 8) {
         ProgressView()
           .controlSize(.small)
-        Text(model.logStateMessage ?? "Loading logs…")
+        Text(model.logStateMessage ?? model.localized("desktop.activity.loading_logs"))
           .foregroundStyle(.secondary)
       }
       .accessibilityIdentifier("activity.logs.loading")
       .listRowInsets(rowInsets)
     case .empty:
       logNotice(
-        title: "No Logs Yet",
-        message: model.logStateMessage ?? "The service has not written any log entries.",
+        title: model.localized("desktop.activity.no_logs"),
+        message: model.logStateMessage ?? model.localized("desktop.activity.service_no_logs"),
         symbol: "doc.text"
       )
     case .error:
       logNotice(
-        title: "Couldn’t Load Logs",
-        message: model.logStateMessage ?? "Showing the most recent logs that loaded successfully.",
+        title: model.localized("desktop.activity.could_not_load"),
+        message: model.logStateMessage ?? model.localized("desktop.activity.showing_loaded_logs"),
         symbol: "exclamationmark.triangle",
-        actionTitle: "Try Again",
+        actionTitle: model.localized("desktop.common.try_again"),
         action: model.refreshSelectedLogSource
       )
     case .unavailable:
       logNotice(
-        title: "Selected Log Is No Longer Available",
-        message: model.logStateMessage ?? "Choose another service or return to Activity.",
+        title: model.localized("desktop.activity.log_unavailable"),
+        message: model.logStateMessage ?? model.localized("desktop.activity.choose_log_source"),
         symbol: "questionmark.folder"
       )
     }
@@ -440,7 +459,8 @@ struct ActivityView: View {
     let categoryFiltered = model.activity.filter { selectedCategory.matches($0) }
     guard !query.isEmpty else { return categoryFiltered }
     return categoryFiltered.filter {
-      [$0.time, $0.title, $0.detail].contains { $0.localizedCaseInsensitiveContains(query) }
+      [$0.time, $0.localizedTitle(using: model), $0.localizedDetail(using: model)]
+        .contains { $0.localizedCaseInsensitiveContains(query) }
     }
   }
 

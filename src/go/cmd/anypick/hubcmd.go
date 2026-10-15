@@ -21,7 +21,7 @@ import (
 
 func cmdHub(ctx context.Context, a *appView, args []string) int {
 	usage := func() int {
-		fmt.Fprintln(os.Stderr,
+		cliFprintln(os.Stderr,
 			"usage: anypick proxy hub <status|enable|source|owner|preview|start|stop|token> <name> …")
 		return int(anyerr.InvalidUsage)
 	}
@@ -119,11 +119,11 @@ func reloadHubChild(a *appView, ctx context.Context, name string) bool {
 		return false
 	}
 	if err := stopHubChild(a, ctx, name); err != nil {
-		fmt.Fprintf(os.Stderr, "warning: hub %s config saved but child not restarted: %s\n", name, err)
+		cliFprintf(os.Stderr, "warning: hub %s config saved but child not restarted: %s\n", name, err)
 		return false
 	}
 	if _, err := spawnDetachedService(a.Root, []string{"_serve-hub", name}, pidFile); err != nil {
-		fmt.Fprintf(os.Stderr, "warning: hub %s config saved but child not restarted: %s\n", name, err)
+		cliFprintf(os.Stderr, "warning: hub %s config saved but child not restarted: %s\n", name, err)
 		return false
 	}
 	return true
@@ -169,10 +169,10 @@ func cmdHubStatus(ctx context.Context, a *appView, usage func() int, fs *flag.Fl
 		jsonOut(cfg)
 		return int(anyerr.Success)
 	}
-	fmt.Printf("hub %s: enabled=%v port=%d sources=%d\n",
+	cliPrintf("hub %s: enabled=%v port=%d sources=%d\n",
 		cfg.Name, cfg.Enabled, cfg.Port, len(cfg.Sources))
 	for _, s := range cfg.Sources {
-		fmt.Printf("  source %s/%s\n", s.ProviderID, s.Account)
+		cliPrintf("  source %s/%s\n", s.ProviderID, s.Account)
 	}
 	return int(anyerr.Success)
 }
@@ -196,7 +196,7 @@ func cmdHubToken(ctx context.Context, a *appView, usage func() int, fs *flag.Fla
 			jsonOut(map[string]string{"hub": name, "apiKey": token})
 			return int(anyerr.Success)
 		}
-		fmt.Printf("hub %s: new api_key: %s\n", name, token)
+		cliPrintf("hub %s: new api_key: %s\n", name, token)
 		return int(anyerr.Success)
 	}
 	token, err := a.ProxyHub.EnsureHubTokenContext(ctx, name)
@@ -207,7 +207,7 @@ func cmdHubToken(ctx context.Context, a *appView, usage func() int, fs *flag.Fla
 		jsonOut(map[string]string{"hub": name, "apiKey": token})
 		return int(anyerr.Success)
 	}
-	fmt.Printf("hub %s: api_key: %s\n", name, token)
+	cliPrintf("hub %s: api_key: %s\n", name, token)
 	return int(anyerr.Success)
 }
 
@@ -321,7 +321,7 @@ func cmdHubPreview(ctx context.Context, a *appView, usage func() int, fs *flag.F
 		return int(anyerr.Success)
 	}
 	for _, line := range manifest.Lines {
-		fmt.Println(line)
+		cliPrintln(line)
 	}
 	return int(anyerr.Success)
 }
@@ -497,7 +497,7 @@ func cmdHubSource(ctx context.Context, a *appView, usage func() int, fs *flag.Fl
 	}
 	emitOK(notice, fields...)
 	if !globals.JSON && restarted {
-		fmt.Printf("hub %s restarted\n", name)
+		cliPrintf("hub %s restarted\n", name)
 	}
 	return int(anyerr.Success)
 }
@@ -582,7 +582,7 @@ func cmdHubOwner(ctx context.Context, a *appView, usage func() int, fs *flag.Fla
 		kv{Key: "owner", Value: owner},
 		kv{Key: "restarted", Value: restarted})
 	if !globals.JSON && restarted {
-		fmt.Printf("hub %s restarted\n", name)
+		cliPrintf("hub %s restarted\n", name)
 	}
 	return int(anyerr.Success)
 }

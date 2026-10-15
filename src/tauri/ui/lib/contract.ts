@@ -333,6 +333,9 @@ export type Preferences = {
   startEnabledProxies: boolean;
   showQuota: boolean;
   quotaGuardEnabled: boolean;
+  language: string;
+  resolvedLanguage: string;
+  languageOptions: Array<{ value: string; label: string }>;
 };
 
 /** The full snapshot the engine pushes after a handshake and on every change. */

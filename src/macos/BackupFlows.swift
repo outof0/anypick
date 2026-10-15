@@ -20,11 +20,14 @@ struct CreateBackupSheet: View {
 
   var body: some View {
     DesignSheetHost(
-      title: "Export Accounts",
+      model: model,
+      title: model.localized("desktop.backups.export_title"),
       width: 480,
-      primaryTitle: "Export",
+      primaryTitle: model.localized("desktop.backups.export"),
       primaryDisabled: selectedAccountIDs.isEmpty,
       primaryIdentifier: "backup-create.confirm",
+      cancelTitle: model.localized("desktop.backups.cancel"),
+      cancelHelp: model.localized("desktop.backups.cancel_help"),
       onCancel: { dismiss() },
       onPrimary: {
         if model.createBackup(accountIDs: selectedAccountIDs) { dismiss() }
@@ -33,7 +36,7 @@ struct CreateBackupSheet: View {
       Form {
         Section {
           if savedAccounts.isEmpty {
-            DesignEmptyRow(text: "No saved accounts yet.")
+            DesignEmptyRow(text: model.localized("desktop.backups.no_saved_accounts"))
           }
           ForEach(savedAccounts) { account in
             Toggle(
@@ -51,7 +54,7 @@ struct CreateBackupSheet: View {
               Label {
                 VStack(alignment: .leading, spacing: 2) {
                   Text(account.name)
-                  Text(account.detail)
+                  Text(model.localizedSource(account.detail))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
                 }
@@ -70,17 +73,27 @@ struct CreateBackupSheet: View {
           }
         } header: {
           HStack {
-            Text("Saved Accounts")
+            Text(model.localized("desktop.backups.saved_accounts"))
             Spacer()
             if savedAccounts.count > 1 {
-              Button(selectedAccountIDs.count == savedAccounts.count ? "Deselect All" : "Select All") {
+              Button(
+                model.localized(
+                  selectedAccountIDs.count == savedAccounts.count
+                    ? "desktop.backups.deselect_all" : "desktop.backups.select_all"
+                )
+              ) {
                 if selectedAccountIDs.count == savedAccounts.count {
                   selectedAccountIDs.removeAll()
                 } else {
                   selectedAccountIDs = Set(savedAccounts.prefix(selectionLimit).map(\.id))
                 }
               }
-              .help(selectedAccountIDs.count == savedAccounts.count ? "Clear the account selection." : "Select every saved account for this backup.")
+              .help(
+                model.localized(
+                  selectedAccountIDs.count == savedAccounts.count
+                    ? "desktop.backups.deselect_saved_help" : "desktop.backups.select_saved_help"
+                )
+              )
               .buttonStyle(.plain)
               .font(.caption)
               .foregroundStyle(Color.accentColor)
@@ -88,9 +101,9 @@ struct CreateBackupSheet: View {
           }
         } footer: {
           if savedAccounts.isEmpty {
-            Text("Add a login under Accounts & APIs, then choose accounts here.")
+            Text(model.localized("desktop.backups.add_login"))
           } else {
-            Text("These files include credentials and aren’t encrypted.")
+            Text(model.localized("desktop.backups.unencrypted"))
           }
         }
       }
@@ -119,11 +132,16 @@ struct RestoreBackupSheet: View {
 
   var body: some View {
     DesignSheetHost(
-      title: importedPackage ? "Import Accounts" : "Restore Accounts",
+      model: model,
+      title: model.localized(
+        importedPackage ? "desktop.backups.import_title" : "desktop.backups.restore_title"
+      ),
       width: 480,
       primaryTitle: primaryTitle,
       primaryDisabled: selectedAccountIDs.isEmpty || model.backupInspectionState == .importing,
       primaryIdentifier: "backup-restore.confirm",
+      cancelTitle: model.localized("desktop.backups.cancel"),
+      cancelHelp: model.localized("desktop.backups.cancel_help"),
       onCancel: { dismiss() },
       onPrimary: {
         if model.backupInspectionState == .success {
@@ -161,13 +179,13 @@ struct RestoreBackupSheet: View {
                     HStack(spacing: 6) {
                       Text(account.name)
                       if alreadySaved(account) {
-                        Text("Existing")
+                        Text(model.localized("desktop.backups.existing"))
                           .font(.caption2)
                           .foregroundStyle(.secondary)
-                          .accessibilityLabel("Already saved")
+                          .accessibilityLabel(model.localized("desktop.backups.already_saved"))
                       }
                     }
-                    Text(account.detail)
+                    Text(model.localizedSource(account.detail))
                       .foregroundStyle(.secondary)
                       .lineLimit(1)
                   }
@@ -183,25 +201,35 @@ struct RestoreBackupSheet: View {
             }
           } header: {
             HStack {
-              Text("Accounts in Backup")
+              Text(model.localized("desktop.backups.accounts_in_backup"))
               Spacer()
               let available = backup.accounts.filter { $0.status != .unavailable }
               if available.count > 1 {
-                Button(selectedAccountIDs.count == available.count ? "Deselect All" : "Select All") {
+                Button(
+                  model.localized(
+                    selectedAccountIDs.count == available.count
+                      ? "desktop.backups.deselect_all" : "desktop.backups.select_all"
+                  )
+                ) {
                   if selectedAccountIDs.count == available.count {
                     selectedAccountIDs.removeAll()
                   } else {
                     selectedAccountIDs = Set(available.map(\.id))
                   }
                 }
-                .help(selectedAccountIDs.count == available.count ? "Clear the account selection." : "Select every account in this backup.")
+                .help(
+                  model.localized(
+                    selectedAccountIDs.count == available.count
+                      ? "desktop.backups.deselect_backup_help" : "desktop.backups.select_backup_help"
+                  )
+                )
                 .buttonStyle(.plain)
                 .font(.caption)
                 .foregroundStyle(Color.accentColor)
               }
             }
           } footer: {
-            Text("Turn off an account to leave it out. Accounts already saved are skipped unless you choose Replace.")
+            Text(model.localized("desktop.backups.accounts_in_backup_help"))
           }
         }
       }
@@ -210,7 +238,7 @@ struct RestoreBackupSheet: View {
           (backup?.accounts ?? []).filter { $0.status != .unavailable }.map(\.id)
         )
       }
-      .designConfirmation($confirmation)
+      .designConfirmation($confirmation, model: model)
     }
   }
 
@@ -220,14 +248,19 @@ struct RestoreBackupSheet: View {
   private func requestDuplicateChoice() {
     confirmation = DesignConfirmation(
       id: "replace-existing-accounts",
-      title: "Replace Existing Accounts?",
-      message:
-        duplicateCount == 1
-        ? "1 selected account is already saved."
-        : "\(duplicateCount) selected accounts are already saved.",
+      title: model.localized("desktop.backups.replace_existing_title"),
+      message: String(
+        format: model.localized(
+          duplicateCount == 1
+            ? "desktop.backups.duplicate_one" : "desktop.backups.duplicate_many"
+        ),
+        duplicateCount
+      ),
       actions: [
-        .confirm("Skip", destructive: false) { restore(overwrite: false) },
-        .confirm("Replace") { restore(overwrite: true) },
+        .confirm(model.localized("desktop.backups.skip"), destructive: false) {
+          restore(overwrite: false)
+        },
+        .confirm(model.localized("desktop.backups.replace")) { restore(overwrite: true) },
       ]
     )
   }
@@ -242,9 +275,9 @@ struct RestoreBackupSheet: View {
 
   private var primaryTitle: String {
     switch model.backupInspectionState {
-    case .success: "Done"
-    case .expired, .atomicFailure: "Review Again"
-    default: "Import"
+    case .success: model.localized("desktop.backups.done")
+    case .expired, .atomicFailure: model.localized("desktop.backups.review_again_plain")
+    default: model.localized("desktop.backups.import")
     }
   }
 
@@ -256,24 +289,27 @@ struct RestoreBackupSheet: View {
         HStack(spacing: 8) {
           ProgressView()
             .controlSize(.small)
-          Text(model.backupInspectionMessage ?? "Importing Accounts…")
+          Text(model.backupInspectionMessage ?? model.localized("desktop.backups.importing_accounts"))
             .foregroundStyle(.secondary)
         }
       }
     case .success:
       Section {
-        Label(model.backupInspectionMessage ?? "Accounts Imported", systemImage: "checkmark.circle.fill")
+        Label(
+          model.backupInspectionMessage ?? model.localized("desktop.backups.imported_title"),
+          systemImage: "checkmark.circle.fill"
+        )
           .foregroundStyle(.green)
       }
     case .expired:
       restoreIssue(
-        title: "Review Expired",
-        message: model.backupInspectionMessage ?? "Review the backup again before importing."
+        title: model.localized("desktop.backups.expired_title"),
+        message: model.backupInspectionMessage ?? model.localized("desktop.backups.expired_detail")
       )
     case .atomicFailure:
       restoreIssue(
-        title: "Couldn’t Import Accounts",
-        message: model.backupInspectionMessage ?? "No saved accounts were changed."
+        title: model.localized("desktop.backups.import_failed_title"),
+        message: model.backupInspectionMessage ?? model.localized("desktop.backups.no_accounts_changed")
       )
     default:
       EmptyView()

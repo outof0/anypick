@@ -175,6 +175,60 @@ func TestGatewayShowRedactsUnlessRevealed(t *testing.T) {
 	globals.Reveal = false
 }
 
+func TestGatewayShowPreservesCatalogCollidingName(t *testing.T) {
+	isolateEnv(t)
+	defer resetGlobals()()
+	t.Setenv("ANYPICK_LANG", "vi")
+	t.Setenv("ANYPICK_SECRET", "sk-test-gateway-secret")
+
+	var code int
+	captureBoth(t, func() {
+		code = run([]string{"gateway", "add", "apps", "--provider", "openrouter", "--model", "apps"})
+	})
+	if code != int(anyerr.Success) {
+		t.Fatalf("gateway add exited %d (stdout=%q stderr=%q)", code, lastStdout, lastStderr)
+	}
+
+	stdout, stderr := captureBoth(t, func() {
+		code = run([]string{"gateway", "show", "apps"})
+	})
+	if code != int(anyerr.Success) {
+		t.Fatalf("gateway show exited %d (stdout=%q stderr=%q)", code, stdout, stderr)
+	}
+	if !strings.HasPrefix(stdout, "apps\n") {
+		t.Fatalf("gateway name was translated or omitted: %q", stdout)
+	}
+	for _, args := range [][]string{
+		{"__complete", "gateways"},
+		{"models", "claude", "--with", "gateway/apps"},
+	} {
+		stdout, stderr := captureBoth(t, func() { code = run(args) })
+		if code != int(anyerr.Success) || !strings.Contains("\n"+stdout, "\napps\n") || strings.Contains(stdout, "ứng dụng") {
+			t.Fatalf("%v changed raw identifiers: exit=%d stdout=%q stderr=%q", args, code, stdout, stderr)
+		}
+	}
+}
+
+func TestFollowedLogsPreserveScreenedContentAcrossLocales(t *testing.T) {
+	t.Setenv("ANYPICK_LANG", "vi")
+	logPath := filepath.Join(t.TempDir(), "proxy.log")
+	if err := os.WriteFile(logPath, []byte("apps\nfixture-secret\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	stdout := captureStdout(t, func() {
+		followFile(logPath, func(chunk string) string {
+			// End the follow loop after its first chunk without a timing race.
+			if err := os.Remove(logPath); err != nil {
+				t.Error(err)
+			}
+			return strings.ReplaceAll(chunk, "fixture-secret", "[redacted]")
+		})
+	})
+	if stdout != "apps\n[redacted]\n" {
+		t.Fatalf("follow changed screened log content: %q", stdout)
+	}
+}
+
 func TestMaskSecretMasking(t *testing.T) {
 	if got := maskSecret(""); got != "(empty)" {
 		t.Fatalf("empty: %q", got)

@@ -436,14 +436,26 @@ func hubProviderDisplayName(_ provider: String) -> String {
 
 /// Formats model conflict title and human-friendly subtitle explaining which
 /// providers offer the models, replacing ambiguous "2 Models" or duplicate names.
-func hubConflictDisplayInfo(_ conflict: DesignRoutingConflict) -> (title: String, subtitle: String) {
+@MainActor
+func hubConflictDisplayInfo(
+  _ conflict: DesignRoutingConflict,
+  using model: MacOSDesignModel
+) -> (title: String, subtitle: String) {
   let title: String
   if conflict.models.isEmpty {
     title = cleanModelDisplayName(conflict.title)
   } else if conflict.models.count <= 2 {
     title = conflict.models.map { cleanModelDisplayName($0) }.joined(separator: ", ")
   } else {
-    title = "\(conflict.models.count) models: " + conflict.models.prefix(2).map { cleanModelDisplayName($0) }.joined(separator: ", ") + "…"
+    title = model.localized(
+      "desktop.hub.conflict_many_need_provider",
+      count: conflict.models.count,
+      replacing: [
+        "first": cleanModelDisplayName(conflict.models[0]),
+        "second": cleanModelDisplayName(conflict.models[1]),
+        "more": String(conflict.models.count - 2),
+      ]
+    )
   }
 
   let providerCandidates = conflict.candidates.filter(\.providerChoice)
@@ -456,14 +468,13 @@ func hubConflictDisplayInfo(_ conflict: DesignRoutingConflict) -> (title: String
   }
 
   let subtitle: String
-  if providers.count >= 2 {
-    subtitle = "Available via \(providers.joined(separator: ", "))"
-  } else if let first = providers.first {
-    subtitle = "Provided by \(first)"
-  } else if !conflict.detail.isEmpty && conflict.detail != conflict.title {
-    subtitle = conflict.detail
+  if !providers.isEmpty {
+    subtitle = model.localized(
+      "desktop.hub.available_via",
+      replacing: ["providers": providers.joined(separator: ", ")]
+    )
   } else {
-    subtitle = "Multiple providers available"
+    subtitle = model.localized("desktop.published.multi_route_detail")
   }
 
   return (title, subtitle)

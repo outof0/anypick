@@ -138,12 +138,12 @@ describe('Overview pane', () => {
   });
 
   it('renders all four Get Started steps macOS shows', () => {
-    // macOS renders four steps (`OverviewView.swift:112-157`): Save a Login,
+    // macOS renders four steps (`OverviewView.swift:112-157`): Add a Login,
     // Use an App, Point an App, Set Up Proxy Hub. The pane emitted three, and
     // the parity map hid the missing one by pointing both `use-app` and
     // `choose-route` at `onboarding-choose-route`.
     mount(({ snapshot }) => <OverviewPane snapshot={snapshot} />);
-    expect(screen.getByTestId('onboarding-save-login')).toHaveTextContent('Save a Login');
+    expect(screen.getByTestId('onboarding-save-login')).toHaveTextContent('Add a Login');
     expect(screen.getByTestId('onboarding-use-app')).toHaveTextContent('Use an App');
     expect(screen.getByTestId('onboarding-choose-route')).toHaveTextContent('Point an App');
     expect(screen.getByTestId('onboarding-hub')).toHaveTextContent('Set Up Proxy Hub (Optional)');
@@ -575,7 +575,7 @@ describe('Proxies pane', () => {
     });
     mount(({ service, snapshot: s }) => <ProxiesPane service={service} snapshot={s} />, snapshot);
     expect(screen.getByRole('button', { name: 'Stop All…' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Restart Running' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Restart Running Proxies' })).toBeDisabled();
     expect(screen.getByRole('button', { name: /^Start All Proxies$/ })).toBeEnabled();
   });
 

@@ -28,34 +28,34 @@ struct ProxyDetailView: View {
             } icon: {
               DesignProviderIcon(provider: proxy.provider, fallbackSymbol: proxy.symbol)
             }
-            LabeledContent("Status") {
+            LabeledContent(model.localized("desktop.common.status")) {
               HStack(spacing: 8) {
                 if let operation = model.serviceOperations[proxy.id] {
                   HStack(spacing: 6) {
                     ProgressView()
                       .controlSize(.small)
-                    Text(operation.label)
+                    Text(operation.localizedLabel(using: model))
                       .foregroundStyle(.secondary)
                   }
                 } else {
-                  DesignStatusLabel(status: proxy.status)
+                  DesignStatusLabel(model: model, status: proxy.status)
                 }
                 proxyLifecycleAction(proxy)
               }
             }
-            LabeledContent("Provider", value: providerName)
+            LabeledContent(model.localized("desktop.account_detail.provider"), value: providerName)
             if !servingAccountDisplay.isEmpty {
-              LabeledContent("Serving Account", value: servingAccountDisplay)
+              LabeledContent(model.localized("desktop.proxy_detail.serving_account"), value: servingAccountDisplay)
             }
           } header: {
-            Text("Service")
+            Text(model.localized("desktop.proxy_detail.service"))
           }
 
           if let failure = model.serviceFailures[proxy.id] {
             Section {
               Label {
                 VStack(alignment: .leading, spacing: 2) {
-                  Text("Service Error")
+                  Text(model.localized("desktop.proxy_detail.service_error"))
                   Text(failure)
                     .foregroundStyle(.secondary)
                 }
@@ -63,26 +63,26 @@ struct ProxyDetailView: View {
                 DesignWarningSymbol()
               }
             } footer: {
-              Text("Adjust the service configuration or restart to clear this error.")
+              Text(model.localized("desktop.proxy_detail.service_error_help"))
             }
           } else if proxy.status == .attention {
             Section {
               Label {
                 VStack(alignment: .leading, spacing: 2) {
-                  Text("Needs Attention")
-                  Text("This proxy is enabled but not currently running.")
+                  Text(model.localized("desktop.common.needs_attention"))
+                  Text(model.localized("desktop.proxy_detail.enabled_not_running"))
                     .foregroundStyle(.secondary)
                 }
               } icon: {
                 DesignWarningSymbol()
               }
             } footer: {
-              Text("Click Start to launch this compatibility relay.")
+              Text(model.localized("desktop.proxy_detail.start_relay_help"))
             }
           }
 
           Section {
-            LabeledContent("Address") {
+            LabeledContent(model.localized("desktop.common.address")) {
               if proxy.port > 0 {
                 HStack(spacing: 8) {
                   Text("http://127.0.0.1:\(proxy.port)")
@@ -91,22 +91,23 @@ struct ProxyDetailView: View {
                     .textSelection(.enabled)
                   DesignCopyButton(
                     copied: didCopy,
-                    label: "Copy proxy address",
+                    label: model.localized("desktop.common.copy_address"),
+                    copiedLabel: model.localized("desktop.common.copied_to_clipboard"),
                     identifier: "proxies.inspector.copy",
                     action: copyAddress
                   )
                 }
               } else {
-                Text("Not running")
+                Text(model.localized("desktop.proxy_detail.not_running"))
                   .foregroundStyle(.secondary)
                   .accessibilityIdentifier("proxies.inspector.address")
               }
             }
             if proxy.port > 0 && model.proxyCanCopyAPIKey(proxy) {
-              LabeledContent("API Key") {
+              LabeledContent(model.localized("desktop.common.api_key")) {
                 HStack(spacing: 8) {
                   if proxy.apiKey.isEmpty {
-                    Text("Hidden until copied")
+                    Text(model.localized("desktop.proxy_detail.hidden_until_copied"))
                       .foregroundStyle(.secondary)
                   } else {
                     Text(proxy.apiKey)
@@ -118,14 +119,15 @@ struct ProxyDetailView: View {
                   }
                   DesignCopyButton(
                     copied: didCopyApiKey,
-                    label: "Copy proxy API key",
+                    label: model.localized("desktop.common.copy_api_key"),
+                    copiedLabel: model.localized("desktop.common.copied_to_clipboard"),
                     identifier: "proxies.inspector.copy-key",
                     action: { model.copyProxyAPIKey(id: proxy.id) }
                   )
                   if proxy.status == .running {
                     DesignIconButton(
                       symbol: "arrow.triangle.2.circlepath",
-                      label: "Rotate API Key",
+                      label: model.localized("desktop.common.rotate_key"),
                       identifier: "proxies.inspector.rotate-key",
                       action: requestRotate
                     )
@@ -134,29 +136,29 @@ struct ProxyDetailView: View {
               }
             }
             if proxy.port > 0 {
-              LabeledContent("Port", value: "\(proxy.port)")
+              LabeledContent(model.localized("desktop.proxy_detail.port"), value: "\(proxy.port)")
             }
-            LabeledContent("Security", value: "Loopback only (authenticated)")
-            LabeledContent("Activity & Logs") {
+            LabeledContent(model.localized("desktop.proxy_detail.security"), value: model.localized("desktop.proxy_detail.loopback_authenticated"))
+            LabeledContent(model.localized("desktop.proxy_detail.activity_logs")) {
               Button {
                 model.destination = .activity
               } label: {
                 HStack(spacing: 4) {
-                  Text("View in Activity")
+                  Text(model.localized("desktop.proxy_detail.view_in_activity"))
                   Image(systemName: "arrow.up.forward.app")
                     .font(.caption2)
                 }
               }
               .buttonStyle(.plain)
-              .help("Open Activity to read this proxy’s recent events and logs.")
+              .help(model.localized("desktop.proxy_detail.open_activity_help"))
               .foregroundStyle(Color.accentColor)
             }
           } header: {
-            Text("Endpoint")
+            Text(model.localized("desktop.proxy_detail.endpoint"))
           } footer: {
             Text(model.proxyCanCopyAPIKey(proxy)
-              ? "This proxy listens only on this Mac (127.0.0.1). Authenticate requests with its API key (Bearer token or x-api-key header)."
-              : "This proxy listens only on this Mac (127.0.0.1).")
+              ? model.localized("desktop.proxy_detail.loopback_key_detail")
+              : model.localized("desktop.proxy_detail.loopback_detail"))
           }
 
           if !connectedApps.isEmpty {
@@ -172,22 +174,22 @@ struct ProxyDetailView: View {
                 }
               }
             } header: {
-              Text("Client Apps")
+              Text(model.localized("desktop.proxy_detail.client_apps"))
             } footer: {
-              Text("These apps are configured to route through this proxy relay.")
+              Text(model.localized("desktop.proxy_detail.client_apps_detail"))
             }
           }
         }
       } else {
         DesignEmptyState(
-          title: "Proxy Is No Longer Available",
-          message: "Return to Proxies and choose another service.",
+          title: model.localized("desktop.proxy_detail.unavailable"),
+          message: model.localized("desktop.proxy_detail.unavailable_detail"),
           symbol: "server.rack"
         )
       }
     }
-    .navigationTitle(proxy?.name ?? "Proxy")
-    .designConfirmation($confirmation)
+    .navigationTitle(proxy?.name ?? model.localized("desktop.nav.proxies"))
+    .designConfirmation($confirmation, model: model)
     .onChange(of: model.copiedKey) { _, copied in
       guard copied?.id == proxyID else { return }
       didCopyApiKey = true
@@ -200,19 +202,18 @@ struct ProxyDetailView: View {
   private func requestStop() {
     confirmation = DesignConfirmation(
       id: "stop-proxy",
-      title: "Stop \(proxy?.name ?? "This Proxy")?",
-      message: "Apps using this proxy will not connect until it restarts.",
-      action: .confirm("Stop Proxy") { model.setProxyEnabled(id: proxyID, enabled: false) }
+      title: model.localized("desktop.proxy_detail.stop_title", replacing: ["name": proxy?.name ?? model.localized("desktop.proxy_detail.this_proxy")]),
+      message: model.localized("desktop.proxy_detail.stop_message"),
+      action: .confirm(model.localized("desktop.proxy_detail.stop_proxy")) { model.setProxyEnabled(id: proxyID, enabled: false) }
     )
   }
 
   private func requestRotate() {
     confirmation = DesignConfirmation(
       id: "rotate-proxy-key",
-      title: "Rotate API Key for \(proxy?.name ?? "This Proxy")?",
-      message:
-        "Apps using the current API key will be disconnected until you update them with the new key.",
-      action: .confirm("Rotate Key") { model.rotateProxyKey(id: proxyID) }
+      title: model.localized("desktop.proxy_detail.rotate_title", replacing: ["name": proxy?.name ?? model.localized("desktop.proxy_detail.this_proxy")]),
+      message: model.localized("desktop.proxy_detail.rotate_message"),
+      action: .confirm(model.localized("desktop.common.rotate_key")) { model.rotateProxyKey(id: proxyID) }
     )
   }
 
@@ -245,7 +246,7 @@ struct ProxyDetailView: View {
   private func proxyActions(for proxy: DesignProxy) -> some View {
     DesignPaneActions {
       DesignSheetButton(
-        title: "Restart Proxy",
+        title: model.localized("desktop.proxy_detail.restart_proxy"),
         enabled: !model.isBusy
           && canRestartProxy(isRunning: proxy.status == .running, status: proxy.status)
           && model.serviceOperations[proxy.id] == nil,
@@ -263,20 +264,20 @@ struct ProxyDetailView: View {
         Button(role: .destructive) {
           requestStop()
         } label: {
-          if busyRow { ProgressView().controlSize(.small) } else { Text("Stop") }
+          if busyRow { ProgressView().controlSize(.small) } else { Text(model.localized("desktop.common.stop")) }
         }
         .disabled(busy)
-        .help("Stop this local proxy. Apps using it will lose this connection.")
-        .accessibilityLabel(busyRow ? "Stopping \(proxy.name)" : "Stop \(proxy.name)")
+        .help(model.localized("desktop.proxy_detail.stop_help"))
+        .accessibilityLabel(model.localized(busyRow ? "desktop.proxy_detail.stopping" : "desktop.proxy_detail.stop_named", replacing: ["name": proxy.name]))
       } else {
         Button {
           model.setProxyEnabled(id: proxy.id, enabled: true)
         } label: {
-          if busyRow { ProgressView().controlSize(.small) } else { Text("Start") }
+          if busyRow { ProgressView().controlSize(.small) } else { Text(model.localized("desktop.common.start")) }
         }
         .disabled(busy)
-        .help("Start this local proxy for compatible apps.")
-        .accessibilityLabel(busyRow ? "Starting \(proxy.name)" : "Start \(proxy.name)")
+        .help(model.localized("desktop.proxy_detail.start_help"))
+        .accessibilityLabel(model.localized(busyRow ? "desktop.proxy_detail.starting" : "desktop.proxy_detail.start_named", replacing: ["name": proxy.name]))
       }
     }
     .buttonStyle(.bordered)
@@ -285,13 +286,13 @@ struct ProxyDetailView: View {
   }
 
   private var providerName: String {
-    guard let proxy else { return "Proxy" }
+    guard let proxy else { return model.localized("desktop.nav.proxies") }
     return nativeProviderName(proxy.provider)
   }
 
   private var purpose: String {
-    guard let proxy else { return "Local compatibility service" }
-    return "\(nativeProviderName(proxy.provider)) compatibility"
+    guard let proxy else { return model.localized("desktop.proxy_detail.local_compatibility_service") }
+    return model.localized("desktop.proxy_detail.compatibility", replacing: ["provider": nativeProviderName(proxy.provider)])
   }
 
   private func copyAddress() {
@@ -300,10 +301,10 @@ struct ProxyDetailView: View {
     let copied = (NSPasteboard.general.clearContents() != 0)
       && NSPasteboard.general.setString(address, forType: .string)
     guard copied else {
-      model.announceOnly("Couldn’t copy \(proxy.name) address.")
+      model.announceOnly(model.localized("desktop.proxy_detail.copy_address_failed", replacing: ["name": proxy.name]))
       return
     }
-    model.announceOnly("Copied \(proxy.name) address.")
+    model.announceOnly(model.localized("desktop.proxy_detail.copy_address_success", replacing: ["name": proxy.name]))
     didCopy = true
     DispatchQueue.main.asyncAfter(deadline: .now() + 1.4) {
       didCopy = false

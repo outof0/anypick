@@ -20,6 +20,7 @@ import type {
   UsageSnapshotRow,
   UsageWindow,
 } from './contract';
+import { translate, translatePlural } from './i18n';
 
 export type DesignStatus = 'ready' | 'running' | 'attention' | 'unavailable' | 'stopped';
 
@@ -208,6 +209,80 @@ export function quotaWindowLabel(window: UsageWindow): string {
   // An unreported cadence keeps the vendor's own label. Calling a window
   // "5-hour" because it happened to be first is a claim the payload never made.
   return label || 'Quota';
+}
+
+/** Localize the standard quota labels while preserving provider-specific text. */
+export function localizedQuotaWindowLabel(
+  window: UsageWindow,
+  language: string,
+  resolvedLanguage: string,
+): string {
+  const label = quotaWindowLabel(window);
+  if (label.toLowerCase().includes('limit remaining')) return label;
+  const keys: Record<string, string> = {
+    daily: 'desktop.quota.label_daily',
+    monthly: 'desktop.quota.label_monthly',
+    quota: 'desktop.quota.quota',
+    session: 'desktop.quota.label_session',
+    weekly: 'desktop.quota.label_weekly',
+  };
+  const key = keys[label.toLowerCase()];
+  return key ? translate(key, language, resolvedLanguage) : label;
+}
+
+/** Localize the compact quota reset string shown beside an account or app. */
+export function localizedQuotaResetFormatted(
+  window: UsageWindow,
+  language: string,
+  resolvedLanguage: string,
+  now: number = Date.now(),
+): string {
+  const locale = language === 'auto' ? resolvedLanguage : language;
+  const resetsAt = window.resetsAtMs;
+  if (resetsAt === undefined) {
+    const period = localizedUsageWindowPeriod(window.limitWindowSeconds, language, resolvedLanguage);
+    return period
+      ? translate('desktop.quota.every_period', language, resolvedLanguage).replace('{period}', period)
+      : '';
+  }
+  const delta = resetsAt - now;
+  if (delta <= 0) return translate('desktop.quota.reset_soon', language, resolvedLanguage);
+  if (delta < 60 * 60 * 1000) {
+    const count = Math.max(1, Math.round(delta / 60000));
+    return translatePlural('desktop.quota.in_minutes_short', count, language, resolvedLanguage);
+  }
+  if (delta < 24 * 60 * 60 * 1000) {
+    const count = Math.round(delta / 3600000);
+    return translatePlural('desktop.quota.in_hours_short', count, language, resolvedLanguage);
+  }
+  const when = new Date(resetsAt);
+  const sameYear = when.getFullYear() === new Date(now).getFullYear();
+  return when.toLocaleDateString(locale, {
+    month: 'short',
+    day: 'numeric',
+    ...(sameYear ? {} : { year: 'numeric' }),
+  });
+}
+
+function localizedUsageWindowPeriod(
+  limitWindowSeconds: number | undefined,
+  language: string,
+  resolvedLanguage: string,
+): string | null {
+  if (limitWindowSeconds === undefined || limitWindowSeconds <= 0) return null;
+  if (limitWindowSeconds < 3600) {
+    const count = Math.max(1, Math.round(limitWindowSeconds / 60));
+    return translatePlural('desktop.quota.minutes', count, language, resolvedLanguage);
+  }
+  const hours = Math.floor(limitWindowSeconds / 3600);
+  if (hours < 24) return translatePlural('desktop.quota.hours', hours, language, resolvedLanguage);
+  const days = Math.floor(limitWindowSeconds / 86400);
+  if (days === 1) return translate('desktop.quota.day', language, resolvedLanguage);
+  if (days === 7) return translate('desktop.quota.week', language, resolvedLanguage);
+  if (days % 7 === 0) {
+    return translatePlural('desktop.quota.weeks', days / 7, language, resolvedLanguage);
+  }
+  return translatePlural('desktop.quota.days', days, language, resolvedLanguage);
 }
 
 export type UsageWindowGroup = {
@@ -596,6 +671,10 @@ export function activityMatchesCategory(
 ): boolean {
   if (category === 'all') return true;
   if (category === 'issues') return event.isError;
+  if (event.kind === 'activation') return category === 'routing';
+  if (['account', 'gateway', 'quota'].includes(event.kind)) return category === 'accounts';
+  if (event.kind === 'proxy') return category === 'proxies';
+  if (event.kind === 'settings') return false;
   const haystack = `${event.message} ${event.kind}`.toLowerCase();
   if (category === 'routing') return /uses|routing|switched|route/u.test(haystack);
   if (category === 'accounts') return /account|login|gateway|backup/u.test(haystack);

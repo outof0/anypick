@@ -32,6 +32,9 @@ func TestReadFallsBackToDefaults(t *testing.T) {
 	if cfg != want {
 		t.Fatalf("cfg = %+v, want %+v", cfg, want)
 	}
+	if LanguageOf(cfg) != LanguageAuto {
+		t.Fatalf("default language = %q, want %q", LanguageOf(cfg), LanguageAuto)
+	}
 }
 
 func TestWriteReadRoundTripMatchesTSShape(t *testing.T) {
@@ -114,11 +117,17 @@ func TestServiceMutationsPersistUnderLock(t *testing.T) {
 	if _, err := svc.SetLaunchSurface(ctx, "bogus"); err == nil {
 		t.Fatal("invalid surface accepted")
 	}
+	if _, err := svc.SetLanguage(ctx, "xx"); err == nil {
+		t.Fatal("unsupported language accepted")
+	}
 	if _, err := svc.SetTrayPreference(ctx, "bogus", true); err == nil {
 		t.Fatal("invalid tray key accepted")
 	}
 
 	if _, err := svc.SetLaunchSurface(ctx, "tray"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.SetLanguage(ctx, "vi"); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := svc.SetQuotaGuardEnabled(ctx, true); err != nil {
@@ -131,9 +140,22 @@ func TestServiceMutationsPersistUnderLock(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.UI == nil || cfg.UI.DefaultSurface != "tray" || cfg.UI.Tray == nil ||
+	if cfg.UI == nil || cfg.UI.DefaultSurface != "tray" || cfg.UI.Language != "vi" || cfg.UI.Tray == nil ||
 		cfg.UI.Tray.StartEnabledProxies == nil || *cfg.UI.Tray.StartEnabledProxies {
 		t.Fatalf("mutations not persisted: %+v", cfg)
+	}
+	if LanguageOf(cfg) != "vi" {
+		t.Fatalf("LanguageOf = %q, want vi", LanguageOf(cfg))
+	}
+	if _, err := svc.SetLanguage(ctx, "auto"); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err = svc.Read(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if LanguageOf(cfg) != LanguageAuto {
+		t.Fatalf("auto preference = %q, want %q", LanguageOf(cfg), LanguageAuto)
 	}
 	policy := QuotaGuardPolicyOf(cfg)
 	if !policy.Enabled || policy.CooldownMinutes != DefaultQuotaGuardCooldownMinutes {
@@ -217,6 +239,9 @@ func TestSettingsTogglePreservesWholeDocument(t *testing.T) {
 	if _, err := svc.SetTrayPreference(ctx, "showQuota", false); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := svc.SetLanguage(ctx, "zh-CN"); err != nil {
+		t.Fatal(err)
+	}
 	got, rerr := store.Read(ctx)
 	if rerr != nil {
 		t.Fatal(rerr)
@@ -226,6 +251,9 @@ func TestSettingsTogglePreservesWholeDocument(t *testing.T) {
 	}
 	if got.ActiveProfile != "work" {
 		t.Fatalf("activeProfile erased: %+v", got)
+	}
+	if got.UI == nil || got.UI.Language != "zh-CN" {
+		t.Fatalf("language preference not persisted: %+v", got.UI)
 	}
 	if got.SchemaVersion != CurrentSchemaVersion {
 		t.Fatalf("schemaVersion lost: %d", got.SchemaVersion)

@@ -1,0 +1,76 @@
+{
+  "common": {
+    "skipToContent": "Skip to content"
+  },
+  "header": {
+    "home": "{{title}} home",
+    "primaryNavigation": "Primary navigation",
+    "sectionsNavigation": "Sections",
+    "docs": "Docs",
+    "getStarted": "Get started",
+    "openNavigation": "Open navigation",
+    "starOnGitHub": "Star on GitHub",
+    "starShort": "Star",
+    "switchLanguage": "Switch language",
+    "language": "Language"
+  },
+  "docs": {
+    "deprecatedWithLatest": "This is the <strong>{{version}}</strong> version of the docs and is no longer maintained. The latest version of this page is at <a href=\"{{url}}\">{{url}}</a>.",
+    "deprecatedCurrent": "This version of the docs is no longer maintained. See the <a href=\"{{url}}\">current docs</a> for up-to-date content.",
+    "draft": "Draft",
+    "audienceHuman": "For humans",
+    "editThisPage": "Edit this page",
+    "siteNavigation": "Site navigation",
+    "navigation": "Navigation",
+    "closeSidebar": "Close sidebar",
+    "englishContent": "This page content is currently available in English."
+  },
+  "search": {
+    "label": "Search documentation",
+    "trigger": "Search",
+    "placeholder": "Search documentation…",
+    "typeToSearch": "Type to search…",
+    "navigateHint": "↑↓ navigate",
+    "selectHint": "↵ select",
+    "closeHint": "Esc close",
+    "productionBuild": "Search is available after a production build.",
+    "searching": "Searching…",
+    "noResults": "No results found.",
+    "temporarilyUnavailable": "Search is temporarily unavailable."
+  },
+  "pageActions": {
+    "updated": "Updated",
+    "copyPage": "Copy page",
+    "copied": "Copied",
+    "copyFailed": "Couldn't copy",
+    "viewMarkdown": "View as Markdown"
+  },
+  "pagination": {
+    "label": "Pagination",
+    "previous": "Previous",
+    "next": "Next"
+  },
+  "breadcrumbs": {
+    "label": "Breadcrumb",
+    "showMore": "Show {{count}} more path segments"
+  },
+  "sidebar": {
+    "filterPlaceholder": "Filter…  /",
+    "filterLabel": "Filter navigation"
+  },
+  "toc": {
+    "title": "On this page",
+    "label": "Table of contents"
+  },
+  "theme": {
+    "toggle": "Toggle dark mode"
+  },
+  "banner": {
+    "dismiss": "Dismiss banner"
+  },
+  "packageManager": {
+    "tabs": "Package manager",
+    "copy": "Copy to clipboard",
+    "copied": "Copied to clipboard"
+  }
+}

@@ -407,6 +407,7 @@ source <(anypick completion zsh)
 | Variable | Effect |
 | --- | --- |
 | `ANYPICK_HOME` | Data directory. Default `~/.anypick` |
+| `ANYPICK_LANG` | Display language (`en`, `zh-CN`, `es`, `fr`, `de`, `ja`, `ko`, `pt-BR`, or `vi`). Defaults to the process locale (`LC_ALL`, `LC_MESSAGES`, or `LANG`; Windows uses the preferred UI language); unsupported locales and untranslated messages fall back to English |
 | `ANYPICK_SECRET` | Credential value for `add account` / `add <provider>`, so it is not visible in the process listing |
 | `ANYPICK_NO_PLUGINS=1` | Skip loading plugins entirely |
 | `NO_COLOR` | Drop all color; glyphs still carry state |

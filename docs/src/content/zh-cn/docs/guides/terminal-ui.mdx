@@ -1,0 +1,153 @@
+---
+title: 应用与终端界面
+description: 了解 Apps 如何为 Claude Code、Codex、ZCode、dsh、commandcode、pi 和 omp 设置来源、模型并预览路由。
+---
+
+运行 `anypick` 或 `anypick tui` 会进入 **Apps**。这是 AnyPick 的主要操作界面，帮助你为每个编程工具选择当前使用的来源。账户、网关和代理等界面都用于准备这些来源。
+
+## Apps 界面概览
+
+Apps 会显示受支持客户端的当前来源、模型和状态。按从上到下的顺序阅读：
+
+1. **每一行对应一个应用**：Claude Code、Codex、ZCode、DeepSeek Harness（`dsh`）、Command Code（`commandcode`）、Pi（`pi`）或 Omp（`omp`）。Gemini、Kiro 和 WorkBuddy 不会出现在这里；它们在 Accounts 中切换各自的原生登录。
+2. **中间列**显示来源（账户、网关等）以及 AnyPick 设置的模型。
+3. **右侧状态**为 `ready`、`native`、`not set` 或 `attention`。
+4. 分隔线下方的两行会在按 <kbd>enter</kbd> 前说明将要执行的操作。
+5. 页脚列出当前屏幕的全部快捷键；未列出的键在当前屏幕没有操作。
+
+### 状态说明
+
+| 状态 | 含义 | 操作 |
+| --- | --- | --- |
+| **ready** | AnyPick 正在为应用设置路由 | 按 <kbd>enter</kbd> 可更改来源或模型 |
+| **native** | 应用自己的登录可用，但 AnyPick 尚未管理路由 | 仅在想让 AnyPick 接管时按 <kbd>enter</kbd> |
+| **not set** | 尚未设置路由 | 按 <kbd>enter</kbd>，再选择 **connect app** |
+| **attention** | 有问题需要处理，例如密钥缺失或检查失败 | 按 <kbd>enter</kbd> 或 <kbd>d</kbd> 进行诊断 |
+
+## 构建路由（主要流程）
+
+不需要手动编辑配置文件。选中应用并按 <kbd>enter</kbd>，依次完成四个步骤。**最后确认前不会写入配置。**
+
+### 1. 选择应用
+
+使用 <kbd>↑</kbd>、<kbd>↓</kbd> 或 <kbd>j</kbd>、<kbd>k</kbd> 移动光标，选择 Claude Code、Codex、ZCode、`dsh`、`commandcode`、`pi` 或 `omp`，然后按 <kbd>enter</kbd>。
+
+- 尚无来源或只有原生登录时，页脚显示 **connect app**。
+- 已有路由时，页脚显示 **change route**。
+
+### 2. 选择来源
+
+来源列表分为三组：
+
+| 分组 | 适用情况 |
+| --- | --- |
+| **Native accounts** | 为 Claude、Codex 或 Z.ai 使用同一品牌的原生登录。AnyPick 切换已保存凭据，模型选择仍由应用自身管理。ZCode 账户可从本机加密登录中检测，也可以通过 Z.ai 浏览器授权添加。 |
+| **Gateways & proxies** | 使用其他服务商、API key 端点、多账户池或 Proxy Hub。接下来可设置模型。 |
+| **Saved setups** | 使用已存在于 `presets` 表中的 `@name` 预设。当前还没有创建预设的命令，因此新安装中此组为空。 |
+
+列表只显示兼容的组合。没有可选项时，先按 <kbd>a</kbd> 保存账户，或按 <kbd>g</kbd> 添加网关。原生账户行会提示切换登录；其他来源会显示路由通过哪个来源。
+
+### 3. 按需设置模型
+
+使用同一服务商的原生登录切换时会跳过此步骤。其他情况可以配置模型角色：
+
+- **Codex**：一个默认模型。
+- **Claude**：默认模型，以及可选的 sonnet、opus、haiku 模型角色。
+
+选中一行后按 <kbd>enter</kbd> 编辑，可以输入模型 ID 或选择建议项。按 <kbd>a</kbd>（或屏幕显示的确认键）继续预览。
+
+### 4. 检查预览并启用
+
+预览展示 CLI 将执行的同一份计划，包括绑定来源、设置模型、按需启动本地代理和写入客户端配置。如果后续步骤失败，AnyPick 会回滚已执行的变更。按 <kbd>enter</kbd> 应用，按 <kbd>esc</kbd> 返回修改来源或模型。
+
+成功后会回到 Apps，并看到 **● ready** 以及新的来源和模型。
+
+## 示例：Claude 使用 Grok 工作账号
+
+1. 先在 Grok 自己的工具中登录。AnyPick 不会代替你登录服务商。
+2. 在 AnyPick 中按 <kbd>a</kbd> → **Accounts**，将该登录保存为 `work`；也可运行 `anypick add account grok --current --name work`。
+3. 返回 Apps，选中 **Claude** 并按 <kbd>enter</kbd>。
+4. 在 **Gateways & proxies** 中选择 `grok/work`。
+5. 如有提示，设置默认模型。
+6. 阅读预览并按 <kbd>enter</kbd>。
+
+现在 Claude 已连接。照常启动 Claude Code 即可。Codex、OpenRouter 等网关、账号池和预设也使用相同的流程。
+
+## Apps 快捷键
+
+| 按键 | 操作 |
+| --- | --- |
+| <kbd>enter</kbd> | 连接或更改路由（来源 → 模型 → 预览） |
+| <kbd>a</kbd> / <kbd>tab</kbd> | 打开 Accounts |
+| <kbd>g</kbd> | 打开 Gateways |
+| <kbd>p</kbd> | 打开 Proxies |
+| <kbd>d</kbd> | 诊断 |
+| <kbd>h</kbd> / <kbd>?</kbd> | 查看当前屏幕帮助 |
+| <kbd>q</kbd> | 关闭终端界面；不会更改已有兼容进程 |
+
+## 其他面板
+
+按 <kbd>tab</kbd> 在 **Apps → Accounts → Gateways → Proxy → Apps** 间切换；在其他面板按 <kbd>esc</kbd> 返回 Apps。
+
+| 面板 | 用途 |
+| --- | --- |
+| **Accounts** | 保存、切换、刷新、导入/导出和删除登录 |
+| **Gateways** | 保存端点和 API key，并将其绑定到应用 |
+| **Proxy** | 启动/停止本地协议代理、账号池和 Proxy Hub |
+
+这些面板不会取代 Apps 对“Claude 当前使用什么来源”的管理，而是提供可供 Apps 选择的来源。
+
+### Accounts 快捷键
+
+| 按键 | 操作 |
+| --- | --- |
+| <kbd>enter</kbd> | 切换、查看当前登录或保存当前登录 |
+| <kbd>v</kbd> | 查看详情和用量 |
+| <kbd>a</kbd> | 添加登录 |
+| <kbd>i</kbd> / <kbd>e</kbd> | 导入 / 导出 |
+| <kbd>r</kbd> | 刷新 |
+| <kbd>s</kbd> | 将有变更的当前登录保存到快照 |
+| <kbd>d</kbd> | 删除 |
+| <kbd>f</kbd> | 按服务商筛选 |
+
+按 <kbd>i</kbd> 时，导入选择器会列出当前目录和 `~/.anypick/exports/` 中的 `.json` 单账户文件和 AnyPick 备份。使用方向键选择，或按 <kbd>tab</kbd> 补全路径。从某个服务商的账户列表打开导入时，多账户备份只会导入该服务商的账户。
+
+### Gateways 快捷键
+
+| 按键 | 操作 |
+| --- | --- |
+| <kbd>enter</kbd> | 管理使用此网关的应用 |
+| <kbd>m</kbd> | 编辑默认模型 |
+| <kbd>e</kbd> | 编辑端点 |
+| <kbd>a</kbd> / <kbd>d</kbd> | 添加 / 删除 |
+| <kbd>f</kbd> | 按服务商筛选 |
+
+### Proxy 快捷键
+
+| 按键 | 操作 |
+| --- | --- |
+| <kbd>enter</kbd> | 启动、管理应用或保存尚未保存的登录 |
+| <kbd>m</kbd> | 管理应用并编辑模型 |
+| <kbd>s</kbd> / <kbd>r</kbd> | 停止 / 重启 |
+| <kbd>d</kbd> | 禁用自动启动 |
+| <kbd>l</kbd> | 查看日志 |
+| <kbd>p</kbd> | 启用 / 停用多账户池 |
+| <kbd>space</kbd> | 暂停或启用池成员 |
+| <kbd>f</kbd> | 设置账号池故障转移保护 |
+
+## 状态图标
+
+| 图标 | Apps 中的含义 | 其他位置的含义 |
+| --- | --- | --- |
+| `●` | ready | 正在使用 |
+| `○` | 未设置 / 已停止 | 已保存 / 已停止 |
+| `◐` | attention | 当前登录与快照不一致 |
+| `×` | failed | 失败 / 不可用 |
+
+设置 `NO_COLOR=1` 时，终端会使用 `*`、`o`、`!`、`x` 表示相同状态。
+
+## 关闭界面
+
+按 <kbd>q</kbd> 离开终端界面，不会影响已有兼容进程。这些快捷键不会控制通过 Xcode 启动的 `AnyPick.app`；原生应用通过常规启动、窗口和退出操作管理内置 Go 服务。详见[macOS 应用与菜单栏](/zh-cn/docs/guides/tray)。
+
+脚本也能使用 `anypick use claude --with grok/work` 构建相同路由；终端界面并非功能较弱的模式。安装和首次保存见[开始使用](/zh-cn/docs/getting-started)，账号池和 Hub 见[代理指南](/zh-cn/docs/guides/proxies)。

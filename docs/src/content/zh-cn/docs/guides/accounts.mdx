@@ -1,0 +1,192 @@
+---
+title: 账户
+description: 保存服务商原生登录快照，让多个账号共存，并供其他客户端使用。
+---
+
+账户可以是服务商 CLI 创建的登录，也可以是你为本地代理提供的服务商密钥。AnyPick 会保存快照，让多个账户可以共存、互相切换，也能将某个账户提供给原本不支持该服务商的客户端。
+
+## 支持的服务商
+
+| 服务商 | 当前登录凭据 | 其他客户端如何使用 |
+| --- | --- | --- |
+| `claude` | Claude Code Keychain / `~/.claude/.credentials.json` | 仅 Claude Code 直接使用 |
+| `codex` | `~/.codex/auth.json` | 仅 Codex 直接使用 |
+| `grok` | `~/.grok/auth.json` | 内置双协议代理（OpenAI + Anthropic） |
+| `opencode` | OpenCode auth store | 内置 Zen/Go 双代理 |
+| `gemini` | `~/.gemini/`（`.env`、OAuth、账户）、Antigravity 状态/钥匙串 | 内置双代理 → Gemini API |
+| `kiro` | kiro-cli 密钥库、`~/.aws/sso/cache` 或你提供的 API key | 如已安装，可通过外部 `kirolink` / `kiro-proxy` 使用 |
+| `workbuddy` | WorkBuddy / CodeBuddy 订阅登录（设备授权 OAuth） | 内置 OpenAI 代理服务支持的客户端；`anypick use workbuddy/<name>` 也会通过会话文件切换 WorkBuddy 应用 |
+| `cline` | ClinePass / Cline WorkOS 登录 | 内置 OpenAI 代理；目前还没有 Cline 客户端适配器 |
+
+`anypick providers` 是当前机器上实际可用服务商的权威列表。Go 引擎还内置兼容 API-key 和订阅密钥服务商，不需要 `popular-providers` 插件。凭据配置和示例见[插件指南](/zh-cn/docs/guides/plugins#兼容服务商已内置)。
+
+<Aside type="caution" title="账户备份包含凭据">
+账户备份是可读的 JSON，AnyPick 不会加密。请像保护真实凭据一样保管备份。它只包含已保存账户；网关密钥、偏好设置和活动记录不属于完整应用备份。
+</Aside>
+
+## 保存登录
+
+AnyPick 会委托服务商提供的登录启动器完成浏览器授权，然后读取服务商写入的常规凭据文件。你可以保存当前登录，也可以启动新的登录流程。
+
+```bash
+claude login
+anypick add account claude --current --name personal
+
+codex login
+anypick add account codex --current --name personal
+```
+
+当前生效的凭据会被保存为快照，例如 `codex/personal`。如果服务商支持浏览器授权，也可通过一条命令登录并保存：
+
+```bash
+anypick add account codex --new --name work
+```
+
+AnyPick 会暂存当前凭据，启动服务商登录流程，验证新的原生登录，并使用新名称保存。Codex、Claude Code、Kiro、Grok 和 Gemini 支持此流程。Z.ai 支持从本机导入加密的 ZCode 登录或启动官方浏览器流程。Gemini 选择器可以分别选择 Gemini CLI 和 Antigravity 兼容的 Google 来源；因为 `gemini` 没有仅登录命令，AnyPick 会直接打开 Google OAuth。若没有可用启动器，AnyPick 会清除当前登录并告知如何先在服务商工具中登录，再保存凭据。
+
+默认优先显示官方授权方式，因为它们更不容易违反服务商政策。官方方法不是唯一允许的方式：完整服务商插件可能声明社区授权方法，可通过 `--auth-method <id>` 或方法选择器显式选择。仍须遵守服务商条款。
+
+同一凭据材料不能以另一个名称重复保存。若 AnyPick 已保存该登录，会拒绝重复保存并指出已有账户。请使用已有账户，或先运行 `anypick account remove <provider>/<name>` 删除它。否则两个名称看起来像不同账户，却不会切换登录。旧版本保存的重复项会由 `anypick doctor` 报告。
+
+如果浏览器登录或快照保存失败，AnyPick 会恢复此前的原生登录和活动账户指针。授权 URL、一次性代码和启动器输出不会被复制到托盘或 JSON 输出中。
+
+Gemini 可用 `--source gemini-cli|antigravity` 指定同时存在多个登录时要读取的来源：
+
+```bash
+anypick add account gemini --current --source gemini-cli --name work
+anypick add account gemini --current --source antigravity --name work
+```
+
+省略 `--source` 时，AnyPick 根据应用留下的文件推断，优先 Gemini CLI。在 macOS 应用中，**On This Mac** 会导入已登录的 Gemini CLI 或 Antigravity 订阅；**New Account** 可选择 Google 来源并登录。失败或取消时会恢复旧登录和活动账户。AnyPick 不会向 Antigravity IDE 数据库或钥匙串写入新登录。
+
+Gemini API key（`GEMINI_API_KEY` 或 `GOOGLE_API_KEY`）也可以作为命名账户保存。它与网关配置不同，即使没有 Gemini CLI 或 Antigravity 登录也能使用：
+
+```bash
+anypick add account gemini --credential api-key --secret --name studio
+```
+
+macOS 的 Add Login 界面提供三种 Gemini 路径：导入本机登录、新建 Google 订阅登录、单独输入 API key。API-key 路径归 AnyPick 管理，不会取代原生登录。
+
+## 保存密钥而不是登录
+
+部分服务商接受现有密钥。通用格式如下：
+
+```bash
+anypick add account mimo --credential subscription-key --secret --name work \
+  --option profile=singapore
+```
+
+省略 `--secret` 的值时，CLI 会在终端中提示输入，避免密钥进入 shell 历史。每个 `--option key=value` 都必须是服务商声明的限定参数（当前为 `profile`）；其他输入会被拒绝，不会静默丢弃。
+
+> **目前不接受 Kiro API key。** `kiro` 没有声明 `CredentialDefinitions`，并不是 `CredentialInputProvider`；因此 `add account kiro --api-key/--region` 会在 `SaveInput` 阶段因 `UNSUPPORTED_CREDENTIAL_INPUT` 被拒绝。单独使用 `--region` 也会在进入服务商代码前被拒绝。浏览器登录（`--new`）和保存当前登录（`--current`）可用。
+
+在[终端界面](/zh-cn/docs/guides/terminal-ui)中，服务商声明了凭据类型时，添加账户屏幕会显示 **Use an API key instead**。输入时密钥会隐藏；端点配置来自服务商契约。
+
+密钥不是本机服务商登录，只保存在 AnyPick 中。启用该来源时，磁盘上的原生登录不变，`account refresh` 也不会覆盖 API key。
+
+插件服务商也可以声明其他凭据类型，无需添加专用 CLI 标志：
+
+```bash
+anypick add account <provider> --credential <kind> --secret --name <name>
+anypick add account mimo --credential subscription-key --secret --name work \
+  --option profile=singapore
+```
+
+`--option key=value` 必须由服务商声明。TUI 会根据同一服务商契约显示凭据类型和端点配置；macOS 应用的 Add Login 会为这些服务商显示 API-key 表单，而非登录流程。
+
+<Aside type="caution" title="一个服务商路径通常只有一个当前登录">
+服务商 CLI 通常在默认目录中只保留一个凭据。已保存账户在 AnyPick 数据库中；普通启用操作会把所选账户恢复到服务商路径。Codex 命名配置是例外：每个配置都有独立的 `CODEX_HOME`，可以同时运行多个 Codex CLI 账户。配置启用期间，不要手动编辑受管理的授权文件。
+</Aside>
+
+## 使用账户
+
+```bash
+anypick use codex --with codex/personal    # 相同协议：直接连接
+anypick use claude --with grok/work        # 跨协议：按需启动代理
+anypick use commandcode --with workbuddy/work --model deepseek-4.1-flash
+anypick run commandcode --with workbuddy/work --model deepseek-4.1-flash --
+anypick run claude
+```
+
+Codex CLI 支持命名路由。每个路由有自己的 `CODEX_HOME`、原生配置和 `auth.json`，因此可以指向不同账户或网关，而不会覆盖全局 Codex 配置或登录：
+
+```bash
+anypick codex profile login personal
+anypick codex profile login work
+anypick use codex --with codex/personal --profile personal
+anypick use codex --with codex/work --profile work
+anypick use codex --with hub:default --profile shared
+anypick codex profile list
+anypick run codex --profile work -- exec --help
+```
+
+`profile login` 会在指定配置目录中使用官方 Codex 登录，然后把结果保存为 `codex/<name>` 并生成配置；不会替换桌面应用默认的 `~/.codex/auth.json`。对已保存账户运行 `anypick use ... --profile <name>` 会将快照复制到该配置目录；网关配置则直接使用已保存端点。若配置应使用账户代理而非 Codex 原生授权，请启用账户代理并传入 `--transport proxy`。Hub 配置使用独立路由令牌，不会使其他 Codex 配置失效。
+
+默认 Codex CLI 配置也可直接使用账户代理或 Hub：
+
+```bash
+anypick use codex --with codex/work --transport proxy
+anypick use codex --with hub:default
+```
+
+这些命令配置 Codex CLI。Codex Desktop 使用独立登录，不会跟随 CLI 的 `CODEX_HOME`。
+
+客户端和账户协议不同时，AnyPick 会启动本地转换代理并将客户端指向它，无需手动启动代理。例如 Command Code 会在 `~/.commandcode/providers.json` 中收到 OpenAI 兼容的 `anypick-managed` provider，代理令牌保存在 `~/.commandcode/auth.json`。详见[代理指南](/zh-cn/docs/guides/proxies)。
+
+## 实时用量和配额
+
+服务商提供实时用量时，macOS 应用会在账户和应用详情中显示。Antigravity 会按模型系列显示五小时和每周配额，例如 **Gemini Models**、**Claude and GPT models**。AnyPick 读取当前服务商凭据以显示用量，不会刷新或写入登录。只有该服务商账户在本机处于活动状态时才会显示。Codex Desktop 与 Codex CLI 使用不同登录；两者不匹配时 AnyPick 不会显示配额读数。
+
+## 管理已保存账户
+
+```bash
+anypick account list                   # 也可运行 anypick list accounts
+anypick account refresh codex          # 刷新当前登录快照
+anypick account refresh codex work     # 只刷新指定账户
+anypick account refresh codex --all    # 刷新所有已保存账户
+anypick account remove codex old -y
+```
+
+`refresh` 会原地续期 OAuth token。账户名称不变，因此现有绑定仍有效，无需重新绑定。若任一目标失败，命令以非零状态退出并指出失败账户。
+
+删除账户时，也会删除所有绑定到它的 Codex 命名配置。每个配置拥有包含 `auth.json` 的私有 `CODEX_HOME`；不清理会留下 AnyPick 无法再访问的凭据。清理结果会明确显示：
+
+```bash
+anypick account remove codex work -y
+# removed codex/work Removed named profile(s): codex/work.
+```
+
+指向其他网关、Hub、账号池或账户的配置不会被删除。如果账户已删除但配置仍引用它（例如旧版本删除或恢复了不完整数据库），AnyPick 会在下次启动时清理并在 stderr 提示；在此之前 `anypick doctor` 会报告该情况。
+
+## 导出和导入
+
+将账户迁移到另一台机器：
+
+```bash
+anypick account export codex work -o ./work.json
+anypick account import codex work -i ./work.json
+```
+
+省略 `--out` 时，导出会在 `~/.anypick/exports/` 中创建仅所有者可读写的 `.json` 文件，并打印完整路径。要把多个账户放到同一个 JSON 备份中，可以导出全部账户或某个服务商：
+
+```bash
+anypick account export --all --out ./accounts.json
+anypick account import ./accounts.json
+```
+
+也可以在一条命令中导入多个单账户 JSON 文件，例如 `anypick account import ./work.json ./personal.json`。若名称已存在，`import` 会拒绝覆盖，除非传入 `--force`。如果相同登录身份已保存在其他名称下，即使使用 `--force` 也不能重复导入；请使用已有名称。API-key 显示名称不属于登录身份。
+
+CLI、TUI 和桌面应用均支持导入单账户导出文件和多账户备份。桌面文件选择器接受 `.json` 和 `.anypick-backup`，并在导入前显示账户供你检查。
+
+<Aside type="danger" title="导出文件包含可用凭据">
+导出文件以明文保存真实 token。请通过可信渠道传输，并在导入后删除文件。
+</Aside>
+
+## 模型默认值
+
+将账户代理绑定到 Claude 时，AnyPick 会设置 Claude 模型角色：
+
+- `ANTHROPIC_MODEL`：默认模型。
+- `ANTHROPIC_DEFAULT_SONNET_MODEL`、`…_OPUS_MODEL`、`…_HAIKU_MODEL`：可选模型角色。
+
+如果运行中的代理提供 `/v1/models` 列表，模型值会从实时目录读取；新模型无需等待 AnyPick 更新。之后可在 Proxy 或 Gateways 面板按 <kbd>m</kbd> 修改，也可从 Apps 重新构建路由，或使用显式 `--model` 重新绑定。

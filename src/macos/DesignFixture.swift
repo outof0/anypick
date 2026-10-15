@@ -363,27 +363,41 @@ enum DesignFixture {
       DesignActivity(
         id: "a1", day: "Today", time: "09:42", title: "Claude Code now uses Work",
         detail: "Previous app settings were backed up.",
-        symbol: "arrow.triangle.2.circlepath", status: .ready, provider: "Claude"
+        symbol: "arrow.triangle.2.circlepath", status: .ready, provider: "Claude",
+        titleKey: "desktop.activity.app_uses_source",
+        titleArguments: ["client": "Claude Code", "source": "Work"],
+        detailKey: "desktop.activity.sample_backup_settings", kind: "activation"
       ),
       DesignActivity(
         id: "a2", day: "Today", time: "09:18", title: "OpenRouter check failed.",
         detail: "Authentication failed. The saved gateway was not changed.",
-        symbol: "exclamationmark.circle.fill", status: .attention, provider: "OpenRouter"
+        symbol: "exclamationmark.circle.fill", status: .attention, provider: "OpenRouter",
+        titleKey: "desktop.activity.sample_gateway_check_failed",
+        titleArguments: ["gateway": "OpenRouter"],
+        detailKey: "desktop.activity.sample_auth_failed", kind: "gateway"
       ),
       DesignActivity(
         id: "a3", day: "Today", time: "08:57", title: "Proxy Hub started",
         detail: "Listening on a local authenticated address.",
-        symbol: "antenna.radiowaves.left.and.right", status: .ready
+        symbol: "antenna.radiowaves.left.and.right", status: .ready,
+        titleKey: "desktop.activity.sample_hub_started",
+        detailKey: "desktop.activity.sample_local_address", kind: "proxy"
       ),
       DesignActivity(
         id: "a4", day: "Today", time: "08:43", title: "Work saved",
         detail: "Current Claude login stored as a saved account.",
-        symbol: "archivebox.fill", status: .ready, provider: "Claude"
+        symbol: "archivebox.fill", status: .ready, provider: "Claude",
+        titleKey: "desktop.activity.sample_account_saved",
+        titleArguments: ["account": "Work"],
+        detailKey: "desktop.activity.sample_login_stored", kind: "account"
       ),
       DesignActivity(
         id: "a5", day: "Yesterday", time: "18:44", title: "Work saved",
         detail: "Claude account backup completed.", symbol: "archivebox.fill", status: .ready,
-        provider: "Claude"
+        provider: "Claude", titleKey: "desktop.activity.sample_account_saved",
+        titleArguments: ["account": "Work"],
+        detailKey: "desktop.activity.sample_backup_completed",
+        detailArguments: ["provider": "Claude"], kind: "account"
       ),
     ]
 

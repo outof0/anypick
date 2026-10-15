@@ -41,10 +41,10 @@ struct UpdateStatusDTO: Codable, Equatable, Sendable {
   /// Shown when the helper is missing, crashes, or prints nothing usable.
   static func bridgeFailure(current: String) -> UpdateStatusDTO {
     UpdateStatusDTO(
-      schema: supportedSchema, kind: "githubDown", current: current, latest: nil, notes: nil,
+      schema: supportedSchema, kind: "bridgeFailure", current: current, latest: nil, notes: nil,
       channel: "unknown", actionKind: nil, command: nil, lead: nil, downloadAsset: nil,
       releaseURL: "https://github.com/outof0/anypick/releases", progress: 0,
-      message: "AnyPick couldn't run its update check. Try again, or download the latest release from GitHub.",
+      message: nil,
       footnote: nil, skippedHint: nil, retry: true, filePath: nil, lastChecked: nil)
   }
 }
@@ -202,23 +202,26 @@ final class UpdatesModel: ObservableObject {
 
 struct SettingsUpdatesPane: View {
   @ObservedObject var updates: UpdatesModel
+  @ObservedObject var model: MacOSDesignModel
 
   @ViewBuilder
   var body: some View {
     let status = updates.status
     let p = updates.presentation
     Section {
-      LabeledContent("Current Version") {
+      LabeledContent(model.localized("desktop.settings.current_version")) {
         Text(status?.current ?? updates.currentVersion).textSelection(.enabled)
       }
       .accessibilityIdentifier("settings.updates.current")
 
       if let status, let latest = status.latest, status.kind != "upToDate" {
-        LabeledContent("Available", value: latest)
+        LabeledContent(model.localized("desktop.settings.available"), value: latest)
           .accessibilityIdentifier("settings.updates.latest")
       }
 
-      if let message = status?.message, !message.isEmpty {
+      if let message = (status?.kind == "bridgeFailure"
+        ? model.localized("desktop.updates.bridge_failed")
+        : status?.message), !message.isEmpty {
         Label {
           Text(message).fixedSize(horizontal: false, vertical: true)
         } icon: {
@@ -251,7 +254,10 @@ struct SettingsUpdatesPane: View {
               .textSelection(.enabled)
               .accessibilityIdentifier("settings.updates.command")
             Spacer()
-            Button(updates.copied ? "Copied" : "Copy", action: updates.copyCommand)
+            Button(
+              model.localized(updates.copied ? "desktop.updates.copied" : "desktop.common.copy"),
+              action: updates.copyCommand
+            )
               .accessibilityIdentifier("settings.updates.copy-command")
           }
         }
@@ -260,30 +266,30 @@ struct SettingsUpdatesPane: View {
       HStack {
         Spacer()
         if p.showsViewOnGitHub {
-          Button("View on GitHub", action: updates.openRelease)
+          Button(model.localized("desktop.updates.view_on_github"), action: updates.openRelease)
             .accessibilityIdentifier("settings.updates.view-on-github")
         }
         if p.showsRevealDownload {
-          Button("Show in Finder", action: updates.revealDownload)
+          Button(model.localized("desktop.updates.show_in_finder"), action: updates.revealDownload)
             .accessibilityIdentifier("settings.updates.reveal")
         }
         if p.showsRetry {
-          Button("Retry", action: updates.retry)
+          Button(model.localized("desktop.common.try_again"), action: updates.retry)
             .disabled(updates.isRunning)
             .accessibilityIdentifier("settings.updates.retry")
         }
-        Button("Check for Updates", action: updates.checkForUpdates)
+        Button(model.localized("desktop.settings.check_for_updates"), action: updates.checkForUpdates)
           .disabled(updates.isRunning)
           .accessibilityIdentifier("settings.updates.check")
         if p.showsDownloadUpdate {
-          Button("Download Update", action: updates.downloadUpdate)
+          Button(model.localized("desktop.updates.download_update"), action: updates.downloadUpdate)
             .buttonStyle(.borderedProminent)
             .disabled(updates.isRunning)
             .accessibilityIdentifier("settings.updates.download")
         }
       }
     } header: {
-      Text("Updates")
+      Text(model.localized("desktop.settings.updates"))
     } footer: {
       if let footnote = status?.footnote, !footnote.isEmpty {
         Text(footnote)
@@ -299,7 +305,7 @@ struct SettingsUpdatesPane: View {
         .frame(maxHeight: 220)
         .accessibilityIdentifier("settings.updates.changelog")
       } header: {
-        Text("What's New in \(status?.latest ?? "")")
+        Text(model.localized("desktop.updates.whats_new", replacing: ["version": status?.latest ?? ""]))
       }
     }
   }

@@ -16,6 +16,7 @@ import (
 	"github.com/outof0/anypick/go/internal/app"
 	"github.com/outof0/anypick/go/internal/doctor"
 	"github.com/outof0/anypick/go/internal/hub"
+	"github.com/outof0/anypick/go/internal/i18n"
 	"github.com/outof0/anypick/go/internal/paths"
 	"github.com/outof0/anypick/go/internal/refs"
 	"github.com/outof0/anypick/go/internal/store"
@@ -664,7 +665,7 @@ func (m *Model) updateConfirm(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, run
 	case "n", "N", "esc", "q":
 		m.confirm = nil
-		m.status = "cancelled"
+		m.status = i18n.T("tui.status.cancelled")
 		m.statusErr = false
 		return m, nil
 	}
@@ -879,7 +880,7 @@ func (m *Model) accountsKey(key string) (tea.Model, tea.Cmd) {
 		return m, saveLiveCmd(m.ctx, m.app, row.ProviderID)
 	case "d":
 		m.confirm = &confirmState{
-			question: fmt.Sprintf("Delete saved account %s/%s?", row.ProviderID, row.Name),
+			question: i18n.F("tui.confirm.delete_account", row.ProviderID, row.Name),
 			run:      deleteCmd(m.ctx, m.app, row.ProviderID, row.Name),
 		}
 		return m, nil
@@ -1029,7 +1030,7 @@ func (m *Model) accountDetail(r AccountRow) string {
 func (m *Model) gatewaysKey(key string) (tea.Model, tea.Cmd) {
 	switch key {
 	case "a", "d":
-		m.status = "gateway add/delete lands in Phase 3"
+		m.status = i18n.T("tui.placeholder.gateway_actions")
 		m.statusErr = false
 	case "esc":
 		m.board = boardApps
@@ -1042,7 +1043,7 @@ func (m *Model) gatewaysKey(key string) (tea.Model, tea.Cmd) {
 func (m *Model) proxyKey(key string) (tea.Model, tea.Cmd) {
 	switch key {
 	case "s", "r":
-		m.status = "proxy start/stop lands in Phase 3"
+		m.status = i18n.T("tui.placeholder.proxy_actions")
 		m.statusErr = false
 	case "esc":
 		m.board = boardApps

@@ -1,0 +1,76 @@
+{
+  "common": {
+    "skipToContent": "Pular para o conteúdo"
+  },
+  "header": {
+    "home": "Início de {{title}}",
+    "primaryNavigation": "Navegação principal",
+    "sectionsNavigation": "Seções",
+    "docs": "Documentação",
+    "getStarted": "Começar",
+    "openNavigation": "Abrir navegação",
+    "starOnGitHub": "Marcar com estrela no GitHub",
+    "starShort": "Estrela",
+    "switchLanguage": "Trocar idioma",
+    "language": "Idioma"
+  },
+  "docs": {
+    "deprecatedWithLatest": "This is the <strong>{{version}}</strong> version of the docs and is no longer maintained. The latest version of this page is at <a href=\"{{url}}\">{{url}}</a>.",
+    "deprecatedCurrent": "This version of the docs is no longer maintained. See the <a href=\"{{url}}\">current docs</a> for up-to-date content.",
+    "draft": "Rascunho",
+    "audienceHuman": "Para pessoas",
+    "editThisPage": "Editar esta página",
+    "siteNavigation": "Navegação do site",
+    "navigation": "Navegação",
+    "closeSidebar": "Fechar a barra lateral",
+    "englishContent": "O conteúdo desta página está disponível atualmente em inglês."
+  },
+  "search": {
+    "label": "Pesquisar na documentação",
+    "trigger": "Pesquisar",
+    "placeholder": "Pesquisar na documentação…",
+    "typeToSearch": "Digite para pesquisar…",
+    "navigateHint": "↑↓ navegar",
+    "selectHint": "↵ selecionar",
+    "closeHint": "Esc fechar",
+    "productionBuild": "A pesquisa estará disponível após uma compilação de produção.",
+    "searching": "Pesquisando…",
+    "noResults": "Nenhum resultado encontrado.",
+    "temporarilyUnavailable": "A pesquisa está temporariamente indisponível."
+  },
+  "pageActions": {
+    "updated": "Atualizado",
+    "copyPage": "Copiar página",
+    "copied": "Copiado",
+    "copyFailed": "Não foi possível copiar",
+    "viewMarkdown": "Ver como Markdown"
+  },
+  "pagination": {
+    "label": "Paginação",
+    "previous": "Anterior",
+    "next": "Próxima"
+  },
+  "breadcrumbs": {
+    "label": "Trilha de navegação",
+    "showMore": "Mostrar mais {{count}} segmentos do caminho"
+  },
+  "sidebar": {
+    "filterPlaceholder": "Filtrar…  /",
+    "filterLabel": "Filtrar navegação"
+  },
+  "toc": {
+    "title": "Nesta página",
+    "label": "Sumário"
+  },
+  "theme": {
+    "toggle": "Alternar modo escuro"
+  },
+  "banner": {
+    "dismiss": "Fechar aviso"
+  },
+  "packageManager": {
+    "tabs": "Gerenciador de pacotes",
+    "copy": "Copiar para a área de transferência",
+    "copied": "Copiado para a área de transferência"
+  }
+}

@@ -30,6 +30,7 @@ import (
 	"github.com/outof0/anypick/go/internal/config"
 	"github.com/outof0/anypick/go/internal/desktop"
 	"github.com/outof0/anypick/go/internal/discovery"
+	"github.com/outof0/anypick/go/internal/i18n"
 	"github.com/outof0/anypick/go/internal/lock"
 	"github.com/outof0/anypick/go/internal/modelcache"
 	"github.com/outof0/anypick/go/internal/profile"
@@ -58,7 +59,7 @@ func run(args []string) int {
 			break
 		}
 		if arg == "--version" || arg == "-V" {
-			fmt.Printf("anypick-go %s\n", packageVersion())
+			cliPrintf("anypick-go %s\n", packageVersion())
 			return int(anyerr.Success)
 		}
 	}
@@ -113,6 +114,9 @@ func run(args []string) int {
 		return reportErr(err)
 	}
 	defer closeFn()
+	if cfg, configErr := a.Config.Read(ctx); configErr == nil {
+		i18n.SetLanguage(config.LanguageOf(cfg))
+	}
 
 	if len(args) == 0 {
 		if bareWithoutTTY && configuredLaunchSurface(ctx, a) == "tui" {
@@ -198,11 +202,11 @@ func run(args []string) int {
 		// Hidden detached child: serve the persisted proxy state until
 		// SIGTERM/SIGINT. Never printed in help.
 		if len(args) < 3 {
-			fmt.Fprintln(os.Stderr, "_serve-proxy requires provider and account")
+			cliFprintln(os.Stderr, "_serve-proxy requires provider and account")
 			return int(anyerr.InvalidUsage)
 		}
 		if err := a.Proxy.ServeExisting(ctx, args[1], args[2]); err != nil {
-			fmt.Fprintln(os.Stderr, "serve:", err)
+			cliFprintln(os.Stderr, "serve:", err)
 			return int(anyerr.Operational)
 		}
 		return int(anyerr.Success)
@@ -217,16 +221,16 @@ func run(args []string) int {
 			// exitCode rides along like every other error envelope: a script
 			// reading the JSON rather than $? used to get null here, on the
 			// one error class it most needs to distinguish at startup.
-			fmt.Println(orderedJSON([]kv{
+			cliPrintln(orderedJSON([]kv{
 				{Key: "ok", Value: false},
 				{Key: "error", Value: "unknown command " + args[0]},
 				{Key: "code", Value: "UNKNOWN_COMMAND"},
 				{Key: "exitCode", Value: int(anyerr.InvalidUsage)},
 			}))
-			fmt.Fprintf(os.Stderr, "unknown command %q\n", args[0])
+			cliFprintf(os.Stderr, "unknown command %q\n", args[0])
 			return int(anyerr.InvalidUsage)
 		}
-		fmt.Fprintf(os.Stderr, "unknown command %q\n\n", args[0])
+		cliFprintf(os.Stderr, "unknown command %q\n\n", args[0])
 		usage()
 		return int(anyerr.InvalidUsage)
 	}
@@ -274,7 +278,7 @@ func bareInvocation(ctx context.Context, a *app.App) int {
 		// accidental app launch. Native cutover may change this default, but
 		// only as a tested decision (ADR 0020 §6).
 		usage()
-		fmt.Println("\nRun `anypick tui` for the interactive terminal UI.")
+		cliPrintln("\nRun `anypick tui` for the interactive terminal UI.")
 		return int(anyerr.Success)
 	}
 }
@@ -314,7 +318,7 @@ Sources:  provider/account · gateway-name · @preset · pool:<provider>
 `
 
 func usage() {
-	fmt.Print(usageText)
+	cliPrint(usageText)
 }
 
 func fsFor(_ []string) *flag.FlagSet { return cli.FsFor() }
@@ -367,11 +371,11 @@ func cmdAddAccount(ctx context.Context, a *app.App, args []string) int {
 			options, promptSecretFlag, promptAPIKey)
 	}
 	if fs.NArg() != 1 || *name == "" {
-		fmt.Fprintln(os.Stderr, usage)
+		cliFprintln(os.Stderr, usage)
 		return int(anyerr.InvalidUsage)
 	}
 	if *current && *newLogin {
-		fmt.Fprintln(os.Stderr, "usage: anypick add account <provider> --name <name> [--current|--new]: --current and --new are mutually exclusive")
+		cliFprintln(os.Stderr, "usage: anypick add account <provider> --name <name> [--current|--new]: --current and --new are mutually exclusive")
 		return int(anyerr.InvalidUsage)
 	}
 	providerID := fs.Arg(0)
@@ -381,7 +385,7 @@ func cmdAddAccount(ctx context.Context, a *app.App, args []string) int {
 		// flow, not to a fresh login.
 		if *kind != "" || *credential != "" || *secret != "" || *apiKey != "" ||
 			promptSecretFlag || promptAPIKey || *profileID != "" || len(options) > 0 || *region != "" {
-			fmt.Fprintln(os.Stderr, "usage: --new runs a fresh browser sign-in and takes no credential flags (--credential/--secret/--api-key/--option/--region)")
+			cliFprintln(os.Stderr, "usage: --new runs a fresh browser sign-in and takes no credential flags (--credential/--secret/--api-key/--option/--region)")
 			return int(anyerr.InvalidUsage)
 		}
 		res, err := a.Accounts.Login(ctx, providerID, accounts.LoginOptions{
@@ -405,51 +409,51 @@ func cmdAddAccount(ctx context.Context, a *app.App, args []string) int {
 	// Snapshot flows below: --auth-method only selects a browser sign-in
 	// method, which --current never runs.
 	if *authMethod != "" {
-		fmt.Fprintln(os.Stderr, "usage: --auth-method selects a browser sign-in method and requires --new")
+		cliFprintln(os.Stderr, "usage: --auth-method selects a browser sign-in method and requires --new")
 		return int(anyerr.InvalidUsage)
 	}
 	// Gemini is the only provider whose snapshot read is source-scoped:
 	// --source picks which sign-in --current reads when both exist.
 	if *source != "" {
 		if providerID != "gemini" || (*source != "gemini-cli" && *source != "antigravity") {
-			fmt.Fprintln(os.Stderr, "usage: --source gemini-cli|antigravity is only supported for gemini (with --current), or use --new --source <id>")
+			cliFprintln(os.Stderr, "usage: --source gemini-cli|antigravity is only supported for gemini (with --current), or use --new --source <id>")
 			return int(anyerr.InvalidUsage)
 		}
 	}
 	if *region != "" {
-		fmt.Fprintln(os.Stderr, "usage: --region is only supported for kiro API-key accounts, which are not implemented yet")
+		cliFprintln(os.Stderr, "usage: --region is only supported for kiro API-key accounts, which are not implemented yet")
 		return int(anyerr.InvalidUsage)
 	}
 
 	resolvedKind := *kind
 	if *credential != "" {
 		if resolvedKind != "" && resolvedKind != *credential {
-			fmt.Fprintln(os.Stderr, "usage: --kind and --credential disagree; pass one credential kind")
+			cliFprintln(os.Stderr, "usage: --kind and --credential disagree; pass one credential kind")
 			return int(anyerr.InvalidUsage)
 		}
 		resolvedKind = *credential
 	}
 	if *apiKey != "" || promptAPIKey {
 		if resolvedKind != "" && resolvedKind != "api-key" {
-			fmt.Fprintln(os.Stderr, "usage: --api-key implies credential kind api-key and disagrees with --credential/--kind")
+			cliFprintln(os.Stderr, "usage: --api-key implies credential kind api-key and disagrees with --credential/--kind")
 			return int(anyerr.InvalidUsage)
 		}
 		resolvedKind = "api-key"
 	}
 	if *source != "" && resolvedKind != "" {
-		fmt.Fprintln(os.Stderr, "usage: --source selects a native Gemini sign-in and cannot be combined with --credential/--kind/--api-key")
+		cliFprintln(os.Stderr, "usage: --source selects a native Gemini sign-in and cannot be combined with --credential/--kind/--api-key")
 		return int(anyerr.InvalidUsage)
 	}
 	profile := *profileID
 	if len(options) > 0 {
 		prof, err := options.profile()
 		if err != nil {
-			fmt.Fprintln(os.Stderr, "usage:", err)
+			cliFprintln(os.Stderr, "usage:", err)
 			return int(anyerr.InvalidUsage)
 		}
 		if prof != "" {
 			if profile != "" && profile != prof {
-				fmt.Fprintln(os.Stderr, "usage: --profile and --option profile= disagree; pass one endpoint profile")
+				cliFprintln(os.Stderr, "usage: --profile and --option profile= disagree; pass one endpoint profile")
 				return int(anyerr.InvalidUsage)
 			}
 			profile = prof
@@ -496,13 +500,13 @@ func cmdAddAccount(ctx context.Context, a *app.App, args []string) int {
 // switch: the provider itself accepts or refuses the document.
 func cmdAddAccountAuthFile(ctx context.Context, a *app.App, fs *flag.FlagSet, name, authFile string, force, current, newLogin bool, authMethod, source, kind, credential, secret, apiKey, profileID, region string, options optionFlags, promptSecret, promptAPIKey bool) int {
 	if fs.NArg() != 1 {
-		fmt.Fprintln(os.Stderr, "usage: anypick add account <provider> --auth-file <path|-> [--name <name>] [--force]")
+		cliFprintln(os.Stderr, "usage: anypick add account <provider> --auth-file <path|-> [--name <name>] [--force]")
 		return int(anyerr.InvalidUsage)
 	}
 	if current || newLogin || authMethod != "" || source != "" || kind != "" || credential != "" ||
 		secret != "" || apiKey != "" || profileID != "" || region != "" || len(options) > 0 ||
 		promptSecret || promptAPIKey {
-		fmt.Fprintln(os.Stderr, "usage: --auth-file cannot be combined with --current, --new, --auth-method, --source, --credential, --secret, --api-key, --kind, --region, --option, or --profile")
+		cliFprintln(os.Stderr, "usage: --auth-file cannot be combined with --current, --new, --auth-method, --source, --credential, --secret, --api-key, --kind, --region, --option, or --profile")
 		return int(anyerr.InvalidUsage)
 	}
 	raw, err := readAuthPaste(authFile)
@@ -621,11 +625,11 @@ func cmdAddAccountCurrent(ctx context.Context, a *app.App, args []string, deprec
 	}
 	if fs.NArg() != 1 || *name == "" {
 		if deprecated {
-			fmt.Fprintln(os.Stderr, "usage: anypick add <provider> --name <name> [--kind <k> --profile <p>] [--force]")
+			cliFprintln(os.Stderr, "usage: anypick add <provider> --name <name> [--kind <k> --profile <p>] [--force]")
 		} else {
-			fmt.Fprintln(os.Stderr, "usage: anypick add account <provider> --name <name> [--current|--new] [--force]")
+			cliFprintln(os.Stderr, "usage: anypick add account <provider> --name <name> [--current|--new] [--force]")
 		}
-		fmt.Fprintln(os.Stderr, "  compatible vendors take --kind/--secret (env ANYPICK_SECRET recommended)")
+		cliFprintln(os.Stderr, "  compatible vendors take --kind/--secret (env ANYPICK_SECRET recommended)")
 		return int(anyerr.InvalidUsage)
 	}
 	var (
@@ -636,7 +640,7 @@ func cmdAddAccountCurrent(ctx context.Context, a *app.App, args []string, deprec
 		*secret = envSecret
 	}
 	if *source != "" && *kind != "" {
-		fmt.Fprintln(os.Stderr, "usage: --source selects a native live sign-in and cannot be combined with --kind")
+		cliFprintln(os.Stderr, "usage: --source selects a native live sign-in and cannot be combined with --kind")
 		return int(anyerr.InvalidUsage)
 	}
 	if *kind != "" {
@@ -684,7 +688,7 @@ func cmdUse(ctx context.Context, a *app.App, args []string) int {
 		return int(anyerr.InvalidUsage)
 	}
 	if fs.NArg() != 1 || *with == "" {
-		fmt.Fprintln(os.Stderr,
+		cliFprintln(os.Stderr,
 			"usage: anypick use <client> --with <source> [--profile <name>] [--allow-foreign-config]")
 		return int(anyerr.InvalidUsage)
 	}
@@ -751,8 +755,8 @@ func cmdUse(ctx context.Context, a *app.App, args []string) int {
 				"dryRun":        true,
 			})
 		} else {
-			fmt.Println("Dry run — plan only:")
-			fmt.Printf("  · would activate %s × %s via %s\n", plan.Client, display, plan.Transport.Capability)
+			cliPrintln("Dry run — plan only:")
+			cliPrintf("  · would activate %s × %s via %s\n", plan.Client, display, plan.Transport.Capability)
 		}
 		return int(anyerr.Success)
 	}
@@ -792,21 +796,21 @@ func cmdUse(ctx context.Context, a *app.App, args []string) int {
 	if plan.Mode == activation.ModeProfile && !globals.JSON && !globals.Quiet {
 		sourceEnv := plan.ResolvedSource.Ref.Kind != refs.KindAccount ||
 			plan.Transport.Capability != transport.Direct
-		fmt.Printf("\nCODEX_HOME: %s\nauth: %s\nconfig: %s\nlaunch: %s\n",
+		cliPrintf("\nCODEX_HOME: %s\nauth: %s\nconfig: %s\nlaunch: %s\n",
 			client.CodexProfileHomePath(a.Root, plan.ProfileName),
 			client.CodexProfileAuthPath(a.Root, plan.ProfileName),
 			client.CodexProfileConfigPathForRoot(a.Root, plan.ProfileName),
 			client.CodexProfileLaunchCommand(a.Root, plan.ProfileName, sourceEnv))
 	}
 	for _, w := range result.Warnings {
-		fmt.Fprintf(os.Stderr, "warning: %s\n", w)
+		cliFprintf(os.Stderr, "warning: %s\n", w)
 	}
 	return int(anyerr.Success)
 }
 
 func cmdCurrent(ctx context.Context, a *app.App, args []string) int {
 	if cli.WantsHelp(args) {
-		fmt.Print("usage: anypick current <provider> [--json]\n\n" +
+		cliPrint("usage: anypick current <provider> [--json]\n\n" +
 			"Reports what is actually in effect for one client: the active native\n" +
 			"account, or the bound source when a gateway/pool/hub binding is what\n" +
 			"the client follows.\n")
@@ -817,7 +821,7 @@ func cmdCurrent(ctx context.Context, a *app.App, args []string) int {
 		return int(anyerr.InvalidUsage)
 	}
 	if fs.NArg() != 1 {
-		fmt.Fprintln(os.Stderr, "usage: anypick current <provider>")
+		cliFprintln(os.Stderr, "usage: anypick current <provider>")
 		return int(anyerr.InvalidUsage)
 	}
 	providerID := fs.Arg(0)
@@ -839,14 +843,14 @@ func cmdCurrent(ctx context.Context, a *app.App, args []string) int {
 					BoundSource string `json:"boundSource"`
 					Transport   string `json:"transport,omitempty"`
 				}{source, g.Spec.TransportPolicy}, "", "  ")
-				fmt.Println(string(data))
+				cliPrintln(string(data))
 				return int(anyerr.Success)
 			}
-			fmt.Printf("%s: bound to %s", providerID, source)
+			cliPrintf("%s: bound to %s", providerID, source)
 			if g.Spec.TransportPolicy != "" {
-				fmt.Printf(" via %s", g.Spec.TransportPolicy)
+				cliPrintf(" via %s", g.Spec.TransportPolicy)
 			}
-			fmt.Println()
+			cliPrintln()
 			return int(anyerr.Success)
 		}
 	}
@@ -854,16 +858,16 @@ func cmdCurrent(ctx context.Context, a *app.App, args []string) int {
 	// (machine stream stays exactly one JSON value).
 	if !globals.JSON {
 		if cur.Active == "" {
-			fmt.Printf("%s: no active account\n", providerID)
+			cliPrintf("%s: no active account\n", providerID)
 			return int(anyerr.Success)
 		}
 		line := fmt.Sprintf("%s: %s", fs.Arg(0), cur.Active)
 		if cur.Account != nil {
 			line += fmt.Sprintf(" (%s)", cur.Account.Meta.Name)
 		}
-		fmt.Println(line)
+		cliPrintln(line)
 		if !cur.IsLiveMatch {
-			fmt.Println("  live credentials differ from the saved snapshot")
+			cliPrintln("  live credentials differ from the saved snapshot")
 		}
 		return int(anyerr.Success)
 	}
@@ -879,13 +883,13 @@ func cmdCurrent(ctx context.Context, a *app.App, args []string) int {
 		out.AccountName = cur.Account.Meta.Name
 	}
 	data, _ := json.MarshalIndent(out, "", "  ")
-	fmt.Println(string(data))
+	cliPrintln(string(data))
 	return int(anyerr.Success)
 }
 
 func cmdList(ctx context.Context, a *app.App, args []string) int {
 	if cli.WantsHelp(args) {
-		fmt.Print("usage: anypick list providers|accounts [<provider>]\n\n" +
+		cliPrint("usage: anypick list providers|accounts [<provider>]\n\n" +
 			"providers lists every source provider; accounts lists the saved\n" +
 			"accounts of one provider, or of all of them. Both accept --json.\n")
 		return int(anyerr.Success)
@@ -911,7 +915,7 @@ func cmdList(ctx context.Context, a *app.App, args []string) int {
 				rows = append(rows, row{ID: id, Description: desc})
 				continue
 			}
-			fmt.Printf("%s\t%s\n", id, desc)
+			cliPrintf("%s\t%s\n", id, desc)
 		}
 		if globals.JSON {
 			jsonOut(rows)
@@ -928,7 +932,7 @@ func cmdList(ctx context.Context, a *app.App, args []string) int {
 		}
 		return listAccounts(ctx, a, providerIDs)
 	default:
-		fmt.Fprintln(os.Stderr, "usage: anypick list providers|accounts [<provider>]")
+		cliFprintln(os.Stderr, "usage: anypick list providers|accounts [<provider>]")
 		return int(anyerr.InvalidUsage)
 	}
 }
@@ -963,7 +967,7 @@ func listAccounts(ctx context.Context, a *app.App, providerIDs []string) int {
 			if isActive {
 				marker = " *"
 			}
-			fmt.Printf("%s/%s%s\t%s\n", acct.Meta.Provider, acct.Meta.Name,
+			cliPrintf("%s/%s%s\t%s\n", acct.Meta.Provider, acct.Meta.Name,
 				marker, acct.Meta.Identity)
 		}
 	}
@@ -975,7 +979,7 @@ func listAccounts(ctx context.Context, a *app.App, providerIDs []string) int {
 
 func cmdStopProxy(ctx context.Context, a *app.App, args []string) int {
 	if cli.WantsHelp(args) {
-		fmt.Print("usage: anypick stop-proxy <provider> <account>\n\n" +
+		cliPrint("usage: anypick stop-proxy <provider> <account>\n\n" +
 			"Stops one running account proxy without disabling its configuration.\n")
 		return int(anyerr.Success)
 	}
@@ -984,7 +988,7 @@ func cmdStopProxy(ctx context.Context, a *app.App, args []string) int {
 		return int(anyerr.InvalidUsage)
 	}
 	if fs.NArg() != 2 {
-		fmt.Fprintln(os.Stderr, "usage: anypick stop-proxy <provider> <account>")
+		cliFprintln(os.Stderr, "usage: anypick stop-proxy <provider> <account>")
 		return int(anyerr.InvalidUsage)
 	}
 	if err := a.Proxy.Stop(ctx, fs.Arg(0), fs.Arg(1)); err != nil {
@@ -1024,13 +1028,13 @@ func reportErr(err error) int {
 			fields = append(fields, kv{Key: "suggestions", Value: ae.Suggestions})
 		}
 		fields = append(fields, kv{Key: "exitCode", Value: exit})
-		fmt.Fprintln(os.Stderr, orderedJSON(fields))
+		cliFprintln(os.Stderr, orderedJSON(fields))
 		return exit
 	}
-	fmt.Fprintln(os.Stderr, "error:", err)
+	cliFprintln(os.Stderr, i18n.T("cli.error.prefix"), i18n.Text(err.Error()))
 	if ae != nil {
 		for _, s := range ae.Suggestions {
-			fmt.Fprintln(os.Stderr, "  →", s)
+			cliFprintln(os.Stderr, "  →", i18n.Text(s))
 		}
 	}
 	return exit
@@ -1058,7 +1062,7 @@ func refToPolicy(s string) transport.Policy {
 // cmdGateway manages gateway profiles (vendor API keys saved under a name).
 func cmdGateway(ctx context.Context, a *app.App, args []string) int {
 	if len(args) == 0 {
-		fmt.Fprintln(os.Stderr, "usage: anypick gateway add <name> --provider <id> [--endpoint url] | anypick gateway list")
+		cliFprintln(os.Stderr, "usage: anypick gateway add <name> --provider <id> [--endpoint url] | anypick gateway list")
 		return int(anyerr.InvalidUsage)
 	}
 	switch args[0] {
@@ -1075,7 +1079,7 @@ func cmdGateway(ctx context.Context, a *app.App, args []string) int {
 	case "reset":
 		return cmdGatewayReset(ctx, a, args[1:])
 	default:
-		fmt.Fprintln(os.Stderr, "unknown gateway subcommand:", args[0])
+		cliFprintln(os.Stderr, "unknown gateway subcommand:", args[0])
 		return int(anyerr.InvalidUsage)
 	}
 }
@@ -1098,7 +1102,7 @@ func cmdGatewayAdd(ctx context.Context, a *app.App, args []string) int {
 		return int(anyerr.InvalidUsage)
 	}
 	if fs.NArg() != 1 || *providerID == "" {
-		fmt.Fprintln(os.Stderr, "usage: anypick gateway add <name> --provider <id> [--endpoint url] [--api-key [key]|--api-key-env <var>|--secret <key>] [--model <id>] [--models <role=id>] [--gateway-id <id>]")
+		cliFprintln(os.Stderr, "usage: anypick gateway add <name> --provider <id> [--endpoint url] [--api-key [key]|--api-key-env <var>|--secret <key>] [--model <id>] [--models <role=id>] [--gateway-id <id>]")
 		return int(anyerr.InvalidUsage)
 	}
 	cat := catalog.NewIndex(catalog.Builtin())
@@ -1113,19 +1117,19 @@ func cmdGatewayAdd(ctx context.Context, a *app.App, args []string) int {
 	}
 	if *apiKeyEnv != "" {
 		if *secret != "" || *apiKey != "" {
-			fmt.Fprintln(os.Stderr, "usage: pass one API key source (--secret, --api-key or --api-key-env)")
+			cliFprintln(os.Stderr, "usage: pass one API key source (--secret, --api-key or --api-key-env)")
 			return int(anyerr.InvalidUsage)
 		}
 		envVal, ok := os.LookupEnv(*apiKeyEnv)
 		if !ok || envVal == "" {
-			fmt.Fprintf(os.Stderr, "error: environment variable %s is not set or empty\n", *apiKeyEnv)
+			cliFprintf(os.Stderr, "error: environment variable %s is not set or empty\n", *apiKeyEnv)
 			return int(anyerr.InvalidUsage)
 		}
 		*secret = envVal
 	}
 	if *apiKey != "" {
 		if *secret != "" {
-			fmt.Fprintln(os.Stderr, "usage: pass one API key source (--secret, --api-key or --api-key-env)")
+			cliFprintln(os.Stderr, "usage: pass one API key source (--secret, --api-key or --api-key-env)")
 			return int(anyerr.InvalidUsage)
 		}
 		*secret = *apiKey
@@ -1138,7 +1142,7 @@ func cmdGatewayAdd(ctx context.Context, a *app.App, args []string) int {
 		}
 	}
 	if *secret == "" {
-		fmt.Fprintln(os.Stderr, "error: an API key is required (--secret, --api-key, --api-key-env or ANYPICK_SECRET)")
+		cliFprintln(os.Stderr, "error: an API key is required (--secret, --api-key, --api-key-env or ANYPICK_SECRET)")
 		return int(anyerr.InvalidUsage)
 	}
 	resolvedEndpoint := *endpoint
@@ -1146,7 +1150,7 @@ func cmdGatewayAdd(ctx context.Context, a *app.App, args []string) int {
 		resolvedEndpoint = entry.DefaultEndpoint
 	}
 	if resolvedEndpoint == "" {
-		fmt.Fprintln(os.Stderr, "error: this vendor needs an explicit --endpoint")
+		cliFprintln(os.Stderr, "error: this vendor needs an explicit --endpoint")
 		return int(anyerr.InvalidUsage)
 	}
 	headers, herr := gatewayHeadersForProvider(a, *providerID, *gatewayID)
@@ -1179,8 +1183,8 @@ func cmdGatewayAdd(ctx context.Context, a *app.App, args []string) int {
 			kv{Key: "anthropicSurface", Value: surface})
 		return int(anyerr.Success)
 	}
-	fmt.Printf("gateway %s (%s) → %s\n", gatewayName, *providerID, resolvedEndpoint)
-	fmt.Printf("anthropic surface: %s\n", surface)
+	cliPrintf("gateway %s (%s) → %s\n", gatewayName, *providerID, resolvedEndpoint)
+	cliPrintf("anthropic surface: %s\n", surface)
 	return int(anyerr.Success)
 }
 
@@ -1237,7 +1241,7 @@ func cmdGatewayList(ctx context.Context, a *app.App) int {
 		return int(anyerr.Success)
 	}
 	for _, row := range rows {
-		fmt.Printf("%s\t%s\t%s\n", row.Name, row.Provider, row.Endpoint)
+		cliPrintf("%s\t%s\t%s\n", row.Name, row.Provider, row.Endpoint)
 	}
 	return int(anyerr.Success)
 }
@@ -1270,7 +1274,7 @@ func (r *roleModelFlags) Set(v string) error {
 // cmdProxy manages per-account builtin proxies across invocations.
 func cmdProxy(ctx context.Context, a *app.App, args []string) int {
 	usage := func() int {
-		fmt.Fprintln(os.Stderr,
+		cliFprintln(os.Stderr,
 			"usage: anypick proxy enable|disable <provider> <account> [--port N]\n"+
 				"       anypick proxy start|stop|status|token <provider> <account>")
 		return int(anyerr.InvalidUsage)
@@ -1391,7 +1395,7 @@ func cmdProxy(ctx context.Context, a *app.App, args []string) int {
 
 func cmdProxyStatus(ctx context.Context, a *app.App, rest []string) int {
 	usage := func() int {
-		fmt.Fprintln(os.Stderr, "usage: anypick proxy status <provider> <account>")
+		cliFprintln(os.Stderr, "usage: anypick proxy status <provider> <account>")
 		return int(anyerr.InvalidUsage)
 	}
 	fs := fsFor(rest)
@@ -1421,24 +1425,24 @@ func cmdProxyStatus(ctx context.Context, a *app.App, rest []string) int {
 		Endpoint: st.Endpoint, PID: st.PID}
 	if globals.JSON {
 		data, _ := json.MarshalIndent(out, "", "  ")
-		fmt.Println(string(data))
+		cliPrintln(string(data))
 		return int(anyerr.Success)
 	}
-	fmt.Printf("%s/%s\n", fs.Arg(0), fs.Arg(1))
-	fmt.Printf("  Enabled:        %v\n", yesNo(st.Enabled))
-	fmt.Printf("  Running:        %v\n", yesNo(st.Running))
+	cliPrintf("%s/%s\n", fs.Arg(0), fs.Arg(1))
+	cliPrintf("  Enabled:        %v\n", yesNo(st.Enabled))
+	cliPrintf("  Running:        %v\n", yesNo(st.Running))
 	if st.Endpoint != "" {
-		fmt.Printf("  Endpoint:       %s\n", st.Endpoint)
+		cliPrintf("  Endpoint:       %s\n", st.Endpoint)
 	}
 	if st.PID > 0 {
-		fmt.Printf("  PID:            %d\n", st.PID)
+		cliPrintf("  PID:            %d\n", st.PID)
 	}
 	return int(anyerr.Success)
 }
 
 func cmdProxyToken(ctx context.Context, a *app.App, rest []string) int {
 	usage := func() int {
-		fmt.Fprintln(os.Stderr, "usage: anypick proxy token <provider> <account> [--rotate]")
+		cliFprintln(os.Stderr, "usage: anypick proxy token <provider> <account> [--rotate]")
 		return int(anyerr.InvalidUsage)
 	}
 	fs := fsFor(rest)
@@ -1465,7 +1469,7 @@ func cmdProxyToken(ctx context.Context, a *app.App, rest []string) int {
 				kv{Key: "account", Value: accountName})
 			return int(anyerr.Success)
 		}
-		fmt.Println(token)
+		cliPrintlnRaw(token)
 		return int(anyerr.Success)
 	}
 	rst, err := a.Proxy.RuntimeState(ctx, providerID, accountName)
@@ -1483,7 +1487,7 @@ func cmdProxyToken(ctx context.Context, a *app.App, rest []string) int {
 			kv{Key: "account", Value: accountName})
 		return int(anyerr.Success)
 	}
-	fmt.Println(rst.Token)
+	cliPrintlnRaw(rst.Token)
 	return int(anyerr.Success)
 }
 
@@ -1492,7 +1496,7 @@ func cmdProxyToken(ctx context.Context, a *app.App, rest []string) int {
 // process spawn and pipe the native app.
 func cmdAppRun(ctx context.Context, a *app.App, args []string) int {
 	if cli.WantsHelp(args) {
-		fmt.Print("usage: anypick app\n\n" +
+		cliPrint("usage: anypick app\n\n" +
 			"Attaches the desktop protocol host. The native app spawns this itself;\n" +
 			"running it by hand on a terminal is the same as anypick tray.\n")
 		return int(anyerr.Success)
@@ -1525,7 +1529,7 @@ func cmdAppRun(ctx context.Context, a *app.App, args []string) int {
 			_, _ = cmd.Process.Wait()
 		}()
 		in, out = stdout, stdin
-		fmt.Fprintf(os.Stderr, "[app] native: %s\n", bin)
+		cliFprintf(os.Stderr, "[app] native: %s\n", bin)
 	}
 
 	return runDesktopServer(ctx, a, in, out, false)

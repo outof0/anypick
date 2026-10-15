@@ -59,6 +59,8 @@ func TestStrictMutateContract(t *testing.T) {
 
 func TestStrictDesktopCorrectnessMutationContracts(t *testing.T) {
 	valid := []map[string]interface{}{
+		{"version": 1, "requestId": "language", "operation": "setting-language",
+			"name": "settings", "language": "zh-CN"},
 		{"version": 1, "requestId": "detect", "operation": "account-detect",
 			"providerId": "codex", "name": "detect"},
 		{"version": 1, "requestId": "save", "operation": "account-save",
@@ -82,6 +84,10 @@ func TestStrictDesktopCorrectnessMutationContracts(t *testing.T) {
 	}
 
 	invalid := []map[string]interface{}{
+		{"version": 1, "requestId": "language", "operation": "setting-language",
+			"name": "settings", "language": "xx"},
+		{"version": 1, "requestId": "language", "operation": "setting-language",
+			"name": "settings", "language": "vi", "enabled": true},
 		{"version": 1, "requestId": "current", "operation": "account-save-current"},
 		{"version": 1, "requestId": "current", "operation": "account-save-current",
 			"providerId": "codex", "sourceId": ""},

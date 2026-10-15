@@ -25,14 +25,14 @@ extension TrayStore {
   func copyAddress(_ address: String) {
     NSPasteboard.general.clearContents()
     NSPasteboard.general.setString(address, forType: .string)
-    showMessage("Copied \(address)", isError: false)
+    showMessage("Copied to clipboard.", isError: false)
   }
 
   func copyLogs(for sourceId: String) {
     guard let text = logsBySource[sourceId], !text.isEmpty else { return }
     NSPasteboard.general.clearContents()
     NSPasteboard.general.setString(text, forType: .string)
-    showMessage("Copied visible logs", isError: false)
+    showMessage("Copied to clipboard.", isError: false)
   }
 
   func dismissMessage() {

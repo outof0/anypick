@@ -1,0 +1,52 @@
+---
+title: 项目绑定
+description: 为某个仓库设置独立来源，不更改全局默认值。
+---
+
+`anypick link` 会为当前目录保存绑定。在该目录中运行客户端时，项目绑定优先于全局默认值；离开该目录后不会生效。
+
+```bash
+cd ~/src/my-app
+anypick link claude                        # 将当前全局绑定复制到项目
+anypick link claude --with grok/work       # 或显式绑定来源
+anypick run claude                         # 项目绑定优先
+anypick unlink claude
+```
+
+不带客户端名称运行 `anypick unlink` 会删除当前目录中的全部项目绑定。
+
+## 绑定解析顺序
+
+`run` 按以下顺序采用第一个找到的绑定：
+
+1. 命令行中的 `--with`，只影响本次启动。
+2. 当前目录的项目绑定。
+3. `anypick use` 设置的全局绑定。
+
+如果都不存在，`run` 以退出码 `5` 结束，不会猜测来源。运行 `anypick current` 可查看每个客户端最终采用的绑定。
+
+## 示例：不同客户使用不同来源
+
+```bash
+anypick use claude --with grok/work            # 所有目录的默认来源
+
+cd ~/src/client-a
+anypick link claude --with openrouter-work     # 只对这个目录生效
+
+cd ~/src/client-b
+anypick link claude --with gemini/work
+```
+
+<Aside type="note" title="绑定按目录保存，而不是按 Git 仓库保存">
+绑定键是运行 `link` 时的目录路径。同一仓库的不同 worktree 会被视为不同项目；多数情况下这很有用，但也可能出乎意料。
+</Aside>
+
+## 清理
+
+`anypick unlink` 只删除绑定；客户端配置保持为上次启用时写入的内容。要删除 AnyPick 为客户端写入的配置，请运行：
+
+```bash
+anypick reset claude
+```
+
+`reset` 只移除 AnyPick 管理的配置，不会修改原生授权文件或你自己的设置。

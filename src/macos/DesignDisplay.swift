@@ -112,7 +112,11 @@ func disambiguatedAccountName(for account: DesignAccount, in all: [DesignAccount
 }
 
 /// VoiceOver label: account, provider, identity, plus position on collision.
-func accountAccessibilityLabel(for account: DesignAccount, in all: [DesignAccount]) -> String {
+func accountAccessibilityLabel(
+  for account: DesignAccount,
+  in all: [DesignAccount],
+  positionLabel: (Int, Int) -> String = { "\($0) of \($1)" }
+) -> String {
   let identity = accountIdentityLine(provider: account.provider, detail: account.detail)
   let base: String
   if identity.isEmpty || identity == account.name {
@@ -130,7 +134,7 @@ func accountAccessibilityLabel(for account: DesignAccount, in all: [DesignAccoun
   guard sameName.count > 1, let index = sameName.firstIndex(where: { $0.id == account.id }) else {
     return base
   }
-  return "\(base) (\(index + 1) of \(sameName.count))"
+  return "\(base) (\(positionLabel(index + 1, sameName.count)))"
 }
 
 /// Map a raw engine routeKind / detail to user-facing copy.
@@ -156,12 +160,45 @@ func friendlyRouteDetail(_ rawDetail: String?, routeKind: String?) -> String {
   }
 }
 
+@MainActor
+func friendlyRouteDetail(
+  _ rawDetail: String?,
+  routeKind: String?,
+  using model: MacOSDesignModel
+) -> String {
+  let cleaned = (rawDetail ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+  let rawKind = (routeKind ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+  let looksInternal = cleaned.isEmpty || cleaned == rawKind
+    || ["direct-account", "managed-account", "account", "pool"].contains(cleaned)
+  guard looksInternal else { return cleaned }
+  let key: String
+  switch rawKind {
+  case "direct-account", "native": key = "desktop.common.direct_account"
+  case "managed-account": key = "desktop.apps.anypick_proxy"
+  case "account", "pool": key = "desktop.common.saved_account"
+  case "hub": key = "desktop.nav.proxy_hub"
+  case "gateway": key = "desktop.account_detail.api_gateway"
+  default: key = "desktop.common.available_route"
+  }
+  return model.localized(key)
+}
+
 func friendlyRouteKindLabel(_ kind: DesignRouteKind) -> String {
   switch kind {
   case .native: return "Direct account"
   case .account: return "Saved account"
   case .hub: return "Proxy Hub"
   case .gateway: return "API gateway"
+  }
+}
+
+@MainActor
+func friendlyRouteKindLabel(_ kind: DesignRouteKind, using model: MacOSDesignModel) -> String {
+  switch kind {
+  case .native: model.localized("desktop.common.direct_account")
+  case .account: model.localized("desktop.common.saved_account")
+  case .hub: model.localized("desktop.nav.proxy_hub")
+  case .gateway: model.localized("desktop.account_detail.api_gateway")
   }
 }
 
@@ -184,6 +221,23 @@ func friendlyProxyName(label: String, providerId: String) -> String {
   return cleaned
 }
 
+@MainActor
+func friendlyProxyName(label: String, providerId: String, using model: MacOSDesignModel) -> String {
+  let cleaned = label.trimmingCharacters(in: .whitespacesAndNewlines)
+  if !cleaned.contains("/"), !cleaned.isEmpty {
+    for separator in [" · ", " • "] {
+      if let range = cleaned.range(of: separator) {
+        let suffix = String(cleaned[range.upperBound...]).trimmingCharacters(in: .whitespacesAndNewlines)
+        if !suffix.isEmpty { return suffix }
+      }
+    }
+    return cleaned
+  }
+  return model.localized("desktop.proxies.proxy_named", replacing: [
+    "provider": nativeProviderName(providerId),
+  ])
+}
+
 /// E.g. "Running · Port 62252" instead of raw "http://127.0.0.1:62252", and "Stopped" instead of "stopped".
 func friendlyProxyStatusSubtitle(status: DesignStatus, port: Int, detail: String) -> String {
   switch status {
@@ -201,6 +255,19 @@ func friendlyProxyStatusSubtitle(status: DesignStatus, port: Int, detail: String
   case .ready:
     return "Ready"
   }
+}
+
+@MainActor
+func friendlyProxyStatusSubtitle(
+  status: DesignStatus,
+  port: Int,
+  detail: String,
+  using model: MacOSDesignModel
+) -> String {
+  if status == .running, port > 0 {
+    return model.localized("desktop.proxies.running_port", replacing: ["port": String(port)])
+  }
+  return status.localizedLabel(using: model)
 }
 
 /// Parse a loopback service address to its port. URL parsing needs a
@@ -376,6 +443,134 @@ func quotaFullyRefreshFormatted(resetsAtMs: Double?, now: Date = Date()) -> Stri
   return "fully refresh in \(mins) \(minUnit)"
 }
 
+@MainActor
+func localizedQuotaPeriod(limitWindowSeconds: Int?, using model: MacOSDesignModel) -> String? {
+  guard let seconds = limitWindowSeconds, seconds > 0 else { return nil }
+  if seconds < 3600 {
+    let count = max(1, Int((Double(seconds) / 60).rounded()))
+    return model.localized("desktop.quota.minutes", count: count, replacing: ["count": String(count)])
+  }
+  let hours = seconds / 3600
+  if hours < 24 {
+    return model.localized("desktop.quota.hours", count: hours, replacing: ["count": String(hours)])
+  }
+  let days = seconds / 86400
+  if days == 1 { return model.localized("desktop.quota.day") }
+  if days == 7 { return model.localized("desktop.quota.week") }
+  if days % 7 == 0 {
+    let weeks = days / 7
+    return model.localized("desktop.quota.weeks", count: weeks, replacing: ["count": String(weeks)])
+  }
+  return model.localized("desktop.quota.days", count: days, replacing: ["count": String(days)])
+}
+
+@MainActor
+func localizedQuotaLimitAdjective(
+  limitWindowSeconds: Int?,
+  using model: MacOSDesignModel
+) -> String? {
+  guard let seconds = limitWindowSeconds, seconds > 0 else { return nil }
+  if seconds == 18000 { return model.localized("desktop.quota.five_hour") }
+  if seconds == 604800 { return model.localized("desktop.quota.weekly") }
+  if seconds == 86400 { return model.localized("desktop.quota.daily") }
+  if seconds == 3600 { return model.localized("desktop.quota.hourly") }
+  return localizedQuotaPeriod(limitWindowSeconds: seconds, using: model)
+}
+
+@MainActor
+func localizedQuotaWindowLabel(_ window: DesignUsageWindow, using model: MacOSDesignModel) -> String {
+  let clean = window.label.trimmingCharacters(in: .whitespacesAndNewlines)
+  if clean.localizedCaseInsensitiveContains("limit remaining") {
+    return clean.isEmpty ? model.localized("desktop.quota.quota") : clean
+  }
+  if let seconds = window.limitWindowSeconds, seconds > 0 {
+    if seconds == 18000 { return "5h" }
+    if seconds == 3600 { return "1h" }
+    if seconds == 86400 { return model.localized("desktop.quota.label_daily") }
+    if seconds == 604800 { return model.localized("desktop.quota.label_weekly") }
+    if seconds >= 2419200 && seconds <= 2678400 { return model.localized("desktop.quota.label_monthly") }
+    let hours = seconds / 3600
+    if hours > 0 && hours < 24 { return "\(hours)h" }
+    let days = seconds / 86400
+    if days > 0 && days < 7 { return "\(days)d" }
+  }
+  if clean.localizedCaseInsensitiveCompare("primary") == .orderedSame { return "5h" }
+  if clean.localizedCaseInsensitiveCompare("secondary") == .orderedSame {
+    return model.localized("desktop.quota.label_weekly")
+  }
+  switch clean.lowercased() {
+  case "session": return model.localized("desktop.quota.label_session")
+  case "weekly": return model.localized("desktop.quota.label_weekly")
+  case "monthly": return model.localized("desktop.quota.label_monthly")
+  case "daily": return model.localized("desktop.quota.label_daily")
+  case "quota": return model.localized("desktop.quota.quota")
+  default: break
+  }
+  return clean.isEmpty ? model.localized("desktop.quota.quota") : clean
+}
+
+@MainActor
+func localizedQuotaResetFormatted(
+  using model: MacOSDesignModel,
+  resetsAtMs: Double?,
+  limitWindowSeconds: Int? = nil,
+  now: Date = Date()
+) -> String? {
+  guard let ms = resetsAtMs, ms > 0 else {
+    guard let period = localizedQuotaPeriod(limitWindowSeconds: limitWindowSeconds, using: model) else {
+      return nil
+    }
+    return model.localized("desktop.quota.every_period", replacing: ["period": period])
+  }
+  let targetDate = Date(timeIntervalSince1970: ms / 1000)
+  let diff = targetDate.timeIntervalSince(now)
+  if diff <= 0 { return model.localized("desktop.quota.reset_soon") }
+  if diff < 3600 {
+    let count = max(1, Int((diff / 60).rounded()))
+    return model.localized("desktop.quota.in_minutes_short", count: count, replacing: ["count": String(count)])
+  }
+  if diff < 86400 {
+    let count = max(1, Int((diff / 3600).rounded()))
+    return model.localized("desktop.quota.in_hours_short", count: count, replacing: ["count": String(count)])
+  }
+  let formatter = DateFormatter()
+  let localeID = model.selectedLanguage == "auto" ? model.resolvedLanguage : model.selectedLanguage
+  formatter.locale = Locale(identifier: localeID)
+  let calendar = Calendar(identifier: .gregorian)
+  let sameYear = calendar.component(.year, from: targetDate) == calendar.component(.year, from: now)
+  formatter.setLocalizedDateFormatFromTemplate(sameYear ? "MMMd" : "yMMMd")
+  return formatter.string(from: targetDate)
+}
+
+@MainActor
+func localizedQuotaFullyRefreshFormatted(
+  resetsAtMs: Double?,
+  using model: MacOSDesignModel,
+  now: Date = Date()
+) -> String? {
+  guard let ms = resetsAtMs, ms > 0 else { return nil }
+  let diff = Date(timeIntervalSince1970: ms / 1000).timeIntervalSince(now)
+  if diff <= 0 { return model.localized("desktop.quota.fully_refresh_soon") }
+  let totalHours = Int(diff / 3600)
+  let days = totalHours / 24
+  let hours = totalHours % 24
+  let duration: String
+  if days > 0 && hours > 0 {
+    duration = model.localized("desktop.quota.duration_two", replacing: [
+      "first": model.localized("desktop.quota.days", count: days, replacing: ["count": String(days)]),
+      "second": model.localized("desktop.quota.hours", count: hours, replacing: ["count": String(hours)]),
+    ])
+  } else if days > 0 {
+    duration = model.localized("desktop.quota.days", count: days, replacing: ["count": String(days)])
+  } else if hours > 0 {
+    duration = model.localized("desktop.quota.hours", count: hours, replacing: ["count": String(hours)])
+  } else {
+    let minutes = max(1, Int((diff / 60).rounded()))
+    duration = model.localized("desktop.quota.minutes", count: minutes, replacing: ["count": String(minutes)])
+  }
+  return model.localized("desktop.quota.fully_refresh_in", replacing: ["duration": duration])
+}
+
 /// One vendor quota section (Antigravity group) or a flat ungrouped list.
 struct DesignUsageGroup: Identifiable, Hashable {
   var id: String { title ?? "_ungrouped" }
@@ -508,6 +703,14 @@ func overviewConnectionSummary(_ app: DesignApp) -> String {
     return "Uses \(name)"
   }
   return app.detail.isEmpty ? "No login chosen" : app.detail
+}
+
+@MainActor
+func overviewConnectionSummary(_ app: DesignApp, using model: MacOSDesignModel) -> String {
+  if let name = app.routeOptions.first(where: { $0.id == app.selectedRouteID })?.name {
+    return model.localized("desktop.overview.uses_account", replacing: ["name": name])
+  }
+  return app.detail.isEmpty ? model.localized("desktop.overview.no_login_chosen") : app.detail
 }
 
 // MARK: - Proxy actions
@@ -673,6 +876,19 @@ func transportDisplayName(for app: DesignApp) -> String {
   }
 }
 
+@MainActor
+func transportDisplayName(for app: DesignApp, using model: MacOSDesignModel) -> String {
+  guard let selected = app.routeOptions.first(where: { $0.id == app.selectedRouteID }) else {
+    return model.localized("desktop.overview.not_configured")
+  }
+  switch selected.kind {
+  case .gateway: return model.localized("desktop.overview.gateway")
+  case .hub: return model.localized("desktop.nav.proxy_hub")
+  case .account: return model.localized("desktop.apps.anypick_proxy")
+  case .native: return model.localized("desktop.overview.direct")
+  }
+}
+
 func isAppRouteConfigured(_ app: DesignApp) -> Bool {
   !app.selectedRouteID.isEmpty
     && app.routeOptions.contains(where: { $0.id == app.selectedRouteID })
@@ -703,12 +919,31 @@ func appShortDescription(_ clientID: String) -> String {
   }
 }
 
+@MainActor
+func appShortDescription(_ clientID: String, using model: MacOSDesignModel) -> String {
+  let id = clientID.lowercased() == "codebuddy" ? "codebuddy" : clientID.lowercased()
+  return model.localized("desktop.apps.about_\(id)")
+}
+
 func usablePublishedModelCount(_ models: [DesignPublishedModel]) -> Int {
   models.filter { !$0.needsChoice }.count
 }
 
 func activityAccessibilityLabel(for item: DesignActivity) -> String {
   let parts = [item.day, item.time, item.status.rawValue, item.title, item.detail]
+    .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+    .filter { !$0.isEmpty }
+  return parts.joined(separator: ", ")
+}
+
+@MainActor
+func activityAccessibilityLabel(
+  for item: DesignActivity,
+  title: String,
+  detail: String,
+  model: MacOSDesignModel
+) -> String {
+  let parts = [item.localizedDay(using: model), item.time, item.status.localizedLabel(using: model), title, detail]
     .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
     .filter { !$0.isEmpty }
   return parts.joined(separator: ", ")
@@ -782,6 +1017,30 @@ func addAccountBlockerMessage(
   if isNewAccountMode, let method, !method.available {
     if let reason = method.unavailableReason, !reason.isEmpty { return reason }
     return method.detail.isEmpty ? "\(method.label) is not available." : method.detail
+  }
+  return nil
+}
+
+@MainActor
+func addAccountBlockerMessage(
+  provider: DesignProviderOption?,
+  method: DesignLoginMethod?,
+  isNewAccountMode: Bool,
+  using model: MacOSDesignModel
+) -> String? {
+  guard let provider else {
+    return model.localized("desktop.add_account.no_compatible_providers")
+  }
+  if !provider.enabled {
+    return provider.detail.isEmpty
+      ? model.localized("desktop.add_account.provider_unavailable", replacing: ["provider": provider.label])
+      : provider.detail
+  }
+  if isNewAccountMode, let method, !method.available {
+    if let reason = method.unavailableReason, !reason.isEmpty { return reason }
+    return method.detail.isEmpty
+      ? model.localized("desktop.add_account.method_unavailable", replacing: ["method": method.label])
+      : method.detail
   }
   return nil
 }

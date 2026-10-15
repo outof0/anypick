@@ -95,78 +95,53 @@ final class AnyPickTests: XCTestCase {
     )
   }
 
-  /// Titles measured to land on ONE row of a real `_NSAlertPanel` beside
-  /// Cancel. A macOS alert gives its buttons a single 228pt row; a title too
-  /// wide for it is not squeezed, it takes its own full-width row — which is
-  /// what put "Remove Account" and "Cancel" on two lines. `confirmationDialog`,
-  /// `.alert` and a hand-built `NSAlert` all produce the identical panel, so the
-  /// title is the only lever, and it is the reason every button here is a bare
-  /// verb while the alert title carries the sentence.
-  ///
-  /// Measured by presenting each title in an `NSAlert` and comparing the
-  /// buttons' frame origins. Re-measure before adding an entry: the split is
-  /// pixel width, not character count ("Forget Books", 12 characters, fits;
-  /// "Remove Guest", 12 characters, wraps).
-  private static let measuredSingleRowTitles: Set<String> = [
-    "Cancel", "Clear", "Disconnect", "Forget", "OK", "Remove", "Remove App",
-    "Replace", "Rotate Key", "Sign Out", "Stop All", "Stop Proxy",
-  ]
-
-  /// Titles allowed only in a confirmation that offers three answers, where
-  /// macOS gives each button its own row whatever its width — measured: even
-  /// "No / Yes / Cancel" stacks. Two buttons beside Cancel is the only layout
-  /// the platform keeps on one line.
-  private static let threeAnswerTitles: Set<String> = ["Replace", "Skip"]
-
-  func testConfirmationButtonsFitOnOneRow() throws {
-    // Scanned rather than reviewed: a widened title reappears with any edit
-    // that improves the wording, and the wrap is invisible in a fixture
-    // screenshot because the panel still looks like a native alert.
+  @MainActor
+  func testConfirmationTitlesAreLocalizedInEveryCatalog() throws {
     let macOSDirectory = URL(fileURLWithPath: #filePath)
       .deletingLastPathComponent()
       .deletingLastPathComponent()
     let sources = try FileManager.default.contentsOfDirectory(atPath: macOSDirectory.path)
-    var seen: Set<String> = []
+    var keys: Set<String> = []
     for name in sources where name.hasSuffix(".swift") {
       let text = try String(
         contentsOf: macOSDirectory.appendingPathComponent(name),
         encoding: .utf8
       )
-      var literals = text.matches(of: /\.confirm\("([^"]+)"/).map { String($0.1) }
-      // One hand-written `.alert` bypasses the shared host: the
-      // CLIENT_CONFIG_FOREIGN takeover in MainWindow. Scan only its action
-      // closure — a whole-file `Button("…")` sweep would drag in context
-      // menus and toolbars, where the 228pt row rule does not apply.
-      if let alertStart = text.range(of: ".alert("),
-        let alertEnd = text.range(of: "} message:", range: alertStart.upperBound..<text.endIndex)
-      {
-        literals +=
-          text[alertStart.upperBound..<alertEnd.lowerBound]
-          .matches(of: /Button\("([^"]+)",?\s*(?:role: [^,]+,?)?action:/)
-          .map { String($0.1) }
-      } else if text.contains(".alert(") {
-        XCTFail("\(name) has an .alert whose action closure the scan could not bound")
-      }
-      for title in literals {
-        seen.insert(title)
-        let allowed =
-          Self.measuredSingleRowTitles.contains(title)
-          || Self.threeAnswerTitles.contains(title)
-        XCTAssertTrue(
-          allowed,
-          """
-          \(name) uses the confirmation button "\(title)", which is not on the \
-          measured list. A macOS alert gives its buttons one 228pt row beside \
-          Cancel, and a title too wide for it takes its own full-width row. Use \
-          a bare verb — the alert title already carries the sentence — or, for a \
-          three-answer confirmation, measure it and add it to threeAnswerTitles.
-          """
+      keys.formUnion(
+        text.matches(of: /\.confirm\(model\.localized\("([^"]+)"/).map { String($0.1) }
+      )
+      XCTAssertFalse(
+        text.contains(".confirm(\""),
+        "\(name) has a confirmation title that bypasses the localization catalog"
+      )
+    }
+
+    XCTAssertFalse(keys.isEmpty, "the scan matched no localized confirmation titles")
+    let catalogDirectory = macOSDirectory
+      .deletingLastPathComponent()
+      .appendingPathComponent("go/internal/i18n", isDirectory: true)
+    let locales = ["de", "en", "es", "fr", "ja", "ko", "pt-BR", "vi", "zh-CN"]
+    for locale in locales {
+      let url = catalogDirectory.appendingPathComponent("messages.\(locale).json")
+      let data = try Data(contentsOf: url)
+      let catalog = try XCTUnwrap(
+        JSONSerialization.jsonObject(with: data) as? [String: [String: String]],
+        "\(url.lastPathComponent) is not a desktop message catalog"
+      )
+      for key in keys {
+        XCTAssertFalse(
+          catalog[key]?["other"]?.isEmpty ?? true,
+          "\(url.lastPathComponent) is missing localized confirmation key \(key)"
         )
       }
     }
-    XCTAssertFalse(
-      seen.isEmpty, "the scan matched no .confirm(\"...\"); the gate would pass on nothing"
-    )
+  }
+
+  func testTraditionalChineseRegionsFallBackToEnglish() {
+    for locale in ["zh-Hant", "zh-TW", "zh-HK", "zh-MO"] {
+      XCTAssertEqual(DesktopMessageCatalog.catalogID(locale), "en", "locale: \(locale)")
+    }
+    XCTAssertEqual(DesktopMessageCatalog.catalogID("zh-CN"), "zh-CN")
   }
 
   func testAppServiceClientNegotiatesBeforeDeliveringFrames() async throws {
@@ -416,7 +391,10 @@ final class AnyPickTests: XCTestCase {
     try FileManager.default.removeItem(at: victim)
 
     XCTAssertThrowsError(try AuthPasteFiles.stage(String(repeating: "a", count: 256 * 1024 + 1))) { error in
-      XCTAssertEqual(error.localizedDescription, "Pasted auth JSON is larger than 256 KiB.")
+      XCTAssertEqual(
+        (error as? AuthPasteWriteError)?.localizationKey,
+        "desktop.add_account.auth_too_large"
+      )
     }
   }
 
@@ -1368,6 +1346,23 @@ final class AnyPickTests: XCTestCase {
       MacOSDesignModel.fromEnvironment(["ANYPICK_MACOS_FLOW": "restore-backup"]).destination,
       .backups
     )
+  }
+
+  @MainActor
+  func testLanguagePreferenceChangesSettingsCopyImmediately() {
+    let model = MacOSDesignModel(
+      destination: .settings, phase: .ready, appearance: .system, activityShowsLogs: false,
+      apps: [], accounts: [], proxies: [], activity: [], backups: [])
+
+    model.setLanguage("vi")
+
+    XCTAssertEqual(model.localized("desktop.settings.startup"), "Khởi động")
+    XCTAssertEqual(model.localized("desktop.settings.language"), "Ngôn ngữ")
+    XCTAssertEqual(
+      model.localizedSource("Backup files contain working credentials"),
+      "Tệp sao lưu chứa thông tin xác thực đang hoạt động"
+    )
+    XCTAssertEqual(model.localizedSource("Change Codex Connection"), "Đổi kết nối của Codex")
   }
 
   // MARK: - Activity L9 provider decode
@@ -2827,8 +2822,9 @@ final class AnyPickTests: XCTestCase {
     await waitUntil(store.codexProfileSources.first?.models == ["glm-5"])
     await waitUntil(model.codexProfileSources.first?.models == ["glm-5"])
     XCTAssertTrue(AppPreferences.codexAutoProfilesEnabled)
-    XCTAssertTrue(model.isBusy)
     await waitUntil(syncCommandCount(in: box.lines) == 1)
+    await waitUntil(model.isBusy)
+    XCTAssertTrue(model.isBusy)
     let payload = try XCTUnwrap(mutatePayload(in: box.lines, operation: "codex-profile-sync"))
     let requestID = try XCTUnwrap(payload["requestId"] as? String)
     store.consume(
@@ -3499,9 +3495,13 @@ final class UpdatesPaneTests: XCTestCase {
 
   @MainActor
   func testPaneRendersEveryFixture() {
+    let preferences = MacOSDesignModel(
+      destination: .settings, phase: .ready, appearance: .system, activityShowsLogs: false,
+      apps: [], accounts: [], proxies: [], activity: [], backups: [])
     for kind in UpdateStatusFixtures.lines.keys {
       let model = UpdatesModel(environment: ["ANYPICK_MACOS_UPDATE_FIXTURE": kind])
-      let host = NSHostingView(rootView: Form { SettingsUpdatesPane(updates: model) }.formStyle(.grouped))
+      let host = NSHostingView(
+        rootView: Form { SettingsUpdatesPane(updates: model, model: preferences) }.formStyle(.grouped))
       host.frame = NSRect(x: 0, y: 0, width: 720, height: 640)
       host.layoutSubtreeIfNeeded()
     }

@@ -9,7 +9,7 @@ extension ProductionDesignModel {
     let required = proxyIsRequired(proxy)
     return DesignProxy(
       id: proxy.id,
-      name: friendlyProxyName(label: proxy.label, providerId: proxy.providerId),
+      name: friendlyProxyName(label: proxy.label, providerId: proxy.providerId, using: self),
       detail: proxy.address ?? proxy.detail,
       symbol: providerSymbol(proxy.providerId),
       provider: proxy.providerId,

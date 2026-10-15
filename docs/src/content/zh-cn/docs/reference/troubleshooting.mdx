@@ -1,0 +1,137 @@
+---
+title: 故障排查
+description: 了解 anypick doctor 检查和修复的范围，以及如何阅读错误信息。
+---
+
+## 先运行 doctor
+
+```bash
+anypick doctor
+anypick doctor --fix --dry-run
+anypick doctor --fix -y
+```
+
+`doctor` 检查整套 AnyPick 安装，不会只检查某个客户端或服务商。检查内容包括 AnyPick 数据目录、SQLite 数据库、已保存账户和网关、文件权限、PID 记录、运行中的代理，以及未完成的操作日志。
+
+## `--fix` 可以修改什么
+
+`--fix` 只允许执行以下六类修复：
+
+- 删除过期 PID 文件。
+- 停止孤儿代理。
+- 删除 `run` 留下的临时客户端覆盖目录。
+- 修复 AnyPick 管理路径的权限。
+- 重建派生缓存。
+- 完成中断的操作日志回滚。
+
+它不会切换账户、安装软件包、修改原生授权文件或更改绑定。允许列表之外的问题会标为**需要手动处理**，并显示建议；终端界面也使用相同的区分方式。
+
+临时覆盖目录修复需要特别谨慎。覆盖目录位于系统临时目录下，不记录哪个进程拥有它，因此 `--fix` 只依据目录时间判断，并拒绝删除最近一小时内有修改的目录。长时间运行的 `anypick run` 可能持续超过一小时；此时自动修复会删除正在运行的客户端隔离目录。若有长时间运行的 `run`，请跳过此操作，待进程结束后再手动删除目录。允许列表中的其他修复都会先确认目标进程已退出。
+
+过期锁文件**不**在修复列表中。AnyPick 使用 `flock(2)` 文件描述符；持有进程退出时，内核会释放锁，因此崩溃不会留下需要删除的过期锁。若移除仍由活动进程持有的锁文件，会破坏协调器防止账户并发变更相互覆盖的能力（ADR 0009）。早期文档曾承诺修复锁文件，但这种修复不能安全实现。
+
+<Aside type="tip" title="先预览修复计划">
+`anypick doctor --fix --dry-run` 会列出将要执行的允许操作，可先运行一次了解修复范围。
+</Aside>
+
+## 退出码
+
+| 退出码 | 含义 | 常见原因 |
+| --- | --- | --- |
+| `1` | 操作失败 | 命令运行时发生意外错误 |
+| `2` | 用法错误 | `use` 缺少 `--with` 或 `--current`，或标志无效 |
+| `3` | 未找到 | 账户、网关、预设或客户端名称不存在 |
+| `4` | 需要认证 | 登录或 API key 缺失或已过期 |
+| `5` | 能力冲突 | 来源不支持该客户端，或不存在有效绑定 |
+| `6` | 健康检查失败 | 健康检查未通过 |
+| `7` | 缺少依赖 | 未安装外部代理二进制，例如 `kirolink` |
+| `8` / `9` | 拒绝导入 | 导出信封错误或备份太大 |
+| `130` | 已取消 | 按下 Ctrl-C |
+
+## 常见情况
+
+### 客户端启动了，但没有使用指定来源
+
+查看实际生效的绑定。当前目录中的项目绑定会优先于全局默认值：
+
+```bash
+anypick current claude
+```
+
+如果错误的项目绑定生效，运行 `anypick unlink claude` 删除它。
+
+### `run` 因退出码 5 结束，提示没有绑定
+
+该客户端没有临时、项目或全局绑定。设置一条绑定即可：
+
+```bash
+anypick use claude --with grok/work
+```
+
+### 代理无法启动
+
+先检查日志和端口：
+
+```bash
+anypick proxy status gemini work
+anypick proxy logs gemini work --lines 100
+anypick proxy config gemini work --port 4131     # 更换端口
+```
+
+配置端口被占用时，AnyPick 会选择空闲端口、保存新端口、更新已绑定客户端并报告警告，不会再直接启动失败。可以通过精确账户名称停止旧进程：`anypick proxy stop gemini work`。没有“停止所有代理”的命令；不带参数运行 `anypick proxy` 会打印用法。
+
+### Gemini 代理拒绝模型
+
+只有 OAuth 登录的 Gemini 账户可以让客户端使用原生登录，但代理需要已保存登录的 `.env` 中有 `GEMINI_API_KEY`。如果存在多种登录，请明确保存代理要使用的来源：
+
+```bash
+anypick add account gemini --current --source gemini-cli --name work
+anypick add account gemini --current --source antigravity --name work
+```
+
+### 已保存登录和当前登录不一致
+
+终端界面会标记为 `◐ changed`，表示 AnyPick 创建快照后服务商 CLI 又写入了新凭据。运行以下命令将当前登录保存到快照：
+
+```bash
+anypick account refresh codex
+```
+
+### 两个已保存账户实际上是同一份凭据
+
+如果同一服务商的两个账户名称拥有相同凭据快照，`anypick doctor` 会报告 `duplicate-snapshot`。在它们之间切换并不会改变登录。AnyPick 会阻止新增这种重复项，并要求清理旧版本留下的重复项：
+
+```bash
+anypick doctor --json                          # 显示名称以及应保留的账户
+anypick account remove workbuddy/work
+```
+
+Doctor 会标记 `keep <provider>/<account>` 并打印删除命令。如果两个名称都仍在使用（一个为活动账户，另一个被客户端绑定引用），它会要求先将客户端重新绑定到同一账户，而不是打印可能破坏路由的删除操作。
+
+### 关闭界面后代理仍在运行
+
+关闭原生应用主窗口不会退出应用。请从应用或菜单栏快捷面板选择 **Quit AnyPick**，以优雅停止内置 Go 服务。
+
+关闭源码 TUI 也不会改变已有兼容进程。可从源码仓库停止兼容 supervisor：
+
+```bash
+make run ARGS="tray stop"
+```
+
+`make run ARGS="proxy stop"` 可直接停止运行中的账户代理。TUI 只会在你显式按 <kbd>Shift+D</kbd> 或从托盘运行界面启动时创建兼容 supervisor；它不会管理另行启动的 `AnyPick.app`。
+
+### 启用路由时中途失败
+
+会修改数据的启用步骤会记录在操作日志中，并保存备份路径。步骤失败时会恢复之前状态，包括客户端配置、原生授权和已启动代理。如果进程在回滚完成前被终止，`anypick doctor --fix` 会完成回滚。
+
+切换账户也是同一事务：如果新账户无法应用到已绑定客户端，AnyPick 会恢复活动账户指针、客户端绑定和之前账户的代理，并报告错误。不会出现应用显示新活动账户、客户端却仍指向旧代理的中间状态。
+
+## 继续诊断
+
+```bash
+anypick --trace use claude --with grok/work    # 显示步骤，不显示密钥
+anypick proxy status <provider> <account>      # 查看实时监听状态
+anypick doctor --json                          # 机器可读诊断结果
+```
+
+`--trace` 会逐步打印启用计划，通常足以定位失败阶段。搭配 `--dry-run` 可以查看计划而不执行。

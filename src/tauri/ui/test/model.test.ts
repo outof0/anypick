@@ -18,6 +18,8 @@ import {
   friendlyRouteDetail,
   isAppRouteConfigured,
   isAppManagedByAnyPick,
+  localizedQuotaResetFormatted,
+  localizedQuotaWindowLabel,
   looksLikeOpaqueDisplayValue,
   nativeProviderFamily,
   nativeProviderName,
@@ -324,6 +326,36 @@ describe('quota windows', () => {
     expect(quotaResetFormatted({ label: '', remainingPercent: 10, resetsAtMs: now + 10 * 60 * 1000 }, now)).toBe('in 10m');
     expect(quotaResetFormatted({ label: '', remainingPercent: 10, resetsAtMs: now + 3 * 3600 * 1000 }, now)).toBe('in 3h');
     expect(quotaResetFormatted({ label: '', remainingPercent: 10, resetsAtMs: now - 1000 }, now)).toBe('Resets soon');
+  });
+
+  it('localizes standard quota labels and reset durations', () => {
+    const now = Date.parse('2026-01-15T12:00:00Z');
+    expect(
+      localizedQuotaWindowLabel(
+        { label: '', remainingPercent: 10, limitWindowSeconds: 604800 },
+        'vi',
+        'vi',
+      ),
+    ).toBe('Hàng tuần');
+    expect(
+      localizedQuotaResetFormatted(
+        { label: '', remainingPercent: 10, limitWindowSeconds: 18000 },
+        'vi',
+        'vi',
+        now,
+      ),
+    ).toBe('mỗi 5 giờ');
+    expect(
+      localizedQuotaResetFormatted(
+        { label: '', remainingPercent: 10, resetsAtMs: now + 2 * 3600 * 1000 },
+        'vi',
+        'vi',
+        now,
+      ),
+    ).toBe('trong 2 giờ');
+    expect(
+      localizedQuotaWindowLabel({ label: 'opaque-window-name', remainingPercent: 10 }, 'vi', 'vi'),
+    ).toBe('opaque-window-name');
   });
 });
 

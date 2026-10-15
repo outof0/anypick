@@ -9,10 +9,13 @@ import AgentDirective from "@/components/AgentDirective.astro";
 import { SearchDialog } from "@/components/ui/search";
 import NimbusHead from "nimbus-docs/components/NimbusHead.astro";
 import type { BasePageProps } from "nimbus-docs/types";
+import { getTranslator, localeForPath } from "@/i18n";
 
 type Props = BasePageProps & {
   /** Exact title for the landing page, which should not gain Nimbus's site-name suffix. */
   socialTitle?: string;
+  /** Search index used when the page's translated chrome wraps fallback content. */
+  pagefindLanguage?: string;
 };
 
 const {
@@ -26,9 +29,11 @@ const {
   collection,
   entryId,
   socialTitle,
+  pagefindLanguage,
 } = Astro.props;
 
-const lang = config.locale ?? "en";
+const lang = localeForPath(Astro.url.pathname);
+const t = await getTranslator(lang);
 // Per-page agent-index pointer. For pages in non-primary or version
 // collections, this resolves to `/<prefix>/llms.txt` (e.g. `/v0/llms.txt`
 // for a v0 docs page, `/blog/llms.txt` for a blog post). Falls back to
@@ -63,7 +68,7 @@ const socialStructuredData = socialTitle && canonicalUrl
 ---
 
 <!doctype html>
-<html lang={lang}>
+<html lang={lang} data-pagefind-language={pagefindLanguage}>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -153,7 +158,7 @@ const socialStructuredData = socialTitle && canonicalUrl
       href="#main-content"
       class="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-100 focus:rounded-md focus:bg-primary focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-primary-foreground focus:no-underline focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
     >
-      Skip to content
+      {t("common.skipToContent")}
     </a>
     {markdownUrl && !isHiddenVersion && <AgentDirective markdownUrl={markdownUrl} llmsUrl={llmsUrl} />}
     <slot />

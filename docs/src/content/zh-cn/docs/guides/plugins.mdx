@@ -1,0 +1,31 @@
+---
+title: 插件
+description: 使用本地插件扩展兼容服务商，但原生构建不会执行插件代码。
+---
+
+Go 引擎包含常用的兼容 API-key 和订阅密钥服务商，不依赖 `popular-providers` 插件。插件适用于加载本地声明的服务商和 provider 登录方法。插件包需要显式信任；原生桌面应用和 CLI 不会运行插件随附的 JavaScript 代码。
+
+## 管理插件
+
+```bash
+anypick plugin list
+anypick plugin add ./my-provider-plugin
+anypick plugin enable my-provider
+anypick plugin trust my-provider
+anypick plugin disable my-provider
+anypick plugin remove my-provider
+```
+
+`add` 会安装本地目录，但保持禁用。`enable` 是信任决定，会提示确认；没有 TTY 时需要全局 `-y`。如果插件代码发生变化，`trust` 会重新固定软件包摘要。
+
+## 兼容服务商已内置
+
+Go 引擎直接内置常用的兼容 API-key 和订阅密钥服务商，不需要 `popular-providers` 插件。只有加载本地声明的服务商或服务商登录方式时才需要插件。
+
+插件可以声明凭据类型、API-key 配置项和端点配置，CLI/TUI 会依据这些声明显示通用输入表单，无需为每个服务商添加专用标志。参见[账户指南](/zh-cn/docs/guides/accounts)中的通用 `--credential` 示例。
+
+插件与 AnyPick 内置能力的区别很重要：`anypick providers` 显示当前构建实际可用的服务商；不要仅凭客户端注册表推断支持的来源组合。跨服务商兼容矩阵由 `internal/transport/adapter_matrix_test.go` 验证。
+
+<Aside type="caution" title="启用插件前检查来源">
+启用插件会记录信任决定。只有在你检查并信任本地软件包后才启用；插件代码改变后，必须重新运行 `trust` 固定新摘要。
+</Aside>

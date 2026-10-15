@@ -7,10 +7,12 @@
 import { Icon } from "astro-icon/components";
 import { cn } from "@/lib/cn";
 import type { HTMLAttributes } from "astro/types";
+import { getTranslator, localeForPath } from "@/i18n";
 
 interface Props extends HTMLAttributes<"button"> {}
 
 const { class: className, ...attrs } = Astro.props;
+const t = await getTranslator(localeForPath(Astro.url.pathname));
 ---
 
 <button
@@ -20,7 +22,7 @@ const { class: className, ...attrs } = Astro.props;
     className,
   )}
   {...attrs}
-  aria-label="Toggle dark mode"
+  aria-label={t("theme.toggle")}
   data-nb-state="light"
 >
   <Icon name="ph:sun" class="w-[1.125rem] h-[1.125rem] hidden group-data-[nb-state=dark]:block" />

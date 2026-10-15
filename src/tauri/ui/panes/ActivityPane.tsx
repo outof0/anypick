@@ -9,6 +9,7 @@ import {
 } from '../lib/model';
 import type { ServicePort } from '../lib/service';
 import type { LogsFrame } from '../lib/wire';
+import { translate, translateSource } from '../lib/i18n';
 import { SegmentedControl } from '../ui/SegmentedControl';
 import { ProviderIcon } from '../shell/ProviderIcon';
 import { Button, EmptyState, Group, Pane, PaneActions, Row, RowActions, RowText, Select } from '../ui/primitives';
@@ -48,6 +49,10 @@ export function ActivityPane({
   const [category, setCategory] = useState<ActivityCategoryId>('all');
   const [sourceId, setSourceId] = useState(snapshot.logSources[0]?.id ?? '');
   const needle = query.trim().toLocaleLowerCase();
+  const t = (key: string) =>
+    translate(`desktop.activity.${key}`, snapshot.settings.language, snapshot.settings.resolvedLanguage);
+  const tr = (source: string) =>
+    translateSource(source, snapshot.settings.language, snapshot.settings.resolvedLanguage);
 
   const source = snapshot.logSources.find((row) => row.id === sourceId) ?? snapshot.logSources[0];
   const log = source ? logs[source.id] : undefined;
@@ -91,17 +96,17 @@ export function ActivityPane({
   );
 
   return (
-    <Pane title="Activity" testId="activity">
+    <Pane title={translate('desktop.nav.activity', snapshot.settings.language, snapshot.settings.resolvedLanguage)} testId="activity">
       <Group testId="activity-mode">
         <Row>
-          <RowText title="View" />
+          <RowText title={t('view')} />
           <RowActions>
             <SegmentedControl
               value={mode}
               onChange={(value) => setMode(value === 'logs' ? 'logs' : 'events')}
               options={[
-                { value: 'events', label: 'Events' },
-                { value: 'logs', label: 'Live Logs' },
+                { value: 'events', label: t('events') },
+                { value: 'logs', label: t('live_logs') },
               ]}
               testId="activity-mode.picker"
             />
@@ -109,21 +114,24 @@ export function ActivityPane({
         </Row>
         {mode === 'events' && snapshot.activity.length > 0 ? (
           <Row>
-            <RowText title="Filter events" />
+            <RowText title={t('filter_events')} />
             <RowActions>
               <Select
                 label=""
                 value={category}
                 testId="activity.logs.filter"
                 onChange={(value) => setCategory(value as ActivityCategoryId)}
-                options={ACTIVITY_CATEGORIES.map((row) => ({ value: row.id, label: row.label }))}
+                options={ACTIVITY_CATEGORIES.map((row) => ({
+                  value: row.id,
+                  label: translate(`desktop.activity.category_${row.id}`, snapshot.settings.language, snapshot.settings.resolvedLanguage),
+                }))}
               />
             </RowActions>
           </Row>
         ) : null}
         {mode === 'logs' && snapshot.logSources.length > 0 ? (
           <Row>
-            <RowText title="Log source" />
+            <RowText title={t('log_source')} />
             <RowActions>
               <Select
                 label=""
@@ -140,18 +148,18 @@ export function ActivityPane({
       {mode === 'events' ? (
         rows.length === 0 ? (
           <EmptyState
-            title={needle || category !== 'all' ? 'No Results' : 'No Activity Yet'}
+            title={needle || category !== 'all' ? t('no_results') : t('no_activity')}
             detail={
               needle || category !== 'all'
-                ? 'No events match your filters.'
+                ? t('no_results_detail')
                 : hidden.size > 0
-                  ? 'Cleared the visible activity list. Supervisor history is unchanged.'
-                  : 'Account, routing and service events will appear here.'
+                  ? t('cleared_events')
+                  : t('no_events')
             }
             testId="activity-empty"
           />
         ) : (
-          <Group title="Recent activity" testId="activity-list">
+          <Group title={t('recent_activity')} testId="activity-list">
             {rows.map((row) => {
               const provider = row.provider || row.message.match(/uses ([a-z0-9_-]+)\//i)?.[1];
               return (
@@ -159,7 +167,15 @@ export function ActivityPane({
                   {provider ? (
                     <ProviderIcon provider={provider} size={18} className="mr-1.5 flex-none" />
                   ) : null}
-                  <RowText title={row.message} detail={formatActivityTimestamp(row.createdAt)} />
+                  <RowText
+                    title={tr(row.message)}
+                    detail={formatActivityTimestamp(
+                      row.createdAt,
+                      snapshot.settings.language === 'auto'
+                        ? snapshot.settings.resolvedLanguage
+                        : snapshot.settings.language,
+                    )}
+                  />
                 </Row>
               );
             })}
@@ -167,25 +183,27 @@ export function ActivityPane({
         )
       ) : (
         <Group
-          title="Live logs"
-          footer="Sensitive values are redacted by the service before they reach this window."
+          title={t('live_logs')}
+          footer={t('sensitive_redacted')}
           testId="activity-logs"
         >
           <Row>
             <RowText
-              title={logReadyLabel(log)}
+              title={logReadyLabel(log, t)}
               // The macOS pane renders "Status: Live" while the source is
               // answering, which is the only thing the label has to say. The
               // proxy id is the source the engine echoed, not the request.
-              detail={log?.state === 'ready' ? 'Status: Live' : log?.proxyId}
-              issue={log?.state === 'error' ? 'Could not read this log.' : undefined}
+              detail={log?.state === 'ready' ? t('status_live') : log?.proxyId}
+              issue={log?.state === 'error' ? t('could_not_read') : undefined}
+              language={snapshot.settings.language}
+              resolvedLanguage={snapshot.settings.resolvedLanguage}
             />
             {/* The liveness is its own labelled value, as on macOS: a title that
                 happens to read "Live" is not the same fact as a status the user
                 can find on its own. */}
             {log?.state === 'ready' ? (
               <span className="text-[12px] whitespace-nowrap text-secondary" data-testid="activity.logs.live">
-                Live
+                {t('live')}
               </span>
             ) : null}
             <RowActions>
@@ -198,7 +216,7 @@ export function ActivityPane({
                   service?.fetchLogs(source.providerId, source.name);
                 }}
               >
-                Refresh
+                {translate('desktop.common.refresh', snapshot.settings.language, snapshot.settings.resolvedLanguage)}
               </Button>
             </RowActions>
           </Row>
@@ -216,7 +234,7 @@ export function ActivityPane({
                     if (source) setHiddenLogs(new Set([source.id]));
                   }}
                 >
-                  Clear Log…
+                  {t('clear_log')}
                 </Button>
               </RowActions>
             </Row>
@@ -224,16 +242,16 @@ export function ActivityPane({
           {cleared ? (
             <Row testId="activity.logs">
               <RowText
-                title="Cleared the visible log"
-                detail="The engine keeps the log file. Refresh to read it again."
+                title={t('cleared_log')}
+                detail={t('cleared_log_detail')}
               />
             </Row>
           ) : log?.state === 'ready' || log?.state === 'empty' ? (
             <Row testId="activity.logs">
               {filtered.length === 0 ? (
                 <RowText
-                  title={needle ? 'No Matching Lines' : 'No Entries Yet'}
-                  detail={needle ? 'Clear the search to see the whole log.' : undefined}
+                  title={needle ? t('no_matching_lines') : t('no_entries')}
+                  detail={needle ? t('clear_search_detail') : undefined}
                 />
               ) : (
                 <pre className="m-0 max-h-60 overflow-auto font-mono text-[11px] leading-[1.45] break-words whitespace-pre-wrap text-text">
@@ -245,8 +263,8 @@ export function ActivityPane({
           {lines.hidden > 0 ? (
             <Row>
               <RowText
-                detail={`${lines.hidden} earlier lines are not shown.`}
-                title="Log truncated"
+                detail={t('earlier_lines').replace('{count}', String(lines.hidden))}
+                title={t('log_truncated')}
               />
             </Row>
           ) : null}
@@ -263,7 +281,7 @@ export function ActivityPane({
             testId="activity-clear-events"
             onClick={() => setHidden(new Set(snapshot.activity.map((row) => row.id)))}
           >
-            Clear Events…
+            {t('clear_events')}
           </Button>
         </PaneActions>
       ) : null}
@@ -271,19 +289,19 @@ export function ActivityPane({
   );
 }
 
-function logReadyLabel(log: LogsFrame | undefined): string {
-  if (!log) return 'Waiting for the first reading…';
-  if (log.state === 'ready') return 'Live';
-  if (log.state === 'empty') return 'No entries yet';
-  if (log.state === 'not-running') return 'Not running';
-  return 'Unavailable';
+function logReadyLabel(log: LogsFrame | undefined, t: (key: string) => string): string {
+  if (!log) return t('waiting');
+  if (log.state === 'ready') return t('live');
+  if (log.state === 'empty') return t('no_entries');
+  if (log.state === 'not-running') return t('not_running');
+  return t('unavailable');
 }
 
-function formatActivityTimestamp(iso: string): string {
+function formatActivityTimestamp(iso: string, locale: string): string {
   try {
     const d = new Date(iso);
     if (isNaN(d.getTime())) return iso;
-    return d.toLocaleString(undefined, {
+    return d.toLocaleString(locale, {
       month: 'short',
       day: 'numeric',
       hour: '2-digit',

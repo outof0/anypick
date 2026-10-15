@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 
 import type { Snapshot } from '../lib/contract';
 import { exportBackup, forgetBackup, importBackup } from '../lib/desktop-actions';
+import { translate } from '../lib/i18n';
 import type { ServicePort } from '../lib/service';
 import type { BackupPreviewFrame } from '../lib/wire';
 import { Button, Group, Pane, PaneActions, Row, RowActions, RowText, WarningRow } from '../ui/primitives';
@@ -26,6 +27,14 @@ export function BackupsPane({
   const [exportOpen, setExportOpen] = useState(initialExportOpen);
   const [reviewOpen, setReviewOpen] = useState(() => initialReviewOpen || Boolean(preview && preview.status === 'ready'));
   const [lastReviewedPath, setLastReviewedPath] = useState('');
+  const t = (key: string) =>
+    translate(`desktop.backups.${key}`, snapshot.settings.language, snapshot.settings.resolvedLanguage);
+  const accountCount = (count: number) =>
+    translate(
+      `desktop.backups.${count === 1 ? 'account_one' : 'account_many'}`,
+      snapshot.settings.language,
+      snapshot.settings.resolvedLanguage,
+    ).replace('%d', String(count));
 
   useEffect(() => {
     if (preview && (preview.status === 'ready' || preview.status === 'error')) {
@@ -65,19 +74,19 @@ export function BackupsPane({
   };
 
   return (
-    <Pane title="Backups" testId="backups">
+    <Pane title={translate('desktop.nav.backups', snapshot.settings.language, snapshot.settings.resolvedLanguage)} testId="backups">
       {/* Warning section matching macOS `BackupsView.swift:38-50` */}
       <Group testId="backups-warning">
         <WarningRow
-          title="Backup files contain working credentials"
-          detail="They are readable JSON and are not encrypted. Store them securely and don’t share them."
+          title={t('warning_title')}
+          detail={t('warning_detail')}
         />
       </Group>
 
       {/* Reviewed backups section matching macOS `BackupsView.swift:52-134` */}
       <Group
-        title="Reviewed Backups"
-        footer="Saved accounts only. API gateways, app settings, activity, and AnyPick settings are not included. For imported files, AnyPick stages a protected copy that is discarded when you forget the review."
+        title={t('reviewed_title')}
+        footer={t('reviewed_footer')}
       >
         {preview?.status === 'ready' ? (
           <Row testId={`backups.inventory.${preview.inspectionId || 'preview'}`}>
@@ -90,27 +99,44 @@ export function BackupsPane({
               </svg>
             </div>
             <RowText
-              title={formatBackupDate(preview.createdAt)}
-              detail={`${preview.entries.length} ${preview.entries.length === 1 ? 'account' : 'accounts'} · ${lastReviewedPath || 'Staged backup'}`}
+              title={formatBackupDate(
+                preview.createdAt,
+                snapshot.settings.language === 'auto' ? snapshot.settings.resolvedLanguage : snapshot.settings.language,
+                t('reviewed_backup'),
+              )}
+              detail={`${accountCount(preview.entries.length)} · ${lastReviewedPath || t('staged_backup')}`}
             />
             <RowActions>
               <Button kind="secondary" onClick={() => setReviewOpen(true)}>
-                Review
+                {t('review')}
               </Button>
-              <RowMenu label="More backup options" clipboard={service.copy} testId="backups.more-menu">
+              <RowMenu
+                label={t('more_options')}
+                clipboard={service.copy}
+                language={snapshot.settings.language}
+                resolvedLanguage={snapshot.settings.resolvedLanguage}
+                testId="backups.more-menu"
+              >
                 {(close, copy) => (
                   <>
                     <MenuItem onSelect={() => {
                         close();
                         setReviewOpen(true);
                       }}>
-                      Review Backup…
+                      {t('review_backup')}
                     </MenuItem>
                     {lastReviewedPath ? (
                       <MenuItem onSelect={() => {
-                          copy(lastReviewedPath, 'backup file path');
+                          copy(
+                            lastReviewedPath,
+                            t('backup_file').toLocaleLowerCase(
+                              snapshot.settings.language === 'auto'
+                                ? snapshot.settings.resolvedLanguage
+                                : snapshot.settings.language,
+                            ),
+                          );
                         }}>
-                        Copy File Path
+                        {t('copy_path')}
                       </MenuItem>
                     ) : null}
                     <MenuDivider />
@@ -118,7 +144,7 @@ export function BackupsPane({
                         close();
                         if (preview.inspectionId) handleDiscard(preview.inspectionId);
                       }}>
-                      Forget Review…
+                      {t('forget_review')}
                     </MenuItem>
                   </>
                 )}
@@ -130,21 +156,21 @@ export function BackupsPane({
           </Row>
         ) : (
           <Row>
-            <RowText detail="No reviewed backups. Choose a backup file to review it before importing." />
+            <RowText detail={t('empty_reviewed')} />
           </Row>
         )}
       </Group>
 
       {/* Quick backup section */}
       <Group
-        title="Quick Backup"
-        footer="Exports all accounts to a temporary file and reports that file's path. The file contains account credentials."
+        title={t('quick_title')}
+        footer={t('quick_footer')}
         testId="backups-create-quick"
       >
         <Row testId="backup-create-row">
           <RowText
-            title="Create an account backup"
-            detail="Save all saved accounts to a default timestamped file."
+            title={t('quick_create_title')}
+            detail={t('quick_create_detail')}
           />
           <RowActions>
             <Button
@@ -152,7 +178,7 @@ export function BackupsPane({
               disabled={busy.size > 0}
               onClick={handleQuickBackup}
             >
-              Create Backup
+              {t('quick_create_action')}
             </Button>
           </RowActions>
         </Row>
@@ -166,7 +192,7 @@ export function BackupsPane({
           disabled={busy.size > 0 || snapshot.accounts.length === 0}
           onClick={() => setExportOpen(true)}
         >
-          Export Accounts…
+          {t('export_accounts')}
         </Button>
         <Button
           kind="secondary"
@@ -174,7 +200,7 @@ export function BackupsPane({
           disabled={busy.size > 0}
           onClick={() => setReviewOpen(true)}
         >
-          Review Backup…
+          {t('review_backup')}
         </Button>
       </PaneActions>
 
@@ -182,6 +208,8 @@ export function BackupsPane({
       {exportOpen ? (
         <CreateBackupSheet
           accounts={snapshot.accounts}
+          language={snapshot.settings.language}
+          resolvedLanguage={snapshot.settings.resolvedLanguage}
           busy={busy.size > 0}
           onClose={() => setExportOpen(false)}
           onExport={handleExport}
@@ -191,6 +219,8 @@ export function BackupsPane({
       {reviewOpen ? (
         <RestoreBackupSheet
           preview={preview}
+          language={snapshot.settings.language}
+          resolvedLanguage={snapshot.settings.resolvedLanguage}
           busy={busy.size > 0}
           initialPath={lastReviewedPath}
           onClose={() => setReviewOpen(false)}
@@ -203,12 +233,12 @@ export function BackupsPane({
   );
 }
 
-function formatBackupDate(isoString?: string): string {
-  if (!isoString) return 'Reviewed backup';
+function formatBackupDate(isoString: string | undefined, locale: string, fallback: string): string {
+  if (!isoString) return fallback;
   try {
     const d = new Date(isoString);
     if (isNaN(d.getTime())) return isoString;
-    return d.toLocaleString(undefined, {
+    return d.toLocaleString(locale, {
       month: 'short',
       day: 'numeric',
       year: 'numeric',

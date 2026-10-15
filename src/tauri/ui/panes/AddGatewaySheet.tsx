@@ -18,6 +18,7 @@ import {
 } from '../lib/gateway-flow';
 import type { ServicePort } from '../lib/service';
 import type { ServiceResult } from '../lib/wire';
+import { translate, translateSource } from '../lib/i18n';
 import { Dialog } from '../ui/Dialog';
 import { MenuSelect } from '../ui/MenuSelect';
 import { Button, Field, Group, Row, RowActions, RowText, Select, StatusLabel } from '../ui/primitives';
@@ -38,6 +39,8 @@ export type GatewayFlowResult = { operation: string; result: ServiceResult };
 export function AddGatewaySheet({
   providers,
   accounts,
+  language,
+  resolvedLanguage,
   busy = false,
   flowResult,
   onSend,
@@ -46,11 +49,16 @@ export function AddGatewaySheet({
   providers: readonly GatewayProviderRow[];
   /** The saved accounts, for a suggested name that is not already taken. */
   accounts: readonly AccountRow[];
+  language: string;
+  resolvedLanguage: string;
   busy?: boolean;
   flowResult?: GatewayFlowResult | null;
   onSend: (action: { operation: string; extra: Record<string, unknown> }) => void;
   onClose: () => void;
 }) {
+  const t = (key: string) => translate(`desktop.gateway.${key}`, language, resolvedLanguage);
+  const tc = (key: string) => translate(`desktop.common.${key}`, language, resolvedLanguage);
+  const tr = (source: string) => translateSource(source, language, resolvedLanguage);
   const [providerId, setProviderId] = useState(providers[0]?.id ?? '');
   const provider = providers.find((row) => row.id === providerId);
 
@@ -172,14 +180,14 @@ export function AddGatewaySheet({
 
   return (
     <Dialog
-      title="Add API Gateway"
+      title={t('add_title')}
       onCancel={onClose}
       testId="gateway-flow.provider.dialog"
       width="form"
       actions={
         <>
           <Button kind="secondary" onClick={onClose}>
-            Cancel
+            {tc('cancel')}
           </Button>
           <Button
             kind="primary"
@@ -187,25 +195,25 @@ export function AddGatewaySheet({
             disabled={!canSave}
             onClick={save}
           >
-            Add Gateway
+            {t('add_action')}
           </Button>
         </>
       }
     >
       <Group
-        title="Gateway"
-        footer="Choose a provider to show only the fields it needs. This name is how the gateway appears in Accounts & APIs."
+        title={t('gateway')}
+        footer={t('provider_fields_help')}
         testId="gateway-flow.gateway"
       >
         <Row>
-          <RowText title="Provider" detail={provider?.detail} />
+          <RowText title={tr('Provider')} detail={tr(provider?.detail ?? '')} />
           <RowActions>
             {/* The brand mark leads each item, as `AddGatewaySheet.swift:96`
                 passes the provider to `DesignProviderIcon`. */}
             <MenuSelect
               label=""
-              ariaLabel="Gateway provider"
-              title="Choose the service that issued this gateway’s credentials."
+              ariaLabel={t('provider')}
+              title={t('choose_provider_help')}
               value={providerId}
               testId="gateway-flow.provider.picker"
               onChange={setProviderId}
@@ -219,9 +227,9 @@ export function AddGatewaySheet({
         </Row>
         <Row>
           <Field
-            label="Name"
+            label={t('name')}
             value={name}
-            help="A short label to recognize this gateway in Accounts & APIs."
+            help={t('name_help')}
             onChange={(value) => {
               setName(value);
               setNameTouched(true);
@@ -231,13 +239,13 @@ export function AddGatewaySheet({
         </Row>
       </Group>
 
-      <Group title="Credentials" footer={connectionFooter({ state: connection, provider, message, endpoint, busy })}>
+      <Group title={t('credentials')} footer={tr(connectionFooter({ state: connection, provider, message, endpoint, busy }))}>
         {needsKey ? (
           <Row>
             <Field
-              label="API Key"
+              label={tc('api_key')}
               value={apiKey}
-              help="Enter the API key issued by this provider."
+              help={t('enter_api_key_help')}
               onChange={setApiKey}
               type={revealKey ? 'text' : 'password'}
               testId="gateway-flow.api-key"
@@ -245,11 +253,11 @@ export function AddGatewaySheet({
             <RowActions>
               <Button
                 kind="secondary"
-                ariaLabel={revealKey ? 'Hide API Key' : 'Show API Key'}
+                ariaLabel={t(revealKey ? 'hide_api_key' : 'show_api_key')}
                 testId="gateway-flow.api-key.reveal"
                 onClick={() => setRevealKey((current) => !current)}
               >
-                {revealKey ? 'Hide' : 'Show'}
+                {revealKey ? tc('hide') : tc('show')}
               </Button>
             </RowActions>
           </Row>
@@ -257,12 +265,12 @@ export function AddGatewaySheet({
           <>
             <Row>
               <RowText
-                title="No key needed"
-                detail={providerId === 'grok' ? 'Uses your Grok login session (~/.grok/auth.json).' : undefined}
+                title={t('no_key_needed')}
+                detail={providerId === 'grok' ? t('grok_login_help') : undefined}
               />
             </Row>
             <Row>
-              <RowText detail="Run: grok login" />
+              <RowText detail={t('grok_setup')} />
             </Row>
           </>
         )}
@@ -270,9 +278,9 @@ export function AddGatewaySheet({
         {provider?.requiresAccountId ? (
           <Row>
             <Field
-              label="Account ID"
+              label={t('account_id')}
               value={accountId}
-              help="Enter the account ID from this provider’s dashboard."
+              help={t('account_id_help')}
               onChange={setAccountId}
               testId="gateway-flow.account-id"
             />
@@ -282,9 +290,9 @@ export function AddGatewaySheet({
         {provider?.requiresGatewayId ? (
           <Row>
             <Field
-              label="Gateway ID"
+              label={t('gateway_id')}
               value={gatewayId}
-              help="Enter the AI Gateway ID or name shown by this provider."
+              help={t('gateway_id_help')}
               onChange={setGatewayId}
               testId="gateway-flow.gateway-id"
             />
@@ -293,11 +301,11 @@ export function AddGatewaySheet({
 
         {regions.length > 0 ? (
           <Row testId="gateway-flow.region">
-            <RowText title="Region" />
+            <RowText title={t('region')} />
             <RowActions>
               <Select
                 label=""
-                ariaLabel="Region"
+                ariaLabel={t('region')}
                 value={region}
                 testId="gateway-flow.region.picker"
                 onChange={setRegion}
@@ -310,16 +318,16 @@ export function AddGatewaySheet({
           // invite a user to break it by typing a URL that differs by a slash.
           <Row testId="gateway-flow.endpoint">
             <RowText
-              title="Endpoint"
-              detail={provider?.defaultEndpoint || `Provided by ${provider?.label ?? providerId}`}
+              title={t('endpoint')}
+              detail={provider?.defaultEndpoint || t('provided_by').replace('{provider}', provider?.label ?? providerId)}
             />
           </Row>
         ) : (
           <Row>
             <Field
-              label="Endpoint"
+              label={t('endpoint')}
               value={endpoint}
-              help="Enter the provider’s base URL, including https:// and any required path."
+              help={t('endpoint_help')}
               onChange={setEndpoint}
               testId="gateway-flow.endpoint.input"
             />
@@ -330,7 +338,7 @@ export function AddGatewaySheet({
             as a gateway, so there is no endpoint of its own to probe. */}
         {!isApiKeyAccount(provider) ? (
           <Row testId="gateway-flow.connection">
-            <RowText title="Connection" />
+            <RowText title={t('connection')} />
             <RowActions>
               {/*
                 Each state carries its own id rather than one row whose id is
@@ -344,17 +352,17 @@ export function AddGatewaySheet({
                   role="status"
                   data-testid="gateway-flow.testing"
                 >
-                  Testing…
+                  {t('testing')}
                 </span>
               ) : null}
               {connection === 'available' ? (
                 <span className="inline-flex" data-testid="gateway-flow.available">
-                  <StatusLabel status="ready" />
+                  <StatusLabel status="ready" language={language} resolvedLanguage={resolvedLanguage} />
                 </span>
               ) : null}
               {connection === 'unavailable' ? (
                 <span className="inline-flex" data-testid="gateway-flow.unavailable">
-                  <StatusLabel status="unavailable" />
+                  <StatusLabel status="unavailable" language={language} resolvedLanguage={resolvedLanguage} />
                 </span>
               ) : null}
               <Button
@@ -363,7 +371,7 @@ export function AddGatewaySheet({
                 disabled={connection === 'testing' || !connectionTestEnabled({ provider, apiKey, accountId, busy })}
                 onClick={test}
               >
-                {TEST_LABEL[connection]}
+                {tr(TEST_LABEL[connection])}
               </Button>
             </RowActions>
           </Row>

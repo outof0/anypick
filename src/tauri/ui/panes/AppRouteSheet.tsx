@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 
 import type { ActionRow, ClientModelConfig, Snapshot } from '../lib/contract';
 import type { ServiceResult } from '../lib/wire';
+import { translate, translateSource } from '../lib/i18n';
 import {
   APPLY_PROMISES,
   filteredRouteGroups,
@@ -57,6 +58,11 @@ export function AppRouteSheet({
   modelRolesResult?: ModelRolesResult | null;
   onClose: () => void;
 }) {
+  const language = snapshot.settings.language;
+  const resolvedLanguage = snapshot.settings.resolvedLanguage;
+  const t = (key: string) => translate(`desktop.app_route.${key}`, language, resolvedLanguage);
+  const tc = (key: string) => translate(`desktop.common.${key}`, language, resolvedLanguage);
+  const tr = (source: string) => translateSource(source, language, resolvedLanguage);
   // A gateway ref names the gateway, not the vendor behind it, so the brand a
   // gateway row wears is resolved here from the snapshot rather than guessed.
   const gateways = useMemo(() => gatewayProviders(snapshot.gateways), [snapshot.gateways]);
@@ -132,7 +138,10 @@ export function AppRouteSheet({
 
   return (
     <Dialog
-      title={`Change ${rows[0]?.client ?? 'an app'} Connection`}
+      title={t('change_title').replace(
+        '{app}',
+        rows[0]?.client ?? translate('desktop.app_detail.the_app', language, resolvedLanguage),
+      )}
       onCancel={onClose}
       testId={`app-route.stage.${stage}`}
       width="form"
@@ -140,7 +149,7 @@ export function AppRouteSheet({
         <>
           {showsCancel(stage) ? (
             <Button kind="secondary" onClick={onClose}>
-              Cancel
+              {tc('cancel')}
             </Button>
           ) : null}
           <Button
@@ -150,8 +159,8 @@ export function AppRouteSheet({
             onClick={advance}
           >
             {savingModels && stage === 'models'
-              ? 'Saving…'
-              : primaryTitle(stage, needsModels && stage === 'success')}
+              ? translate('desktop.codex_profile.saving', language, resolvedLanguage)
+              : tr(primaryTitle(stage, needsModels && stage === 'success'))}
           </Button>
         </>
       }
@@ -166,19 +175,21 @@ export function AppRouteSheet({
           onNeedle={setNeedle}
           showSearch={showsConnectionSearch(groups)}
           busy={busy.size > 0}
+          language={language}
+          resolvedLanguage={resolvedLanguage}
         />
       ) : null}
 
       {stage === 'review' ? (
-        <ReviewStage from={groups.current} to={selected} />
+        <ReviewStage from={groups.current} to={selected} language={language} resolvedLanguage={resolvedLanguage} />
       ) : null}
 
       {stage === 'applying' ? (
-        <Group title="Applying">
+        <Group title={t('applying')}>
           <Row>
             <RowText
-              title="Applying changes…"
-              detail="Keep AnyPick open while settings and required services are updated."
+              title={t('applying')}
+              detail={t('keep_open_help')}
             />
           </Row>
         </Group>
@@ -192,8 +203,10 @@ export function AppRouteSheet({
           scope={scope}
           onScope={setScope}
           providerName={providerName}
-          publishedBy={selected?.label ?? 'the current connection'}
+          publishedBy={selected?.label ?? t('current_connection')}
           error={modelError}
+          language={language}
+          resolvedLanguage={resolvedLanguage}
         />
       ) : null}
     </Dialog>
@@ -209,6 +222,8 @@ function ConnectionStage({
   onNeedle,
   showSearch,
   busy,
+  language,
+  resolvedLanguage,
 }: {
   groups: ReturnType<typeof routeGroups>;
   filtered: ReturnType<typeof routeGroups>;
@@ -218,20 +233,24 @@ function ConnectionStage({
   onNeedle: (value: string) => void;
   showSearch: boolean;
   busy: boolean;
+  language: string;
+  resolvedLanguage: string;
 }) {
+  const t = (key: string) => translate(`desktop.app_route.${key}`, language, resolvedLanguage);
+  const tr = (source: string) => translateSource(source, language, resolvedLanguage);
   const total = allRouteOptions(groups).length;
   return (
     <>
       {showSearch ? (
-        <Group title="Search">
+        <Group title={translate('desktop.common.search', language, resolvedLanguage)}>
           <Row>
-            <RowText title="Search connections" />
+            <RowText title={t('search_connections')} />
             <RowActions>
               <input
                 className="min-h-control max-w-55 min-w-40 rounded-control border border-control-border bg-field px-2 text-[12px] text-text"
                 type="search"
                 value={needle}
-                aria-label="Search connections"
+                aria-label={t('search_connections')}
                 data-testid="app-route.search"
                 onChange={(event) => onNeedle(event.target.value)}
               />
@@ -242,8 +261,8 @@ function ConnectionStage({
 
       {filtered.current ? (
         <Group
-          title="Current Connection"
-          footer="Choose another source below to review a connection change."
+          title={t('current_connection')}
+          footer={t('choose_source_help')}
         >
           <RouteRow
             option={filtered.current}
@@ -251,12 +270,14 @@ function ConnectionStage({
             current
             disabled={busy}
             onPick={onPick}
+            language={language}
+            resolvedLanguage={resolvedLanguage}
           />
         </Group>
       ) : null}
 
       {filtered.accounts.length > 0 ? (
-        <Group title="Accounts">
+        <Group title={translate('desktop.accounts.accounts', language, resolvedLanguage)}>
           {filtered.accounts.map((option) => (
             <RouteRow
               key={option.id}
@@ -264,24 +285,28 @@ function ConnectionStage({
               selected={routeId === option.id}
               disabled={busy || !option.enabled}
               onPick={onPick}
+              language={language}
+              resolvedLanguage={resolvedLanguage}
             />
           ))}
         </Group>
       ) : null}
 
       {filtered.hub ? (
-        <Group title="Proxy Hub">
+        <Group title={t('proxy_hub')}>
           <RouteRow
             option={filtered.hub}
             selected={routeId === filtered.hub.id}
             disabled={busy || !filtered.hub.enabled}
             onPick={onPick}
+            language={language}
+            resolvedLanguage={resolvedLanguage}
           />
         </Group>
       ) : null}
 
       {filtered.gateways.length > 0 ? (
-        <Group title="API Gateways">
+        <Group title={t('api_gateways')}>
           {filtered.gateways.map((option) => (
             <RouteRow
               key={option.id}
@@ -289,15 +314,17 @@ function ConnectionStage({
               selected={routeId === option.id}
               disabled={busy || !option.enabled}
               onPick={onPick}
+              language={language}
+              resolvedLanguage={resolvedLanguage}
             />
           ))}
         </Group>
       ) : null}
 
       {!hasMatchingConnection(filtered) ? (
-        <Group title="No Connections">
+        <Group title={t('no_connections')}>
           <Row>
-            <RowText detail={noConnectionCopy({ totalOptions: total, needle })} />
+            <RowText detail={tr(noConnectionCopy({ totalOptions: total, needle }))} />
           </Row>
         </Group>
       ) : null}
@@ -328,13 +355,19 @@ function RouteRow({
   current = false,
   disabled,
   onPick,
+  language,
+  resolvedLanguage,
 }: {
   option: RouteOption;
   selected: boolean;
   current?: boolean;
   disabled: boolean;
   onPick: (id: string) => void;
+  language: string;
+  resolvedLanguage: string;
 }) {
+  const tr = (source: string) => translateSource(source, language, resolvedLanguage);
+  const currentLabel = translate('desktop.common.current', language, resolvedLanguage);
   return (
     // The whole row is the target, not just the radio. macOS uses a
     // `.radioGroup` inside a `Form`, where the row and its control are one
@@ -355,16 +388,18 @@ function RouteRow({
         <ProviderIcon provider={option.providerId ?? ''} fallbackSymbol={SYMBOL_FOR_KIND[option.kind]} size={18} />
       </span>
       <RowText
-        title={option.label}
-        detail={option.detail}
-        issue={option.disabledReason}
+        title={tr(option.label)}
+        detail={tr(option.detail)}
+        issue={tr(option.disabledReason ?? '')}
+        language={language}
+        resolvedLanguage={resolvedLanguage}
       />
       <RowActions>
         {current ? (
-          <span className="text-[12px] whitespace-nowrap text-secondary">Current</span>
+          <span className="text-[12px] whitespace-nowrap text-secondary">{currentLabel}</span>
         ) : (
           <span className="text-[12px] whitespace-nowrap text-secondary">
-            {friendlyRouteKindLabel(option.kind === 'hub' ? 'hub' : option.kind === 'gateway' ? 'gateway' : 'account')}
+            {tr(friendlyRouteKindLabel(option.kind === 'hub' ? 'hub' : option.kind === 'gateway' ? 'gateway' : 'account'))}
           </span>
         )}
         <input
@@ -373,7 +408,7 @@ function RouteRow({
           className="m-0 size-[14px] accent-accent"
           checked={selected}
           disabled={disabled}
-          aria-label={option.detail ? `${option.label}, ${option.detail}` : option.label}
+          aria-label={option.detail ? tr(`${option.label}, ${option.detail}`) : tr(option.label)}
           onChange={() => onPick(option.id)}
         />
       </RowActions>
@@ -381,27 +416,39 @@ function RouteRow({
   );
 }
 
-function ReviewStage({ from, to }: { from: RouteOption | null; to: RouteOption | null }) {
+function ReviewStage({
+  from,
+  to,
+  language,
+  resolvedLanguage,
+}: {
+  from: RouteOption | null;
+  to: RouteOption | null;
+  language: string;
+  resolvedLanguage: string;
+}) {
+  const t = (key: string) => translate(`desktop.app_route.${key}`, language, resolvedLanguage);
+  const tr = (source: string) => translateSource(source, language, resolvedLanguage);
   return (
     <>
-      <Group title="Connection">
+      <Group title={translate('desktop.app_detail.connection', language, resolvedLanguage)}>
         <Row>
-          <RowText title="From" detail={from?.label ?? 'Not selected'} />
+          <RowText title={t('from')} detail={from?.label ?? translate('desktop.app_detail.not_selected', language, resolvedLanguage)} />
         </Row>
         <Row>
-          <RowText title="To" detail={to?.label ?? 'Not selected'} />
+          <RowText title={t('to')} detail={to?.label ?? translate('desktop.app_detail.not_selected', language, resolvedLanguage)} />
         </Row>
       </Group>
-      <Group title="AnyPick Will">
+      <Group title={t('anypick_will')}>
         {APPLY_PROMISES.map((promise) => (
           <Row key={promise.title} testId={`app-route.apply-error.${promise.title}`}>
-            <RowText title={promise.title} detail={promise.detail} />
+            <RowText title={tr(promise.title)} detail={tr(promise.detail)} />
           </Row>
         ))}
       </Group>
-      <Group title="Models">
+      <Group title={translate('desktop.app_detail.models', language, resolvedLanguage)}>
         <Row>
-          <RowText detail="Compatible model choices are preserved. You choose the models for the new connection on the next step." />
+          <RowText detail={t('models_preserved')} />
         </Row>
       </Group>
     </>
@@ -417,6 +464,8 @@ function ModelStage({
   providerName,
   publishedBy,
   error,
+  language,
+  resolvedLanguage,
 }: {
   config: ClientModelConfig;
   values: Record<string, string>;
@@ -427,16 +476,21 @@ function ModelStage({
   publishedBy: string;
   /** The engine's refusal, shown in place rather than as a banner. */
   error?: string;
+  language: string;
+  resolvedLanguage: string;
 }) {
+  const t = (key: string) => translate(`desktop.app_route.${key}`, language, resolvedLanguage);
+  const tm = (key: string) => translate(`desktop.models.${key}`, language, resolvedLanguage);
+  const tr = (source: string) => translateSource(source, language, resolvedLanguage);
   return (
     <Group
-      title="Models"
-      footer={`Published by ${publishedBy}. Changing models doesn’t switch the account.`}
+      title={translate('desktop.app_detail.models', language, resolvedLanguage)}
+      footer={t('models_published_by').replace('{route}', publishedBy)}
       testId="app-route.models"
     >
       {providerName ? (
         <Row testId="models.scope">
-          <RowText title="Applies to" />
+          <RowText title={tm('applies_to')} />
           <RowActions>
             <Select
               label=""
@@ -444,8 +498,8 @@ function ModelStage({
               testId="app-route.models.scope"
               onChange={(value) => onScope(value === 'provider' ? 'provider' : 'connection')}
               options={[
-                { value: 'connection', label: 'This connection' },
-                { value: 'provider', label: `All ${providerName} accounts` },
+                { value: 'connection', label: tm('this_connection') },
+                { value: 'provider', label: tm('all_provider_accounts').replace('{provider}', providerName) },
               ]}
             />
           </RowActions>
@@ -462,7 +516,7 @@ function ModelStage({
               onChange={(value) => onValue(role.id, value)}
               options={roleOptions(config, role.id).map((option) => ({
                 ...option,
-                label: option.value === '' ? option.label : cleanModelDisplayName(option.label),
+                label: option.value === '' ? tr(option.label) : cleanModelDisplayName(option.label),
               }))}
             />
           </RowActions>
@@ -472,8 +526,8 @@ function ModelStage({
           them: a toast over a dialog covers the fields the user has to fix. */}
       {error ? (
         <Row testId="app-route.models.error" warning>
-          <WarningGlyph />
-          <RowText detail={error} />
+          <WarningGlyph language={language} resolvedLanguage={resolvedLanguage} />
+          <RowText detail={tr(error)} />
         </Row>
       ) : null}
     </Group>

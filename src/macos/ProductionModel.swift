@@ -1345,7 +1345,7 @@ final class ProductionDesignModel: MacOSDesignModel {
     pendingOperations[requestID] = "account-backup-import"
     operationResult = nil
     backupInspectionState = .importing
-    backupInspectionMessage = "Importing the reviewed accounts…"
+    backupInspectionMessage = localized("desktop.backups.importing_accounts")
   }
 
   @discardableResult
@@ -1444,6 +1444,19 @@ final class ProductionDesignModel: MacOSDesignModel {
         name: "settings",
         enabled: enabled,
         activityLabel: "updating Quota Guard"
+      )
+    }
+  }
+
+  override func setLanguage(_ language: String) {
+    selectedLanguage = language
+    resolvedLanguage = language == "auto" ? DesktopMessageCatalog.systemLanguage : language
+    sendSetting(key: "language", changed: (store.settings.language ?? "auto") != language) {
+      store.mutate(
+        operation: "setting-language",
+        name: "settings",
+        language: language,
+        activityLabel: "changing CLI language"
       )
     }
   }
@@ -1596,7 +1609,7 @@ final class ProductionDesignModel: MacOSDesignModel {
         DesignDegradedCondition(
           id: "service-connection",
           kind: "service",
-          title: "The AnyPick service is not running",
+          title: localized("desktop.main.service_not_running"),
           detail: reason),
         at: 0)
     }
@@ -1729,6 +1742,18 @@ final class ProductionDesignModel: MacOSDesignModel {
     if !pendingSettings.contains("warnBeforeLowUsage") {
       setIfChanged(\.warnBeforeLowUsage, to: store.settings.quotaGuardEnabled)
     }
+    if !pendingSettings.contains("language") {
+      setIfChanged(\.selectedLanguage, to: store.settings.language ?? "auto")
+    }
+    setIfChanged(
+      \.resolvedLanguage,
+      to: store.settings.resolvedLanguage ?? DesktopMessageCatalog.systemLanguage
+    )
+    let languageOptions = store.settings.languageOptions ?? []
+    setIfChanged(
+      \.languageOptions,
+      to: languageOptions.isEmpty ? LanguageOptionSnapshot.defaultOptions : languageOptions
+    )
     let wasBusy = isBusy
     setIfChanged(\.isBusy, to: store.busyRequestId != nil)
     let degradedService = { if case .degraded = store.serviceState { return true }; return false }()
@@ -1896,13 +1921,13 @@ final class ProductionDesignModel: MacOSDesignModel {
         if operation == "account-backup-import" {
           if result.status == "success" {
             backupInspectionState = .success
-            backupInspectionMessage = result.message ?? "Accounts imported."
+            backupInspectionMessage = result.message ?? localized("desktop.backups.accounts_imported")
           } else if result.message?.localizedCaseInsensitiveContains("expired") == true {
             backupInspectionState = .expired
             backupInspectionMessage = result.message
           } else {
             backupInspectionState = .atomicFailure
-            backupInspectionMessage = result.message ?? "No saved accounts were changed."
+            backupInspectionMessage = result.message ?? localized("desktop.backups.no_accounts_changed")
           }
         }
         if operation == "proxy-token" {

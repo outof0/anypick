@@ -93,13 +93,14 @@ struct MenuBarMenu: View {
     }
 
     results += DesignDestination.trayCases.compactMap { destination -> TraySearchResult? in
-      guard matchesSearch([destination.title, destination.shortTitle], query: query) else {
+      let localizedTitle = model.localized(destination.messageKey)
+      guard matchesSearch([localizedTitle], query: query) else {
         return nil
       }
       return TraySearchResult(
         id: "destination:\(destination.id)",
-        title: destination.title,
-        detail: "Open in AnyPick",
+        title: localizedTitle,
+        detail: model.localized("desktop.menu_bar.open_in_anypick"),
         symbol: destination.symbol,
         provider: nil,
         target: .destination(destination)
@@ -177,7 +178,7 @@ struct MenuBarMenu: View {
         }
       }
       if !otherApps.isEmpty {
-        MenuBarOtherAppsRow(apps: otherApps, showMarks: false) { open(.apps) }
+        MenuBarOtherAppsRow(model: model, apps: otherApps, showMarks: false) { open(.apps) }
       }
       routingServices
     }
@@ -185,12 +186,12 @@ struct MenuBarMenu: View {
 
   @ViewBuilder
   private var searchHome: some View {
-    MenuBarSearchResults(query: searchQuery, results: searchResults, activate: activateSearchResult)
+      MenuBarSearchResults(model: model, query: searchQuery, results: searchResults, activate: activateSearchResult)
   }
 
   private var routingServices: some View {
     VStack(alignment: .leading, spacing: 7) {
-      TrayRoutingHeader(showDetails: false) {}
+      TrayRoutingHeader(model: model, showDetails: false) {}
       MenuBarProxiesRow(
         model: model,
         runningCount: runningProxyCount,
@@ -229,8 +230,8 @@ struct MenuBarMenu: View {
             .foregroundStyle(.tertiary)
         }
         .buttonStyle(.plain)
-        .help("Clear Search")
-        .accessibilityLabel("Clear Search")
+        .help(model.localized("desktop.common.clear_search"))
+        .accessibilityLabel(model.localized("desktop.common.clear_search"))
       }
     }
     .padding(.horizontal, 9)
@@ -244,7 +245,7 @@ struct MenuBarMenu: View {
         .strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.5)
     )
     .background {
-      Button("Focus Search") { jumpFocused = true }
+      Button(model.localized("desktop.menu_bar.focus_search")) { jumpFocused = true }
         .keyboardShortcut("k", modifiers: .command)
         .frame(width: 1, height: 1)
         .opacity(0)
@@ -256,7 +257,7 @@ struct MenuBarMenu: View {
 
   private var searchPrompt: String {
     let count = model.accounts.filter { $0.kind == .saved }.count
-    return "Search \(count) saved \(count == 1 ? "account" : "accounts")…"
+    return model.localized("desktop.menu_bar.search_saved_accounts", count: count, replacing: ["count": String(count)])
   }
 
   private var statusRow: some View {
@@ -264,7 +265,7 @@ struct MenuBarMenu: View {
       Circle()
         .fill(needsAttention ? TrayPaint.attention : TrayPaint.ready)
         .frame(width: 7, height: 7)
-      Text(needsAttention ? "Needs attention" : "Ready")
+      Text(model.localized(needsAttention ? "desktop.common.needs_attention" : "desktop.common.ready"))
         .font(TrayFont.detailStrong)
         .foregroundStyle(needsAttention ? TrayPaint.attention : TrayPaint.ready)
       Text(statusDetail)
@@ -277,22 +278,22 @@ struct MenuBarMenu: View {
           .foregroundStyle(.secondary)
       }
       .buttonStyle(.borderless)
-      .help("Refresh")
-      .accessibilityLabel("Refresh")
+      .help(model.localized("desktop.common.refresh"))
+      .accessibilityLabel(model.localized("desktop.common.refresh"))
     }
     .frame(height: needsAttention ? 28 : 24)
   }
 
   private var statusDetail: String {
     if needsAttention {
-      return "\(reviewCount) \(reviewCount == 1 ? "issue" : "issues")"
+      return model.localized("desktop.menu_bar.issue_count", count: reviewCount, replacing: ["count": String(reviewCount)])
     }
     let appCount = model.quickPanelApps.count
     if model.proxyHubEnabled {
-      return "Hub online · \(runningProxyCount) proxies · \(appCount) apps"
+      return model.localized("desktop.menu_bar.hub_online_detail", replacing: ["proxies": String(runningProxyCount), "apps": String(appCount)])
     }
-    if runningProxyCount > 0 { return "Proxies running · \(appCount) apps" }
-    return "\(appCount) apps"
+    if runningProxyCount > 0 { return model.localized("desktop.menu_bar.proxies_running_detail", count: appCount, replacing: ["apps": String(appCount)]) }
+    return model.localized("desktop.menu_bar.app_count", count: appCount, replacing: ["count": String(appCount)])
   }
 
   private var trayFooterHairline: some View {
@@ -305,7 +306,7 @@ struct MenuBarMenu: View {
   private func homeFooter() -> some View {
     HStack(spacing: 8) {
       Button(action: quit) {
-        Text("Quit")
+        Text(model.localized("desktop.menu_bar.quit"))
           .frame(maxWidth: .infinity)
       }
         .buttonStyle(.bordered)
@@ -315,7 +316,7 @@ struct MenuBarMenu: View {
       Button {
         open(nil)
       } label: {
-        Text("Open AnyPick")
+        Text(model.localized("desktop.menu_bar.open_anypick"))
           .frame(maxWidth: .infinity)
       }
         .buttonStyle(.borderedProminent)
@@ -391,11 +392,11 @@ struct MenuBarMenu: View {
       return
     }
     let alert = NSAlert()
-    alert.messageText = "Quit AnyPick?"
-    alert.informativeText = "Local proxies will stop."
+    alert.messageText = model.localized("desktop.menu_bar.quit_confirmation_title")
+    alert.informativeText = model.localized("desktop.menu_bar.quit_confirmation_detail")
     alert.alertStyle = .warning
-    alert.addButton(withTitle: "Quit")
-    alert.addButton(withTitle: "Cancel")
+    alert.addButton(withTitle: model.localized("desktop.menu_bar.quit"))
+    alert.addButton(withTitle: model.localized("desktop.common.cancel"))
     // Escape must reach Cancel, not fall through to the destructive default.
     alert.buttons[1].keyEquivalent = "\u{1b}"
     if alert.runModal() == .alertFirstButtonReturn {

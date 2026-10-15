@@ -11,7 +11,8 @@ struct SettingsView: View {
     Form {
       SettingsGeneralPane(model: model)
       SettingsUsagePane(model: model)
-      SettingsUpdatesPane(updates: updates)
+      SettingsLanguagePane(model: model)
+      SettingsUpdatesPane(updates: updates, model: model)
     }
     .formStyle(.grouped)
     .accessibilityIdentifier("settings.pane")

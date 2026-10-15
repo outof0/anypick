@@ -11,6 +11,7 @@ import (
 
 	"github.com/outof0/anypick/go/internal/anyerr"
 	"github.com/outof0/anypick/go/internal/db"
+	"github.com/outof0/anypick/go/internal/i18n"
 	"github.com/outof0/anypick/go/internal/lock"
 	"github.com/outof0/anypick/go/internal/paths"
 )
@@ -19,12 +20,14 @@ import (
 const CurrentSchemaVersion = 2
 
 const globalKey = "global"
+const LanguageAuto = i18n.LanguageAuto
 
 // UI is the global config's UI section. Pointers keep absent fields absent
 // so the JSON round-trips without inventing values.
 type UI struct {
 	Color          *bool          `json:"color,omitempty"`
 	DefaultSurface string         `json:"defaultSurface,omitempty"` // 'tui' | 'tray'
+	Language       string         `json:"language,omitempty"`
 	QuotaGuard     *QuotaGuardCfg `json:"quotaGuard,omitempty"`
 	Tray           *TrayCfg       `json:"tray,omitempty"`
 }
@@ -199,6 +202,22 @@ func (s *ConfigService) SetLaunchSurface(ctx context.Context, surface string) (G
 	})
 }
 
+// SetLanguage persists ui.language. "auto" defers to the operating-system
+// locale, while every other value must have an embedded message catalog.
+func (s *ConfigService) SetLanguage(ctx context.Context, value string) (GlobalConfig, error) {
+	language, ok := i18n.NormalizePreference(value)
+	if !ok {
+		return GlobalConfig{}, anyerr.Newf("Unknown language preference "+value+".", "INVALID_USAGE",
+			anyerr.WithExitCode(anyerr.InvalidUsage))
+	}
+	return s.Update(ctx, func(cfg GlobalConfig) GlobalConfig {
+		ui := ensureUI(cfg.UI)
+		ui.Language = language
+		cfg.UI = ui
+		return cfg
+	})
+}
+
 // SetQuotaGuardEnabled persists ui.quotaGuard.enabled.
 func (s *ConfigService) SetQuotaGuardEnabled(ctx context.Context, enabled bool) (GlobalConfig, error) {
 	return s.Update(ctx, func(cfg GlobalConfig) GlobalConfig {
@@ -252,6 +271,19 @@ func LaunchSurfaceOf(cfg GlobalConfig) string {
 		return ""
 	}
 	return cfg.UI.DefaultSurface
+}
+
+// LanguageOf returns the configured language or auto-detect for older or
+// malformed config documents.
+func LanguageOf(cfg GlobalConfig) string {
+	if cfg.UI == nil {
+		return i18n.LanguageAuto
+	}
+	value, ok := i18n.NormalizePreference(cfg.UI.Language)
+	if !ok {
+		return i18n.LanguageAuto
+	}
+	return value
 }
 
 // DefaultQuotaGuardCooldownMinutes is the fallback cooldown in minutes.

@@ -1,6 +1,8 @@
 import { useState } from 'react';
 
 import { appShortDescription } from '../lib/app-preferences';
+import type { Snapshot } from '../lib/contract';
+import { translate } from '../lib/i18n';
 import { Dialog } from '../ui/Dialog';
 import { ProviderIcon } from '../shell/ProviderIcon';
 import { Button, CheckRow, Group, Row, RowText } from '../ui/primitives';
@@ -15,25 +17,29 @@ import { Button, CheckRow, Group, Row, RowText } from '../ui/primitives';
  */
 export function AddAppSheet({
   available,
+  snapshot,
   onAdd,
   onClose,
 }: {
   available: readonly string[];
+  snapshot: Snapshot;
   onAdd: (clientId: string) => void;
   onClose: () => void;
 }) {
   const [selected, setSelected] = useState(available[0] ?? '');
+  const t = (key: string) =>
+    translate(`desktop.apps.${key}`, snapshot.settings.language, snapshot.settings.resolvedLanguage);
 
   return (
     <Dialog
-      title="Add Coding App"
+      title={t('add_title')}
       onCancel={onClose}
       testId="app.add.primary"
       width="form"
       actions={
         <>
           <Button kind="secondary" onClick={onClose}>
-            Cancel
+            {translate('desktop.common.cancel', snapshot.settings.language, snapshot.settings.resolvedLanguage)}
           </Button>
           <Button
             kind="primary"
@@ -41,18 +47,18 @@ export function AddAppSheet({
             disabled={selected === ''}
             onClick={() => onAdd(selected)}
           >
-            Add App
+            {t('add_app')}
           </Button>
         </>
       }
     >
       <Group
-        title="Supported Coding Tools"
-        footer="Choose an app to configure its AI credentials, models, and proxy connections in AnyPick."
+        title={t('supported_tools')}
+        footer={t('supported_footer')}
       >
         {available.length === 0 ? (
           <Row testId="app.add.none">
-            <RowText detail="All supported coding apps have already been added." />
+            <RowText detail={t('all_added')} />
           </Row>
         ) : (
           available.map((clientId) => (
@@ -63,7 +69,7 @@ export function AddAppSheet({
               <ProviderIcon provider={clientId} size={24} className="mr-1" />
               <CheckRow
                 label={titleFor(clientId)}
-                detail={appShortDescription(clientId)}
+                detail={localizedDescription(clientId, t)}
                 checked={selected === clientId}
                 onChange={() => setSelected(clientId)}
                 testId={`app.add.picker-${clientId}`}
@@ -74,6 +80,11 @@ export function AddAppSheet({
       </Group>
     </Dialog>
   );
+}
+
+function localizedDescription(clientId: string, t: (key: string) => string): string {
+  const translated = t(`about_${clientId.toLowerCase()}`);
+  return translated.startsWith('desktop.apps.') ? appShortDescription(clientId) : translated;
 }
 
 /** macOS names the client with its product name, not its registry id. */

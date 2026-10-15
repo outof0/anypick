@@ -15,7 +15,7 @@ struct MenuBarFirstRun: View {
             .font(.system(size: 18, weight: .semibold))
             .foregroundStyle(.white)
         }
-        Text(model.currentLiveLogin == nil ? "Add a login to start" : "Save a login to start")
+        Text(model.localized(model.currentLiveLogin == nil ? "desktop.menu_bar.add_login_to_start" : "desktop.menu_bar.save_login_to_start"))
           .font(.system(size: 17, weight: .semibold))
         Text(firstRunDescription)
           .font(.system(size: 11))
@@ -30,14 +30,14 @@ struct MenuBarFirstRun: View {
           VStack(alignment: .leading, spacing: 2) {
             Text(login.appName)
               .font(.system(size: 12, weight: .semibold))
-            Text(login.identity ?? "Current login detected")
+            Text(login.identity ?? model.localized("desktop.menu_bar.current_login_detected"))
               .font(TrayFont.detail)
               .foregroundStyle(.secondary)
           }
           Spacer(minLength: 6)
           HStack(spacing: 4) {
             Circle().fill(TrayPaint.ready).frame(width: 6, height: 6)
-            Text("Active")
+            Text(model.localized("desktop.published.active"))
               .font(TrayFont.detailStrong)
               .foregroundStyle(TrayPaint.ready)
           }
@@ -59,9 +59,9 @@ struct MenuBarFirstRun: View {
 
       if let login = model.currentLiveLogin {
         VStack(alignment: .leading, spacing: 7) {
-          trustRow("Keeps the current \(login.appName) session signed in")
-          trustRow("Stores an encrypted local snapshot for switching")
-          trustRow("You can remove or replace it at any time")
+          trustRow(model.localized("desktop.menu_bar.trust_keep_signed_in", replacing: ["app": login.appName]))
+          trustRow(model.localized("desktop.menu_bar.trust_encrypted_snapshot"))
+          trustRow(model.localized("desktop.menu_bar.trust_remove_replace"))
         }
         .padding(10)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -78,7 +78,7 @@ struct MenuBarFirstRun: View {
           } else {
             Image(systemName: model.currentLiveLogin == nil ? "person.badge.plus" : "square.and.arrow.down")
           }
-          Text(model.currentLiveLogin == nil ? "Add Login…" : "Save This Login")
+          Text(model.localized(model.currentLiveLogin == nil ? "desktop.menu_bar.add_login_action" : "desktop.menu_bar.save_this_login"))
         }
         .frame(maxWidth: .infinity)
       }
@@ -89,7 +89,7 @@ struct MenuBarFirstRun: View {
 
       if model.currentLiveLogin != nil {
         Button(action: openAccounts) {
-          Text("Choose Another Login…")
+          Text(model.localized("desktop.menu_bar.choose_another_login"))
             .frame(maxWidth: .infinity)
         }
         .buttonStyle(.bordered)
@@ -98,13 +98,13 @@ struct MenuBarFirstRun: View {
 
       HStack(spacing: 8) {
         stepBadge(1, current: true)
-        Text(model.currentLiveLogin == nil ? "Add login" : "Save login")
+        Text(model.localized(model.currentLiveLogin == nil ? "desktop.menu_bar.add_login_step" : "desktop.menu_bar.save_login_step"))
           .font(TrayFont.detailStrong)
         Rectangle()
           .fill(Color.primary.opacity(0.18))
           .frame(height: 1)
         stepBadge(2, current: false)
-        Text("Point an app")
+        Text(model.localized("desktop.menu_bar.point_an_app"))
           .font(TrayFont.detailStrong)
           .foregroundStyle(.secondary)
       }
@@ -147,8 +147,8 @@ struct MenuBarFirstRun: View {
 
   private var firstRunDescription: String {
     guard let login = model.currentLiveLogin else {
-      return "Sign in with a supported app, then save it in AnyPick."
+      return model.localized("desktop.menu_bar.first_run_signin")
     }
-    return "We found an active \(login.appName) login."
+    return model.localized("desktop.menu_bar.active_login_found", replacing: ["app": login.appName])
   }
 }

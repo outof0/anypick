@@ -10,6 +10,7 @@ import {
   servicePort,
 } from '../lib/model';
 import type { ServicePort } from '../lib/service';
+import { translate, translateSource } from '../lib/i18n';
 import { ProviderIcon } from '../shell/ProviderIcon';
 import { ProxyDetailSheet, ProxyGoneSheet } from './ProxyDetailSheet';
 import { Symbol } from '../shell/Symbol';
@@ -85,6 +86,19 @@ export function ProxiesPane({
   const [inspectingId, setInspectingId] = useState<string | null>(null);
   const [pendingRotate, setPendingRotate] = useState<ProxyRow | null>(null);
   const [pendingStopAll, setPendingStopAll] = useState(false);
+  const t = (key: string) =>
+    translate(`desktop.proxies.${key}`, snapshot.settings.language, snapshot.settings.resolvedLanguage);
+  const tc = (key: string) =>
+    translate(`desktop.common.${key}`, snapshot.settings.language, snapshot.settings.resolvedLanguage);
+  const ta = (key: string) =>
+    translate(`desktop.accounts.${key}`, snapshot.settings.language, snapshot.settings.resolvedLanguage);
+  const statusLabels = {
+    running: translate('desktop.overview.status_running', snapshot.settings.language, snapshot.settings.resolvedLanguage),
+    ready: translate('desktop.overview.status_ready', snapshot.settings.language, snapshot.settings.resolvedLanguage),
+    attention: translate('desktop.overview.status_attention', snapshot.settings.language, snapshot.settings.resolvedLanguage),
+    unavailable: translate('desktop.overview.status_unavailable', snapshot.settings.language, snapshot.settings.resolvedLanguage),
+    stopped: translate('desktop.overview.status_stopped', snapshot.settings.language, snapshot.settings.resolvedLanguage),
+  };
 
   const hub = snapshot.proxies.find((proxy) => proxy.providerId === 'proxy-hub');
   const needle = query.trim().toLocaleLowerCase();
@@ -93,18 +107,23 @@ export function ProxiesPane({
     const haystack = `${proxy.label} ${proxy.detail} ${proxy.address ?? ''}`.toLocaleLowerCase();
     return !needle || haystack.includes(needle);
   });
-  const names = disambiguatedProxyNames(relays);
+  const names = new Map(
+    [...disambiguatedProxyNames(relays)].map(([id, name]) => [
+      id,
+      translateSource(name, snapshot.settings.language, snapshot.settings.resolvedLanguage),
+    ]),
+  );
 
   const runningCount = relays.filter((proxy) => proxy.running).length;
   const stoppedCount = relays.filter((proxy) => !proxy.running).length;
   const hasRunning = runningCount > 0;
 
   return (
-    <Pane title="Proxies" testId="proxies">
+    <Pane title={translate('desktop.nav.proxies', snapshot.settings.language, snapshot.settings.resolvedLanguage)} testId="proxies">
       {hub ? (
         <Group
-          title="Proxy Hub"
-          footer="A unified local endpoint combining published models across your accounts."
+          title={translate('desktop.nav.proxy_hub', snapshot.settings.language, snapshot.settings.resolvedLanguage)}
+          footer={t('hub_footer')}
           testId="proxies-hub-group"
         >
           <Row testId="proxies-hub-summary">
@@ -116,17 +135,23 @@ export function ProxiesPane({
               <Symbol name="point.3.connected.trianglepath.dotted" size={22} />
             </span>
             <RowText
-              title="Proxy Hub"
+              title={translate('desktop.nav.proxy_hub', snapshot.settings.language, snapshot.settings.resolvedLanguage)}
               detail={
                 hub.address
-                  ? `${hub.address} · ${snapshot.hubPublishedModels.length} model${
-                      snapshot.hubPublishedModels.length === 1 ? '' : 's'
-                    } published`
-                  : 'One address · included accounts publish models'
+                  ? `${hub.address} · ${translate(
+                      `desktop.hub.${snapshot.hubPublishedModels.length === 1 ? 'model_count' : 'models_count'}`,
+                      snapshot.settings.language,
+                      snapshot.settings.resolvedLanguage,
+                    ).replace('{count}', String(snapshot.hubPublishedModels.length))} ${translate(
+                      'desktop.hub.models_published',
+                      snapshot.settings.language,
+                      snapshot.settings.resolvedLanguage,
+                    )}`
+                  : t('hub_footer')
               }
             />
             <RowActions>
-              <StatusLabel status={proxyStatus(hub)} />
+              <StatusLabel status={proxyStatus(hub)} labels={statusLabels} />
               {/*
                 Published Models is a destination, not a command, so it wears a
                 chevron the way a `NavigationLink` does — macOS reaches it from
@@ -138,7 +163,7 @@ export function ProxiesPane({
                 disabled={snapshot.hubPublishedModels.length === 0}
                 onClick={() => onOpenModels?.()}
               >
-                Published Models
+                {translate('desktop.hub.published_models', snapshot.settings.language, snapshot.settings.resolvedLanguage)}
               </Button>
             </RowActions>
           </Row>
@@ -147,20 +172,20 @@ export function ProxiesPane({
 
       {relays.length === 0 ? (
         <EmptyState
-          title={needle ? 'No Results' : 'No Account Proxies'}
+          title={needle ? translate('desktop.hub.no_results', snapshot.settings.language, snapshot.settings.resolvedLanguage) : t('no_account_proxies')}
           detail={
             needle
-              ? `No proxies match “${query.trim()}”.`
-              : 'Saved accounts that can proxy appear here even when stopped. Add one under Accounts & APIs.'
+              ? t('no_results_detail')
+              : t('no_proxies_detail')
           }
-          actionTitle={needle ? 'Clear Search' : 'Open Accounts & APIs'}
+          actionTitle={needle ? tc('clear_search') : translate('desktop.accounts.title', snapshot.settings.language, snapshot.settings.resolvedLanguage)}
           onAction={needle ? onClearQuery : () => onNavigate?.('accounts')}
           testId="proxies-empty"
         />
       ) : (
         <Group
-          title="Account Proxies"
-          footer="All endpoints stay on this machine and require authentication. Select a proxy to view its address and API key."
+          title={t('account_proxies')}
+          footer={t('endpoint_footer')}
           testId="proxies-list"
         >
           {relays.map((proxy) => (
@@ -168,6 +193,11 @@ export function ProxiesPane({
               key={proxy.id}
               proxy={proxy}
               name={names.get(proxy.id) ?? proxy.label}
+              t={t}
+              tc={tc}
+              ta={ta}
+              language={snapshot.settings.language}
+              resolvedLanguage={snapshot.settings.resolvedLanguage}
               revision={snapshot.revision}
               service={service}
               busy={busy}
@@ -187,7 +217,7 @@ export function ProxiesPane({
             disabled={stoppedCount === 0 || busy.size > 0}
             onClick={() => service.mutate('proxy-start-all', { name: 'all' })}
           >
-            {runningCount === 0 ? 'Start All Proxies' : 'Start Remaining Proxies'}
+            {runningCount === 0 ? t('start_all') : t('start_remaining')}
           </Button>
           <Button
             kind="secondary"
@@ -195,7 +225,7 @@ export function ProxiesPane({
             disabled={!hasRunning || busy.size > 0}
             onClick={() => service.mutate('proxy-restart-all', { name: 'all' })}
           >
-            Restart Running
+            {t('restart_running')}
           </Button>
           <Button
             kind="destructive"
@@ -203,7 +233,7 @@ export function ProxiesPane({
             disabled={!hasRunning || busy.size > 0}
             onClick={() => setPendingStopAll(true)}
           >
-            Stop All…
+            {t('stop_all_prompt')}
           </Button>
         </PaneActions>
       ) : null}
@@ -214,6 +244,10 @@ export function ProxiesPane({
           return inspected ? (
             <ProxyDetailSheet
               proxy={inspected}
+              name={
+                names.get(inspected.id) ??
+                translateSource(inspected.label, snapshot.settings.language, snapshot.settings.resolvedLanguage)
+              }
               snapshot={snapshot}
               service={service}
               busy={busy}
@@ -224,16 +258,21 @@ export function ProxiesPane({
               onClose={() => setInspectingId(null)}
             />
           ) : (
-            <ProxyGoneSheet onClose={() => setInspectingId(null)} />
+            <ProxyGoneSheet
+              onClose={() => setInspectingId(null)}
+              language={snapshot.settings.language}
+              resolvedLanguage={snapshot.settings.resolvedLanguage}
+            />
           );
         })()
       ) : null}
 
       {pendingStop ? (
         <ConfirmDialog
-          title={`Stop ${names.get(pendingStop.id) ?? pendingStop.label}?`}
-          message="Apps using this proxy will not connect until it restarts."
-          confirmTitle="Stop Proxy"
+          title={t('stop_proxy_title').replace('{name}', names.get(pendingStop.id) ?? pendingStop.label)}
+          message={t('stop_proxy_message')}
+          confirmTitle={tc('stop')}
+          cancelTitle={tc('cancel')}
           testId={`proxies.stop-confirm-${pendingStop.id}`}
           onCancel={() => setPendingStop(null)}
           onConfirm={() => {
@@ -245,9 +284,10 @@ export function ProxiesPane({
 
       {pendingRotate ? (
         <ConfirmDialog
-          title={`Rotate API Key for ${names.get(pendingRotate.id) ?? pendingRotate.label}?`}
-          message="Apps using the current API key will be disconnected until you update them with the new key."
-          confirmTitle="Rotate Key"
+          title={t('rotate_key_title').replace('{name}', names.get(pendingRotate.id) ?? pendingRotate.label)}
+          message={t('rotate_message')}
+          confirmTitle={tc('rotate_key')}
+          cancelTitle={tc('cancel')}
           testId={`proxies.rotate-confirm-${pendingRotate.id}`}
           onCancel={() => setPendingRotate(null)}
           onConfirm={() => {
@@ -259,9 +299,10 @@ export function ProxiesPane({
 
       {pendingStopAll ? (
         <ConfirmDialog
-          title="Stop All Proxies?"
-          message="Apps using these proxies will not connect until their services restart."
-          confirmTitle="Stop All"
+          title={t('stop_all_title')}
+          message={t('stop_all_message')}
+          confirmTitle={t('stop_all_action')}
+          cancelTitle={tc('cancel')}
           destructive
           onCancel={() => setPendingStopAll(false)}
           onConfirm={() => {
@@ -283,6 +324,11 @@ function copyProxyKey(service: ServicePort, proxy: ProxyRow) {
 function ProxyRowView({
   proxy,
   name,
+  t,
+  tc,
+  ta,
+  language,
+  resolvedLanguage,
   revision,
   service,
   busy,
@@ -292,6 +338,11 @@ function ProxyRowView({
 }: {
   proxy: ProxyRow;
   name: string;
+  t: (key: string) => string;
+  tc: (key: string) => string;
+  ta: (key: string) => string;
+  language: string;
+  resolvedLanguage: string;
   revision: number;
   service: ServicePort;
   busy: ReadonlySet<string>;
@@ -336,12 +387,24 @@ function ProxyRowView({
       <ProviderIcon provider={proxy.providerId} fallbackSymbol="server.rack" size={24} className="mr-1" />
       <RowText
         title={name}
-        detail={friendlyProxyStatusSubtitle(status, port, proxy.detail)}
-        issue={proxy.enabled && !proxy.running ? 'This proxy isn’t running.' : undefined}
+        detail={translateSource(
+          friendlyProxyStatusSubtitle(status, port, proxy.detail),
+          language,
+          resolvedLanguage,
+        )}
+        issue={proxy.enabled && !proxy.running ? t('proxy_not_running') : undefined}
+        language={language}
+        resolvedLanguage={resolvedLanguage}
       />
       <RowActions>
         {showMenu ? (
-          <RowMenu label={`Actions for ${name}`} clipboard={service.copy} testId={`proxies.more-${proxy.id}`}>
+          <RowMenu
+            label={ta('more_actions_for').replace('{name}', name)}
+            clipboard={service.copy}
+            language={language}
+            resolvedLanguage={resolvedLanguage}
+            testId={`proxies.more-${proxy.id}`}
+          >
             {(close, copy) => (
               <>
                 {hasRestart ? (
@@ -353,17 +416,17 @@ function ProxyRowView({
                       service.invokeAction(proxy.restartActionId ?? '', revision);
                     }}
                   >
-                    Restart
+                    {tc('restart')}
                   </MenuItem>
                 ) : null}
                 {proxy.address ? (
                   <MenuItem
                     testId={`proxies.inspector.copy-${proxy.id}`}
                     onSelect={() => {
-                      copy(proxy.address ?? '', `${name} address`);
+                      copy(proxy.address ?? '', tc('address'));
                     }}
                   >
-                    Copy Address
+                    {tc('copy_address')}
                   </MenuItem>
                 ) : null}
                 {/* ADR 0006: the snapshot says a copy is possible, never the
@@ -376,7 +439,7 @@ function ProxyRowView({
                       copyProxyKey(service, proxy);
                     }}
                   >
-                    Copy API Key
+                    {tc('copy_api_key')}
                   </MenuItem>
                 ) : null}
                 {proxy.rotateActionId ? (
@@ -388,7 +451,7 @@ function ProxyRowView({
                       onRotate(proxy);
                     }}
                   >
-                    Rotate API Key…
+                    {t('rotate_key_menu')}
                   </MenuItem>
                 ) : null}
               </>
@@ -406,13 +469,13 @@ function ProxyRowView({
           kind={running ? 'destructive' : 'secondary'}
           testId={`proxies.row-action.${proxy.id}`}
           disabled={!idle || !proxy.toggleActionId}
-          ariaLabel={`${running ? 'Stop' : 'Start'} ${name}`}
-          title={`${running ? 'Stop' : 'Start'} ${name}`}
+          ariaLabel={`${running ? tc('stop') : tc('start')} ${name}`}
+          title={`${running ? tc('stop') : tc('start')} ${name}`}
           onClick={() =>
             running ? onStop(proxy) : service.invokeAction(proxy.toggleActionId ?? '', revision)
           }
         >
-          {running ? 'Stop' : 'Start'}
+          {running ? tc('stop') : tc('start')}
         </Button>
         {/* The row is a `NavigationLink` on macOS (`ProxiesView.swift:135`), so
             the disclosure chevron sits last, at the trailing edge. */}
@@ -432,6 +495,7 @@ export function ConfirmDialog({
   title,
   message,
   confirmTitle,
+  cancelTitle = 'Cancel',
   destructive = false,
   onConfirm,
   onCancel,
@@ -440,6 +504,7 @@ export function ConfirmDialog({
   title: string;
   message: string;
   confirmTitle: string;
+  cancelTitle?: string;
   destructive?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
@@ -465,7 +530,7 @@ export function ConfirmDialog({
         <p className="m-0 text-[12px] leading-[1.4] text-secondary">{message}</p>
         <div className="flex justify-end gap-2 pt-2">
           <Button kind="secondary" onClick={onCancel}>
-            Cancel
+            {cancelTitle}
           </Button>
           <Button kind={destructive ? 'destructive' : 'primary'} onClick={onConfirm} data-confirm>
             {confirmTitle}

@@ -1,4 +1,5 @@
 import { Component, type ReactNode } from 'react';
+import { detectLanguage, translate } from './lib/i18n';
 
 interface Props {
   children: ReactNode;
@@ -32,7 +33,7 @@ export class AppErrorBoundary extends Component<Props, State> {
     }
     return (
       <div className="p-6">
-        <p className="text-red">AnyPick cannot start here</p>
+        <p className="text-red">{translate('desktop.main.cannot_start', 'auto', detectLanguage())}</p>
         <p className="text-secondary mt-2">{this.state.message}</p>
       </div>
     );

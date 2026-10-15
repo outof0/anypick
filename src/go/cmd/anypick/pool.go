@@ -40,7 +40,7 @@ func cmdProxyConfig(ctx context.Context, a *appView, args []string) int {
 	if wantJSON(args) {
 		jsonOut(out)
 	} else {
-		fmt.Printf("configured %s/%s (port %d)\n", fs.Arg(0), fs.Arg(1), cfg.Port)
+		cliPrintf("configured %s/%s (port %d)\n", fs.Arg(0), fs.Arg(1), cfg.Port)
 	}
 	return int(anyerr.Success)
 }
@@ -94,7 +94,7 @@ func cmdProxyLogs(ctx context.Context, a *appView, args []string) int {
 		return int(anyerr.Success)
 	}
 	if text != "" {
-		fmt.Println(text)
+		cliPrintlnRaw(text)
 	}
 	logPath := filepath.Join(paths.AccountProxyRuntimeDir(a.Root, fs.Arg(0), fs.Arg(1)), "proxy.log")
 	if *follow {
@@ -125,7 +125,7 @@ func followFile(path string, screen func(string) string) {
 
 func cmdPool(ctx context.Context, a *appView, args []string) int {
 	usage := func() int {
-		fmt.Fprintln(os.Stderr,
+		cliFprintln(os.Stderr,
 			"usage: anypick proxy pool status|enable|disable|member|start|stop <provider> …")
 		return int(anyerr.InvalidUsage)
 	}
@@ -152,14 +152,14 @@ func cmdPool(ctx context.Context, a *appView, args []string) int {
 			jsonOut(pool)
 			return int(anyerr.Success)
 		}
-		fmt.Printf("pool %s: mode=%s enabled=%v strategy=%s\n",
+		cliPrintf("pool %s: mode=%s enabled=%v strategy=%s\n",
 			pool.Provider, pool.Mode, pool.Enabled, pool.Strategy)
 		for _, m := range pool.Members {
 			state := "off"
 			if m.Enabled {
 				state = "on"
 			}
-			fmt.Printf("  %s [%s]\n", m.Account, state)
+			cliPrintf("  %s [%s]\n", m.Account, state)
 		}
 		return int(anyerr.Success)
 

@@ -20,5 +20,14 @@ export const collections = {
       },
     }),
   ),
+  docsZh: defineCollection(
+    docsCollection({
+      base: ".",
+      pattern: "zh-cn/docs/**/*.{md,mdx}",
+      schemaFields: {
+        audience: z.literal("human").optional(),
+      },
+    }),
+  ),
   partials: defineCollection(partialsCollection()),
 };

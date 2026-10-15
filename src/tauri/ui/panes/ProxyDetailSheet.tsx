@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Symbol } from '../shell/Symbol';
 
 import type { ProxyRow, Snapshot } from '../lib/contract';
+import { translate, translateSource } from '../lib/i18n';
 import {
   proxyClientApps,
   proxyFailure,
@@ -41,6 +42,7 @@ import {
  */
 export function ProxyDetailSheet({
   proxy,
+  name,
   snapshot,
   service,
   busy = new Set<string>(),
@@ -51,6 +53,7 @@ export function ProxyDetailSheet({
   onClose,
 }: {
   proxy: ProxyRow;
+  name: string;
   snapshot: Snapshot;
   service: ServicePort;
   busy?: ReadonlySet<string>;
@@ -79,6 +82,10 @@ export function ProxyDetailSheet({
   }, [busy, copyKeyResult, copyConfirmation.report, copyRequestId]);
 
   const status = proxyStatus(proxy);
+  const language = snapshot.settings.language;
+  const resolvedLanguage = snapshot.settings.resolvedLanguage;
+  const t = (key: string) => translate(`desktop.proxy_detail.${key}`, language, resolvedLanguage);
+  const tc = (key: string) => translate(`desktop.common.${key}`, language, resolvedLanguage);
   const port = proxyPort(proxy);
   const running = proxy.running;
   const operation = proxyOperation(proxy, service.inFlight());
@@ -89,7 +96,7 @@ export function ProxyDetailSheet({
 
   return (
     <Dialog
-      title={proxy.label || 'Proxy'}
+      title={name || t('this_proxy')}
       onCancel={onClose}
       testId="proxies-inspector"
       width="form"
@@ -104,21 +111,21 @@ export function ProxyDetailSheet({
             disabled={!idle || !running || !canRestartProxy(running, status) || !proxy.restartActionId}
             onClick={() => service.invokeAction(proxy.restartActionId ?? '', revision)}
           >
-            {operation?.verb === 'Restarting' ? 'Restarting…' : 'Restart Proxy'}
+            {operation?.verb === 'Restarting' ? tc('restarting') : t('restart_proxy')}
           </Button>
           <Button kind="primary" onClick={onClose}>
-            Done
+            {tc('done')}
           </Button>
         </>
       }
     >
-      <Group title="Service" testId="proxies-inspector.identity">
+      <Group title={t('service')} testId="proxies-inspector.identity">
         <Row>
           <ProviderIcon provider={proxy.providerId} fallbackSymbol="server.rack" size={26} className="mr-1" />
-          <RowText title={proxy.label} detail={proxyPurpose(proxy)} />
+          <RowText title={name} detail={translateSource(proxyPurpose(proxy), language, resolvedLanguage)} />
         </Row>
         <Row testId="proxies-inspector.status">
-          <RowText title="Status" />
+          <RowText title={tc('status')} />
           <RowActions>
             {/*
               `ProgressView` + the operation word while a command is in flight,
@@ -130,26 +137,30 @@ export function ProxyDetailSheet({
             {operation ? (
               <span className="inline-flex items-center gap-1.5 text-[12px] text-secondary">
                 <Spinner />
-                {operation.verb}
+                {tc(operation.verb.toLowerCase())}
               </span>
             ) : (
-              <StatusLabel status={status} />
+              <StatusLabel
+                status={status}
+                language={snapshot.settings.language}
+                resolvedLanguage={snapshot.settings.resolvedLanguage}
+              />
             )}
             <Button
               kind={running ? 'destructive' : 'secondary'}
               testId="proxies.inspector.lifecycle"
               disabled={!idle || !proxy.toggleActionId}
-              ariaLabel={`${running ? 'Stop' : 'Start'} ${proxy.label}`}
+              ariaLabel={`${running ? tc('stop') : tc('start')} ${name}`}
               onClick={() =>
                 running ? setConfirming('stop') : service.invokeAction(proxy.toggleActionId ?? '', revision)
               }
             >
-              {running ? 'Stop' : 'Start'}
+              {running ? tc('stop') : tc('start')}
             </Button>
           </RowActions>
         </Row>
         <Row testId="proxies-inspector.provider">
-          <RowText title="Provider" />
+          <RowText title={translate('desktop.account_detail.provider', language, resolvedLanguage)} />
           <RowActions>
             <span className="text-[12px] whitespace-nowrap text-secondary">
               {nativeProviderName(proxy.providerId)}
@@ -158,7 +169,7 @@ export function ProxyDetailSheet({
         </Row>
         {servingAccountLabel(proxy, snapshot.accounts) ? (
           <Row testId="proxies-inspector.account">
-            <RowText title="Serving Account" />
+            <RowText title={t('serving_account')} />
             <RowActions>
               <span className="text-[12px] whitespace-nowrap text-secondary">
                 {servingAccountLabel(proxy, snapshot.accounts)}
@@ -175,13 +186,13 @@ export function ProxyDetailSheet({
       */}
       {failure ? (
         <Group testId="proxies-inspector.failure">
-          <WarningRow title="Service Error" detail={failure} />
+          <WarningRow title={t('service_error')} detail={translateSource(failure, language, resolvedLanguage)} />
         </Group>
       ) : proxy.enabled && !running ? (
         <Group testId="proxies-inspector.attention">
           <WarningRow
-            title="Needs Attention"
-            detail="This proxy is enabled but not currently running."
+            title={tc('needs_attention')}
+            detail={t('enabled_not_running')}
           />
         </Group>
       ) : null}
@@ -193,13 +204,13 @@ export function ProxyDetailSheet({
       */}
       {refused ? (
         <Group testId="proxies-inspector.error">
-          <WarningRow title="Command Refused" detail={refused.message} />
+          <WarningRow title={tc('command_refused')} detail={translateSource(refused.message, language, resolvedLanguage)} />
         </Group>
       ) : null}
 
-      <Group title="Endpoint" testId="proxies-inspector.endpoint">
+      <Group title={t('endpoint')} testId="proxies-inspector.endpoint">
         <Row testId="proxies.inspector.address-row">
-          <RowText title="Address" />
+          <RowText title={tc('address')} />
           <RowActions>
             {port > 0 ? (
               <>
@@ -209,31 +220,35 @@ export function ProxyDetailSheet({
                   http://127.0.0.1:{port}
                 </span>
                 <CopyButton
-                  label="Copy proxy address"
+                  label={tc('copy_address')}
                   testId="proxies.inspector.copy"
                   value={`http://127.0.0.1:${port}`}
                   copy={service.copy}
+                  language={language}
+                  resolvedLanguage={resolvedLanguage}
                 />
               </>
             ) : (
               <span className="text-[12px] whitespace-nowrap text-secondary" data-testid="proxies.inspector.address">
-                Not running
+                {t('not_running')}
               </span>
             )}
           </RowActions>
         </Row>
         {port > 0 && proxy.hasToken ? (
           <Row testId="proxies.inspector.api-key">
-            <RowText title="API Key" />
+            <RowText title={tc('api_key')} />
             <RowActions>
               {/*
                 ADR 0006: the snapshot says a copy is possible, never the value.
                 The bearer arrives in a result payload, on request, so this row
                 can only ever say that.
               */}
-              <span className="text-[12px] whitespace-nowrap text-secondary">Hidden until copied</span>
+              <span className="text-[12px] whitespace-nowrap text-secondary">{t('hidden_until_copied')}</span>
               <IconButton
-                label="Copy proxy API key"
+                label={tc('copy_api_key')}
+                language={language}
+                resolvedLanguage={resolvedLanguage}
                 testId="proxies.inspector.copy-key"
                 phase={copyConfirmation.phase}
                 confirmed={<Symbol name="checkmark" size={13} />}
@@ -249,7 +264,9 @@ export function ProxyDetailSheet({
               </IconButton>
               {running ? (
                 <IconButton
-                  label="Rotate API Key"
+                  label={tc('rotate_key')}
+                  language={language}
+                  resolvedLanguage={resolvedLanguage}
                   testId="proxies.inspector.rotate-key"
                   onClick={() => setConfirming('rotate')}
                 >
@@ -261,32 +278,32 @@ export function ProxyDetailSheet({
         ) : null}
         {port > 0 ? (
           <Row testId="proxies-inspector.port">
-            <RowText title="Port" />
+            <RowText title={t('port')} />
             <RowActions>
               <span className="text-[12px] whitespace-nowrap text-secondary">{port}</span>
             </RowActions>
           </Row>
         ) : null}
         <Row testId="proxies-inspector.security">
-          <RowText title="Security" />
+          <RowText title={t('security')} />
           <RowActions>
             <span className="text-[12px] whitespace-nowrap text-secondary">
-              Loopback only (authenticated)
+              {t('loopback_authenticated')}
             </span>
           </RowActions>
         </Row>
         <Row testId="proxies-inspector.activity">
-          <RowText title="Activity & Logs" />
+          <RowText title={t('activity_logs')} />
           <RowActions>
             {/* A destination, so it wears a chevron the way a `NavigationLink`
                 does rather than sitting in the pane's action row. */}
             <button
               type="button"
               className="inline-flex cursor-default items-center gap-1 border-0 bg-transparent text-[12px] text-accent"
-              title="Open this proxy’s activity and logs"
+              title={t('open_activity_help')}
               onClick={() => onNavigate?.('activity')}
             >
-              View in Activity
+              {t('view_in_activity')}
               <DisclosureChevron />
             </button>
           </RowActions>
@@ -299,7 +316,7 @@ export function ProxyDetailSheet({
         the confirmation cannot name the apps from a menu item's context.
       */}
       {apps.length > 0 ? (
-        <Group title="Client Apps" testId="proxies-inspector.apps">
+        <Group title={t('client_apps')} testId="proxies-inspector.apps">
           {apps.map((app) => (
             <Row key={app.clientId} testId={`proxies-inspector.app.${app.clientId}`}>
               <ProviderIcon provider={app.clientId} size={20} className="mr-1" />
@@ -316,9 +333,10 @@ export function ProxyDetailSheet({
 
       {confirming === 'stop' ? (
         <ConfirmDialog
-          title={`Stop ${proxy.label || 'This Proxy'}?`}
-          message="Apps using this proxy will not connect until it restarts."
-          confirmTitle="Stop Proxy"
+          title={t('stop_title').replace('{name}', name || t('this_proxy'))}
+          message={t('stop_message')}
+          confirmTitle={t('stop_proxy')}
+          cancelTitle={tc('cancel')}
           testId="proxies.inspector.stop-confirm"
           onCancel={() => setConfirming(null)}
           onConfirm={() => {
@@ -330,9 +348,10 @@ export function ProxyDetailSheet({
 
       {confirming === 'rotate' ? (
         <ConfirmDialog
-          title={`Rotate API Key for ${proxy.label || 'This Proxy'}?`}
-          message="Apps using the current API key will be disconnected until you update them with the new key."
-          confirmTitle="Rotate Key"
+          title={t('rotate_title').replace('{name}', name || t('this_proxy'))}
+          message={t('rotate_message')}
+          confirmTitle={tc('rotate_key')}
+          cancelTitle={tc('cancel')}
           testId="proxies.inspector.rotate-confirm"
           onCancel={() => setConfirming(null)}
           onConfirm={() => {
@@ -352,22 +371,32 @@ export function ProxyDetailSheet({
  * render an empty form of undefined fields — the relay is stopped and deleted
  * while its sheet is open often enough to be worth a branch.
  */
-export function ProxyGoneSheet({ onClose }: { onClose: () => void }) {
+export function ProxyGoneSheet({
+  onClose,
+  language,
+  resolvedLanguage,
+}: {
+  onClose: () => void;
+  language: string;
+  resolvedLanguage: string;
+}) {
+  const t = (key: string) => translate(`desktop.proxy_detail.${key}`, language, resolvedLanguage);
+  const tc = (key: string) => translate(`desktop.common.${key}`, language, resolvedLanguage);
   return (
     <Dialog
-      title="Proxy Is No Longer Available"
+      title={t('unavailable')}
       testId="proxies-inspector.gone"
       onCancel={onClose}
       width="form"
       actions={
         <Button kind="quiet" onClick={onClose}>
-          Done
+          {tc('done')}
         </Button>
       }
     >
       <Group testId="proxies-inspector.gone-body">
         <Row>
-          <RowText detail="Return to Proxies and choose another service." />
+          <RowText detail={t('unavailable_detail')} />
         </Row>
       </Group>
     </Dialog>

@@ -204,6 +204,11 @@ export function macosIdentifiers(): string[] {
       const single = /^"[^"]*"$/.test(initializer.trim());
       if (!ternary && !single) continue;
       for (const literal of initializer.matchAll(/"([^"]+)"/g)) {
+        // A local named `key` can hold a translation key rather than an
+        // accessibility identifier. ProxyHubView uses this shape to choose
+        // the singular/plural model-count catalog entry; treating those
+        // values as controls makes parity fail on `desktop.hub.*`.
+        if (literal[1].startsWith('desktop.')) continue;
         ids.add(normalizeInterpolation(literal[1]));
       }
     }

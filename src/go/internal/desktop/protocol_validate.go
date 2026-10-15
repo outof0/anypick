@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/outof0/anypick/go/internal/i18n"
 	"github.com/outof0/anypick/go/internal/transfer"
 )
 
@@ -134,6 +135,7 @@ var mutationOperations = map[string]bool{
 	"proxy-restart-all": true, "proxy-start-all": true, "proxy-stop-all": true, "proxy-token": true,
 	"setting-launch-at-login": true, "setting-auto-start-proxies": true,
 	"setting-show-quota": true, "setting-quota-guard": true,
+	"setting-language": true,
 }
 
 // validatePayload enforces the per-kind contracts after a strict decode.
@@ -239,7 +241,7 @@ func validateMutate(fields map[string]json.RawMessage) error {
 		"providerId": 64, "sourceId": 256, "methodId": 128, "name": 128,
 		"label": 160, "endpoint": 2048, "apiKey": 8192, "region": 64,
 		"defaultModel": 256, "kind": 64, "profile": 128, "gatewayId": 64,
-		"transportPolicy": 16,
+		"transportPolicy": 16, "language": 16,
 	} {
 		if _, err := optionalStringField(fields, key, limit); err != nil {
 			return err
@@ -252,6 +254,17 @@ func validateMutate(fields map[string]json.RawMessage) error {
 	}
 
 	switch operation {
+	case "setting-language":
+		name, selected := "", ""
+		_ = json.Unmarshal(fields["name"], &name)
+		_ = json.Unmarshal(fields["language"], &selected)
+		if name != "settings" || !safeStr(selected, 16) {
+			return fmt.Errorf("invalid setting-language payload")
+		}
+		if _, ok := i18n.NormalizePreference(selected); !ok ||
+			!keysSubset(fields, "version", "requestId", "operation", "name", "language") {
+			return fmt.Errorf("invalid setting-language payload")
+		}
 	case "account-backup-export":
 		path := ""
 		_ = json.Unmarshal(fields["path"], &path)

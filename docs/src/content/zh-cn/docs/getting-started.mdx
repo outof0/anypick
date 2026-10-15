@@ -1,0 +1,125 @@
+---
+title: 开始使用
+description: 从源码运行 AnyPick、打开 Apps，并将 Claude 或 Codex 连接到已有账号。
+---
+
+AnyPick 用来回答一个日常问题：
+
+> **Claude Code 或 Codex 现在应该使用哪个登录账号？**
+
+你已经拥有服务商账号，也在使用 AI 编程工具。AnyPick 会保存登录快照；当工具使用不同协议时启动本地转换代理，并写入客户端配置。你只需在 **Apps** 中选择来源，无需手动编辑配置文件。
+
+## 运行开发预览
+
+<Render file="install-zh-cn" />
+
+## 打开 Apps
+
+macOS 原生应用启动后会打开主窗口。菜单栏快捷面板属于同一个应用，即使关闭主窗口也可继续使用。
+
+从源码使用终端界面：
+
+```bash
+make run ARGS="tui"
+```
+
+界面默认打开 **Apps**。此处会列出 Claude Code、Codex、OpenCode、ZCode、`dsh`、`commandcode`、`pi` 和 `omp`，这些客户端可以连接到兼容的已保存来源。Gemini、Kiro 和 WorkBuddy 只会在 Accounts 中切换各自的原生登录。
+
+让界面对新用户更安全的三个原则：
+
+- 按 <kbd>enter</kbd> 前，先阅读分隔线下方说明的操作。
+- 页脚列出当前屏幕支持的全部快捷键。
+- 只有预览确认后才会保存；按 <kbd>esc</kbd> 可以返回。
+
+命令示例使用 AnyPick 的 CLI 语法。可从 GitHub Release 下载带校验和的 CLI 压缩包，或通过轻量 npm 启动器安装：`npm install --global anypick`（需要 Node 18+；首次运行会下载匹配的原生 CLI）。从源码运行时可使用 `make run ARGS="list accounts"`，或先执行 `make build`，再运行 `./src/go/bin/anypick-dev …`。
+
+完整的来源 → 模型 → 预览流程见[终端界面的 Apps](/zh-cn/docs/guides/terminal-ui#构建路由主要流程)。
+
+## 保存一次登录
+
+AnyPick 可以启动服务商提供的浏览器登录流程；OAuth 流程由服务商负责，AnyPick 不会自行实现或模拟它。
+
+在界面中按 <kbd>a</kbd> 打开 **Accounts**，再按 <kbd>a</kbd> 添加。也可以运行：
+
+```bash
+anypick add account codex --new --name personal
+# 打开 Codex 官方浏览器授权并保存结果
+
+# 如果 Codex 已经登录，则保存当前登录快照：
+anypick add account codex --current --name personal
+anypick list accounts
+```
+
+`provider/name` 组合（例如 `codex/personal` 或 `grok/work`）就是之后连接应用时使用的**来源**。
+
+<Aside type="tip" title="同一服务商添加第二个登录">
+运行 `anypick add account codex --new --name work` 会先暂存当前凭据，再打开服务商浏览器授权并保存新结果，原账号仍会保留。优先使用官方授权方式；如果服务商声明了社区登录方式，也可以选择该方式。
+</Aside>
+
+## 在 Apps 中连接应用
+
+按 <kbd>esc</kbd> 返回 **Apps**，直到看到 `anypick / apps`：
+
+1. 选中 **Claude** 或 **Codex**。
+2. 按 <kbd>enter</kbd> 选择 **connect app**。
+3. 选择来源：原生账户、网关与代理，或已保存的预设。
+4. 如有提示，选择模型。Claude 可设置默认模型以及 sonnet、opus、haiku 角色。
+5. 阅读预览，确认要写入的内容和将启动的代理。
+6. 按 <kbd>enter</kbd> 启用。
+
+回到 Apps 后，路由行应显示 **● ready** 和 `source · model`。之后照常打开编程工具即可。
+
+## 使用命令执行相同操作
+
+脚本和 CI 可以使用相同功能，不需要打开界面：
+
+```bash
+anypick use codex --with codex/personal
+anypick run codex
+```
+
+跨服务商示例：让 Claude 使用 Grok 账号，AnyPick 会按需启动代理：
+
+```bash
+anypick add account grok --current --name work
+anypick use claude --with grok/work
+anypick run claude
+```
+
+如果使用 API key，请先登记一个**网关**，再在 Apps 中选择它，或通过 `--with` 指定：
+
+```bash
+anypick add gateway openrouter-work \
+  --provider openrouter \
+  --endpoint https://openrouter.ai/api/v1 \
+  --api-key "$OPENROUTER_API_KEY" \
+  --model anthropic/claude-sonnet-4
+
+anypick use claude --with openrouter-work
+```
+
+## 设置完成后：应用或终端
+
+在 macOS 上，[原生应用和菜单栏](/zh-cn/docs/guides/tray)适合日常管理。主窗口用于完整配置；菜单栏快捷面板用于路由和服务操作。关闭主窗口不会退出应用；选择 **Quit AnyPick** 才会停止内置服务并退出。
+
+终端界面是独立的源码开发操作入口，不管理或停止另外启动的原生应用。
+
+<Aside type="note" title="没有 TTY 时不会打开界面">
+管道或非交互运行不会打开 Apps。脚本中直接运行 `anypick` 会打印帮助后退出，不会等待按键。
+</Aside>
+
+## 数据位置
+
+| 项目 | 位置 |
+| --- | --- |
+| 数据库 | `~/.anypick/anypick.db` |
+| 自定义目录 | `ANYPICK_HOME=/path` |
+| Shell 补全 | `source <(anypick completion zsh)`；也支持 `bash`、`fish` |
+
+## 下一步
+
+- [应用与终端界面](/zh-cn/docs/guides/terminal-ui)：来源、模型、预览和完整快捷键。
+- [macOS 应用与菜单栏](/zh-cn/docs/guides/tray)：原生应用生命周期和快捷面板。
+- [核心概念](/zh-cn/docs/concepts)：理解客户端、来源、绑定和预设。
+- [CLI 参考](/zh-cn/docs/reference/cli)：命令、标志、退出码和环境变量。
+- [故障排查](/zh-cn/docs/reference/troubleshooting)：`anypick doctor` 会检查什么，以及它不会擅自修改什么。

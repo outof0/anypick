@@ -282,21 +282,21 @@ struct PublishedModelsView: View {
     Group {
       if allPublished.isEmpty && needsChoice.isEmpty && matchingConflicts.isEmpty {
         ContentUnavailableView {
-          Label("No Published Models", systemImage: "square.stack.3d.up.slash")
+          Label(model.localized("desktop.published.no_models"), systemImage: "square.stack.3d.up.slash")
         } description: {
-          Text("Turn on an account and resolve overlapping models, then they appear here.")
+          Text(model.localized("desktop.published.empty_detail"))
         }
       } else if (selectedVendor == "switchable" ? switchableModels.isEmpty : published.isEmpty) && needsChoice.isEmpty && matchingConflicts.isEmpty {
         ContentUnavailableView {
-          Label("No Results", systemImage: "magnifyingglass")
+          Label(model.localized("desktop.published.no_results"), systemImage: "magnifyingglass")
         } description: {
-          Text("No models match this filter or search query.")
+          Text(model.localized("desktop.published.no_results_detail"))
         } actions: {
-          Button("Reset Filters") {
+          Button(model.localized("desktop.published.reset_filters")) {
             search = ""
             selectedVendor = "all"
           }
-          .help("Clear the search and show all published models.")
+          .help(model.localized("desktop.published.reset_help"))
         }
       } else {
         DesignGroupedPane {
@@ -306,9 +306,9 @@ struct PublishedModelsView: View {
                 conflictPicker(conflict)
               }
             } header: {
-              Text("Routing Conflicts")
+              Text(model.localized("desktop.hub.conflicts"))
             } footer: {
-              Text("Multiple providers share these model IDs. Selecting a provider routes client requests to that provider’s accounts.")
+              Text(model.localized("desktop.hub.conflict_footer"))
             }
           } else if !needsChoice.isEmpty {
             Section {
@@ -327,15 +327,15 @@ struct PublishedModelsView: View {
 
                   Spacer(minLength: 8)
 
-                  Text("Needs a choice")
+                  Text(model.localized("desktop.hub.need_choice"))
                     .foregroundStyle(.secondary)
                 }
                 .accessibilityIdentifier("published-models.row.\(item.modelID)")
               }
             } header: {
-              Text("Routing Conflicts")
+              Text(model.localized("desktop.hub.conflicts"))
             } footer: {
-              Text("Pick a provider on Proxy Hub, then these IDs publish.")
+              Text(model.localized("desktop.published.conflict_footer"))
             }
           }
 
@@ -345,9 +345,9 @@ struct PublishedModelsView: View {
                 switchableModelRow(item)
               }
             } header: {
-              Text("Multi-provider Routes")
+              Text(model.localized("desktop.published.multi_provider_routes"))
             } footer: {
-              Text("These models are available from multiple providers. Select a provider to switch which one handles client requests.")
+              Text(model.localized("desktop.published.multi_route_detail"))
             }
           } else if selectedVendor != "all" {
             if let group = vendorGroups.first(where: { $0.vendorKey == selectedVendor || $0.id == selectedVendor }) {
@@ -398,24 +398,26 @@ struct PublishedModelsView: View {
                 .accessibilityIdentifier("published-models.group.\(group.id)")
               }
             } header: {
-              Text("Published Catalogs")
+              Text(model.localized("desktop.published.published_catalogs"))
             } footer: {
-              Text("Click a catalog to view its published models. Models available across multiple providers can be switched inline.")
+              Text(model.localized("desktop.published.catalogs_footer"))
             }
           }
         }
       }
     }
-    .navigationTitle("Published Models")
-    .searchable(text: $search, placement: .toolbar, prompt: "Search Models")
+    .navigationTitle(model.localized("desktop.published.title"))
+    .searchable(text: $search, placement: .toolbar, prompt: model.localized("desktop.apps.search"))
     .toolbar {
 
       if availableVendors.count > 1 || !switchableModels.isEmpty {
         ToolbarItem(placement: .automatic) {
-          Picker("Catalog", selection: $selectedVendor) {
-            Text("All Catalogs (\(allPublished.count))").tag("all")
+          Picker(model.localized("desktop.published.catalog"), selection: $selectedVendor) {
+            Text(model.localized("desktop.published.all_catalogs")
+              .replacingOccurrences(of: "{count}", with: String(allPublished.count))).tag("all")
             if !switchableModels.isEmpty {
-              Text("Multi-provider Routes (\(switchableModels.count))").tag("switchable")
+              Text(model.localized("desktop.published.multi_routes_count")
+                .replacingOccurrences(of: "{count}", with: String(switchableModels.count))).tag("switchable")
             }
             Divider()
             ForEach(availableVendors, id: \.id) { v in
@@ -460,7 +462,7 @@ struct PublishedModelsView: View {
             .fontWeight(.medium)
             .lineLimit(1)
 
-          Text("Multi-provider")
+          Text(model.localized("desktop.published.multi_provider"))
             .font(.caption2)
             .foregroundStyle(.secondary)
         }
@@ -475,7 +477,8 @@ struct PublishedModelsView: View {
           if !providerNames.isEmpty {
             Text("·")
               .foregroundStyle(.tertiary)
-            Text("Available via \(providerNames.joined(separator: ", "))")
+            Text(model.localized("desktop.hub.available_via")
+              .replacingOccurrences(of: "{providers}", with: providerNames.joined(separator: ", ")))
               .font(.caption2)
               .foregroundStyle(.secondary)
               .lineLimit(1)
@@ -540,7 +543,7 @@ struct PublishedModelsView: View {
           }
 
           if candidates.count > 1 {
-            Text("Multi-provider")
+            Text(model.localized("desktop.published.multi_provider"))
               .font(.caption2)
               .foregroundStyle(.secondary)
           }
@@ -586,7 +589,8 @@ struct PublishedModelsView: View {
 
         DesignCopyButton(
           copied: isCopied,
-          label: "Copy Model ID",
+          label: model.localized("desktop.published.copy_model_id"),
+          copiedLabel: model.localized("desktop.common.copied_to_clipboard"),
           identifier: "published-models.copy.\(item.modelID)"
         ) {
           if copyText(item.modelID) {
@@ -599,7 +603,7 @@ struct PublishedModelsView: View {
 
         DesignIconButton(
           symbol: "info.circle",
-          label: "Inspect \(item.modelID)",
+          label: "\(model.localized("desktop.published.inspect_model")) \(item.modelID)",
           identifier: "published-models.inspect.\(item.modelID)"
         ) {
           inspectingModel = item
@@ -611,7 +615,7 @@ struct PublishedModelsView: View {
     .contentShape(Rectangle())
     .contextMenu {
       if candidates.count > 1 {
-        Menu("Route to") {
+        Menu(model.localized("desktop.published.route_to")) {
           ForEach(candidates) { cand in
             Button {
               model.selectRoutingCandidate(actionID: cand.actionID)
@@ -623,20 +627,20 @@ struct PublishedModelsView: View {
                 }
               }
             }
-            .help("Route this model to \(cand.label).")
+            .help("\(model.localized("desktop.published.route_to")) \(cand.label)")
           }
         }
-        .help("Choose which provider handles requests for this model.")
+        .help(model.localized("desktop.hub.model_routing_footer"))
         Divider()
       }
-      Button("Copy Model ID") {
+      Button(model.localized("desktop.published.copy_model_id")) {
         copyText(item.modelID)
       }
-      .help("Copy this model’s identifier.")
-      Button("Inspect Model…") {
+      .help(model.localized("desktop.published.copy_model_id_help"))
+      Button(model.localized("desktop.published.inspect_model")) {
         inspectingModel = item
       }
-      .help("View the model’s provider, account, and routing details.")
+      .help(model.localized("desktop.published.inspect_model_help"))
     }
     .accessibilityIdentifier("published-models.row.\(item.modelID)")
   }
@@ -657,7 +661,7 @@ struct PublishedModelsView: View {
       src.rotates && src.enabled && (src.provider == item.ownerProvider || src.name.localizedCaseInsensitiveContains(providerName))
     }
     if hasRotation {
-      return "Rotates across accounts"
+    return model.localized("desktop.published.rotates_across_accounts")
     }
     if !providerName.isEmpty && providerName.caseInsensitiveCompare("Needs a choice") != .orderedSame {
       return providerName
@@ -676,7 +680,7 @@ struct PublishedModelsView: View {
   @discardableResult
   private func copyText(_ string: String) -> Bool {
     let copied = model.pasteString(string)
-    model.announceOnly(copied ? "Copied to clipboard." : "Couldn’t copy to clipboard.")
+    model.announceOnly(model.localized(copied ? "desktop.common.copied_to_clipboard" : "desktop.common.copy_failed"))
     return copied
   }
 
@@ -684,7 +688,7 @@ struct PublishedModelsView: View {
   private func conflictPicker(_ conflict: DesignRoutingConflict) -> some View {
     let serviceID = hubConflictServiceID(conflict.id)
     let resolving = model.serviceOperations[serviceID] != nil
-    let (infoTitle, infoSubtitle) = hubConflictDisplayInfo(conflict)
+    let (infoTitle, infoSubtitle) = hubConflictDisplayInfo(conflict, using: model)
     let candidatesToShow = uniqueProviderCandidates(conflict.candidates)
     let conflictModelID = conflict.models.first ?? conflict.title
     let parsed = parseModelIdentity(conflictModelID, fallbackProvider: conflict.candidates.first?.provider ?? "")
@@ -694,7 +698,7 @@ struct PublishedModelsView: View {
         if resolving {
           ProgressView()
             .controlSize(.small)
-            .accessibilityLabel("Applying choice for \(conflict.title)")
+          .accessibilityLabel(model.localized("desktop.published.applying_choice_for", replacing: ["name": infoTitle]))
         }
         DesignCandidatePicker(
           candidates: candidatesToShow,
@@ -713,7 +717,7 @@ struct PublishedModelsView: View {
               model.selectRoutingCandidate(actionID: candidate.actionID)
             }
           ),
-          placeholder: "Select Provider…",
+          placeholder: model.localized("desktop.published.select_provider"),
           accessibilityIdentifier: "published-models.conflict.\(conflict.id).picker"
         )
         .fixedSize()
@@ -795,9 +799,9 @@ struct PublishedModelInspectSheet: View {
       src.rotates && src.enabled && (src.provider == publishedModel.ownerProvider || src.name.localizedCaseInsensitiveContains(providerName))
     }
     if hasRotation {
-      return "Round Robin (spreads requests across accounts)"
+      return model.localized("desktop.published.round_robin_strategy")
     }
-    return "Failover (active account first)"
+    return model.localized("desktop.published.failover_strategy")
   }
 
   private var curlExample: String {
@@ -810,9 +814,10 @@ struct PublishedModelInspectSheet: View {
 
   var body: some View {
     DesignSheetHost(
+      model: model,
       title: modelIdentity.cleanName,
       width: 480,
-      primaryTitle: "Done",
+      primaryTitle: model.localized("desktop.published.done"),
       primaryIdentifier: "model-inspect.done",
       showsCancel: false,
       onCancel: { dismiss() },
@@ -840,20 +845,20 @@ struct PublishedModelInspectSheet: View {
             DesignProviderIcon(provider: modelIdentity.vendorKey, fallbackSymbol: modelIdentity.fallbackSymbol, size: 28)
           }
 
-          LabeledContent("Status") {
+          LabeledContent(model.localized("desktop.common.status")) {
             HStack(spacing: 6) {
               Circle()
                 .fill(Color.green)
                 .frame(width: 8, height: 8)
-              Text("Active")
+              Text(model.localized("desktop.published.active"))
                 .foregroundStyle(.secondary)
             }
           }
-          LabeledContent("Model Family", value: modelIdentity.vendorName)
+          LabeledContent(model.localized("desktop.published.model_family"), value: modelIdentity.vendorName)
 
           let candidates = model.routeCandidates(for: publishedModel.modelID)
           if candidates.count > 1 {
-            LabeledContent("Route to") {
+            LabeledContent(model.localized("desktop.published.route_to")) {
               DesignCandidatePicker(
                 candidates: candidates,
                 selection: Binding<String?>(
@@ -868,17 +873,17 @@ struct PublishedModelInspectSheet: View {
               .fixedSize()
             }
           } else {
-            LabeledContent("Serving Provider", value: providerName)
+          LabeledContent(model.localized("desktop.account_detail.provider"), value: providerName)
           }
 
-          LabeledContent("Serving Account", value: servingAccountDisplay)
-          LabeledContent("Routing Strategy", value: strategyDisplay)
+          LabeledContent(model.localized("desktop.proxy_detail.serving_account"), value: servingAccountDisplay)
+          LabeledContent(model.localized("desktop.published.routing_strategy"), value: strategyDisplay)
         } header: {
-          Text("Model & Routing")
+          Text(model.localized("desktop.published.model_routing"))
         }
 
         Section {
-          LabeledContent("Base URL") {
+          LabeledContent(model.localized("desktop.published.base_url")) {
             HStack(spacing: 8) {
               Text(hubAddress)
                 .font(.system(.body, design: .monospaced))
@@ -899,29 +904,29 @@ struct PublishedModelInspectSheet: View {
               copyButton(for: chatCompletionsURL, label: "chat-url")
             }
           } label: {
-            Text("Chat URL")
+            Text(model.localized("desktop.published.chat_url"))
           }
 
-          LabeledContent("Test in Terminal") {
+          LabeledContent(model.localized("desktop.published.test_terminal")) {
             let copied = copiedLabel == "curl"
             Button {
               copyToClipboard(curlExample, label: "curl")
             } label: {
               HStack(spacing: 4) {
                 DesignCopyGlyph(copied: copied)
-                Text("Copy cURL Command")
+                Text(model.localized("desktop.published.copy_curl"))
               }
             }
             .buttonStyle(.bordered)
             .controlSize(.small)
-            .help(copied ? "Copied cURL command" : "Copy cURL command")
-            .accessibilityLabel(copied ? "Copied cURL command" : "Copy cURL command")
+            .help(model.localized(copied ? "desktop.published.copied_curl" : "desktop.published.copy_curl"))
+            .accessibilityLabel(model.localized(copied ? "desktop.published.copied_curl" : "desktop.published.copy_curl"))
             .accessibilityIdentifier("model-inspect.copy-curl")
           }
         } header: {
-          Text("Proxy Hub Endpoint")
+          Text(model.localized("desktop.published.endpoint"))
         } footer: {
-          Text("Compatible with OpenAI client libraries. Use this base URL or copy the cURL command to test.")
+          Text(model.localized("desktop.published.endpoint_detail"))
         }
       }
     }
@@ -930,7 +935,8 @@ struct PublishedModelInspectSheet: View {
   private func copyButton(for text: String, label: String) -> some View {
     DesignCopyButton(
       copied: copiedLabel == label,
-      label: "Copy \(label == "base-url" ? "Base URL" : "Chat URL")",
+      label: model.localized(label == "base-url" ? "desktop.published.copy_base_url" : "desktop.published.copy_chat_url"),
+      copiedLabel: model.localized("desktop.common.copied_to_clipboard"),
       identifier: "model-inspect.copy-\(label)"
     ) {
       copyToClipboard(text, label: label)
@@ -940,11 +946,11 @@ struct PublishedModelInspectSheet: View {
   private func copyToClipboard(_ text: String, label: String) {
     let copied = model.pasteString(text)
     guard copied else {
-      model.announceOnly("Couldn’t copy to clipboard.")
+      model.announceOnly(model.localized("desktop.common.copy_failed"))
       return
     }
     copiedLabel = label
-    model.announceOnly("Copied to clipboard.")
+    model.announceOnly(model.localized("desktop.common.copied_to_clipboard"))
     DispatchQueue.main.asyncAfter(deadline: .now() + 1.4) {
       if copiedLabel == label { copiedLabel = nil }
     }

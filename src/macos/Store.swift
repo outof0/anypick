@@ -28,7 +28,10 @@ final class TrayStore: ObservableObject {
     launchAtLogin: false,
     startEnabledProxies: true,
     showQuota: true,
-    quotaGuardEnabled: false
+    quotaGuardEnabled: false,
+    language: "auto",
+    resolvedLanguage: "en",
+    languageOptions: LanguageOptionSnapshot.defaultOptions
   )
   @Published private(set) var logsBySource: [String: String] = [:]
   @Published var logStatesBySource: [String: String] = [:]
@@ -280,6 +283,7 @@ final class TrayStore: ObservableObject {
     defaultModel: String? = nil,
     overwrite: Bool? = nil,
     enabled: Bool? = nil,
+    language: String? = nil,
     kind: String? = nil,
     profile: String? = nil,
     path: String? = nil,
@@ -305,6 +309,7 @@ final class TrayStore: ObservableObject {
       defaultModel: defaultModel,
       overwrite: overwrite,
       enabled: enabled,
+      language: language,
       kind: kind,
       profile: profile,
       transportPolicy: transportPolicy,
@@ -549,8 +554,8 @@ final class TrayStore: ObservableObject {
     if kind != "doctor" && !isSilentRequest {
       showMessage(
         isState
-          ? "AnyPick cannot read its service's state. Update AnyPick, then reopen it."
-          : "AnyPick could not read the service's \(kind) response. Reopen AnyPick and try again.",
+          ? localizedMessage("desktop.main.unreadable_state")
+          : localizedMessage("desktop.main.unreadable_response", replacing: ["kind": kind]),
         isError: true
       )
     }
@@ -568,7 +573,7 @@ final class TrayStore: ObservableObject {
           version: 1,
           requestId: requestID,
           status: "error",
-          message: "AnyPick could not read its service's result. Reopen AnyPick and try again.",
+          message: localizedMessage("desktop.main.unreadable_result"),
           code: "UNREADABLE_RESULT",
           suggestions: nil,
           mutated: nil
@@ -578,7 +583,7 @@ final class TrayStore: ObservableObject {
     case "logs":
       finishLogRequest()
     case "doctor":
-      finishDoctorRequest(error: "AnyPick could not read the Doctor response. Reopen AnyPick and try again.")
+      finishDoctorRequest(error: localizedMessage("desktop.main.unreadable_doctor"))
     case "backup-preview":
       backupPreviewTimeoutTask?.cancel()
       backupPreviewTimeoutTask = nil
@@ -591,6 +596,17 @@ final class TrayStore: ObservableObject {
       // generic error pane when there is nothing to show) and offer the
       // restart, instead of "Starting…" forever with no explanation.
       updateServiceState(.degraded("This build cannot read the service's state."))
+    }
+  }
+
+  private func localizedMessage(_ key: String, replacing values: [String: String] = [:]) -> String {
+    let template = DesktopMessageCatalog.text(
+      key,
+      preference: settings.language ?? "auto",
+      resolved: settings.resolvedLanguage ?? DesktopMessageCatalog.systemLanguage
+    )
+    return values.reduce(template) { result, entry in
+      result.replacingOccurrences(of: "{\(entry.key)}", with: entry.value)
     }
   }
 
@@ -649,6 +665,11 @@ final class TrayStore: ObservableObject {
 
   func showMessage(_ value: String, isError: Bool) {
     messageDismissTask?.cancel()
+    let value = DesktopMessageCatalog.text(
+      source: value,
+      preference: settings.language ?? "auto",
+      resolved: settings.resolvedLanguage ?? DesktopMessageCatalog.systemLanguage
+    )
     withAnimation(TrayMotion.message) {
       message = value
       messageIsError = isError

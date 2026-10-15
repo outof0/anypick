@@ -16,13 +16,13 @@ extension View {
 
 extension DesignApp {
   /// Copy shown when an app has no working login; `nil` keeps the row clean.
-  var issue: String? {
+  @MainActor func issue(using model: MacOSDesignModel) -> String? {
     if !isAppRouteConfigured(self) {
-      return "No login chosen. Open the app to choose one."
+      return model.localized("desktop.app_detail.issue_no_login")
     }
     switch status {
     case .attention, .unavailable:
-      return "This app doesn’t have a working login."
+      return model.localized("desktop.app_detail.issue_not_working")
     case .ready, .running, .stopped:
       return nil
     }
@@ -30,15 +30,16 @@ extension DesignApp {
 }
 
 struct DesignStatusLabel: View {
+  let model: MacOSDesignModel
   let status: DesignStatus
 
   var body: some View {
     HStack(spacing: 5) {
       statusDot
-      Text(status.rawValue)
+      Text(status.localizedLabel(using: model))
         .foregroundStyle(.secondary)
     }
-    .accessibilityLabel("Status: \(status.rawValue)")
+    .accessibilityLabel("\(model.localized("desktop.common.status")): \(status.localizedLabel(using: model))")
   }
 
   @ViewBuilder
@@ -74,6 +75,7 @@ struct DesignStatusLabel: View {
 /// nearly-exhausted quota is attention, and `.red` / `.orange` are system
 /// colours rather than palette values.
 struct DesignQuotaView: View {
+  let model: MacOSDesignModel
   let window: DesignUsageWindow
   var isCompact: Bool = false
   var showsLabel: Bool = true
@@ -81,7 +83,7 @@ struct DesignQuotaView: View {
   var showsLimitCard: Bool = false
 
   private var remainingPercent: Int { max(0, min(100, window.remainingPercent)) }
-  private var label: String { quotaWindowLabel(window) }
+  private var label: String { localizedQuotaWindowLabel(window, using: model) }
 
   var body: some View {
     if showsLimitCard {
@@ -110,7 +112,8 @@ struct DesignQuotaView: View {
         .frame(width: 42, alignment: .trailing)
 
       Text(
-        quotaResetFormatted(
+        localizedQuotaResetFormatted(
+          using: model,
           resetsAtMs: window.resetsAtMs,
           limitWindowSeconds: window.limitWindowSeconds
         ) ?? ""
@@ -120,7 +123,10 @@ struct DesignQuotaView: View {
       .frame(width: 72, alignment: .trailing)
     }
     .accessibilityElement(children: .combine)
-    .accessibilityLabel("\(label): \(remainingPercent)% remaining")
+    .accessibilityLabel(model.localized("desktop.quota.remaining_accessibility", replacing: [
+      "label": label,
+      "percent": String(remainingPercent),
+    ]))
   }
 
   private var limitCard: some View {
@@ -129,7 +135,7 @@ struct DesignQuotaView: View {
         Text(label)
           .font(.body.weight(.medium))
           .fixedSize(horizontal: false, vertical: true)
-        if let refresh = quotaFullyRefreshFormatted(resetsAtMs: window.resetsAtMs) {
+        if let refresh = localizedQuotaFullyRefreshFormatted(resetsAtMs: window.resetsAtMs, using: model) {
           Text(limitCaption(refresh: refresh))
             .font(.subheadline)
             .foregroundStyle(.secondary)
@@ -149,18 +155,21 @@ struct DesignQuotaView: View {
       .accessibilityHidden(true)
     }
     .accessibilityElement(children: .combine)
-    .accessibilityLabel("\(label): \(remainingPercent)% remaining")
+    .accessibilityLabel(model.localized("desktop.quota.remaining_accessibility", replacing: [
+      "label": label,
+      "percent": String(remainingPercent),
+    ]))
   }
 
   private func limitCaption(refresh: String) -> String {
-    let period = quotaLimitAdjective(limitWindowSeconds: window.limitWindowSeconds)
+    let period = localizedQuotaLimitAdjective(limitWindowSeconds: window.limitWindowSeconds, using: model)
     if let period {
       if remainingPercent >= 100 {
-        return "Your \(period) limit is unused; it will \(refresh)."
+        return model.localized("desktop.quota.limit_unused", replacing: ["period": period, "refresh": refresh])
       }
-      return "You have used some of your \(period) limit, it will \(refresh)."
+      return model.localized("desktop.quota.limit_used", replacing: ["period": period, "refresh": refresh])
     }
-    return "It will \(refresh)."
+    return model.localized("desktop.quota.refresh_without_period", replacing: ["refresh": refresh])
   }
 
   private var attentionTint: Color? {
@@ -329,14 +338,9 @@ struct DesignEmptyState: View {
 struct DesignCopyButton: View {
   let copied: Bool
   let label: String
+  let copiedLabel: String
   let identifier: String
   let action: () -> Void
-
-  private var copiedDescription: String {
-    label.hasPrefix("Copy ")
-      ? "Copied \(label.dropFirst("Copy ".count))"
-      : "Copied"
-  }
 
   var body: some View {
     Button(action: action) {
@@ -344,8 +348,8 @@ struct DesignCopyButton: View {
     }
     .buttonStyle(.borderless)
     .controlSize(.small)
-    .help(copied ? copiedDescription : label)
-    .accessibilityLabel(copied ? copiedDescription : label)
+    .help(copied ? copiedLabel : label)
+    .accessibilityLabel(copied ? copiedLabel : label)
     .accessibilityIdentifier(identifier)
   }
 }
@@ -473,8 +477,10 @@ struct DesignEmptyRow: View {
 }
 
 struct DesignLoadingState: View {
+  let model: MacOSDesignModel
+
   var body: some View {
-    ProgressView("Loading AnyPick…")
+    ProgressView(model.localized("desktop.sidebar.loading"))
       .controlSize(.large)
       .frame(maxWidth: .infinity, maxHeight: .infinity)
       .accessibilityIdentifier("state.loading")
@@ -767,6 +773,7 @@ struct DesignSheetButton: NSViewRepresentable {
 /// titlebar: the title sits inside the sheet above the content, and the
 /// actions live in a separated bottom bar rather than the window title bar.
 struct DesignSheetHost<Content: View>: View {
+  @ObservedObject var model: MacOSDesignModel
   let title: String
   var width: CGFloat = 480
   var primaryTitle: String
@@ -774,7 +781,7 @@ struct DesignSheetHost<Content: View>: View {
   var primaryIdentifier: String?
   var primaryRole: ButtonRole? = nil
   var showsCancel = true
-  var cancelTitle = "Cancel"
+  var cancelTitle: String? = nil
   var primaryHelp: String? = nil
   var cancelHelp: String? = nil
   var onCancel: () -> Void
@@ -839,8 +846,8 @@ struct DesignSheetHost<Content: View>: View {
         Spacer(minLength: 0)
         if showsCancel {
           DesignSheetButton(
-            title: cancelTitle,
-            help: cancelHelp ?? "Close this sheet without saving changes.",
+            title: cancelTitle ?? model.localized("desktop.common.cancel"),
+            help: cancelHelp ?? model.localized("desktop.common.cancel_help"),
             keyEquivalent: "\u{1b}",
             identifier: "sheet.cancel",
             action: onCancel
@@ -947,14 +954,16 @@ extension View {
   /// to be marked consumed.
   func designConfirmation(
     _ pending: Binding<DesignConfirmation?>,
+    model: MacOSDesignModel,
     onDismiss: @escaping () -> Void = {}
   ) -> some View {
-    modifier(DesignConfirmationHost(pending: pending, onDismiss: onDismiss))
+    modifier(DesignConfirmationHost(pending: pending, model: model, onDismiss: onDismiss))
   }
 }
 
 private struct DesignConfirmationHost: ViewModifier {
   @Binding var pending: DesignConfirmation?
+  let model: MacOSDesignModel
   let onDismiss: () -> Void
 
   func body(content: Content) -> some View {
@@ -974,12 +983,12 @@ private struct DesignConfirmationHost: ViewModifier {
       // key to the last button, and the dismissing choice must own it.
       switch request.actions.count {
       case 0:
-        Button("Cancel", role: .cancel, action: {})
-          .help("Dismiss this confirmation.")
+        Button(model.localized("desktop.common.cancel"), role: .cancel, action: {})
+          .help(model.localized("desktop.confirm.dismiss_help"))
       case 1:
         answerButton(request.actions[0])
-        Button("Cancel", role: .cancel, action: {})
-          .help("Keep the current settings and close this confirmation.")
+        Button(model.localized("desktop.common.cancel"), role: .cancel, action: {})
+          .help(model.localized("desktop.confirm.cancel_help"))
       default:
         // Three or more answers take one full-width row each. That is the
         // platform's own rule — measured on `_NSAlertPanel`, even "No / Yes /
@@ -988,8 +997,8 @@ private struct DesignConfirmationHost: ViewModifier {
         // platform's layout, not a choice made here.
         answerButton(request.actions[0])
         answerButton(request.actions[1])
-        Button("Cancel", role: .cancel, action: {})
-          .help("Keep the current settings and close this confirmation.")
+        Button(model.localized("desktop.common.cancel"), role: .cancel, action: {})
+          .help(model.localized("desktop.confirm.cancel_help"))
       }
     } message: { request in
       Text(request.message)
@@ -998,7 +1007,7 @@ private struct DesignConfirmationHost: ViewModifier {
 
   private func answerButton(_ action: DesignConfirmation.Action) -> some View {
     Button(action.title, role: action.destructive ? .destructive : nil, action: action.perform)
-      .help(action.destructive ? "Confirm this change." : "Continue with this choice.")
+      .help(model.localized(action.destructive ? "desktop.confirm.destructive_help" : "desktop.confirm.continue_help"))
       .modifier(DesignOptionalAccessibilityIdentifier(identifier: action.identifier))
   }
 }

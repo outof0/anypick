@@ -1,0 +1,86 @@
+---
+title: 网关
+description: 登记端点、密钥和模型目录，然后将客户端绑定到网关。
+---
+
+网关是一份 API 配置：端点、凭据，以及可选的模型列表。网关没有登录流程或本地进程，客户端会直接请求远端端点。
+
+## 添加网关
+
+```bash
+anypick add gateway openrouter-work \
+  --provider openrouter \
+  --endpoint https://openrouter.ai/api/v1 \
+  --api-key "$OPENROUTER_API_KEY" \
+  --model anthropic/claude-sonnet-4 \
+  --models default=anthropic/claude-sonnet-4 \
+  --models opus=anthropic/claude-opus-4-8
+
+anypick use claude --with openrouter-work
+anypick run claude
+```
+
+| 标志 | 含义 |
+| --- | --- |
+| `--provider <id>` | 指定端点遵循的模型目录格式 |
+| `--endpoint <url>` | API 基础 URL |
+| `--api-key <key>` | 将密钥保存到 AnyPick 数据库 |
+| `--api-key-env <var>` | 激活绑定时从环境变量读取密钥，而不是保存密钥本身 |
+| `--model <id>` | 此网关的默认模型 |
+| `--models <role=id>` | 将客户端的模型角色（例如 `default`、`sonnet`、`opus`、`haiku`）指定到网关模型；每个角色重复一次此标志 |
+| `--gateway-id <id>` | 为一个端点包含多个网关的服务商指定网关 ID |
+
+`--models` 接受的是“角色到模型”的映射，不是自由模型列表。配置会写入客户端对应的模型角色；单独传模型 ID 没有可写入的角色，会被拒绝。格式为 `role=model-id`。
+
+内置目录服务商包括 `anthropic`、`openai`、`openrouter`、`grok-api`、`gemini-api`、`litellm`、`local`、`custom` 和 `cloudflare-aigateway`。完整列表见源码 `src/go/internal/catalog/catalog.go` 中的 `Builtin()`。
+
+Cloudflare AI Gateway 需要显式端点（基础 URL 中包含 Cloudflare 账户 ID）和网关 ID：
+
+```bash
+anypick add gateway cf-prod \
+  --provider cloudflare-aigateway \
+  --endpoint https://api.cloudflare.com/client/v4/accounts/ACCOUNT_ID/ai/v1 \
+  --api-key "$CF_API_TOKEN" \
+  --gateway-id my-gateway
+```
+
+省略 `--gateway-id` 时使用服务商默认值 `default`。
+
+<Aside type="tip" title="不希望保存密钥时">
+使用 `--api-key-env OPENROUTER_API_KEY` 只会记录变量名，不会保存密钥。AnyPick 在启用绑定时从环境或密钥管理器读取密钥。
+</Aside>
+
+## 网关和代理的区别
+
+两者都是来源，并且都通过 `use <client> --with <source>` 绑定，差异在于背后的服务：
+
+| | 代理（账户） | 网关（API 配置） |
+| --- | --- | --- |
+| 认证 | 原生登录快照和本地进程 | AnyPick 保存的端点与密钥 |
+| 设置 | 使用服务商 CLI 登录，再保存快照 | 填写端点和密钥 |
+| 模型 | 从运行中的代理发现 | 使用网关默认值或绑定中的配置 |
+| 请求去向 | `127.0.0.1:<port>` → 上游服务 | 直接请求端点 |
+
+持有 API key 时使用网关；持有订阅账号时使用账户。
+
+## 客户端中的模型列表
+
+对于有原生模型注册表的客户端（Codex、OpenCode、ZCode、Command Code 和 DSH），AnyPick 会写入与来源相关的模型目录，使客户端展示的模型 ID 和当前网关或代理一致。使用 `--model` 设置客户端默认启动模型。
+
+Claude Code、Gemini CLI 和 Kiro 通过环境变量或原生角色设置选择模型，没有可写入的模型注册表。AnyPick 能配置它们的默认值和角色，但无法为这些程序创建它们不读取的列表。
+
+账户代理无需手动配置模型目录；激活客户端时，AnyPick 会读取代理实时的 `/v1/models` 列表。
+
+## 管理网关
+
+```bash
+anypick gateway list
+anypick gateway show openrouter-work
+anypick gateway edit openrouter-work -m anthropic/claude-sonnet-4
+anypick gateway edit openrouter-work --endpoint https://… --api-key "$NEW_KEY"
+anypick gateway remove old-gateway -y
+```
+
+`show` 会遮盖密钥。传入全局 `--reveal` 会显示密钥，请谨慎使用。
+
+绑定是配置快照，所以编辑网关不会追溯更改已绑定的客户端。重新运行 `use` 才会应用新端点或模型。

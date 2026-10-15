@@ -160,6 +160,11 @@ actor GoServiceProcess {
 
       process.executableURL = helper
       process.arguments = ["desktop-service", "--stdio"]
+      var environment = ProcessInfo.processInfo.environment
+      // Finder launches do not reliably provide LANG/LC_* variables. Pass
+      // macOS's selected language explicitly so Auto Detect matches the app.
+      environment["ANYPICK_SYSTEM_LANG"] = DesktopMessageCatalog.systemLanguage
+      process.environment = environment
       process.standardInput = input
       process.standardOutput = output
       process.standardError = errors

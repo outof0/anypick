@@ -8,7 +8,7 @@ extension ProductionDesignModel {
   func synchronizeBackupInspectionState() {
     if store.backupPreviewRequestId != nil {
       backupInspectionState = .reading
-      backupInspectionMessage = "Reading a protected review copy…"
+      backupInspectionMessage = localized("desktop.backups.reading_protected_copy")
       return
     }
     if backupInspectionState == .importing || backupInspectionState == .success
@@ -24,7 +24,7 @@ extension ProductionDesignModel {
       case "timeout": backupInspectionState = .damaged
       default: backupInspectionState = .damaged
       }
-      backupInspectionMessage = preview.message ?? "Nothing was imported. Choose another file."
+      backupInspectionMessage = preview.message ?? localized("desktop.backups.nothing_imported_choose_another")
     } else if store.backupPreview?.status == "ready" {
       backupInspectionState = .ready
       backupInspectionMessage = nil

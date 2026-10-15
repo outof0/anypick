@@ -3,6 +3,7 @@ import { useState } from 'react';
 import type { CodexProfileRow, Snapshot } from '../lib/contract';
 import { cleanModelDisplayName } from '../lib/model';
 import { validCodexProfileName } from '../lib/desktop-actions';
+import { translate } from '../lib/i18n';
 import { Dialog } from '../ui/Dialog';
 import { Button, Field, Group, Row, Select } from '../ui/primitives';
 
@@ -12,6 +13,8 @@ export function CodexProfileSheet({
   sources,
   existingProfiles,
   busy,
+  language,
+  resolvedLanguage,
   onClose,
   onSave,
 }: {
@@ -19,6 +22,8 @@ export function CodexProfileSheet({
   sources: Snapshot['codexProfileSources'];
   existingProfiles: Snapshot['codexProfiles'];
   busy: ReadonlySet<string>;
+  language: string;
+  resolvedLanguage: string;
   onClose: () => void;
   onSave: (payload: {
     name: string;
@@ -28,6 +33,9 @@ export function CodexProfileSheet({
     isUpdate: boolean;
   }) => void;
 }) {
+  const t = (key: string) => translate(`desktop.codex_profile.${key}`, language, resolvedLanguage);
+  const ta = (key: string) => translate(`desktop.app_detail.${key}`, language, resolvedLanguage);
+  const tc = (key: string) => translate(`desktop.common.${key}`, language, resolvedLanguage);
   const isEdit = Boolean(profile);
   const [name, setName] = useState(profile?.name ?? '');
   const [sourceId, setSourceId] = useState(profile?.sourceId ?? sources[0]?.sourceId ?? '');
@@ -48,14 +56,14 @@ export function CodexProfileSheet({
 
   return (
     <Dialog
-      title={isEdit ? 'Edit Codex Profile' : 'Add Codex Profile'}
+      title={t(isEdit ? 'edit_title' : 'add_title')}
       onCancel={onClose}
       testId="codex-profile-dialog"
       width="form"
       actions={
         <>
           <Button kind="secondary" onClick={onClose}>
-            Cancel
+            {tc('cancel')}
           </Button>
           <Button
             kind="primary"
@@ -71,50 +79,50 @@ export function CodexProfileSheet({
               });
             }}
           >
-            {isEdit ? 'Save Profile' : 'Add Profile'}
+            {isEdit ? t('save_changes') : ta('add_profile')}
           </Button>
         </>
       }
     >
-      <Group title="Profile" footer={isEdit ? 'A profile’s name can’t be changed after creation.' : undefined}>
+      <Group title={t('profile')} footer={isEdit ? t('name_immutable') : undefined}>
         <Row>
           {isEdit ? (
             <div className="flex min-w-0 flex-1 items-center justify-between py-1">
-              <span className="text-[13px] text-text">Name</span>
+              <span className="text-[13px] text-text">{t('name')}</span>
               <span className="text-[13px] font-medium text-text">{name}</span>
             </div>
           ) : (
             <div className="flex w-full flex-col gap-1">
               <Field
-                label="Name"
+                label={t('name')}
                 value={name}
-                placeholder="e.g. work"
+                placeholder={t('name_example')}
                 onChange={setName}
                 testId="codex-profile-name"
               />
               <span className="text-[11px] text-secondary">
-                Use 1–64 letters, numbers, hyphens, or underscores.
+                {t('name_rules')}
               </span>
               {invalidName ? (
-                <span className="text-[11px] text-red">Invalid profile name format.</span>
+                <span className="text-[11px] text-red">{t('invalid_name')}</span>
               ) : nameAlreadyExists ? (
-                <span className="text-[11px] text-red">That profile name is already in use.</span>
+                <span className="text-[11px] text-red">{t('name_exists')}</span>
               ) : null}
             </div>
           )}
         </Row>
       </Group>
 
-      <Group title="Connection">
+      <Group title={ta('connection')}>
         <Row>
           <Select
-            label="Account or Route"
+            label={t('account_or_route')}
             value={sourceId}
             options={sources.map((s) => ({
               value: s.sourceId,
               label: s.label + (s.detail ? ` (${s.detail})` : ''),
             }))}
-            ariaLabel="Codex route"
+            ariaLabel={t('account_or_route')}
             testId="codex-profile.source"
             disabled={busy.size > 0}
             onChange={(nextSource) => {
@@ -125,17 +133,17 @@ export function CodexProfileSheet({
         </Row>
       </Group>
 
-      <Group title="Transport Policy">
+      <Group title={t('transport')}>
         <Row>
           <Select
-            label="Transport"
+            label={t('transport')}
             value={transport}
             options={[
-              { value: 'auto', label: 'Automatic' },
-              { value: 'proxy', label: 'Local AnyPick proxy' },
-              { value: 'direct', label: 'Direct vendor connection' },
+              { value: 'auto', label: ta('automatic') },
+              { value: 'proxy', label: t('local_proxy') },
+              { value: 'direct', label: t('direct_vendor') },
             ]}
-            ariaLabel="Codex transport"
+            ariaLabel={t('transport')}
             testId="codex-profile.transport"
             disabled={busy.size > 0}
             onChange={setTransport}
@@ -143,16 +151,16 @@ export function CodexProfileSheet({
         </Row>
       </Group>
 
-      <Group title="Model">
+      <Group title={t('model')}>
         <Row>
           <Select
-            label="Model"
+            label={t('model')}
             value={modelId}
             options={[
-              { value: '', label: 'Source default' },
+              { value: '', label: ta('source_default') },
               ...availableModels.map((m) => ({ value: m, label: cleanModelDisplayName(m) })),
             ]}
-            ariaLabel="Codex model"
+            ariaLabel={t('model')}
             testId="codex-profile.model"
             disabled={busy.size > 0}
             onChange={setModelId}

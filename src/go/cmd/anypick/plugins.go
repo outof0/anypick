@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"context"
 	"errors"
-	"fmt"
 	"io"
 	"os"
 	"strings"
@@ -86,8 +85,8 @@ func cmdPluginList(ctx context.Context, a *appView, args []string) int {
 		return int(anyerr.Success)
 	}
 	if len(records) == 0 {
-		fmt.Println("No plugins installed.")
-		fmt.Println("  next install a plugin directory  anypick plugin add <dir>")
+		cliPrintln("No plugins installed.")
+		cliPrintln("  next install a plugin directory  anypick plugin add <dir>")
 		return int(anyerr.Success)
 	}
 	for _, record := range records {
@@ -100,12 +99,12 @@ func cmdPluginList(ctx context.Context, a *appView, args []string) int {
 		} else if loaded[record.Name] {
 			state = "on"
 		}
-		fmt.Printf("  %-4s %-20s %-10s %s\n", state, record.Name, record.Version, shortPluginDigest(record.Digest))
-		fmt.Printf("    %s\n", record.Path)
+		cliPrintf("  %-4s %-20s %-10s %s\n", state, record.Name, record.Version, shortPluginDigest(record.Digest))
+		cliPrintf("    %s\n", record.Path)
 		if failed {
-			fmt.Printf("    %s\n", failure.Reason)
+			cliPrintf("    %s\n", failure.Reason)
 			if failure.Untrusted {
-				fmt.Printf("    → anypick plugin trust %s\n", record.Name)
+				cliPrintf("    → anypick plugin trust %s\n", record.Name)
 			}
 		}
 	}
@@ -125,9 +124,9 @@ func cmdPluginAdd(ctx context.Context, a *appView, args []string) int {
 		return int(anyerr.Success)
 	}
 	if !globals.Quiet {
-		fmt.Printf("Added %s %s (%s)\n", record.Name, record.Version, shortPluginDigest(record.Digest))
+		cliPrintf("Added %s %s (%s)\n", record.Name, record.Version, shortPluginDigest(record.Digest))
 		if !record.Enabled {
-			fmt.Printf("  next plugins do not run until enabled  anypick plugin enable %s\n", record.Name)
+			cliPrintf("  next plugins do not run until enabled  anypick plugin enable %s\n", record.Name)
 		}
 	}
 	return int(anyerr.Success)
@@ -143,7 +142,7 @@ func cmdPluginRemove(ctx context.Context, a *appView, args []string) int {
 	if globals.JSON {
 		jsonOut(map[string]any{"name": args[0], "removed": true})
 	} else if !globals.Quiet {
-		fmt.Printf("Removed %s\n", args[0])
+		cliPrintf("Removed %s\n", args[0])
 	}
 	return int(anyerr.Success)
 }
@@ -161,7 +160,7 @@ func cmdPluginEnable(ctx context.Context, a *appView, args []string) int {
 		if globals.JSON {
 			jsonOut(existing)
 		} else if !globals.Quiet {
-			fmt.Printf("%s is already enabled.\n", name)
+			cliPrintf("%s is already enabled.\n", name)
 		}
 		return int(anyerr.Success)
 	}
@@ -169,11 +168,11 @@ func cmdPluginEnable(ctx context.Context, a *appView, args []string) int {
 		// ADR-0021: a native build never loads plugin code, so the legacy
 		// "runs as executable JavaScript" warning would describe a boundary
 		// that does not exist. Keep the trust framing without the execution claim.
-		fmt.Printf("Warning: enabling %s records a trust decision.\n", name)
-		fmt.Printf("  %s\n", existing.Path)
-		fmt.Println("  A native build does not load or run plugin code (ADR-0021);")
-		fmt.Println("  if a Go-native executor lands, enabling will mean trusting its author.")
-		fmt.Println("  Package digest is re-checked before every import; changes require trust.")
+		cliPrintf("Warning: enabling %s records a trust decision.\n", name)
+		cliPrintf("  %s\n", existing.Path)
+		cliPrintln("  A native build does not load or run plugin code (ADR-0021);")
+		cliPrintln("  if a Go-native executor lands, enabling will mean trusting its author.")
+		cliPrintln("  Package digest is re-checked before every import; changes require trust.")
 	}
 	if err := confirmPluginTrust(
 		"Enabling "+name,
@@ -192,8 +191,8 @@ func cmdPluginEnable(ctx context.Context, a *appView, args []string) int {
 	if globals.JSON {
 		jsonOut(record)
 	} else if !globals.Quiet {
-		fmt.Printf("Enabled %s\n", name)
-		fmt.Println("  next confirm it loads on the next run  anypick plugin list")
+		cliPrintf("Enabled %s\n", name)
+		cliPrintln("  next confirm it loads on the next run  anypick plugin list")
 	}
 	return int(anyerr.Success)
 }
@@ -209,7 +208,7 @@ func cmdPluginDisable(ctx context.Context, a *appView, args []string) int {
 	if globals.JSON {
 		jsonOut(record)
 	} else if !globals.Quiet {
-		fmt.Printf("Disabled %s\n", args[0])
+		cliPrintf("Disabled %s\n", args[0])
 	}
 	return int(anyerr.Success)
 }
@@ -229,7 +228,7 @@ func cmdPluginTrust(ctx context.Context, a *appView, args []string) int {
 		return reportErr(err)
 	}
 	if !globals.JSON && !globals.Quiet && existing != nil {
-		fmt.Printf("Warning: This approves the code currently at %s.\n", existing.Path)
+		cliPrintf("Warning: This approves the code currently at %s.\n", existing.Path)
 	}
 	if err := confirmPluginTrust(
 		"Trusting "+name, "Trust the current code of "+name+"?", globals.Yes,
@@ -246,8 +245,8 @@ func cmdPluginTrust(ctx context.Context, a *appView, args []string) int {
 	if globals.JSON {
 		jsonOut(pluginTrustJSON{Record: result.Record, PreviousDigest: result.PreviousDigest})
 	} else if !globals.Quiet {
-		fmt.Printf("Trusted %s %s\n", name, result.Record.Version)
-		fmt.Printf("  %s → %s\n", shortPluginDigest(result.PreviousDigest), shortPluginDigest(result.Record.Digest))
+		cliPrintf("Trusted %s %s\n", name, result.Record.Version)
+		cliPrintf("  %s → %s\n", shortPluginDigest(result.PreviousDigest), shortPluginDigest(result.Record.Digest))
 	}
 	return int(anyerr.Success)
 }
@@ -280,12 +279,12 @@ func confirmPluginTrust(gerund, question string, yes bool) error {
 	if globals.JSON {
 		output = os.Stderr
 	}
-	fmt.Fprintf(output, "%s [y/N] ", question)
+	cliFprintf(output, "%s [y/N] ", question)
 	answer, _ := bufio.NewReader(os.Stdin).ReadString('\n')
 	answer = strings.ToLower(strings.TrimSpace(answer))
 	if answer != "y" && answer != "yes" {
 		if !globals.JSON && !globals.Quiet {
-			fmt.Println("Cancelled.")
+			cliPrintln("Cancelled.")
 		}
 		return errDeclined
 	}

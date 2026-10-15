@@ -113,6 +113,7 @@ type Mutate struct {
 	DefaultModel string `json:"defaultModel"`
 	Overwrite    bool   `json:"overwrite"`
 	Enabled      bool   `json:"enabled"`
+	Language     string `json:"language,omitempty"`
 	Name         string `json:"name"`
 	Path         string `json:"path"`
 	// account-save-input carries the credential product the user picked in

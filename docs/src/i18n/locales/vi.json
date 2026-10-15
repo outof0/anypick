@@ -1,0 +1,76 @@
+{
+  "common": {
+    "skipToContent": "Chuyển đến nội dung"
+  },
+  "header": {
+    "home": "Trang chủ {{title}}",
+    "primaryNavigation": "Điều hướng chính",
+    "sectionsNavigation": "Các mục",
+    "docs": "Tài liệu",
+    "getStarted": "Bắt đầu",
+    "openNavigation": "Mở điều hướng",
+    "starOnGitHub": "Đánh dấu sao trên GitHub",
+    "starShort": "Sao",
+    "switchLanguage": "Đổi ngôn ngữ",
+    "language": "Ngôn ngữ"
+  },
+  "docs": {
+    "deprecatedWithLatest": "This is the <strong>{{version}}</strong> version of the docs and is no longer maintained. The latest version of this page is at <a href=\"{{url}}\">{{url}}</a>.",
+    "deprecatedCurrent": "This version of the docs is no longer maintained. See the <a href=\"{{url}}\">current docs</a> for up-to-date content.",
+    "draft": "Bản nháp",
+    "audienceHuman": "Dành cho người dùng",
+    "editThisPage": "Chỉnh sửa trang này",
+    "siteNavigation": "Điều hướng trang",
+    "navigation": "Điều hướng",
+    "closeSidebar": "Đóng thanh bên",
+    "englishContent": "Nội dung trang này hiện được cung cấp bằng tiếng Anh."
+  },
+  "search": {
+    "label": "Tìm trong tài liệu",
+    "trigger": "Tìm kiếm",
+    "placeholder": "Tìm trong tài liệu…",
+    "typeToSearch": "Nhập để tìm…",
+    "navigateHint": "↑↓ di chuyển",
+    "selectHint": "↵ chọn",
+    "closeHint": "Esc đóng",
+    "productionBuild": "Tìm kiếm khả dụng sau khi build production.",
+    "searching": "Đang tìm…",
+    "noResults": "Không tìm thấy kết quả.",
+    "temporarilyUnavailable": "Tìm kiếm tạm thời không khả dụng."
+  },
+  "pageActions": {
+    "updated": "Cập nhật",
+    "copyPage": "Sao chép trang",
+    "copied": "Đã sao chép",
+    "copyFailed": "Không thể sao chép",
+    "viewMarkdown": "Xem dạng Markdown"
+  },
+  "pagination": {
+    "label": "Phân trang",
+    "previous": "Trước",
+    "next": "Tiếp"
+  },
+  "breadcrumbs": {
+    "label": "Đường dẫn",
+    "showMore": "Hiện thêm {{count}} đoạn đường dẫn"
+  },
+  "sidebar": {
+    "filterPlaceholder": "Lọc…  /",
+    "filterLabel": "Lọc điều hướng"
+  },
+  "toc": {
+    "title": "Trong trang này",
+    "label": "Mục lục"
+  },
+  "theme": {
+    "toggle": "Đổi chế độ tối"
+  },
+  "banner": {
+    "dismiss": "Đóng thông báo"
+  },
+  "packageManager": {
+    "tabs": "Trình quản lý gói",
+    "copy": "Sao chép vào bộ nhớ tạm",
+    "copied": "Đã sao chép vào bộ nhớ tạm"
+  }
+}

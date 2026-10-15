@@ -1,0 +1,76 @@
+{
+  "common": {
+    "skipToContent": "本文へ移動"
+  },
+  "header": {
+    "home": "{{title}} ホーム",
+    "primaryNavigation": "メインナビゲーション",
+    "sectionsNavigation": "セクション",
+    "docs": "ドキュメント",
+    "getStarted": "始める",
+    "openNavigation": "ナビゲーションを開く",
+    "starOnGitHub": "GitHub でスターを付ける",
+    "starShort": "スター",
+    "switchLanguage": "言語を切り替え",
+    "language": "言語"
+  },
+  "docs": {
+    "deprecatedWithLatest": "This is the <strong>{{version}}</strong> version of the docs and is no longer maintained. The latest version of this page is at <a href=\"{{url}}\">{{url}}</a>.",
+    "deprecatedCurrent": "This version of the docs is no longer maintained. See the <a href=\"{{url}}\">current docs</a> for up-to-date content.",
+    "draft": "下書き",
+    "audienceHuman": "ユーザー向け",
+    "editThisPage": "このページを編集",
+    "siteNavigation": "サイトナビゲーション",
+    "navigation": "ナビゲーション",
+    "closeSidebar": "サイドバーを閉じる",
+    "englishContent": "このページの内容は現在英語で提供されています。"
+  },
+  "search": {
+    "label": "ドキュメントを検索",
+    "trigger": "検索",
+    "placeholder": "ドキュメントを検索…",
+    "typeToSearch": "入力して検索…",
+    "navigateHint": "↑↓ 移動",
+    "selectHint": "↵ 選択",
+    "closeHint": "Esc 閉じる",
+    "productionBuild": "検索は本番ビルド後に利用できます。",
+    "searching": "検索中…",
+    "noResults": "結果が見つかりません。",
+    "temporarilyUnavailable": "検索は一時的に利用できません。"
+  },
+  "pageActions": {
+    "updated": "更新日",
+    "copyPage": "ページをコピー",
+    "copied": "コピーしました",
+    "copyFailed": "コピーできませんでした",
+    "viewMarkdown": "Markdown で表示"
+  },
+  "pagination": {
+    "label": "ページ送り",
+    "previous": "前へ",
+    "next": "次へ"
+  },
+  "breadcrumbs": {
+    "label": "パンくずリスト",
+    "showMore": "パスをさらに {{count}} 件表示"
+  },
+  "sidebar": {
+    "filterPlaceholder": "絞り込み…  /",
+    "filterLabel": "ナビゲーションを絞り込み"
+  },
+  "toc": {
+    "title": "このページの内容",
+    "label": "目次"
+  },
+  "theme": {
+    "toggle": "ダークモードを切り替え"
+  },
+  "banner": {
+    "dismiss": "お知らせを閉じる"
+  },
+  "packageManager": {
+    "tabs": "パッケージマネージャー",
+    "copy": "クリップボードにコピー",
+    "copied": "クリップボードにコピーしました"
+  }
+}

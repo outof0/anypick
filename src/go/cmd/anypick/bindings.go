@@ -32,7 +32,7 @@ func cmdPreset(ctx context.Context, a *appView, args []string) int {
 			return int(anyerr.Success)
 		}
 		for _, p := range saved {
-			fmt.Printf("%s\t%s\n", p.Name, refs.DisplayRef(p.Spec.Source))
+			cliPrintf("%s\t%s\n", p.Name, refs.DisplayRef(p.Spec.Source))
 		}
 		return int(anyerr.Success)
 	case "show":
@@ -65,7 +65,7 @@ func cmdPresetShow(ctx context.Context, a *appView, args []string) int {
 	if wantJSON(args) {
 		jsonOut(out)
 	} else {
-		fmt.Printf("%s: %s × %s (used %d×)\n", p.Name, p.Spec.Client, refs.DisplayRef(p.Spec.Source), p.UseCount)
+		cliPrintf("%s: %s × %s (used %d×)\n", p.Name, p.Spec.Client, refs.DisplayRef(p.Spec.Source), p.UseCount)
 	}
 	return int(anyerr.Success)
 }
@@ -172,16 +172,16 @@ func cmdLink(ctx context.Context, a *appView, args []string) int {
 			if plan.ResolvedSource != nil {
 				display = plan.ResolvedSource.Display
 			}
-			fmt.Println(orderedJSON([]kv{
+			cliPrintln(orderedJSON([]kv{
 				{Key: "client", Value: clientID},
 				{Key: "source", Value: display},
 				{Key: "dryRun", Value: true},
 				{Key: "scope", Value: "project"},
 			}))
 		} else {
-			fmt.Println("Dry run — project link plan:")
+			cliPrintln("Dry run — project link plan:")
 			for _, s := range plan.Steps {
-				fmt.Printf("  · %s\n", s.Kind)
+				cliPrintf("  · %s\n", s.Kind)
 			}
 		}
 		return int(anyerr.Success)
@@ -409,7 +409,7 @@ func runEphemeralCommand(
 	cleanup := func(code int) int {
 		if result.Cleanup != nil {
 			if cleanupErr := result.Cleanup(ctx); cleanupErr != nil {
-				fmt.Fprintf(os.Stderr, "run cleanup: %v\n", cleanupErr)
+				cliFprintf(os.Stderr, "run cleanup: %v\n", cleanupErr)
 				if code == int(anyerr.Success) {
 					return int(anyerr.Operational)
 				}
@@ -420,7 +420,7 @@ func runEphemeralCommand(
 	// `run` prints no activation summary, so plan warnings would otherwise be
 	// dropped on the floor.
 	for _, w := range result.Warnings {
-		fmt.Fprintf(os.Stderr, "warning: %s\n", w)
+		cliFprintf(os.Stderr, "warning: %s\n", w)
 	}
 	binary := plan.Client
 	if cad, clientErr := a.Clients.Get(plan.Client); clientErr == nil {
@@ -433,13 +433,13 @@ func runEphemeralCommand(
 		env = result.Isolated.Environment
 	}
 	if len(passThrough) == 0 && result.Isolated == nil {
-		fmt.Fprintln(os.Stderr, "run: nothing to launch (pass the command after --)")
+		cliFprintln(os.Stderr, "run: nothing to launch (pass the command after --)")
 		return cleanup(int(anyerr.InvalidUsage))
 	}
 	launchArgs := passThrough
 	if plan.Client == "codex" && plan.ProfileName != "" {
 		if hasCodexProfileFlag(passThrough) {
-			fmt.Fprintln(os.Stderr, "run: do not pass --profile after -- when using AnyPick --profile")
+			cliFprintln(os.Stderr, "run: do not pass --profile after -- when using AnyPick --profile")
 			return cleanup(int(anyerr.InvalidUsage))
 		}
 		launchArgs = append([]string{"--profile", plan.ProfileName}, passThrough...)

@@ -5,12 +5,9 @@ import type { HubConflict, HubSource, ProxyRow, Snapshot } from '../lib/contract
 import { hubSourceChange } from '../lib/desktop-actions';
 import {
   catalogModelCount,
-  conflictDisplayInfo,
   hubProxy,
-  hubServiceFooter,
   hubSourceDetail,
   hubSourceRows,
-  hubStatusSubtitle,
   isGhost,
   publishedSummary,
   uniqueProviderCandidates,
@@ -19,6 +16,7 @@ import {
 import { parseModelIdentity } from '../lib/published';
 import type { ServicePort } from '../lib/service';
 import type { ServiceResult } from '../lib/wire';
+import { translate, translateSource } from '../lib/i18n';
 import { ProviderIcon } from '../shell/ProviderIcon';
 import { MenuItem, RowMenu } from '../ui/RowMenu';
 import { ConfirmDialog } from './ProxiesPane';
@@ -78,6 +76,16 @@ export function ProxyHubPane({
   /** Opens Published Models, which the hub's own row leads to on macOS. */
   onOpenModels?: () => void;
 }) {
+  const t = (key: string) =>
+    translate(`desktop.hub.${key}`, snapshot.settings.language, snapshot.settings.resolvedLanguage);
+  const tc = (key: string) =>
+    translate(`desktop.common.${key}`, snapshot.settings.language, snapshot.settings.resolvedLanguage);
+  const tn = (key: string) =>
+    translate(`desktop.nav.${key}`, snapshot.settings.language, snapshot.settings.resolvedLanguage);
+  const ta = (key: string) =>
+    translate(`desktop.accounts.${key}`, snapshot.settings.language, snapshot.settings.resolvedLanguage);
+  const tr = (source: string) =>
+    translateSource(source, snapshot.settings.language, snapshot.settings.resolvedLanguage);
   const [copyRequestId, setCopyRequestId] = useState<string | null>(null);
   const copyConfirmation = useCopyConfirmation();
   useEffect(() => {
@@ -112,21 +120,32 @@ export function ProxyHubPane({
     (conflict) => uniqueProviderCandidates(conflict).length >= 2,
   );
   const published = publishedSummary(snapshot.hubPublishedModels, enabledSources.length);
-
-  const footer = hubServiceFooter({
-    running: Boolean(hub?.running),
-    enabled: Boolean(hub?.enabled),
-    sourceCount: enabledSources.length,
-    publishedCount: snapshot.hubPublishedModels.length,
-    conflictCount: actionable.length,
-  });
+  const publishedSummaryText = snapshot.hubPublishedModels.length > 0
+    ? `${t(snapshot.hubPublishedModels.length === 1 ? 'model_count' : 'models_count').replace('{count}', String(snapshot.hubPublishedModels.length))} ${t('models_published')}`
+    : enabledSources.length === 0 ? t('no_accounts_on') : t('no_models_published');
+  const footer = actionable.length > 0
+    ? t('footer_conflicts')
+    : !hub?.enabled
+      ? t('footer_turn_on')
+      : !hub.running
+        ? enabledSources.length === 0 ? t('footer_turn_on_start') : t('footer_enabled_not_serving')
+        : snapshot.hubPublishedModels.length === 0
+          ? t('footer_no_source_serves')
+          : snapshot.hubPublishedModels.length === 1
+            ? t('footer_one_model')
+            : t('footer_models_on_address').replace('{count}', String(snapshot.hubPublishedModels.length));
+  const hubSubtitle = !hub
+    ? translate('desktop.overview.status_not_set', snapshot.settings.language, snapshot.settings.resolvedLanguage)
+    : hub.running
+      ? `${translate('desktop.overview.status_running', snapshot.settings.language, snapshot.settings.resolvedLanguage)}${hub.address ? ` · ${hub.address}` : ''}`
+      : hub.enabled ? t('status_enabled_not_serving') : translate('desktop.overview.status_stopped', snapshot.settings.language, snapshot.settings.resolvedLanguage);
 
   const [pendingRotate, setPendingRotate] = useState(false);
 
   return (
-    <Pane title="Proxy Hub" testId="proxy-hub">
+    <Pane title={tn('proxy_hub')} testId="proxy-hub">
       {hub ? (
-        <Group title="Service" footer={footer} testId="hub.service">
+        <Group title={t('service')} footer={footer} testId="hub.service">
           <Row testId="hub-service-row">
             {/* The same shape as a per-account relay row
                 (`ProxyHubView.swift:23`): identity, the service's state in the
@@ -140,10 +159,15 @@ export function ProxyHubPane({
               size={22}
               className="mr-1 text-secondary"
             />
-            <RowText title={hub.label || 'Proxy Hub'} detail={hubStatusSubtitle(hub)} />
+            <RowText title={hub.label || tn('proxy_hub')} detail={hubSubtitle} />
             <RowActions>
               {hub.running ? (
-                <RowMenu label={`Actions for ${hub.label || 'Proxy Hub'}`} testId="hub.more">
+                <RowMenu
+                  label={ta('more_actions_for').replace('{name}', hub.label || tn('proxy_hub'))}
+                  language={snapshot.settings.language}
+                  resolvedLanguage={snapshot.settings.resolvedLanguage}
+                  testId="hub.more"
+                >
                   {(close) => (
                     <MenuItem
                       testId="hub.restart"
@@ -153,7 +177,7 @@ export function ProxyHubPane({
                         service.invokeAction(hub.restartActionId ?? '', snapshot.revision);
                       }}
                     >
-                      Restart Hub
+                      {t('restart_hub')}
                     </MenuItem>
                   )}
                 </RowMenu>
@@ -162,23 +186,25 @@ export function ProxyHubPane({
                 kind={hub.running ? 'destructive' : 'secondary'}
                 testId="hub.service-actions"
                 disabled={!hub.toggleActionId || busy.size > 0}
-                ariaLabel={`${hub.running ? 'Stop' : 'Start'} ${hub.label || 'Proxy Hub'}`}
+                ariaLabel={`${hub.running ? tc('stop') : tc('start')} ${hub.label || tn('proxy_hub')}`}
                 onClick={() => service.invokeAction(hub.toggleActionId ?? '', snapshot.revision)}
               >
-                {hub.running ? 'Stop' : 'Start'}
+                {hub.running ? tc('stop') : tc('start')}
               </Button>
             </RowActions>
           </Row>
 
           <Row testId="hub.copy-address">
-            <RowText title="Address" detail={hub.address ?? 'Not running'} />
+            <RowText title={tc('address')} detail={hub.address ?? translate('desktop.proxies.not_running', snapshot.settings.language, snapshot.settings.resolvedLanguage)} />
             <RowActions>
               {hub.address ? (
                 <CopyButton
-                  label="Copy Proxy Hub address"
+                  label={`${tc('copy_address')} ${tn('proxy_hub')}`}
                   testId="hub.copy-address-button"
                   value={hub.address ?? ''}
                   copy={service.copy}
+                  language={snapshot.settings.language}
+                  resolvedLanguage={snapshot.settings.resolvedLanguage}
                 />
               ) : null}
             </RowActions>
@@ -187,12 +213,14 @@ export function ProxyHubPane({
           {hub.hasToken ? (
             <Row testId="hub.copy-api-key">
               <RowText
-                title="API Key"
-                detail="Hidden until copied. The key never enters the snapshot (ADR 0006)."
+                title={tc('api_key')}
+                detail={t('hidden_key')}
               />
               <RowActions>
                 <IconButton
-                  label="Copy Proxy Hub API key"
+                  label={t('copy_key')}
+                  language={snapshot.settings.language}
+                  resolvedLanguage={snapshot.settings.resolvedLanguage}
                   testId="hub.copy-api-key-button"
                   phase={copyConfirmation.phase}
                   confirmed={<Symbol name="checkmark" size={13} />}
@@ -205,7 +233,9 @@ export function ProxyHubPane({
                   <Symbol name="doc.on.doc" size={15} />
                 </IconButton>
                 <IconButton
-                  label="Rotate Proxy Hub API key"
+                  label={t('rotate_key_button')}
+                  language={snapshot.settings.language}
+                  resolvedLanguage={snapshot.settings.resolvedLanguage}
                   testId="hub-rotate-api-key"
                   onClick={() => setPendingRotate(true)}
                 >
@@ -228,13 +258,13 @@ export function ProxyHubPane({
             testId="hub.models"
             onClick={snapshot.hubPublishedModels.length > 0 ? () => onOpenModels?.() : undefined}
           >
-            <RowText title="Published Models" />
+            <RowText title={t('published_models')} />
             <RowActions>
               <span className="text-[12px] whitespace-nowrap text-secondary">
-                {published.summary}
+                {publishedSummaryText}
                 {published.needsChoice > 0 ? (
                   <span className="ml-1 text-[11px] text-tertiary">
-                    · {published.needsChoice} need choice
+                    · {published.needsChoice} {t('need_choice')}
                   </span>
                 ) : null}
               </span>
@@ -242,8 +272,8 @@ export function ProxyHubPane({
                 type="button"
                 className="inline-flex size-5 cursor-default items-center justify-center text-tertiary hover:not-disabled:text-text disabled:opacity-30"
                 data-testid="hub-open-models"
-                aria-label="View Published Models"
-                title="View models published by Proxy Hub"
+                aria-label={t('published_models')}
+                title={t('published_models')}
                 disabled={snapshot.hubPublishedModels.length === 0}
                 onClick={(e) => {
                   e.stopPropagation();
@@ -270,22 +300,24 @@ export function ProxyHubPane({
         </Group>
       ) : (
         <EmptyState
-          title="Proxy Hub Unavailable"
-          detail="The engine published no hub for this machine, so there is nothing to start."
+          title={t('unavailable')}
+          detail={t('unavailable_detail')}
           testId="proxy-hub-empty"
         />
       )}
 
       {actionable.length > 0 ? (
         <Group
-          title="Routing Conflicts"
-          footer="Two accounts can serve the same model. Choose which one owns it before this hub serves that model."
+          title={t('conflicts')}
+          footer={t('conflict_footer')}
           testId="hub-conflicts"
         >
           {actionable.map((conflict) => (
             <ConflictRow
               key={conflict.id}
               conflict={conflict}
+              t={t}
+              tr={tr}
               revision={snapshot.revision}
               service={service}
               busy={busy}
@@ -296,17 +328,20 @@ export function ProxyHubPane({
 
       {rotations.length > 0 ? (
         <Group
-          title="Request Strategy"
-          footer="Failover sends every request to the owning account. Round Robin spreads them across the accounts that can serve the model."
+          title={t('request_strategy')}
+          footer={t('strategy_footer')}
           testId="hub-strategy"
         >
           {rotations.map((rotation) => (
             <StrategyRow
               key={rotation.id}
               rotation={rotation}
+              t={t}
+              language={snapshot.settings.language}
+              resolvedLanguage={snapshot.settings.resolvedLanguage}
               service={service}
               busy={busy}
-              error={rowError(hubRowResult, `hub.strategy.${rotation.hub}`)}
+              error={tr(rowError(hubRowResult, `hub.strategy.${rotation.hub}`) ?? '')}
             />
           ))}
         </Group>
@@ -314,30 +349,34 @@ export function ProxyHubPane({
 
       {sources.length === 0 && rotations.length === 0 ? (
         <EmptyState
-          title={needle ? 'No Results' : 'No Hub Sources'}
+          title={needle ? t('no_results') : t('no_sources')}
           detail={
             needle
-              ? 'No sources match your search.'
-              : 'Save a login under Accounts & APIs, then switch it on here.'
+              ? t('no_sources_match')
+              : t('no_sources_detail')
           }
-          actionTitle={needle ? undefined : 'Open Accounts & APIs'}
+          actionTitle={needle ? undefined : tn('accounts')}
           onAction={needle ? undefined : () => onNavigate?.('accounts')}
           testId="proxy-hub-no-sources"
         />
       ) : sources.length > 0 ? (
         <Group
-          title={`Accounts in This Hub (${enabledSources.length} of ${rows.accounts.length} enabled)`}
-          footer="Switch on a saved login to publish the models it can serve. Account proxies under Proxies are separate and stay running on their own addresses."
+          title={t('accounts_enabled').replace('{enabled}', String(enabledSources.length)).replace('{total}', String(rows.accounts.length))}
+          footer={t('accounts_footer')}
           testId="proxy-hub-sources"
         >
           {sources.map((source) => (
             <SourceRow
               key={source.id}
               source={source}
+              t={t}
+              tr={tr}
+              language={snapshot.settings.language}
+              resolvedLanguage={snapshot.settings.resolvedLanguage}
               catalogs={snapshot.hubCatalogs}
               service={service}
               busy={busy}
-              error={rowError(hubRowResult, `hub.account.${source.id}`)}
+              error={tr(rowError(hubRowResult, `hub.account.${source.id}`) ?? '')}
             />
           ))}
         </Group>
@@ -345,9 +384,10 @@ export function ProxyHubPane({
 
       {pendingRotate && hub?.rotateActionId ? (
         <ConfirmDialog
-          title="Rotate Proxy Hub API Key?"
-          message="Apps configured with the current key stop connecting until they are updated. This cannot be undone."
-          confirmTitle="Rotate Key"
+          title={t('rotate_title')}
+          message={t('rotate_message')}
+          confirmTitle={tc('rotate_key')}
+          cancelTitle={tc('cancel')}
           destructive
           testId="hub-rotate-dialog"
           onCancel={() => setPendingRotate(false)}
@@ -392,43 +432,58 @@ function rowError(result: HubRowResult | null, rowKey: string): string | undefin
 
 function SourceRow({
   source,
+  t,
+  tr,
+  language,
+  resolvedLanguage,
   catalogs,
   service,
   busy,
   error,
 }: {
   source: HubSource;
+  t: (key: string) => string;
+  tr: (source: string) => string;
+  language: string;
+  resolvedLanguage: string;
   catalogs: Snapshot['hubCatalogs'];
   service: ServicePort;
   busy: ReadonlySet<string>;
   error?: string;
 }) {
   const ghost = isGhost(source);
-  const detail = hubSourceDetail(source, catalogs);
+  const rawDetail = hubSourceDetail(source, catalogs);
+  const detail = rawDetail === 'Excluded from Hub'
+    ? t('excluded')
+    : rawDetail.replace(/ · (\d+) models?$/u, (_match, count: string) =>
+        ` · ${t(Number(count) === 1 ? 'model_count' : 'models_count').replace('{count}', count)}`,
+      );
   const models = catalogModelCount(catalogs, source.id);
 
   return (
     <Row warning={ghost} testId={`hub.account.${source.id}`}>
       <RowText
         title={source.label || source.name}
-        detail={detail}
-        issue={ghost ? source.unavailableReason : undefined}
+        detail={detail === 'Excluded from Hub' ? t('excluded') : tr(detail)}
+        issue={ghost ? tr(source.unavailableReason ?? '') : undefined}
+        language={language}
+        resolvedLanguage={resolvedLanguage}
       />
       {error ? (
         <span className="flex items-center gap-1 text-[12px] text-orange" data-testid={`hub.account.${source.id}.error`}>
-          <WarningGlyph />
-          {error}
+          <WarningGlyph language={language} resolvedLanguage={resolvedLanguage} />
+          {tr(error ?? '')}
         </span>
       ) : null}
       <RowActions>
         {models > 0 ? <span className="text-[12px] whitespace-nowrap text-secondary">{models}</span> : null}
         {ghost ? (
-          <span className="text-[12px] whitespace-nowrap text-secondary">Unavailable</span>
+          <span className="text-[12px] whitespace-nowrap text-secondary">{t('unavailable_source')}</span>
         ) : (
           <Switch
             checked={source.enabled}
             disabled={busy.size > 0}
-            label={`${source.enabled ? 'Disable' : 'Enable'} ${source.label || source.name}`}
+            label={`${source.enabled ? t('disable') : t('enable')} ${source.label || source.name}`}
             onChange={(enabled) => {
               const action = hubSourceChange({ hub: source.hub, source, enabled });
               service.mutate(action.operation, action.extra);
@@ -442,11 +497,17 @@ function SourceRow({
 
 function StrategyRow({
   rotation,
+  t,
+  language,
+  resolvedLanguage,
   service,
   busy,
   error,
 }: {
   rotation: HubRotationRow;
+  t: (key: string) => string;
+  language: string;
+  resolvedLanguage: string;
   service: ServicePort;
   busy: ReadonlySet<string>;
   error?: string;
@@ -455,15 +516,17 @@ function StrategyRow({
   return (
     <Row testId={`hub.strategy.${rotation.hub}`} warning={count < 2}>
       <RowText
-        title="Strategy"
-        issue={count < 2 ? 'Needs two or more accounts in this hub.' : undefined}
+        title={t('strategy')}
+        issue={count < 2 ? t('strategy_needs_accounts') : undefined}
+        language={language}
+        resolvedLanguage={resolvedLanguage}
       />
       {error ? (
         <span
           className="flex items-center gap-1 text-[12px] text-orange"
           data-testid={`hub.strategy.${rotation.hub}.error`}
         >
-          <WarningGlyph />
+          <WarningGlyph language={language} resolvedLanguage={resolvedLanguage} />
           {error}
         </span>
       ) : null}
@@ -473,8 +536,8 @@ function StrategyRow({
           testId={`hub.strategy.${rotation.hub}`}
           disabled={busy.size > 0 || count < 2}
           options={[
-            { value: 'failover', label: 'Failover' },
-            { value: 'round-robin', label: 'Round Robin' },
+            { value: 'failover', label: t('failover') },
+            { value: 'round-robin', label: t('round_robin') },
           ]}
           onChange={(value) => {
             const action = hubSourceChange({
@@ -492,17 +555,43 @@ function StrategyRow({
 
 function ConflictRow({
   conflict,
+  t,
+  tr,
   revision,
   service,
   busy,
 }: {
   conflict: HubConflict;
+  t: (key: string) => string;
+  tr: (source: string) => string;
   revision: number;
   service: ServicePort;
   busy: ReadonlySet<string>;
 }) {
   const candidates = uniqueProviderCandidates(conflict);
-  const info = useMemo(() => conflictDisplayInfo(conflict), [conflict]);
+  const info = useMemo(() => {
+    const modelNames = (conflict.models ?? []).map((modelID) =>
+      parseModelIdentity(modelID, conflict.candidates[0]?.providerId ?? '').cleanName,
+    );
+    let title = conflict.title;
+    if (modelNames.length === 1) {
+      title = t('conflict_two_owners').replace('{model}', modelNames[0]);
+    } else if (modelNames.length === 2) {
+      title = t('conflict_pair_need_provider')
+        .replace('{first}', modelNames[0])
+        .replace('{second}', modelNames[1]);
+    } else if (modelNames.length > 2) {
+      title = t('conflict_many_need_provider')
+        .replace('{count}', String(modelNames.length))
+        .replace('{first}', modelNames[0])
+        .replace('{second}', modelNames[1])
+        .replace('{more}', String(modelNames.length - 2));
+    }
+    const providers = uniqueProviderCandidates(conflict)
+      .map((candidate) => candidate.label || candidate.providerId)
+      .join(', ');
+    return { title, subtitle: providers ? t('available_via').replace('{providers}', providers) : '' };
+  }, [conflict, t]);
   const busyHere = busy.size > 0;
   const conflictModelId = conflict.models?.[0] ?? conflict.title;
   const parsed = useMemo(
@@ -513,7 +602,7 @@ function ConflictRow({
   return (
     <Row testId={`hub.conflict.${conflict.id}`}>
       <ProviderIcon provider={parsed.vendorKey} fallbackSymbol="cube.transparent" size={20} className="mr-1 text-secondary" />
-      <RowText title={<span className="font-mono text-[12px]">{info.title}</span>} detail={info.subtitle} />
+      <RowText title={<span className="font-mono text-[12px]">{tr(info.title)}</span>} detail={info.subtitle} />
       <RowActions>
         <Select
           label=""
@@ -528,7 +617,7 @@ function ConflictRow({
             service.invokeAction(actionId, revision);
           }}
           options={[
-            { value: '', label: 'Select Provider…' },
+            { value: '', label: t('select_provider') },
             ...candidates.map((candidate) => ({ value: candidate.actionId, label: candidate.label })),
           ]}
         />

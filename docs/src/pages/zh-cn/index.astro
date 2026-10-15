@@ -1,0 +1,48 @@
+---
+import { Icon } from "astro-icon/components";
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import Header from "../../components/Header.astro";
+
+const title = "AnyPick — 用已有账号运行 Claude Code 和 Codex";
+const description = "切换账号、通过 Grok、Gemini 或 OpenRouter 路由，并在写入配置前预览每项变更。开源 CLI 与桌面应用。";
+---
+
+<BaseLayout title={title} socialTitle={title} description={description} socialImage="/og-image.png">
+  <div class="landing min-h-screen bg-[#080A11] text-[#F8FAFC]">
+    <Header showSidebar={false} appearance="landing" locale="zh-CN" />
+    <main id="main-content" class="mx-auto max-w-5xl px-6 py-20 sm:px-10">
+      <p class="text-sm font-semibold uppercase tracking-[0.2em] text-violet-300">Pick any. Code on.</p>
+      <h1 class="mt-6 max-w-4xl text-balance text-5xl font-semibold leading-tight sm:text-7xl">
+        用你已有的账号运行 Claude Code 和 Codex
+      </h1>
+      <p class="mt-7 max-w-3xl text-lg leading-8 text-slate-300">
+        在一个地方切换账号、选择兼容的模型来源，并在写入配置前检查路由。AnyPick 会管理凭据快照、本地协议代理和客户端配置。
+      </p>
+      <div class="mt-10 flex flex-wrap gap-3">
+        <a class="primary-cta" href="/zh-cn/docs/getting-started">
+          开始使用 <Icon name="ph:arrow-right" class="h-4 w-4" />
+        </a>
+        <a class="secondary-cta" href="/zh-cn/docs">
+          浏览文档
+        </a>
+        <a class="secondary-cta" href="https://github.com/outof0/anypick/releases/latest">
+          下载 GitHub Release
+        </a>
+      </div>
+      <section class="mt-16 grid gap-6 border-t border-white/10 pt-8 sm:grid-cols-3" aria-label="AnyPick 功能">
+        <div>
+          <h2 class="font-semibold">跨服务商路由</h2>
+          <p class="mt-2 text-sm leading-6 text-slate-300">为 Claude Code 和 Codex 选择兼容账户、代理或网关。</p>
+        </div>
+        <div>
+          <h2 class="font-semibold">原生登录切换</h2>
+          <p class="mt-2 text-sm leading-6 text-slate-300">在支持的服务商账户之间切换，同时保留各自登录流程。</p>
+        </div>
+        <div>
+          <h2 class="font-semibold">预览后再更改</h2>
+          <p class="mt-2 text-sm leading-6 text-slate-300">启用路由前查看模型、代理和客户端配置的变更计划。</p>
+        </div>
+      </section>
+    </main>
+  </div>
+</BaseLayout>
