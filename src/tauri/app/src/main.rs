@@ -1,5 +1,8 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+#[cfg(all(feature = "e2e-webdriver", not(debug_assertions)))]
+compile_error!("the e2e-webdriver feature is only available in debug builds");
+
 mod protocol;
 mod sidecar;
 
@@ -370,8 +373,12 @@ fn main() {
         return;
     }
 
-    let app = tauri::Builder::default()
-        .plugin(tauri_plugin_shell::init())
+    let builder = tauri::Builder::default().plugin(tauri_plugin_shell::init());
+    // Keep the loopback automation server out of release binaries.
+    #[cfg(feature = "e2e-webdriver")]
+    let builder = builder.plugin(tauri_plugin_wdio_webdriver::init());
+
+    let app = builder
         .menu(menu_with_settings)
         .on_menu_event(|app, event| {
             if event.id() == SETTINGS_MENU_ID {

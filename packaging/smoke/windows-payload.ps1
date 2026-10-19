@@ -1,7 +1,7 @@
 # Target-OS payload smoke for the staged Windows installers. The MSI is
 # administratively extracted (no system install), the bundled Go helper is
-# located and run. Both MSI and NSIS payloads must also run the native GUI,
-# production Rust host and Go sidecar under WebDriver, in an isolated profile.
+# located and run. Both MSI and NSIS payloads must also start the native GUI
+# and Go sidecar in an isolated profile.
 #
 # usage: windows-payload.ps1 -Stage STAGE_DIR -Version VERSION
 
@@ -38,6 +38,66 @@ function Invoke-HelperSmoke {
     if ($LASTEXITCODE -ne 0) { throw "$Label helper providers exited $LASTEXITCODE" }
     Write-Host "smoke ok: $Label helper ($out)"
   } finally {
+    foreach ($key in $previous.Keys) { [Environment]::SetEnvironmentVariable($key, $previous[$key], 'Process') }
+  }
+}
+
+function Invoke-DesktopLaunchSmoke {
+  param([string]$App, [string]$Label)
+  $smokeHome = Join-Path $work "home-app-$Label"
+  New-Item -ItemType Directory -Path $smokeHome -Force | Out-Null
+  foreach ($name in @('AppData/Roaming', 'AppData/Local', 'tmp', '.anypick')) {
+    New-Item -ItemType Directory -Path (Join-Path $smokeHome $name) -Force | Out-Null
+  }
+
+  $previous = @{}
+  foreach ($key in @('USERPROFILE', 'HOME', 'ANYPICK_HOME', 'APPDATA', 'LOCALAPPDATA', 'TEMP', 'TMP', 'PATH')) {
+    $previous[$key] = [Environment]::GetEnvironmentVariable($key, 'Process')
+  }
+  $process = $null
+  try {
+    $env:USERPROFILE = $smokeHome
+    $env:HOME = $smokeHome
+    $env:ANYPICK_HOME = Join-Path $smokeHome '.anypick'
+    $env:APPDATA = Join-Path $smokeHome 'AppData/Roaming'
+    $env:LOCALAPPDATA = Join-Path $smokeHome 'AppData/Local'
+    $env:TEMP = Join-Path $smokeHome 'tmp'
+    $env:TMP = $env:TEMP
+    $env:PATH = Join-Path $smokeHome 'empty-path'
+    New-Item -ItemType Directory -Path $env:PATH -Force | Out-Null
+
+    $process = Start-Process -FilePath $App -WorkingDirectory (Split-Path -Parent $App) -PassThru
+    $deadline = [DateTime]::UtcNow.AddSeconds(30)
+    do {
+      Start-Sleep -Milliseconds 250
+      $process.Refresh()
+      if ($process.HasExited) { throw "$Label desktop app exited $($process.ExitCode) before showing its window" }
+    } while ($process.MainWindowHandle -eq 0 -and [DateTime]::UtcNow -lt $deadline)
+
+    if ($process.MainWindowHandle -eq 0) { throw "$Label desktop app did not show a window within 30 seconds" }
+    if ($process.MainWindowTitle -ne 'AnyPick') { throw "$Label desktop app window title is '$($process.MainWindowTitle)', expected 'AnyPick'" }
+
+    $sidecarDeadline = [DateTime]::UtcNow.AddSeconds(15)
+    $sidecar = $null
+    do {
+      $sidecar = Get-CimInstance Win32_Process -Filter "ParentProcessId = $($process.Id)" |
+        Where-Object Name -eq 'anypick-core.exe' | Select-Object -First 1
+      if ($null -eq $sidecar) { Start-Sleep -Milliseconds 250 }
+    } while ($null -eq $sidecar -and [DateTime]::UtcNow -lt $sidecarDeadline)
+    if ($null -eq $sidecar) { throw "$Label desktop app did not start its bundled anypick-core.exe sidecar" }
+
+    Write-Host "smoke ok: $Label desktop app window and bundled sidecar started"
+  } finally {
+    if ($null -ne $process) {
+      $process.Refresh()
+      if (-not $process.HasExited) {
+        [void]$process.CloseMainWindow()
+        if (-not $process.WaitForExit(10000)) {
+          & (Join-Path $env:SystemRoot 'System32/taskkill.exe') /PID $process.Id /T /F | Out-Null
+          $process.WaitForExit(5000)
+        }
+      }
+    }
     foreach ($key in $previous.Keys) { [Environment]::SetEnvironmentVariable($key, $previous[$key], 'Process') }
   }
 }
@@ -84,7 +144,5 @@ Invoke-HelperSmoke -Helper $nsisHelper.FullName -Label 'nsis'
 foreach ($payload in @($extract, $nsisExtract)) {
   $app = Get-ChildItem -Path $payload -Recurse -Filter 'anypick.exe' -File | Select-Object -First 1
   if ($null -eq $app) { throw "No desktop executable in $payload" }
-  $e2e = Join-Path $env:GITHUB_WORKSPACE 'src/tauri/ui/scripts/desktop-e2e.mjs'
-  & node $e2e $app.FullName
-  if ($LASTEXITCODE -ne 0) { throw "Native desktop E2E failed for $payload" }
+  Invoke-DesktopLaunchSmoke -App $app.FullName -Label (Split-Path -Leaf $payload)
 }

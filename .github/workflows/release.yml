@@ -12,9 +12,10 @@ name: Release
 # installers, cross-platform CLI archives, and the npm launcher. The app uses
 # an ad-hoc code signature and is not notarized. Before staging, Linux
 # deb/AppImage/rpm and Windows MSI/NSIS payloads are extracted, their Go helper
-# must answer with the planned version, and the packaged desktop app runs the
-# native WebDriver E2E. macOS runs XCUITest plus clean-account artifact and
-# service smoke checks.
+# must answer with the planned version. Linux also runs native WebDriver E2E
+# against the packaged app; Windows confirms the packaged GUI and Go sidecar
+# start. macOS runs XCUITest plus clean-account artifact and service smoke
+# checks.
 # `cli-only` publishes only the CLI archives.
 on:
   workflow_dispatch:
@@ -434,10 +435,6 @@ jobs:
             exit 1
           fi
           cp "${msi_assets[0]}" "$RUNNER_TEMP/anypick-stage/AnyPick-${{ needs.plan.outputs.version }}-windows-x64.msi"
-
-      - name: Install native WebDriver
-        shell: pwsh
-        run: packaging/smoke/install-webdriver.ps1
 
       - name: Smoke-test the staged installer payloads and native app
         shell: pwsh

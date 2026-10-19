@@ -238,13 +238,13 @@ jobs:
         if: runner.os == 'Linux'
         run: cargo install tauri-driver --version 2.1.0 --locked
 
-      - name: Install native WebDriver (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: packaging/smoke/install-webdriver.ps1
-
-      - name: Build the real desktop executable
+      - name: Build the real Linux desktop executable
+        if: runner.os == 'Linux'
         run: cargo build --locked --manifest-path src/tauri/app/Cargo.toml
+
+      - name: Build the real Windows desktop executable with test-only WebDriver
+        if: runner.os == 'Windows'
+        run: cargo build --locked --features e2e-webdriver --manifest-path src/tauri/app/Cargo.toml
 
       - name: Native desktop E2E (Linux)
         if: runner.os == 'Linux'
@@ -385,4 +385,4 @@ jobs:
           bash -n packaging/smoke/linux-payload.sh packaging/smoke/linux-cli-headless.sh
           node --check src/tauri/ui/scripts/desktop-e2e.mjs
           # shellcheck disable=SC2016 # $null is PowerShell, not shell; the quotes are deliberate.
-          pwsh -NoProfile -Command 'foreach ($path in @("packaging/smoke/windows-payload.ps1", "packaging/smoke/install-webdriver.ps1")) { $errors = $null; [void][System.Management.Automation.Language.Parser]::ParseFile($path, [ref]$null, [ref]$errors); if ($errors.Count) { throw ($errors | Out-String) } }'
+          pwsh -NoProfile -Command 'foreach ($path in @("packaging/smoke/windows-payload.ps1")) { $errors = $null; [void][System.Management.Automation.Language.Parser]::ParseFile($path, [ref]$null, [ref]$errors); if ($errors.Count) { throw ($errors | Out-String) } }'
