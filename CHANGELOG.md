@@ -6,6 +6,10 @@ Conventional Commits by `changelogithub`, are on
 
 This project follows [Semantic Versioning](https://semver.org/).
 
+## 1.1.2
+
+Fix isolated client logins and Codex profile synchronization, restore desktop Doctor and account actions, improve quota reporting, and gate desktop releases on native end-to-end checks. Refresh the product description and localized documentation.
+
 ## 1.1.1
 
 Fix backup import compatibility and path safety; add update checks, improve quota reporting and macOS settings, and stabilize cross-platform releases.

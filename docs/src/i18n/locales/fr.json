@@ -22,8 +22,7 @@
     "editThisPage": "Modifier cette page",
     "siteNavigation": "Navigation du site",
     "navigation": "Navigation",
-    "closeSidebar": "Fermer la barre latérale",
-    "englishContent": "Le contenu de cette page est actuellement disponible en anglais."
+    "closeSidebar": "Fermer la barre latérale"
   },
   "search": {
     "label": "Rechercher dans la documentation",
@@ -72,5 +71,158 @@
     "tabs": "Gestionnaire de paquets",
     "copy": "Copier dans le presse-papiers",
     "copied": "Copié dans le presse-papiers"
+  },
+  "docsNav": {
+    "appsTerminalUi": "Applications et interface du terminal",
+    "guides": "Guides",
+    "reference": "Référence"
+  },
+  "landing": {
+    "meta": {
+      "title": "Changer de compte IA de programmation depuis une app locale | AnyPick",
+      "description": "Gérez les comptes IA et passerelles API dans une app locale. Choisissez des itinéraires compatibles pour une app, un projet ou une session de terminal.",
+      "socialAlt": "Vue d’ensemble AnyPick avec des outils compatibles, des itinéraires de comptes et des services locaux."
+    },
+    "hero": {
+      "eyebrow": "Le sélecteur local de comptes pour les outils de programmation IA",
+      "titleStart": "Changez de compte.",
+      "titleEnd": "Continuez à coder.",
+      "lede": "Compte professionnel, personnel ou votre propre passerelle API. Choisissez les comptes utilisés par Claude Code, Codex et les outils compatibles depuis une app locale, sans modifier les fichiers de configuration à la main.",
+      "primary": "Utiliser AnyPick gratuitement",
+      "secondary": "Voir comment ça marche",
+      "platforms": "macOS · Linux · Windows",
+      "openSource": "Gratuit et open source",
+      "noCloud": "Sans cloud AnyPick",
+      "overviewAlt": "Vue d’ensemble AnyPick avec Claude Code, OpenAI Codex et OpenCode utilisant des comptes enregistrés, l’état du proxy local et les changements récents. Données de démonstration.",
+      "trayAlt": "Panneau AnyPick de la barre des menus avec comptes enregistrés et changement rapide pour Claude Code et OpenAI Codex. Données de démonstration.",
+      "caption": "App de bureau · comptes de démonstration"
+    },
+    "proof": {
+      "aria": "Informations sur le produit",
+      "clientsTitle": "11 outils de programmation compatibles",
+      "clientsBody": "Gardez les outils que vous avez déjà installés.",
+      "localTitle": "Vos comptes restent sur votre appareil",
+      "localBody": "Aucun compte AnyPick ni relais hébergé n’est nécessaire.",
+      "licenseTitle": "Open source · MIT",
+      "licenseBody": "Les versions incluent des checksums et une SBOM."
+    },
+    "workflow": {
+      "kicker": "Pensé pour votre journée de travail",
+      "title": "Un compte pour le travail, un autre pour ce dépôt.",
+      "body": "Séparez vos comptes professionnels et personnels. Attribuez un compte à un dépôt. Essayez une passerelle API pour une seule exécution. Choisissez la portée de chaque changement.",
+      "projectLink": "Fonctionnement des associations par projet",
+      "routesLabel": "Exemples d’itinéraires",
+      "routeDefault": "Par défaut pour une app",
+      "routeProject": "Pour ce projet uniquement",
+      "routeSession": "Une session de terminal",
+      "stepsLabel": "Premiers pas",
+      "saveTitle": "Enregistrez une connexion",
+      "saveBody": "Ajoutez un compte fournisseur existant ou une passerelle API dans Comptes et API.",
+      "toolTitle": "Choisissez votre outil",
+      "toolBody": "Sélectionnez une source compatible enregistrée dans Applications, puis examinez le plan de changement.",
+      "applyTitle": "Continuez à coder",
+      "applyBody": "Appliquez le changement et utilisez votre outil. Exécutez anypick reset pour restaurer sa configuration enregistrée."
+    },
+    "safety": {
+      "kicker": "Modifications sûres, annulation facile",
+      "title": "Votre configuration reste la vôtre.",
+      "reviewTitle": "Vérifiez avant d’appliquer",
+      "reviewBody": "L’app de bureau affiche dans un plan les étapes liées au compte, au modèle, au proxy et à la configuration du client.",
+      "configTitle": "Conservez le reste de votre configuration",
+      "configBody": "AnyPick suit les réglages qu’il gère et demande avant de prendre en charge ceux qu’il n’a pas écrits.",
+      "restoreTitle": "Restaurez quand vous voulez",
+      "restoreBody": "Utilisez anypick reset pour restaurer l’état enregistré d’une app. Les identifiants restent dans le dossier de données local d’AnyPick.",
+      "accountAlt": "Écran Comptes et API d’AnyPick avec des comptes fournisseurs enregistrés et une passerelle API. Les noms et détails sont des données de démonstration."
+    },
+    "compatibility": {
+      "kicker": "Compatibilité",
+      "title": "Des outils compatibles qui respectent les règles des fournisseurs.",
+      "body": "AnyPick ne propose que des itinéraires pris en charge par les deux côtés de la connexion. Tous les comptes ne sont pas interchangeables.",
+      "clients": "Outils de programmation compatibles",
+      "claudeRule": "Les connexions Claude restent dans Claude Code. Gemini CLI et Kiro utilisent leurs propres comptes fournisseur.",
+      "otherRule": "Les autres outils compatibles peuvent utiliser certains comptes externes ou des passerelles API.",
+      "reference": "Consulter la référence de compatibilité"
+    },
+    "install": {
+      "kicker": "App de bureau ou terminal",
+      "title": "Commencez avec l’app ou restez dans le terminal.",
+      "body": "Examinez les plans d’itinéraire dans l’app ou lancez le même moteur Go depuis un terminal. Cette vidéo montre la CLI avec des comptes de démonstration isolés.",
+      "demoTitle": "anypick 1.1.0 · démo isolée",
+      "videoAlt": "Démo CLI : afficher les comptes enregistrés, ajouter une passerelle OpenRouter, acheminer Claude Code puis restaurer la configuration d’origine.",
+      "demoCaption": "Sortie CLI réelle · AnyPick 1.1.0 · comptes isolés",
+      "desktop": "App de bureau",
+      "desktopTitle": "Choisissez un compte. Prévisualisez. Appliquez.",
+      "desktopBody": "Gérez vos comptes et examinez les changements dans une interface visuelle. Disponible sur macOS, Linux et Windows.",
+      "download": "Télécharger l’app de bureau",
+      "downloadNote": "Choisissez l’installateur de votre système sur GitHub Releases.",
+      "cli": "Installer la CLI",
+      "method": "Choisir une méthode d’installation",
+      "copy": "Copier",
+      "copyCommand": "Copier la commande d’installation {{name}}",
+      "brewBefore": "App de bureau : lancez brew install --cask outof0/tap/anypick ou téléchargez le ",
+      "brewLink": "DMG depuis GitHub Releases",
+      "brewAfter": ".",
+      "linuxBefore": "Téléchargez aussi le paquet CLI ou l’app de bureau depuis ",
+      "linuxLink": "GitHub Releases",
+      "linuxAfter": " (.deb, .rpm, AppImage, tarball).",
+      "windowsBefore": "Les installateurs de l’app de bureau sont sur ",
+      "windowsLink": "GitHub Releases",
+      "windowsAfter": ".",
+      "npmHint": "Node 18 ou ultérieur est requis. Le launcher télécharge et vérifie la CLI native correspondante.",
+      "firstRun": "Après l’installation, exécutez",
+      "guide": "Lire le guide de 5 minutes",
+      "copied": "Copié",
+      "copyStatus": "Commande d’installation copiée dans le presse-papiers.",
+      "copyFailed": "L’accès au presse-papiers est indisponible.",
+      "picker": "pour ouvrir le sélecteur de comptes."
+    },
+    "faq": {
+      "kicker": "Quelques détails pratiques",
+      "title": "Avant de changer.",
+      "freeQ": "AnyPick est-il gratuit ?",
+      "freeA": "Oui. AnyPick est gratuit et open source sous licence MIT. Vous utilisez vos propres comptes ou clés API ; les frais d’abonnement et d’utilisation du fournisseur restent applicables.",
+      "accountsQ": "Quels comptes puis-je utiliser avec chaque outil ?",
+      "accountsA": "Les itinéraires disponibles dépendent du client et de l’adaptateur de compte. Les connexions Claude restent dans Claude Code ; Gemini CLI et Kiro utilisent leurs propres comptes. La {{accountsALink}} indique les combinaisons prises en charge.",
+      "accountsALink": "référence de compatibilité",
+      "relayQ": "AnyPick envoie-t-il mes prompts via ses serveurs ?",
+      "relayA": "Non. AnyPick n’héberge aucun relais. Si deux outils utilisent des protocoles API différents, le service Go local exécute le traducteur sur loopback et envoie les requêtes au fournisseur choisi.",
+      "credentialsQ": "Où sont stockés les identifiants ?",
+      "credentialsA": "AnyPick stocke les données des comptes localement dans ~/.anypick. Les sauvegardes sont en JSON lisible avec des identifiants actifs ; gardez-les privées.",
+      "macQ": "Pourquoi macOS affiche-t-il un avertissement à l’ouverture ?",
+      "macA": "L’app n’est pas encore notariée. Faites un clic droit puis choisissez Open, ou allez dans System Settings → Privacy & Security → Open Anyway. La CLI s’installe séparément."
+    },
+    "final": {
+      "kicker": "Votre prochain changement de compte commence ici",
+      "titleStart": "Moins de configuration.",
+      "titleEnd": "Plus de code.",
+      "body": "Utilisez les comptes que vous avez déjà. Commencez avec un outil et un compte enregistré.",
+      "cta": "Utiliser AnyPick gratuitement",
+      "guide": "Lire le guide de configuration",
+      "meta": "Licence MIT · Sans inscription AnyPick · Fonctionne localement"
+    },
+    "footer": {
+      "home": "Accueil AnyPick",
+      "navigation": "Pied de page",
+      "docs": "Documentation",
+      "changelog": "Journal des modifications",
+      "security": "Sécurité",
+      "license": "Licence MIT"
+    }
+  },
+  "downloads": {
+    "kicker": "Télécharger AnyPick",
+    "title": "Votre prochain changement de compte commence ici.",
+    "body": "Application gratuite. Choisissez votre plateforme, installez et ajoutez un compte existant.",
+    "forPlatform": "Télécharger pour {{platform}}",
+    "formats": "Autres formats",
+    "releases": "Versions et sommes de contrôle",
+    "mac": "macOS 14+ · Apple Silicon + Intel",
+    "linux": "Ubuntu / Debian · x86-64",
+    "windows": "Windows 10+ · x64",
+    "arm": "Linux ARM64 ou Windows ARM64 ? Utilisez la CLI native.",
+    "guide": "Guide d’installation",
+    "unavailable": "Cette version ne contient pas l’application de bureau.",
+    "firstRun": "Ouvrez l’app → ajoutez un compte → choisissez votre outil.",
+    "allPlatforms": "Toutes les plateformes et options"
   }
 }

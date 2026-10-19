@@ -391,6 +391,12 @@ func (a *piAdapter) Inspect() (*InspectResult, error) {
 		}
 	}
 	res.ConfigPaths = PiConfigPaths(a.home)
+	if settings, err := readPiJSONObject(piSettingsPath(a.home), "settings.json"); err == nil {
+		selected := stringField(settings, "defaultProvider")
+		model := stringField(settings, "defaultModel")
+		res.RoutingChanged = (selected != "" && selected != piManagedProviderID) ||
+			(strings.Contains(model, "/") && !strings.HasPrefix(model, piManagedProviderID+"/"))
+	}
 	return res, nil
 }
 

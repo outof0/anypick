@@ -154,8 +154,15 @@ type EphemeralAdapter interface {
 
 type InspectResult struct {
 	Present bool
-	Summary string
-	Issues  []string
+	// Native is positive evidence that the live client configuration uses its
+	// own login. A saved managed binding can outlive an external config change;
+	// display callers must not present that binding as the effective route.
+	Native bool
+	// RoutingChanged reports an explicit live selection outside AnyPick's
+	// managed route. It does not identify that connection or imply a login.
+	RoutingChanged bool
+	Summary        string
+	Issues         []string
 	// ConfigPaths lists which files the client manages, so plugin
 	// clients can report them.
 	ConfigPaths []string

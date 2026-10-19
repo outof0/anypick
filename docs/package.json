@@ -12,8 +12,10 @@
     "lint:docs:fix": "nimbus-docs lint --fix",
     "prepreview:cf": "astro build",
     "preview:cf": "wrangler pages dev dist",
-    "predeploy": "astro check && astro build",
-    "deploy": "wrangler pages deploy dist --project-name anypick --branch main"
+    "predeploy": "pnpm refresh:downloads && astro check && astro build && pnpm check:landing",
+    "deploy": "wrangler pages deploy dist --project-name anypick --branch main",
+    "refresh:downloads": "node scripts/refresh-downloads.mjs",
+    "check:landing": "node scripts/check-landing.mjs"
   },
   "dependencies": {
     "@fontsource-variable/inter": "^5.2.8",

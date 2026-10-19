@@ -230,6 +230,9 @@ func validateMutate(fields map[string]json.RawMessage) error {
 	if !mutationOperations[operation] {
 		return fmt.Errorf("unknown mutation operation")
 	}
+	if hasKey(fields, "identity") && operation != "account-save" {
+		return fmt.Errorf("identity is only valid for account-save")
+	}
 	if path, ok := fields["path"]; ok {
 		var p string
 		_ = json.Unmarshal(path, &p)
@@ -239,7 +242,7 @@ func validateMutate(fields map[string]json.RawMessage) error {
 	}
 	for key, limit := range map[string]int{
 		"providerId": 64, "sourceId": 256, "methodId": 128, "name": 128,
-		"label": 160, "endpoint": 2048, "apiKey": 8192, "region": 64,
+		"label": 160, "identity": 640, "endpoint": 2048, "apiKey": 8192, "region": 64,
 		"defaultModel": 256, "kind": 64, "profile": 128, "gatewayId": 64,
 		"transportPolicy": 16, "language": 16,
 	} {
@@ -363,6 +366,15 @@ func validateMutate(fields map[string]json.RawMessage) error {
 			!keysSubset(fields, "version", "requestId", "operation",
 				"providerId", "sourceId", "methodId", "name", "label") {
 			return fmt.Errorf("invalid account-login payload")
+		}
+	case "account-save":
+		providerID, name := "", ""
+		_ = json.Unmarshal(fields["providerId"], &providerID)
+		_ = json.Unmarshal(fields["name"], &name)
+		if !safeStr(providerID, 64) || !safeStr(name, 128) ||
+			!keysSubset(fields, "version", "requestId", "operation", "providerId", "name",
+				"sourceId", "label", "identity", "apiKey", "region", "overwrite") {
+			return fmt.Errorf("invalid account-save payload")
 		}
 	case "account-save-current":
 		providerID, sourceID, name := "", "", ""

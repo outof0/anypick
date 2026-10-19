@@ -1,0 +1,56 @@
+---
+title: 'Liaisons du projet'
+description: 'Donnez à un référentiel sa propre source client sans toucher à votre valeur par défaut globale.'
+---
+
+`anypick link` écrit une liaison limitée au répertoire actuel. Il l'emporte sur la valeur par défaut globale lorsque vous `run` un client depuis l'intérieur de ce répertoire, et il est invisible partout ailleurs.
+
+```bash
+cd ~/src/my-app
+anypick link claude                        # copy the global binding into this project
+anypick link claude --with grok/work       # or bind explicitly
+anypick run claude                         # project binding wins
+anypick unlink claude
+```
+
+`anypick unlink` sans client supprime chaque liaison de projet dans le répertoire actuel.
+
+## Ordre de résolution
+
+Lorsque `run` a besoin d'une liaison, il prend la première qu'il trouve :
+
+1. `--with` sur la ligne de commande — ce lancement uniquement
+2. La liaison du projet pour le répertoire actuel
+3. La liaison globale de `anypick use`
+
+S'il n'en existe pas, `run` quitte `5` plutôt que de deviner.
+
+`anypick current` affiche la liaison effective pour chaque client, afin que vous puissiez voir quelle couche a gagné.
+
+## Une scission typique
+
+Un client par client, sans basculer manuellement :
+
+```bash
+anypick use claude --with grok/work            # your default everywhere
+
+cd ~/src/client-a
+anypick link claude --with openrouter-work     # this repo only
+
+cd ~/src/client-b
+anypick link claude --with gemini/work
+```
+
+<Aside type="note" title="Les liaisons sont par répertoire, pas par dépôt">
+La liaison est liée au chemin du répertoire dans lequel vous avez exécuté `link`. Un arbre de travail différent du même référentiel est un projet différent en ce qui concerne AnyPick - ce qui est généralement ce que vous voulez, et parfois surprenant.
+</Aside>
+
+## Nettoyer
+
+`anypick unlink` supprime la liaison mais laisse la configuration du client telle que la dernière activation l'a laissée. Pour supprimer la configuration écrite par AnyPick pour un client :
+
+```bash
+anypick reset claude
+```
+
+`reset` supprime uniquement la configuration gérée par AnyPick. Il ne touche jamais aux fichiers d'authentification natifs ou à vos propres paramètres.

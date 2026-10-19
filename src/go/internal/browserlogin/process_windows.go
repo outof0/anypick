@@ -3,6 +3,7 @@
 package browserlogin
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -11,6 +12,36 @@ import (
 
 	"golang.org/x/sys/windows"
 )
+
+func isHomeEnvironment(entry string) bool {
+	key, _, _ := strings.Cut(entry, "=")
+	return strings.EqualFold(key, "HOME") || strings.EqualFold(key, "USERPROFILE")
+}
+func platformHomeEnvironment(home string) []string { return []string{"USERPROFILE=" + home} }
+
+// npm installs Windows launchers as batch files. CreateProcess cannot execute
+// those directly, and Go's argv quoting targets CommandLineToArgvW rather than
+// cmd.exe. Keep the batch command separate and disable AutoRun and delayed expansion.
+func prepareWindowsLauncher(child *exec.Cmd) error {
+	ext := strings.ToLower(filepath.Ext(child.Path))
+	if ext != ".cmd" && ext != ".bat" {
+		return nil
+	}
+	var quoted []string
+	for _, arg := range child.Args {
+		if strings.ContainsAny(arg, "\"%\r\n\x00") {
+			return fmt.Errorf("unsupported batch launcher argument")
+		}
+		quoted = append(quoted, `"`+arg+`"`)
+	}
+	system, err := windows.GetSystemDirectory()
+	if err != nil {
+		return err
+	}
+	child.Path = filepath.Join(system, "cmd.exe")
+	child.SysProcAttr.CmdLine = `"` + child.Path + `" /d /v:off /s /c "` + strings.Join(quoted, " ") + `"`
+	return nil
+}
 
 type windowsChildController struct {
 	child *exec.Cmd
@@ -57,6 +88,10 @@ func startIsolatedChild(child *exec.Cmd) (childController, error) {
 		return nil, err
 	}
 	child.SysProcAttr = &windows.SysProcAttr{CreationFlags: windows.CREATE_NEW_PROCESS_GROUP}
+	if err = prepareWindowsLauncher(child); err != nil {
+		_ = windows.CloseHandle(job)
+		return nil, err
+	}
 	if err = child.Start(); err != nil {
 		_ = windows.CloseHandle(job)
 		return nil, err

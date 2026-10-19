@@ -108,7 +108,17 @@ func (s *Service) Login(ctx context.Context, providerID string, opts LoginOption
 			}
 			return runErr
 		})
-	return result, err
+	if err != nil {
+		return result, err
+	}
+	changed := []store.Meta{result.Account}
+	if result.BackedUpTo != nil {
+		changed = append(changed, store.Meta{Provider: providerID, Name: *result.BackedUpTo})
+	}
+	if err := s.afterSnapshotChanges(ctx, changed); err != nil {
+		return result, err
+	}
+	return result, nil
 }
 
 func (s *Service) loginLocked(ctx context.Context, providerID string, opts LoginOptions) (LoginResult, error) {

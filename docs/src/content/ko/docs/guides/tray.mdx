@@ -1,0 +1,123 @@
+---
+title: '데스크탑 앱'
+description: 'macOS, Linux 및 Windows의 AnyPick 데스크탑 앱, 번들 Go 서비스를 소유하는 방법 및 macOS 메뉴 표시줄 빠른 패널.'
+---
+
+AnyPick은 하나의 Go 엔진(ADR 0020)에 두 개의 기본 프런트 엔드를 제공합니다.
+
+| 플랫폼 | 프런트엔드 | 소스 |
+| --- | --- | --- |
+| macOS | 메뉴 표시줄 빠른 패널이 있는 SwiftUI 앱 | `src/macos/` |
+| 리눅스, 윈도우 | 타우리 2 앱 | `src/tauri/` |
+
+둘 다 엔진이 아닌 프런트 엔드입니다. 자격 증명을 읽거나 AnyPick 상태를 소유하지도 않습니다. 각각은 번들로 제공되는 Go 서비스를 시작하고, 핸드셰이크하고, 감독하고, 종료한 다음 해당 서비스가 보내는 것을 렌더링합니다(ADR 0019 §1).
+
+<Aside type="caution" title="릴리스 채널에서 설치">
+GitHub 릴리스에는 macOS `.dmg`/`.zip`, Linux 및 Windows 설치 프로그램, CLI 아카이브가 포함되어 있습니다. macOS 앱은 공증되지 않습니다. 처음 실행 시 `AnyPick.app`를 마우스 오른쪽 버튼으로 클릭하고 **열기**를 선택하거나 **시스템 설정 → 개인 정보 보호 및 보안 → 어쨌든 열기**로 이동합니다. `xattr -dr com.apple.quarantine /Applications/AnyPick.app`를 실행할 수도 있습니다.
+</Aside>
+
+## 앱이 서비스를 소유합니다.
+
+수명 주기는 앱 우선입니다.
+
+```text
+AnyPick.app  (or the Tauri app)
+├── main window
+├── macOS only: menu-bar quick panel
+└── bundled Go service, spawned as:
+    anypick desktop-service --stdio
+```
+
+실행 시 앱은 자체 번들을 기준으로 번들로 제공되는 Go 실행 파일을 확인하고 자식으로 시작합니다. 변형이 활성화되기 전에 버전 및 기능 핸드셰이크가 완료됩니다. 프레임은 제한되어 있으며 stdout은 프로토콜 전용입니다.
+
+앱이 `PATH`에서 서비스를 찾지 **않고**, 영구 데몬에 연결하거나 노드 프로세스를 실행하지 않습니다. localhost HTTP API, 소켓 및 gRPC가 없습니다. 이들 모두에는 새로 허용된 ADR이 필요합니다.
+
+예기치 않은 종료는 제한된 다시 시작 정책을 사용합니다. 호환되지 않거나 반복적으로 실패하는 도우미는 자동으로 다른 엔진으로 전환하는 대신 UI를 저하된 상태로 만듭니다.
+
+## 맥OS
+
+기본 창을 닫으면 앱과 해당 로컬 서비스가 계속 실행되며 메뉴 표시줄 항목은 계속 사용 가능합니다. **Quit AnyPick** 또는 퀵패널의 **Quit** 버튼을 선택하면 번들 서비스가 정상적으로 종료되고 앱도 종료됩니다.
+
+Linux 및 Windows에는 메뉴 표시줄 항목이 없으므로 창을 닫으면 앱과 사이드카가 종료됩니다.
+
+### 메인 창
+
+macOS 앱은 다음 사이드바 대상이 포함된 시스템 설정 스타일 관리 창을 엽니다.
+
+| 목적지 | 목적 |
+| --- | --- |
+| **개요** | 설치 진행, 설치 진단, 주의사항, 서비스 요약 |
+| **앱** | 현재 클라이언트 경로 및 소스 선택 |
+| **계정 및 API** | 저장된 기본 로그인 및 API 게이트웨이 |
+| **프록시 허브** | 통합 로컬 엔드포인트, 소스, 모델 및 수명주기 |
+| **프록시** | 계정별 번역가 및 수명주기 |
+| **활동** | 최근 이벤트 및 제한된 라이브 로그 |
+| **백업** | 저장된 계정 내보내기, 검사, 가져오기 및 복원 |
+
+앱 전체 옵션은 기본 사이드바의 일반적인 위치인 **설정**(<kbd>⌘,</kbd>)에 있습니다. 그룹화된 창에는 시작 및 사용 기본 설정이 포함되어 있습니다. 또한 **업데이트**에서 GitHub 릴리스를 확인합니다. 직접 설치 다운로드는 저장되고 릴리스 체크섬과 비교하여 확인한 다음 수동 설치를 위해 Finder에서 열립니다. 패키지 관리자 설치에는 업그레이드 명령이 표시됩니다. 설정에는 시작하기 체크리스트를 다시 표시하는 작업도 있습니다. 설치 진단은 개요에서 사용할 수 있습니다.
+
+**계정 및 API → 로그인 추가**에서 공급자는 공급자 소유의 브라우저 로그인을 노출할 수 있습니다. AnyPick은 해당 메서드를 시작한 다음 공급자의 결과 기본 자격 증명을 확인하고 저장합니다. 공급자의 OAuth 페이지를 모방하거나 계정 비밀번호를 묻지 않습니다.
+
+### 메뉴바 퀵패널
+
+메뉴 표시줄 항목은 두 번째 앱이 아닌 동일한 실행 중인 앱의 컴팩트 패널입니다. **macOS 전용**입니다. 다음을 수행할 수 있습니다.
+
+- 준비/주의 상태를 표시하고 저장된 계정 또는 목적지를 검색합니다.
+- 활성 앱 경로 및 지원되는 사용 정보를 표시합니다.
+- 지원되는 앱을 다른 호환 가능한 소스로 전환합니다.
+- 시작, 중지, 다시 시작을 위해 프록시 허브와 계정별 프록시 행을 확장합니다.
+- AnyPick 전체 창을 열거나 애플리케이션을 종료하세요.
+
+자세한 구성은 기본 창에 유지됩니다. 메뉴 표시줄 아이콘은 경로나 서비스를 검토해야 할 때 주의 표시를 표시할 수 있습니다. 첫 실행 및 저하 상태는 준비 상태와 동일한 프로덕션 뷰 계층 구조를 사용합니다.
+
+### 로그인 시 실행
+
+기본 설정 토글은 macOS `SMAppService`를 사용합니다. macOS에서 수동 승인이 필요한 경우 AnyPick은 **시스템 설정 → 일반 → 로그인 항목**으로 이동합니다. UI에서 사용자 정의 LaunchAgent를 설치하지 않습니다.
+
+## 소스에서 실행
+
+**macOS** — `src/go/go.mod`로 고정된 툴체인을 선택할 수 있는 macOS 14+, Xcode 및 Go 실행기가 필요합니다.
+
+```bash
+open src/macos/AnyPick.xcodeproj
+```
+
+공유 **AnyPick** 구성표를 선택하고 실행합니다. 빌드 단계에서는 `AnyPick.app/Contents/Helpers/anypick-core`에 Go 실행 파일을 설치합니다. 대신 명령줄에서 빌드하려면 `make build-macos`를 사용하세요. `make test-macos`는 단위 테스트와 번들 도우미 계약을 실행하고, `make verify-macos`는 추가로 번들에 노드 런타임이 포함되어 있지 않다고 주장합니다.
+
+**Linux 및 Windows** — 저장소 루트에서:
+
+```bash
+make run-tauri     # run against the real Go service
+make build-tauri   # package for this platform
+```
+
+### 라이브 계정 없이 UI 상태 미리보기
+
+Xcode 체계(**제품 → 체계 → 체계 편집 → 실행 → 인수 → 환경 변수**)에서 이를 설정한 다음 실행합니다. 인메모리 설비를 구동하므로 계정이나 자격 증명이 필요하지 않습니다.
+
+| 변수 | 가치 |
+| --- | --- |
+| `ANYPICK_MACOS_FIXTURE` | `ready`, `loading`, `empty`, `error` |
+| `ANYPICK_MACOS_DESTINATION` | `overview`, `apps`, `accounts`, `proxyHub`, `proxies`, `activity`, `backups` |
+| `ANYPICK_MACOS_FLOW` | `add-account`, `add-gateway`, `tray`, `tray-attention`, `tray-use-with`, `tray-switching`, `tray-recovery` 외 |
+| `ANYPICK_MACOS_APPEARANCE` | `system`, `light`, `dark` |
+| `ANYPICK_MACOS_RENDER_PATH` | 경로 — 창을 PNG로 렌더링하고 종료 |
+
+이전 세션의 스크린샷 대신 설비를 미리 봅니다. 스크린샷은 촬영된 순간의 디자인을 동결하지만 설비는 그렇지 않습니다.
+
+## 터미널 UI
+
+터미널 UI는 앱의 일부가 아닌 별도의 표면입니다. CLI를 빌드하고 실행합니다.
+
+```bash
+make build          # -> src/go/bin/anypick-dev
+./src/go/bin/anypick-dev tui
+```
+
+또는 `make run ARGS="tui"`. TUI는 동일한 Go 서비스와 통신하지만 별도로 열린 데스크톱 앱을 시작, 감독 또는 종료하지 않습니다. TUI를 닫아도 앱은 종료되지 않으며, 앱을 종료해도 TUI가 닫히지 않습니다.
+
+## 보안 경계
+
+자격 증명 및 인스턴스별 프록시 전달자 토큰은 Go 서비스에 유지됩니다. 데스크톱 스냅샷은 원시 저장된 자격 증명이 아닌 표시 안전 상태 및 불투명한 작업 식별자를 전달합니다. 도우미의 stdio 연결은 소유 앱에만 적용되며 문서화된 통합 API가 아닙니다.
+
+터미널 작업 흐름은 [앱 및 터미널 UI](/ko/docs/guides/terminal-ui)를, 프록시 및 허브 동작은 [프록시](/ko/docs/guides/proxies)를 참조하세요.

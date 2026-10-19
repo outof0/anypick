@@ -1,0 +1,192 @@
+---
+title: '계정'
+description: '여러 개가 공존할 수 있고 모든 클라이언트가 이를 사용할 수 있도록 스냅샷 기본 공급자 로그인.'
+---
+
+계정은 공급자의 자체 CLI가 생성한 로그인이거나 로컬 프록시에 제공한 공급자 키입니다. AnyPick은 이를 스냅샷으로 저장하므로 여러 개를 유지하고, 이들 사이를 전환하고, 이를 사용하도록 설계되지 않은 클라이언트에게 하나를 빌려줄 수 있습니다.
+
+## 지원되는 제공업체
+
+| 공급자 | 실시간 인증 | 다른 고객이 도달하는 방법 |
+| --- | --- | --- |
+| `claude` | 클로드 코드 열쇠고리 / `~/.claude/.credentials.json` | 직접, Claude Code 전용 |
+| `codex` | `~/.codex/auth.json` | 직접, Codex 전용 |
+| `grok` | `~/.grok/auth.json` | 내장된 이중 프록시(OpenAI + Anthropic) |
+| `opencode` | OpenCode 인증 스토어 | 내장형 Zen/Go 듀얼 프록시 |
+| `gemini` | `~/.gemini/` (`.env`, oauth, 계정), 반중력 상태/키링 | 내장 듀얼 프록시 → Gemini API |
+| `kiro` | kiro-cli 비밀 저장소, `~/.aws/sso/cache` 또는 사용자가 제공한 API 키 | 외부 `kirolink` / `kiro-proxy`(설치된 경우) |
+| `workbuddy` | WorkBuddy/CodeBuddy 구독(device-flow OAuth) | 위의 클라이언트에 서비스를 제공하는 내장 OpenAI 프록시; `anypick use workbuddy/<name>`는 또한 세션 파일을 통해 WorkBuddy 앱 자체를 전환합니다 |
+| `cline` | ClinePass / Cline WorkOS 로그인 | 내장 OpenAI 프록시(아직 Cline 클라이언트 어댑터 없음) |
+
+`anypick providers`는 컴퓨터의 빌드에 대한 권위 있는 인벤토리입니다. 위의 기본 공급자 외에도 Go 엔진은 호환 가능한 API 키 및 구독 키 공급자를 직접 제공합니다. `popular-providers` 플러그인이 필요하지 않습니다. 자격증명 프로필과 예시는 [호환되는 제공업체가 내장되어 있습니다](/ko/docs/guides/plugins)를 참조하세요.
+
+<Aside type="caution" title="계정 백업에는 자격 증명이 포함되어 있습니다.">
+계정 백업 파일은 읽기 가능한 JSON이며 AnyPick으로 암호화되지 않습니다. 작업 자격 증명처럼 저장하세요. 저장된 계정에 적용됩니다. 게이트웨이 비밀, 기본 설정 및 활동 기록은 완전한 애플리케이션 백업이 아닙니다.
+</Aside>
+
+## 로그인 저장
+
+AnyPick은 공급자 소유의 로그인 실행기에 브라우저 로그인을 위임한 다음 공급자의 일반 위치에 작성한 자격 증명을 읽습니다. 두 가지 방법:
+
+<Tabs>
+<TabItem label="실시간 로그인 저장">
+```bash
+claude login
+anypick add account claude --current --name personal
+
+codex login
+anypick add account codex --current --name personal
+```
+현재 활성화된 자격 증명은 `codex/personal`라는 이름의 저장된 스냅샷이 됩니다.
+</TabItem>
+<TabItem label="새로 로그인을 시작하세요">
+```bash
+anypick add account codex --new --name work
+```
+설치된 공급자가 브라우저 인증을 노출하면 AnyPick은 라이브 자격 증명을 백업하고 공급자의 브라우저 흐름을 열고 새로운 기본 로그인을 확인한 후 하나의 명령으로 새 이름으로 저장합니다. Codex, Claude Code, Kiro, Grok 및 Gemini가 이 경로를 제공합니다. Z.ai는 또한 이 Mac에서 암호화된 ZCode 로그인 가져오기 또는 공식 브라우저 흐름 시작을 지원합니다. Gemini의 선택기에는 별도의 Gemini CLI 및 반중력 호환 Google 소스가 있습니다. AnyPick은 `gemini` 자체에 로그인 전용 명령이 없기 때문에 Google OAuth 흐름을 직접 엽니다. 사용 가능한 브라우저 실행 프로그램이 없는 경우 AnyPick은 실시간 로그인을 지우고 공급자 지원 도구로 로그인한 후 저장하는 방법을 알려줍니다.
+</TabItem>
+</Tabs>
+
+공식적인 방법이 먼저 표시되며 공급자 정책과 충돌할 가능성이 적기 때문에 기본값입니다. 이는 화이트리스트가 아닙니다. 전체 공급자 플러그인은 커뮤니티 방법을 노출할 수 있으며 `--auth-method <id>` 또는 방법 선택기를 사용하여 명시적으로 선택할 수 있습니다. 제공업체 약관이 계속 적용됩니다.
+
+로그인은 한 번만 저장됩니다. AnyPick이 이미 두 번째 이름으로 보유하고 있는 자격 증명 자료를 저장하는 것은 거부되고 오류는 이미 해당 계정을 가지고 있는 계정의 이름을 지정합니다. 해당 계정을 사용하거나 새 이름으로 저장하기 전에 해당 계정을 제거(`anypick account remove <provider>/<name>`)하세요. 그렇지 않으면 하나의 스냅샷에 대한 두 개의 이름이 아무것도 전환하지 않은 두 개의 계정처럼 보입니다. `anypick doctor`는 이 규칙 이전에 저장된 쌍을 보고합니다.
+
+브라우저 로그인이나 스냅샷 저장에 실패하면 AnyPick은 이전 기본 로그인 및 활성 계정 포인터를 복원합니다. 인증 URL, 일회성 코드 및 실행 프로그램 출력은 트레이 또는 JSON 출력에 복사되지 않습니다.
+
+Gemini의 경우 `--source gemini-cli|antigravity`는 둘 다 존재할 때 읽을 로그인을 선택합니다. macOS 앱에서 **On This Mac**은 이미 Gemini CLI 또는 Antigravity에 로그인된 구독을 가져옵니다. **새 계정**을 사용하면 Google 소스를 선택하고 다른 계정으로 로그인할 수 있습니다. 실패하거나 취소된 흐름은 이전 로그인 및 활성 계정을 복원합니다. AnyPick은 Antigravity의 IDE 데이터베이스나 키체인에 새로운 로그인을 기록하지 않습니다.
+
+Gemini API 키(`GEMINI_API_KEY` 또는 `GOOGLE_API_KEY`)는 명명된 기본 계정으로 저장할 수도 있습니다. 이는 게이트웨이 프로필과 별개이며 Gemini CLI 또는 Antigravity 로그인이 없는 경우에도 작동합니다.
+
+```bash
+anypick add account gemini --credential api-key --secret --name studio
+```
+
+macOS 로그인 추가 시트는 세 가지 Gemini 경로(이 Mac에 이미 있는 로그인, 새 Google 구독 로그인, 별도의 API 키 양식)를 모두 사용 가능하게 유지합니다. API 키 경로는 AnyPick 소유이며 기본 로그인을 대체하지 않습니다.
+
+## 로그인 대신 키 저장
+
+일부 제공업체는 귀하가 이미 보유하고 있는 키를 허용합니다. 일반적인 형태는 다음과 같습니다:
+
+```bash
+anypick add account mimo --credential subscription-key --secret --name work \
+  --option profile=singapore
+```
+
+`--secret` 값을 생략하면 AnyPick이 터미널에 해당 값을 묻는 메시지를 표시하므로 키가 셸 기록에 입력되지 않습니다. 모든 `--option key=value`는 해당 제공자(현재 `profile`)가 선언한 한정자여야 합니다. CLI는 자동으로 삭제하는 대신 다른 모든 항목에 대해 실패 처리됩니다.
+
+> **Kiro API 키는 아직 허용되지 않습니다.** `kiro` 공급자는 허용되지 않는다고 선언합니다.
+> `CredentialDefinitions` (`CredentialInputProvider`가 아님)
+> `add account kiro --api-key/--region`가 `SaveInput`에서 닫히지 못했습니다.
+> `UNSUPPORTED_CREDENTIAL_INPUT`, 그리고 베어 `--region`는 거부됩니다.
+> `cmd/anypick/main.go`가 공급자에게 도달하기 전에. Kiro는 다음을 통해 로그인합니다.
+> 브라우저 로그인(`--new`) 및 실시간 로그인 스냅샷(`--current`)
+> 문서에 명시된 대로 작동합니다.
+
+[터미널 UI](/ko/docs/guides/terminal-ui)에서 계정 추가 화면의 **대신 API 키 사용**과 동일한 흐름이 입력된 자격 증명 제품을 선언하는 공급자에게 제공됩니다. 키는 입력할 때 숨겨지며 엔드포인트 프로필은 공급자 계약에서 렌더링됩니다.
+
+키는 이 시스템의 로그인이 아닙니다. 이는 AnyPick에만 저장되므로 활성화하면 디스크의 기본 로그인이 그대로 유지되며 `account refresh`는 키를 덮어쓰지 않습니다.
+
+플러그인으로 설치된 공급자는 공급자별 CLI 플래그를 추가하지 않고도 다른 자격 증명 제품을 선언할 수 있습니다. 일반적인 형태는 다음과 같습니다:
+
+```bash
+anypick add account <provider> --credential <kind> --secret --name <name>
+anypick add account mimo --credential subscription-key --secret --name work \
+  --option profile=singapore
+```
+
+모든 `--option key=value`는 해당 공급자가 선언한 한정자여야 합니다. TUI는 공급자 계약과 동일한 종류 및 엔드포인트 프로필을 렌더링합니다. macOS 앱에서 이러한 공급자는 로그인 흐름 대신 로그인 추가에 API 키 양식을 표시합니다.
+
+<Aside type="caution" title="한 번에 하나의 실시간 로그인">
+공급자 CLI는 일반적으로 기본 홈에 하나의 자격 증명을 보관합니다. 저장된 계정은 AnyPick의 스토어에 있으며 일반 활성화는 선택한 계정을 해당 공급자 경로로 복원합니다. Codex 명명된 프로필은 예외입니다. 각 프로필은 격리된 `CODEX_HOME`를 가져오므로 여러 Codex CLI 계정을 동시에 실행할 수 있습니다. 프로필이 활성화된 동안에는 관리형 인증 파일을 직접 편집하지 마세요.
+</Aside>
+
+## 계정 사용
+
+```bash
+anypick use codex --with codex/personal    # same-protocol: direct
+anypick use claude --with grok/work        # cross-protocol: proxy starts on demand
+anypick use commandcode --with workbuddy/work --model deepseek-4.1-flash
+anypick run commandcode --with workbuddy/work --model deepseek-4.1-flash --
+anypick run claude
+```
+
+Codex CLI는 명명된 경로도 지원합니다. AnyPick은 각각의 명명된 경로에 고유한 `CODEX_HOME`, 기본 프로필 구성 및 `auth.json`를 제공하므로 프로필은 전역 Codex 구성이나 로그인을 덮어쓰지 않고도 저장된 다른 계정이나 게이트웨이를 가리킬 수 있습니다.
+
+```bash
+anypick codex profile login personal
+anypick codex profile login work
+anypick use codex --with codex/personal --profile personal
+anypick use codex --with codex/work --profile work
+anypick use codex --with hub:default --profile shared
+anypick codex profile list
+anypick run codex --profile work -- exec --help
+```
+
+`profile login`는 선택한 프로필 홈에서 공식 Codex 로그인을 연 다음 결과 자격 증명을 `codex/<name>`로 저장하고 프로필을 구체화합니다. 데스크톱 앱의 기본값 `~/.codex/auth.json`을 대체하지 않습니다. AnyPick에 이미 저장된 계정의 경우 `anypick use ... --profile <name>`는 스냅샷을 프로필 홈에 복사합니다. 게이트웨이 지원 프로필은 저장된 엔드포인트를 직접 사용합니다. 프로필이 기본 Codex 인증 대신 계정별 AnyPick 프록시를 사용해야 하는 경우 계정 프록시를 활성화하고 `--transport proxy`를 전달하세요. 허브 지원 프로필에는 별도의 경로 토큰이 있으므로 다른 Codex 프로필이 무효화되지 않습니다. 기본 Codex CLI 구성은 계정 프록시 또는 허브를 직접 사용할 수도 있습니다.
+
+```bash
+anypick use codex --with codex/work --transport proxy
+anypick use codex --with hub:default
+```
+
+이러한 경로는 Codex CLI를 구성합니다. Codex Desktop은 자체 로그인 계정을 유지하며 CLI의 `CODEX_HOME`를 따르지 않습니다.
+
+클라이언트와 계정이 서로 다른 프로토콜을 사용하는 경우 AnyPick은 로컬 번역 프록시를 시작하고 클라이언트를 가리킵니다. 프록시를 직접 시작하지 마십시오. 명령 코드는 `~/.commandcode/providers.json`에서 OpenAI 호환 `anypick-managed` 공급자를 받습니다. 인스턴스별 프록시 토큰은 `~/.commandcode/auth.json`에 보관됩니다. 원하는 경우 [프록시](/ko/docs/guides/proxies)를 참조하세요.
+
+## 실시간 사용량 및 할당량
+
+공급자가 실시간 사용량을 보고하면 macOS 앱은 이를 계정 및 앱 세부정보에 표시합니다. 반중력 보고서는 **Gemini 모델** 및 **Claude 및 GPT 모델**과 같은 모델군별로 그룹화된 주간 및 5시간 기간을 보고합니다. AnyPick은 이 디스플레이에 대한 현재 공급자 자격 증명을 읽습니다. 로그인을 새로 고치거나 쓰지 않습니다. 이 Mac에서 공급자 계정이 활성화된 경우에만 사용할 수 있습니다. Codex Desktop은 Codex CLI와 별도로 자체 로그인을 유지하므로 AnyPick은 해당 계정이 일치하지 않을 때 할당량 읽기를 표시하지 않습니다.
+
+## 저장된 계정 관리하기
+
+```bash
+anypick account list                   # or: anypick list accounts
+anypick account refresh codex          # refresh the live login
+anypick account refresh codex work     # refresh one saved account
+anypick account refresh codex --all    # refresh every saved account
+anypick account remove codex old -y
+```
+
+`refresh`는 OAuth 토큰을 갱신합니다. 계정은 이름을 유지하므로 해당 계정을 가리키는 바인딩이 계속 작동합니다. 아무것도 다시 바인딩할 필요가 없습니다. 타겟이 실패하면 0이 아닌 값으로 종료하고 어떤 타겟을 인쇄합니다.
+
+`remove`는 또한 해당 계정으로 경로가 지정된 모든 Codex 프로필을 제거합니다([명명된 Codex 프로필](/ko/docs/reference/cli) 참조). 프로필은 계정의 `auth.json`를 보유하는 비공개 `CODEX_HOME`를 소유하므로 프로필을 남겨두면 AnyPick에서 다시 연결할 수 없는 자격 증명이 좌초됩니다. 정리가 자동이 아닌 보고됩니다.
+
+```bash
+anypick account remove codex work -y
+# removed codex/work Removed named profile(s): codex/work.
+```
+
+게이트웨이, 허브, 풀 또는 다른 저장된 계정 등 다른 곳을 가리키는 프로필은 그대로 유지됩니다. 하나의 계정을 삭제해도 다른 소스를 사용하는 프로필은 삭제되지 않습니다. 계정 행이 이미 사라졌지만 프로필이 여전히 이를 가리키는 경우(이전 AnyPick에서 삭제, 두 쓰기 간의 충돌 또는 계정 행 없이 복원된 데이터베이스) AnyPick은 다음에 시작할 때 프로필을 제거하고 stderr에서 그렇게 말합니다. `anypick doctor`가 그 전에 신고합니다.
+
+## 내보내기 및 가져오기
+
+계정을 다른 컴퓨터로 이동합니다.
+
+```bash
+anypick account export codex work -o ./work.json
+anypick account import codex work -i ./work.json
+```
+
+`--out`가 생략되면 내보내기는 `~/.anypick/exports/` 아래에 소유자 전용 `.json` 파일을 쓰고 정확한 경로를 인쇄합니다. 여러 계정을 하나의 패키지로 이동하려면 모든 계정(또는 하나의 공급자)을 단일 JSON 백업으로 내보냅니다.
+
+```bash
+anypick account export --all --out ./accounts.json
+anypick account import ./accounts.json
+```
+
+또한 하나의 명령으로 여러 개의 단일 계정 JSON 파일을 가져올 수도 있습니다(예: `anypick account import ./work.json ./personal.json`). `import`는 `--force`를 통과하지 않는 한 기존 이름 덮어쓰기를 거부합니다. `--force`를 포함하여 이미 다른 이름으로 저장된 로그인 ID는 차단된 상태로 유지됩니다. 교체할 때 기존 이름을 사용합니다. API 키 표시 라벨은 로그인 ID로 간주되지 않습니다.
+
+CLI, TUI 및 데스크탑 가져오기는 단일 계정 내보내기와 계정 백업을 모두 허용합니다. 데스크톱 파일 선택기는 `.json` 및 `.anypick-backup` 파일을 허용하며 가져오기 전에 계정을 검토할 수 있습니다.
+
+<Aside type="danger" title="내보내기에는 실시간 자격 증명이 포함됩니다.">
+내보낸 파일에는 실제 토큰이 일반 형식으로 보관됩니다. 자격 증명처럼 취급하십시오. 신뢰할 수 있는 채널을 통해 전송하고 나중에 삭제하십시오.
+</Aside>
+
+## 모델 기본값
+
+바인딩이 Claude에 계정 프록시를 연결하면 AnyPick은 Claude 모델 역할을 설정합니다.
+
+- `ANTHROPIC_MODEL` — 기본값
+- `ANTHROPIC_DEFAULT_SONNET_MODEL`, `…_OPUS_MODEL`, `…_HAIKU_MODEL`
+
+사용 가능한 경우 실행 중인 프록시의 라이브 `/v1/models` 카탈로그에서 값을 가져오므로 새로 출시된 모델은 AnyPick 업데이트 없이 표시됩니다. 나중에 프록시 또는 게이트웨이 보드에서 <kbd>m</kbd>를 사용하거나 앱에서 경로를 재구축하거나 명시적인 `--model`로 다시 바인딩하여 변경하세요.

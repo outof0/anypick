@@ -193,6 +193,8 @@ const EXACT_WINDOW_LABELS: Record<number, string> = {
 
 /** `quotaWindowLabel`. Never renames a window from its position alone. */
 export function quotaWindowLabel(window: UsageWindow): string {
+  const vendorLabel = (window.label ?? "").trim();
+  if (!["", "primary", "secondary", "5h", "weekly", "daily", "monthly", "session", "quota"].includes(vendorLabel.toLowerCase())) return vendorLabel;
   const seconds = window.limitWindowSeconds;
   if (seconds !== undefined && seconds > 0) {
     const exact = EXACT_WINDOW_LABELS[seconds];
@@ -322,14 +324,32 @@ export function usageForClient(usage: readonly UsageSnapshotRow[], clientId: str
   if (!needle) return null;
   const display = anypickDisplayName(clientId).trim().toLowerCase();
   for (const card of usage) {
-    const client = card.client.trim().toLowerCase();
-    const account = card.account.trim().toLowerCase();
-    if (!client) continue;
-    if (client === needle || client === display || account.includes(needle) || needle.includes(client)) {
-      return card;
+    if (card.providerId) {
+      if (nativeProviderFamily(card.providerId) === nativeProviderFamily(needle)) return card;
+      continue;
     }
+    const client = card.client.trim().toLowerCase();
+    if (client === needle || client === display) return card;
   }
   return null;
+}
+
+/** Quota belongs to the selected source, rather than the client carrying it. */
+export function usageForApp(usage: readonly UsageSnapshotRow[], clientId: string, actions: readonly ActionRow[]): UsageSnapshotRow | null {
+  const selected = actions.find((action) => action.clientId === clientId && action.selected);
+  if (selected?.routeKind === 'gateway' || selected?.routeKind === 'hub') return null;
+  const source = selected?.sourceId.split('/');
+  if (source?.[0] === 'account' && source.length >= 3) {
+    const card = usageForClient(usage, source[1]);
+    return card?.account === source.slice(2).join('/') ? card : null;
+  }
+  return usageForClient(usage, clientId);
+}
+
+export function usageForAccount(usage: readonly UsageSnapshotRow[], account: AccountRow): UsageSnapshotRow | null {
+  if (!account.active) return null;
+  const card = usageForClient(usage, account.providerId);
+  return card?.account === account.name ? card : null;
 }
 
 /** `quotaResetFormatted`. "Resets soon", a relative span, or a date. */

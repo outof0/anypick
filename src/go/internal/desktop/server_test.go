@@ -40,14 +40,23 @@ func newTrayEnv(t *testing.T) *trayEnv {
 	t.Helper()
 	root := t.TempDir()
 	home := t.TempDir()
+	// Adapters also resolve fallback homes and OS credential stores. Passing
+	// home into the registries alone does not isolate those paths (ADR 0004).
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	t.Setenv("ANYPICK_HOME", root)
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
+	t.Setenv("XDG_DATA_HOME", filepath.Join(home, ".local", "share"))
+	t.Setenv("APPDATA", filepath.Join(home, "AppData", "Roaming"))
+	t.Setenv("LOCALAPPDATA", filepath.Join(home, "AppData", "Local"))
+	for _, key := range []string{"CODEX_HOME", "GROK_AUTH_PATH", "OPENCODE_AUTH_PATH", "OPENCODE_DATA_DIR", "KIRO_SSO_CACHE_DIR", "ANYPICK_KIRO_SECRET_DB", "WORKBUDDY_AUTH_PATH", "WORKBUDDY_CONFIG_DIR", "CODEBUDDY_CONFIG_DIR", "GEMINI_CLI_HOME", "GEMINI_CONFIG_DIR", "DSH_HOME", "ANYPICK_ZAI_CREDENTIALS_PATH", "ANYPICK_ZAI_LIVE_PATH"} {
+		t.Setenv(key, "")
+	}
 	codexAuth := filepath.Join(home, ".codex", "auth.json")
 	t.Setenv("CODEX_AUTH_PATH", codexAuth)
 	t.Setenv("ANYPICK_CLAUDE_NO_KEYCHAIN", "1")
+	t.Setenv("ANYPICK_KIRO_NO_KEYCHAIN", "1")
 	t.Setenv("ANYPICK_CLAUDE_CREDENTIALS_PATH", filepath.Join(home, ".claude", ".credentials.json"))
-	os.Unsetenv("GROK_AUTH_PATH")
-	os.Unsetenv("OPENCODE_AUTH_PATH")
-	os.Unsetenv("KIRO_SSO_CACHE_DIR")
-	os.Unsetenv("ANYPICK_KIRO_SECRET_DB")
 
 	database, err := db.Open(root)
 	if err != nil {

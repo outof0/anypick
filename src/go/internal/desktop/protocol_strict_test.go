@@ -34,6 +34,7 @@ func TestStrictMutateContract(t *testing.T) {
 		mutate func(m map[string]interface{})
 	}{
 		{"unknown field", func(m map[string]interface{}) { m["warp"] = 1 }},
+		{"oversized identity", func(m map[string]interface{}) { m["identity"] = strings.Repeat("i", 641) }},
 		{"missing requestId", func(m map[string]interface{}) { delete(m, "requestId") }},
 		{"empty requestId", func(m map[string]interface{}) { m["requestId"] = "" }},
 		{"oversized requestId", func(m map[string]interface{}) { m["requestId"] = strings.Repeat("x", 129) }},
@@ -65,7 +66,7 @@ func TestStrictDesktopCorrectnessMutationContracts(t *testing.T) {
 			"providerId": "codex", "name": "detect"},
 		{"version": 1, "requestId": "save", "operation": "account-save",
 			"providerId": "openrouter", "name": "work", "apiKey": "sk-test",
-			"region": "global", "overwrite": false},
+			"region": "global", "overwrite": false, "identity": "API key account"},
 		{"version": 1, "requestId": "current", "operation": "account-save-current",
 			"providerId": "codex"},
 		{"version": 1, "requestId": "edit", "operation": "account-edit",
@@ -95,6 +96,8 @@ func TestStrictDesktopCorrectnessMutationContracts(t *testing.T) {
 			"providerId": "codex", "name": "work", "overwrite": nil},
 		{"version": 1, "requestId": "save", "operation": "account-save",
 			"providerId": "codex", "name": "work", "apiKey": nil},
+		{"version": 1, "requestId": "detect", "operation": "account-detect",
+			"providerId": "codex", "name": "detect", "identity": "work@example.com"},
 	}
 	for _, payload := range invalid {
 		if _, err := DecodeLine("mutate\t" + b64(t, payload)); err == nil {

@@ -1,0 +1,184 @@
+---
+title: 'Erste Schritte'
+description: 'Installieren Sie eine AnyPick-Version, öffnen Sie Apps und verbinden Sie Claude oder Codex mit einem Login, das Sie bereits haben.'
+---
+
+AnyPick beantwortet eine alltägliche Frage:
+
+> **Welches Login sollte Claude Code oder Codex jetzt verwenden?**
+
+Sie zahlen bereits für Anbieter. Sie verwenden bereits Codierungstools. AnyPick erstellt Snapshots dieser Anmeldungen, startet einen lokalen Übersetzer, wenn die Tools unterschiedliche Protokolle sprechen, und schreibt die Client-Konfiguration – Sie wählen also einmal in **Apps** aus, anstatt Dateien manuell zu bearbeiten.
+
+## Installieren Sie eine Version
+
+Installieren Sie die CLI von der neuesten [GitHub-Version](https://github.com/outof0/anypick/releases/latest) mit dem Paketmanager für Ihre Plattform:
+
+```bash
+# macOS
+brew install outof0/tap/anypick
+
+# Linux, or any OS with Node 18+ (downloads the matching native CLI on first run)
+npm install -g anypick
+```
+
+```powershell
+# Windows
+scoop bucket add outof0 https://github.com/outof0/scoop-bucket
+scoop install anypick
+```
+
+Desktop-Apps (`.dmg`, `.deb`, `.rpm`, AppImage, `.msi`, `.exe`) und mit Prüfsummen aufgelistete CLI-Tarballs sind an alle angehängt [Veröffentlichung](https://github.com/outof0/anypick/releases/latest). Überprüfen Sie die Installation mit `anypick --version` und führen Sie dann `anypick doctor` aus.
+
+## Release-Kanäle und Quell-Builds
+
+<Render file="install-de" />
+
+## Öffnen Sie Apps
+
+Das native macOS-Ziel öffnet automatisch sein reguläres Hauptfenster. Das Schnellbedienfeld in der Menüleiste ist Teil derselben App und bleibt verfügbar, wenn das Hauptfenster geschlossen wird.
+
+Für den Terminal-Workflow:
+
+```bash
+anypick tui
+```
+
+Sie landen auf **Apps**:
+
+```
+ anypick / apps
+
+  Routes for Claude Code and Codex
+ › Claude        not connected                     ○ not set
+   Codex         not connected                     ○ not set
+ ────────────────────────────────────────────────────────────────────────
+ Connect Claude
+ enter to build a route
+ enter connect app a accounts g gateways p proxies d diagnose
+```
+
+Hier erscheinen nur **Claude Code**, **Codex**, **OpenCode**, **ZCode**, **`dsh`**, **`commandcode`**, **`pi`** und **`omp`** – sie können auf fast jede gespeicherte Quelle verwiesen werden. Andere Tools wechseln ihre eigenen Logins unter „Konten“.
+
+Drei Gewohnheiten, die die Benutzeroberfläche für Nicht-Experten sicher machen:
+
+- **Die Zeile unter der Regel ist das, was <kbd>enter</kbd> tun wird.** Lesen Sie es zuerst.
+- **Die Fußzeile ist die gesamte Tastaturbelegung.** Keine versteckten Menüs.
+- **Es wird nichts gespeichert, bis eine Vorschau dies anzeigt.** Sie können jederzeit <kbd>esc</kbd> zurück.
+
+Die folgenden Befehlsbeispiele zeigen die CLI-Grammatik von AnyPick. Installieren Sie die CLI aus den mit Prüfsummen aufgelisteten Archiven im GitHub-Release oder über den Thin NPM-Launcher mit `npm install --global anypick` (Knoten 18+; lädt die passende native CLI beim ersten Start herunter); Sie können die gleichen Argumente auch von diesem Checkout aus mit `make run ARGS="…"` ausführen; zum Beispiel `make run ARGS="list accounts"` (oder einmal mit `make build` erstellen und `./src/go/bin/anypick-dev …` direkt ausführen).
+
+Vollständige Komplettlösung der Quelle → Modelle → Vorschau: [Terminal-Benutzeroberfläche · Apps](/de/docs/guides/terminal-ui).
+
+## Einmaliges Login speichern
+
+AnyPick kann eine anbietereigene Browser-Anmeldung starten; Der OAuth-Flow des Anbieters selbst wird nicht implementiert oder imitiert.
+
+In der Benutzeroberfläche: <kbd>a</kbd> **Konten** → <kbd>a</kbd> **Hinzufügen**. Oder:
+
+<Steps>
+<Step title="Fügen Sie den Login hinzu">
+```bash
+anypick add account codex --new --name personal
+# opens Codex browser Auth and saves the result
+
+# If Codex is already signed in, snapshot it instead:
+anypick add account codex --current --name personal
+```
+</Step>
+<Step title="Sehen Sie es aufgelistet">
+```bash
+anypick list accounts
+```
+</Step>
+</Steps>
+
+Das Paar `provider/name` (zum Beispiel `codex/personal` oder `grok/work`) ist die **Quelle**, die Sie an eine App anhängen.
+
+<Aside type="tip" title="Zweiter Login beim gleichen Anbieter">
+`anypick add account codex --new --name work` speichert die aktuellen Anmeldeinformationen, öffnet die Browser-Authentifizierung des Anbieters, speichert das Ergebnis und behält das erste Konto gespeichert. Offizielle Auth wird bevorzugt; Vom Anbieter deklarierte Community-Methoden bleiben weiterhin auswählbar.
+</Aside>
+
+## Eine App verbinden (Apps-Benutzeroberfläche)
+
+Zurück zu **Apps** (drücken Sie <kbd>esc</kbd>, bis Sie `anypick / apps` sehen):
+
+1. Markieren Sie **Claude** oder **Codex**.
+2. Drücken Sie <kbd>enter</kbd> (**App verbinden**).
+3. Wählen Sie eine Quelle:
+   - **Native Konten** – gleiche Marke wie die App (einfacher Wechsel).
+   - **Gateways und Proxys** – Grok, OpenRouter, Gemini-Proxy, Pools, …
+   - **Gespeicherte Setups** – eine Voreinstellung, die Sie zuvor gespeichert haben.
+4. Wenn Sie dazu aufgefordert werden, wählen Sie Modelle aus (Claude kann Standard / Sonett / Opus / Haiku festlegen).
+5. Lesen Sie die **Vorschau** – was geschrieben wird und welcher Proxy startet.
+6. Drücken Sie <kbd>enter</kbd> zum Aktivieren.
+
+Wenn Sie zu Apps zurückkehren, sollte in der Zeile **● bereit** mit `source · model` angezeigt werden.
+
+Das ist das gesamte Produkt für den täglichen Gebrauch. Öffnen Sie das Codiertool wie gewohnt.
+
+## Gleiche Schritte wie Befehle (optional)
+
+Skripte und CI verwenden dieselben Vorgänge ohne die Benutzeroberfläche:
+
+```bash
+anypick use codex --with codex/personal
+anypick run codex
+```
+
+Anbieterübergreifendes Beispiel – Claude auf einem Grok-Konto (Proxy startet automatisch):
+
+```bash
+anypick add account grok --current --name work
+anypick use claude --with grok/work
+anypick run claude
+```
+
+API-Schlüssel anstelle eines Logins – registrieren Sie ein **Gateway**, wählen Sie es dann in Apps aus oder übergeben Sie es an `--with`:
+
+```bash
+anypick add gateway openrouter-work \
+  --provider openrouter \
+  --endpoint https://openrouter.ai/api/v1 \
+  --api-key "$OPENROUTER_API_KEY" \
+  --model anthropic/claude-sonnet-4
+
+anypick use claude --with openrouter-work
+```
+
+## Nach der Einrichtung: App oder Terminal
+
+Unter macOS sind die [native App und Menüleiste](/de/docs/guides/tray) die App-First-Tagesoberfläche. Nutzen Sie das vollständige Fenster für die Verwaltung und das Schnellmenü in der Menüleiste für Routen- und Serviceaktionen. Durch das Schließen des Hauptfensters bleibt die App weiterhin aktiv. explizit **Quit AnyPick** stoppt seinen gebündelten Dienst und wird beendet.
+
+Die Terminal-Benutzeroberfläche bleibt eine separate Quell-Entwicklungsoberfläche; Es besitzt oder stoppt keine separat gestartete native App.
+
+<Aside type="note" title="Kein TTY, keine Benutzeroberfläche">
+Über Pipelines geleitete oder nicht interaktive Ausführungen öffnen niemals Apps. Bare `anypick` in einem Skript gibt Hilfe aus und wird beendet, sodass nichts hängen bleibt und auf einen Schlüssel wartet.
+</Aside>
+
+## Wo Dinge leben
+
+| | |
+| --- | --- |
+| Daten | `~/.anypick/anypick.db` |
+| Startseite überschreiben | `ANYPICK_HOME=/path` |
+| Shell-Fertigstellung | `source <(anypick completion zsh)` – auch `bash`, `fish` |
+
+## Weiter
+
+<CardGrid>
+  <Card title="Apps und Terminal-Benutzeroberfläche" href="/de/docs/guides/terminal-ui">
+    Vollständiger Routen-Builder: Quellgruppen, Modelle, Vorschau, jeder Schlüssel.
+  </Card>
+  <Card title="macOS-App und Menüleiste" href="/de/docs/guides/tray">
+    Nativer App-Lebenszyklus, gebündelter Go-Dienst und Quick Panel.
+  </Card>
+  <Card title="Konzepte" href="/de/docs/concepts">
+    Client, Quelle, Bindung, Voreinstellung – vier Wörter hinter der Benutzeroberfläche.
+  </Card>
+  <Card title="CLI-Referenz" href="/de/docs/reference/cli">
+    Jeder Befehl, jedes Flag, jeder Exit-Code und jede Umgebungsvariable.
+  </Card>
+  <Card title="Fehlerbehebung" href="/de/docs/reference/troubleshooting">
+    Was `anypick doctor` prüft und was es nicht anfassen möchte.
+  </Card>
+</CardGrid>

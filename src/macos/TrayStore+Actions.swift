@@ -36,12 +36,16 @@ extension TrayStore {
   func usage(for client: String) -> UsageSnapshot? {
     let needle = client.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !needle.isEmpty else { return nil }
-    let display = anypickDisplayName(needle)
+    let selected = managedActions(clientId: needle).first(where: \.selected)
+    let source = selected?.sourceId.split(separator: "/", maxSplits: 2).map(String.init)
+    if let selected, selected.sourceId.hasPrefix("gateway/") || selected.routeKind == "hub" || selected.routeKind == "gateway" { return nil }
+    var providerID = selected?.upstreamProviderId ?? needle
+    if let source, source.count == 3, source[0] == "account" { providerID = source[1] }
     return usage.first { card in
-      card.client.caseInsensitiveCompare(needle) == .orderedSame
-        || card.client.caseInsensitiveCompare(display) == .orderedSame
-        || card.account.localizedCaseInsensitiveContains(needle)
-        || needle.localizedCaseInsensitiveContains(card.client)
+      let matchesProvider = nativeProviderFamily(card.providerId ?? card.client) == nativeProviderFamily(providerID)
+      guard matchesProvider else { return false }
+      if let source, source.count == 3, source[0] == "account" { return card.account == source[2] }
+      return true
     }
   }
 }

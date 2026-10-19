@@ -22,8 +22,7 @@
     "editThisPage": "Diese Seite bearbeiten",
     "siteNavigation": "Seitennavigation",
     "navigation": "Navigation",
-    "closeSidebar": "Seitenleiste schließen",
-    "englishContent": "Der Inhalt dieser Seite ist derzeit auf Englisch verfügbar."
+    "closeSidebar": "Seitenleiste schließen"
   },
   "search": {
     "label": "Dokumentation durchsuchen",
@@ -72,5 +71,158 @@
     "tabs": "Paketmanager",
     "copy": "In die Zwischenablage kopieren",
     "copied": "In die Zwischenablage kopiert"
+  },
+  "docsNav": {
+    "appsTerminalUi": "Apps und Terminaloberfläche",
+    "guides": "Anleitungen",
+    "reference": "Referenz"
+  },
+  "landing": {
+    "meta": {
+      "title": "KI-Konten fürs Programmieren in einer lokalen App wechseln | AnyPick",
+      "description": "Verwalte KI-Konten und API-Gateways in einer lokalen App. Wähle kompatible Verbindungen für eine ganze App, ein Projekt oder eine einzelne Terminalsitzung.",
+      "socialAlt": "AnyPick-Übersicht mit unterstützten Programmiertools, Kontoverbindungen und lokalen Diensten."
+    },
+    "hero": {
+      "eyebrow": "Der lokale Kontowechsler für KI-Programmierwerkzeuge",
+      "titleStart": "Konto wechseln.",
+      "titleEnd": "Weiter programmieren.",
+      "lede": "Arbeitskonto, privates Konto oder dein eigenes API-Gateway. Wähle in einer lokalen App, welche Konten Claude Code, Codex und andere unterstützte Tools verwenden, ohne Konfigurationsdateien von Hand zu bearbeiten.",
+      "primary": "AnyPick kostenlos nutzen",
+      "secondary": "So funktioniert es",
+      "platforms": "macOS · Linux · Windows",
+      "openSource": "Kostenlos und Open Source",
+      "noCloud": "Keine AnyPick-Cloud",
+      "overviewAlt": "AnyPick-Übersicht mit Claude Code, OpenAI Codex und OpenCode, die gespeicherte Konten verwenden, sowie lokalem Proxystatus und letzten Wechseln. Demodaten.",
+      "trayAlt": "AnyPick-Menüleistenfenster mit gespeicherten Konten und schnellem Wechsel für Claude Code und OpenAI Codex. Demodaten.",
+      "caption": "Desktop-App · Demokonten"
+    },
+    "proof": {
+      "aria": "Produktinformationen",
+      "clientsTitle": "11 unterstützte Programmiertools",
+      "clientsBody": "Nutze die Tools, die du bereits installiert hast.",
+      "localTitle": "Deine Konten bleiben lokal",
+      "localBody": "Kein AnyPick-Konto und kein gehosteter Relay nötig.",
+      "licenseTitle": "Open Source · MIT",
+      "licenseBody": "Releases enthalten Prüfsummen und eine SBOM."
+    },
+    "workflow": {
+      "kicker": "Für deinen Arbeitsalltag",
+      "title": "Ein Konto für die Arbeit, ein anderes für dieses Repo.",
+      "body": "Trenne Arbeits- und Privatkonten. Weise einem Repo ein eigenes Konto zu. Teste ein API-Gateway für einen Lauf. Lege fest, wie weit jeder Wechsel gilt.",
+      "projectLink": "So funktionieren Projektbindungen",
+      "routesLabel": "Beispiele für Kontoverbindungen",
+      "routeDefault": "Standard für eine App",
+      "routeProject": "Nur für dieses Projekt",
+      "routeSession": "Eine Terminalsitzung",
+      "stepsLabel": "Erste Schritte",
+      "saveTitle": "Login speichern",
+      "saveBody": "Füge unter Konten & APIs ein vorhandenes Anbieter-Login oder ein API-Gateway hinzu.",
+      "toolTitle": "Tool auswählen",
+      "toolBody": "Wähle unter Apps eine kompatible gespeicherte Quelle und prüfe dann den Änderungsplan.",
+      "applyTitle": "Weiter programmieren",
+      "applyBody": "Übernimm die Änderung und nutze dein Tool. Mit anypick reset stellst du die gespeicherten Einstellungen wieder her."
+    },
+    "safety": {
+      "kicker": "Sicher ändern. Einfach rückgängig machen.",
+      "title": "Deine Einstellungen bleiben deine.",
+      "reviewTitle": "Vor dem Übernehmen prüfen",
+      "reviewBody": "Die Desktop-App zeigt Konto-, Modell-, Proxy- und Client-Konfigurationsschritte in einem Verbindungsplan.",
+      "configTitle": "Der Rest deiner Konfiguration bleibt erhalten",
+      "configBody": "AnyPick verfolgt die eigenen Einstellungen und fragt, bevor es Einstellungen übernimmt, die es nicht selbst geschrieben hat.",
+      "restoreTitle": "Bei Bedarf wiederherstellen",
+      "restoreBody": "Mit anypick reset stellst du den gespeicherten Zustand einer App wieder her. Zugangsdaten bleiben im lokalen AnyPick-Datenverzeichnis.",
+      "accountAlt": "AnyPick-Konten & APIs mit gespeicherten Anbieter-Logins und einem API-Gateway. Namen und Kontodetails sind Demodaten."
+    },
+    "compatibility": {
+      "kicker": "Kompatibilität",
+      "title": "Unterstützte Tools, unter Einhaltung der Anbieterregeln.",
+      "body": "AnyPick bietet nur Verbindungen an, die beide Seiten unterstützen. Konten sind nicht beliebig austauschbar.",
+      "clients": "Unterstützte Programmiertools",
+      "claudeRule": "Claude-Logins bleiben in Claude Code. Gemini CLI und Kiro verwenden ihre jeweiligen Anbieter-Konten.",
+      "otherRule": "Andere kompatible Tools können ausgewählte externe Konten oder API-Gateways verwenden.",
+      "reference": "Kompatibilitätsreferenz ansehen"
+    },
+    "install": {
+      "kicker": "Desktop-App oder Terminal",
+      "title": "Starte mit der App oder bleib im Terminal.",
+      "body": "Prüfe Verbindungspläne in der Desktop-App oder führe dieselbe Go-Engine im Terminal aus. Die Aufnahme zeigt die CLI mit isolierten Demokonten.",
+      "demoTitle": "anypick 1.1.0 · Sandbox-Demo",
+      "videoAlt": "CLI-Demo: gespeicherte Konten auflisten, ein OpenRouter-Gateway hinzufügen, Claude Code darüber verbinden und die ursprünglichen Einstellungen wiederherstellen.",
+      "demoCaption": "Echte CLI-Ausgabe · AnyPick 1.1.0 · Sandbox-Konten",
+      "desktop": "Desktop-App",
+      "desktopTitle": "Konto auswählen. Vorschau ansehen. Übernehmen.",
+      "desktopBody": "Verwalte Konten und prüfe Änderungen in einer visuellen Oberfläche. Verfügbar für macOS, Linux und Windows.",
+      "download": "Desktop-App herunterladen",
+      "downloadNote": "Wähle den Installer für dein Betriebssystem auf GitHub Releases.",
+      "cli": "CLI installieren",
+      "method": "Installationsmethode auswählen",
+      "copy": "Kopieren",
+      "copyCommand": "{{name}}-Installationsbefehl kopieren",
+      "brewBefore": "Desktop-App: Führe brew install --cask outof0/tap/anypick aus oder lade die ",
+      "brewLink": "DMG-Datei von GitHub Releases",
+      "brewAfter": " herunter.",
+      "linuxBefore": "Lade alternativ das CLI-Paket oder die Desktop-App von ",
+      "linuxLink": "GitHub Releases",
+      "linuxAfter": " herunter (.deb, .rpm, AppImage, Tarball).",
+      "windowsBefore": "Installer für die Desktop-App findest du auf ",
+      "windowsLink": "GitHub Releases",
+      "windowsAfter": ".",
+      "npmHint": "Node 18 oder neuer erforderlich. Der Launcher lädt die passende native CLI herunter und überprüft sie.",
+      "firstRun": "Führe nach der Installation aus:",
+      "guide": "5-Minuten-Anleitung lesen",
+      "copied": "Kopiert",
+      "copyStatus": "Installationsbefehl in die Zwischenablage kopiert.",
+      "copyFailed": "Zugriff auf die Zwischenablage nicht verfügbar.",
+      "picker": "um die Kontenauswahl zu öffnen."
+    },
+    "faq": {
+      "kicker": "Ein paar praktische Details",
+      "title": "Vor dem Wechsel.",
+      "freeQ": "Ist AnyPick kostenlos?",
+      "freeA": "Ja. AnyPick ist kostenlos und unter der MIT-Lizenz Open Source. Du verwendest deine eigenen Anbieter-Konten oder API-Schlüssel; deren Abonnement- und Nutzungskosten gelten weiterhin.",
+      "accountsQ": "Welche Konten kann ich mit welchem Programmiertool verwenden?",
+      "accountsA": "Verfügbare Verbindungen hängen vom Client und Konto-Adapter ab. Claude-Logins bleiben in Claude Code; Gemini CLI und Kiro verwenden ihre eigenen Anbieter-Konten. Die {{accountsALink}} zeigt unterstützte Kombinationen.",
+      "accountsALink": "Kompatibilitätsreferenz",
+      "relayQ": "Sendet AnyPick Prompts über eigene Server?",
+      "relayA": "Nein. AnyPick betreibt keinen Relay-Server. Wenn zwei Tools unterschiedliche API-Protokolle benötigen, läuft der Übersetzer im lokalen Go-Dienst auf Loopback und sendet Anfragen an den ausgewählten Anbieter.",
+      "credentialsQ": "Wo werden Zugangsdaten gespeichert?",
+      "credentialsA": "AnyPick speichert Kontodaten lokal in ~/.anypick. Backups sind lesbare JSON-Dateien mit aktiven Zugangsdaten; bewahre sie vertraulich auf.",
+      "macQ": "Warum warnt macOS beim Öffnen der App?",
+      "macA": "Die App ist noch nicht notarisiert. Klicke mit der rechten Maustaste auf die App und wähle Open oder gehe zu System Settings → Privacy & Security → Open Anyway. Die CLI ist separat verfügbar."
+    },
+    "final": {
+      "kicker": "Dein nächster Kontowechsel beginnt hier",
+      "titleStart": "Weniger Konfiguration.",
+      "titleEnd": "Mehr programmieren.",
+      "body": "Nutze die Konten, die du schon hast. Starte mit einem Tool und einem gespeicherten Login.",
+      "cta": "AnyPick kostenlos nutzen",
+      "guide": "Einrichtungsanleitung lesen",
+      "meta": "MIT-Lizenz · Keine AnyPick-Registrierung · Läuft lokal"
+    },
+    "footer": {
+      "home": "AnyPick-Startseite",
+      "navigation": "Fußzeile",
+      "docs": "Dokumentation",
+      "changelog": "Änderungsprotokoll",
+      "security": "Sicherheit",
+      "license": "MIT-Lizenz"
+    }
+  },
+  "downloads": {
+    "kicker": "AnyPick herunterladen",
+    "title": "Der nächste Kontowechsel beginnt hier.",
+    "body": "Kostenlose Desktop-App. Plattform wählen, installieren und ein vorhandenes Konto hinzufügen.",
+    "forPlatform": "Für {{platform}} herunterladen",
+    "formats": "Weitere Formate",
+    "releases": "Alle Versionen & Prüfsummen",
+    "mac": "macOS 14+ · Apple Silicon + Intel",
+    "linux": "Ubuntu / Debian · x86-64",
+    "windows": "Windows 10+ · x64",
+    "arm": "Linux ARM64 oder Windows ARM64? Nutze die native CLI.",
+    "guide": "Installationsanleitung",
+    "unavailable": "Diese Version enthält keine Desktop-App.",
+    "firstRun": "App öffnen → Konto hinzufügen → Coding-Tool wählen.",
+    "allPlatforms": "Alle Plattformen & Installationsoptionen"
   }
 }

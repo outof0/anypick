@@ -1,0 +1,123 @@
+---
+title: 'Ứng dụng dành cho máy tính để bàn'
+description: 'Ứng dụng máy tính để bàn AnyPick trên macOS, Linux và Windows, cách ứng dụng này sở hữu dịch vụ Go đi kèm và bảng điều khiển nhanh trên thanh menu macOS.'
+---
+
+AnyPick vận chuyển hai giao diện người dùng gốc trên một công cụ Go (ADR 0020):
+
+| Nền tảng | Giao diện người dùng | Nguồn |
+| --- | --- | --- |
+| macOS | Ứng dụng SwiftUI với bảng điều khiển nhanh trên thanh menu | `src/macos/` |
+| Linux, Windows | Ứng dụng Tauri 2 | `src/tauri/` |
+
+Cả hai đều là mặt trước, không phải động cơ. Cả hai đều không đọc thông tin xác thực hoặc sở hữu trạng thái AnyPick: mỗi lần khởi chạy, bắt tay, giám sát và tắt dịch vụ Go đi kèm, sau đó hiển thị những gì dịch vụ đó gửi đi (ADR 0019 §1).
+
+<Aside type="caution" title="Cài đặt từ kênh phát hành">
+Các bản phát hành GitHub chứa macOS `.dmg`/`.zip`, trình cài đặt Linux và Windows cũng như kho lưu trữ CLI. Ứng dụng macOS không được công chứng. Trong lần khởi chạy đầu tiên, nhấp chuột phải vào `AnyPick.app` và chọn **Mở** hoặc đi tới **Cài đặt hệ thống → Quyền riêng tư & bảo mật → Vẫn mở**. Bạn cũng có thể chạy `xattr -dr com.apple.quarantine /Applications/AnyPick.app`.
+</Aside>
+
+## Ứng dụng sở hữu dịch vụ của nó
+
+Vòng đời ưu tiên ứng dụng:
+
+```text
+AnyPick.app  (or the Tauri app)
+├── main window
+├── macOS only: menu-bar quick panel
+└── bundled Go service, spawned as:
+    anypick desktop-service --stdio
+```
+
+Khi khởi chạy, ứng dụng sẽ phân giải tệp thực thi Go được đóng gói của nó so với gói của chính nó và khởi động nó khi còn nhỏ. Quá trình bắt tay phiên bản và khả năng hoàn tất trước khi bật đột biến. Các khung được giới hạn và thiết bị xuất chuẩn chỉ dành cho giao thức.
+
+Ứng dụng **không** tìm thấy dịch vụ trên `PATH`, kết nối với daemon cố định hoặc chạy quy trình Node. Không có API HTTP localhost, không có socket và không có gRPC — bất kỳ thứ nào trong số đó đều cần ADR mới được chấp nhận.
+
+Các lần thoát bất ngờ sử dụng chính sách khởi động lại có giới hạn; một trình trợ giúp không tương thích hoặc liên tục bị lỗi sẽ khiến giao diện người dùng rơi vào trạng thái xuống cấp thay vì âm thầm chuyển sang một công cụ khác.
+
+## macOS
+
+Đóng cửa sổ chính sẽ khiến ứng dụng và các dịch vụ cục bộ của ứng dụng đó chạy - mục trên thanh menu vẫn khả dụng. Chọn **Thoát AnyPick** hoặc nút **Thoát** của bảng điều khiển nhanh để dừng dịch vụ đi kèm một cách nhẹ nhàng và chấm dứt ứng dụng.
+
+Trên Linux và Windows không có mục thanh menu, vì vậy việc đóng cửa sổ sẽ thoát khỏi ứng dụng và sidecar đi kèm với nó.
+
+### Cửa sổ chính
+
+Ứng dụng macOS mở cửa sổ quản lý kiểu Cài đặt hệ thống với các điểm đến thanh bên sau:
+
+| Điểm đến | Mục đích |
+| --- | --- |
+| **Tổng quan** | Tiến trình thiết lập, chẩn đoán cài đặt, chú ý và tóm tắt dịch vụ |
+| **Ứng dụng** | Các tuyến client hiện tại và lựa chọn nguồn |
+| **Tài khoản & API** | Thông tin đăng nhập gốc và cổng API đã lưu |
+| **Proxy Hub** | Điểm cuối, nguồn, mô hình và vòng đời thống nhất cục bộ |
+| **Proxy** | Người dịch theo tài khoản và vòng đời của họ |
+| **Hoạt động** | Các sự kiện gần đây và nhật ký trực tiếp bị chặn |
+| **Sao lưu** | Xuất, kiểm tra, nhập và khôi phục tài khoản đã lưu |
+
+Các tùy chọn trên toàn ứng dụng nằm trong **Cài đặt** (<kbd>⌘,</kbd>), một đích đến thông thường trong thanh bên chính. Ngăn được nhóm chứa các tùy chọn khởi động và sử dụng; nó cũng kiểm tra các bản phát hành GitHub trong **Cập nhật**. Các bản tải xuống cài đặt trực tiếp được lưu và kiểm tra dựa trên tổng kiểm tra bản phát hành, sau đó được mở trong Finder để cài đặt thủ công. Cài đặt trình quản lý gói hiển thị lệnh nâng cấp của họ. Cài đặt cũng có tác vụ hiển thị lại danh sách kiểm tra Bắt đầu. Chẩn đoán cài đặt có sẵn từ Tổng quan.
+
+Trong **Tài khoản & API → Thêm thông tin đăng nhập**, nhà cung cấp có thể tiết lộ thông tin đăng nhập vào trình duyệt do nhà cung cấp sở hữu. AnyPick khởi chạy phương thức đó, sau đó xác minh và lưu thông tin xác thực gốc của nhà cung cấp; nó không bắt chước các trang OAuth của nhà cung cấp hoặc yêu cầu mật khẩu tài khoản.
+
+### Bảng điều khiển nhanh trên thanh menu
+
+Mục thanh menu là một bảng nhỏ gọn của cùng một ứng dụng đang chạy, không phải ứng dụng thứ hai. Nó **chỉ dành cho macOS**. Nó có thể:
+
+- hiển thị trạng thái sẵn sàng/chú ý và tìm kiếm các tài khoản hoặc đích đến đã lưu;
+- hiển thị các tuyến ứng dụng đang hoạt động và thông tin sử dụng được hỗ trợ;
+- chuyển ứng dụng được hỗ trợ sang nguồn tương thích khác;
+- mở rộng các hàng proxy Hub và mỗi tài khoản để bắt đầu, dừng và khởi động lại;
+- mở toàn bộ cửa sổ AnyPick hoặc thoát khỏi ứng dụng.
+
+Cấu hình chi tiết vẫn ở cửa sổ chính. Biểu tượng thanh menu có thể hiển thị điểm đánh dấu chú ý khi tuyến đường hoặc dịch vụ cần xem xét. Trạng thái chạy lần đầu và trạng thái xuống cấp sử dụng cùng hệ thống phân cấp chế độ xem sản xuất như trạng thái sẵn sàng.
+
+### Khởi chạy khi đăng nhập
+
+Chuyển đổi Cài đặt gốc sử dụng macOS `SMAppService`. Nếu macOS yêu cầu phê duyệt thủ công, AnyPick sẽ hướng bạn tới **Cài đặt hệ thống → Chung → Mục đăng nhập**. Nó không cài đặt LaunchAgent tùy chỉnh từ giao diện người dùng.
+
+## Chạy từ nguồn
+
+**macOS** — yêu cầu macOS 14+, Xcode và trình khởi chạy Go có thể chọn chuỗi công cụ được ghim bởi `src/go/go.mod`:
+
+```bash
+open src/macos/AnyPick.xcodeproj
+```
+
+Chọn lược đồ **AnyPick** được chia sẻ và Chạy. Giai đoạn xây dựng sẽ cài đặt tệp thực thi Go tại `AnyPick.app/Contents/Helpers/anypick-core`. Thay vào đó, để xây dựng từ dòng lệnh, hãy sử dụng `make build-macos`; `make test-macos` chạy thử nghiệm đơn vị và hợp đồng trợ giúp đi kèm, đồng thời `make verify-macos` cũng xác nhận rằng gói không chứa thời gian chạy Nút.
+
+**Linux và Windows** — từ kho lưu trữ gốc:
+
+```bash
+make run-tauri     # run against the real Go service
+make build-tauri   # package for this platform
+```
+
+### Xem trước trạng thái giao diện người dùng mà không cần tài khoản trực tiếp
+
+Đặt những thứ này trong lược đồ Xcode (**Sản phẩm → Lược đồ → Chỉnh sửa lược đồ → Chạy → Đối số → Biến môi trường**), sau đó Chạy. Họ điều khiển một thiết bị cố định trong bộ nhớ, do đó không cần có tài khoản hoặc thông tin xác thực:
+
+| Biến | Giá trị |
+| --- | --- |
+| `ANYPICK_MACOS_FIXTURE` | `ready`, `loading`, `empty`, `error` |
+| `ANYPICK_MACOS_DESTINATION` | `overview`, `apps`, `accounts`, `proxyHub`, `proxies`, `activity`, `backups` |
+| `ANYPICK_MACOS_FLOW` | `add-account`, `add-gateway`, `tray`, `tray-attention`, `tray-use-with`, `tray-switching`, `tray-recovery` và những người khác |
+| `ANYPICK_MACOS_APPEARANCE` | `system`, `light`, `dark` |
+| `ANYPICK_MACOS_RENDER_PATH` | một đường dẫn — hiển thị cửa sổ thành PNG và thoát |
+
+Xem trước vật cố định thay vì ảnh chụp màn hình của phiên trước: ảnh chụp màn hình đóng băng thiết kế tại thời điểm nó được chụp, còn vật cố định thì không.
+
+## Giao diện người dùng đầu cuối
+
+Giao diện người dùng đầu cuối là một bề mặt riêng biệt, không phải là một phần của ứng dụng. Xây dựng CLI và chạy nó:
+
+```bash
+make build          # -> src/go/bin/anypick-dev
+./src/go/bin/anypick-dev tui
+```
+
+hoặc `make run ARGS="tui"`. TUI giao tiếp với cùng một dịch vụ Go, nhưng nó không khởi chạy, giám sát hoặc tắt một ứng dụng máy tính để bàn được mở riêng; đóng TUI không thoát khỏi ứng dụng và thoát ứng dụng không đóng TUI.
+
+## Ranh giới an ninh
+
+Thông tin xác thực và mã thông báo mang proxy theo từng phiên bản vẫn nằm trong dịch vụ Go. Ảnh chụp nhanh trên máy tính mang theo trạng thái an toàn hiển thị và số nhận dạng hành động mờ đục, không phải thông tin xác thực được lưu thô. Kết nối stdio của trình trợ giúp là riêng tư đối với ứng dụng sở hữu nó và không phải là API tích hợp được ghi lại.
+
+Xem [Giao diện người dùng ứng dụng và thiết bị đầu cuối](/vi/docs/guides/terminal-ui) để biết quy trình làm việc của thiết bị đầu cuối và [Proxies](/vi/docs/guides/proxies) để biết hoạt động của proxy và Hub.

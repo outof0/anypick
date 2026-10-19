@@ -1,65 +1,58 @@
 ---
-title: AnyPick documentation
-description: Point any supported AI client at any provider you already pay for.
+title: Documentation
+description: Set up AnyPick, choose account routes, and learn how to undo a change.
 ---
 
-AnyPick answers one question for **Claude Code** and **Codex**: which login
-should power this app right now? You pick on the native **Apps** screen or in
-the terminal UI; AnyPick handles auth snapshots, local proxies, and client
-config.
+<div class="docs-home">
+  <p class="docs-home-eyebrow">ANYPICK DOCUMENTATION</p>
+  <p class="docs-home-lede">
+    Keep AI coding accounts together, choose a compatible source for each tool, and review changes before AnyPick updates local configuration.
+  </p>
 
-Install the CLI from the checksum-listed archives on the
-[latest GitHub Release](https://github.com/outof0/anypick/releases/latest), or
-with `npm install --global anypick` (Node 18+ launcher that fetches and verifies
-the matching native CLI on first run). GitHub Releases also carries the macOS
-app, Linux and Windows desktop installers, and all CLI archives. The macOS app
-is not notarized; first-launch instructions are in the [install guide](/docs/getting-started).
-From 1.1.0 the npm package replaces the old JavaScript `anypick@1.0.x`. Start
-with [Getting started](/docs/getting-started) for the native macOS app and
-CLI/TUI flows. The subcommands mirror the same operations for scripts and CI.
+  <section class="docs-home-start" aria-labelledby="docs-home-start-title">
+    <div class="docs-home-start-copy">
+      <p class="docs-home-kicker">START HERE</p>
+      <h2 id="docs-home-start-title">Get set up, then make your first switch.</h2>
+      <p>Choose the desktop app or terminal guide. Both walk through connecting a provider, choosing a route, and checking it before applying.</p>
+    </div>
+    <div class="docs-home-start-footer">
+      <span>Desktop app · CLI · TUI</span>
+      <a class="docs-home-action" href="/docs/getting-started/">
+        Read the getting started guide <span aria-hidden="true">→</span>
+      </a>
+    </div>
+  </section>
 
-<CardGrid>
-  <Card title="Getting started" href="/docs/getting-started" headingLevel={2}>
-    Run from source, open Apps, save a login, connect Claude or Codex.
-  </Card>
-  <Card title="Apps & Terminal UI" href="/docs/guides/terminal-ui" headingLevel={2}>
-    Source → models → preview → activate — the route builder step by step.
-  </Card>
-  <Card title="macOS app and menu bar" href="/docs/guides/tray" headingLevel={2}>
-    Native lifecycle, bundled Go service, full window, and quick panel.
-  </Card>
-  <Card title="Concepts" href="/docs/concepts" headingLevel={2}>
-    Clients, sources, bindings, and presets — the four words the CLI uses.
-  </Card>
-</CardGrid>
+  <div class="docs-home-section-heading">
+    <div>
+      <p class="docs-home-kicker">BROWSE BY TASK</p>
+      <h2>Find the guide you need.</h2>
+    </div>
+    <a href="/docs/reference/cli/">All CLI commands <span aria-hidden="true">↗</span></a>
+  </div>
 
-## Guides
+  <CardGrid class="docs-home-grid">
+    <Card title="Connect a coding tool" href="/docs/guides/terminal-ui" icon="ph:arrows-left-right">
+      Build a route in Apps or the terminal UI: choose a source, select models, review, then activate.
+    </Card>
+    <Card title="Save and switch accounts" href="/docs/guides/accounts" icon="ph:users-three">
+      Snapshot provider logins and switch between accounts without signing in every time.
+    </Card>
+    <Card title="Use an API gateway" href="/docs/guides/gateways" icon="ph:globe-hemisphere-west">
+      Add an API key and endpoint, then check which clients can use that source.
+    </Card>
+    <Card title="Set a route for one project" href="/docs/guides/projects" icon="ph:folder-notch-open">
+      Bind a repository to its own source while leaving the app-wide default alone.
+    </Card>
+    <Card title="Use the desktop app" href="/docs/guides/tray" icon="ph:app-window">
+      Learn the full window, menu bar panel, bundled service, and app lifecycle.
+    </Card>
+    <Card title="Find a command or fix an issue" href="/docs/reference/cli" icon="ph:terminal-window">
+      Browse every CLI command and flag, or start with the troubleshooting guide.
+    </Card>
+  </CardGrid>
 
-<CardGrid>
-  <Card title="Accounts" href="/docs/guides/accounts">
-    Snapshot a provider login and switch between several of them.
-  </Card>
-  <Card title="Gateways" href="/docs/guides/gateways">
-    Bind a client to an OpenAI-compatible endpoint and API key.
-  </Card>
-  <Card title="Proxies" href="/docs/guides/proxies">
-    Translate between protocols and understand which current process owns them.
-  </Card>
-  <Card title="Project bindings" href="/docs/guides/projects">
-    Give one repository its own source without touching your default.
-  </Card>
-  <Card title="Plugins" href="/docs/guides/plugins">
-    Record a local plugin package. Native builds do not execute plugin code.
-  </Card>
-</CardGrid>
-
-## Reference
-
-<CardGrid>
-  <Card title="CLI reference" href="/docs/reference/cli">
-    Every command, global flag, exit code, and environment variable.
-  </Card>
-  <Card title="Troubleshooting" href="/docs/reference/troubleshooting">
-    What `doctor` checks, what `--fix` may repair, and how to read a failure.
-  </Card>
-</CardGrid>
+  <p class="docs-home-footnote">
+    <strong>New to AnyPick?</strong> Read <a href="/docs/concepts/">clients, sources, and bindings</a> to understand the terms. If something fails, go to <a href="/docs/reference/troubleshooting/">troubleshooting</a>.
+  </p>
+</div>

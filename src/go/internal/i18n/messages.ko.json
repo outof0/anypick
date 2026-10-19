@@ -2948,8 +2948,8 @@
     "description": "Original English text: Last Used"
   },
   "desktop.account_detail.provider_no_quota": {
-    "other": "이 제공업체는 남은 사용량을 제공하지 않습니다.",
-    "description": "Original English text: This provider does not report remaining quota."
+    "other": "할당량을 불러올 수 없습니다. 현재 로그인을 확인하고 새로고침하세요.",
+    "description": "Original English text: Quota is currently unavailable. Check the live login and refresh."
   },
   "desktop.account_detail.live_quota_active": {
     "other": "이 Mac에서 현재 활성화된 계정의 실시간 사용량을 표시합니다.",

@@ -527,6 +527,7 @@ func (a *zcodeAdapter) Inspect() (*InspectResult, error) {
 	targets := zcodeTargets(a.home)
 	res := &InspectResult{}
 	managed := false
+	selectionChanged := false
 	// Report on every target, not just the first managed one: ConfigPaths is
 	// what `anypick clients` shows the user, and stopping early would hide
 	// the other file AnyPick writes.
@@ -549,6 +550,14 @@ func (a *zcodeAdapter) Inspect() (*InspectResult, error) {
 		if _, ok := providers[zcodeManagedProviderID]; ok {
 			managed = true
 		}
+		if t.flavor == zcodeFlavorCLI {
+			var models map[string]string
+			if json.Unmarshal(doc["model"], &models) == nil {
+				if main := models["main"]; main != "" && !strings.HasPrefix(main, zcodeManagedProviderID+"/") {
+					selectionChanged = true
+				}
+			}
+		}
 	}
 	switch {
 	case managed:
@@ -558,5 +567,7 @@ func (a *zcodeAdapter) Inspect() (*InspectResult, error) {
 	default:
 		res.Summary = "config present (no AnyPick provider)"
 	}
+	res.Native = !managed && !selectionChanged && len(res.Issues) == 0
+	res.RoutingChanged = selectionChanged || (res.Native && res.Present)
 	return res, nil
 }

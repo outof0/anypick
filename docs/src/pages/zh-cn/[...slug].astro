@@ -1,5 +1,6 @@
 ---
 import { getCollection, render } from "astro:content";
+import { config } from "virtual:nimbus/config";
 import type { SidebarItem } from "nimbus-docs/types";
 import DocsLayout from "../../layouts/DocsLayout.astro";
 import { components } from "../../components";
@@ -8,7 +9,7 @@ import { getTOC } from "nimbus-docs";
 export const prerender = true;
 
 export async function getStaticPaths() {
-  const entries = await getCollection("docsZh");
+  const entries = await getCollection("_docsZh");
   return entries.map((entry) => ({
     params: {
       slug: entry.id.replace(/^zh-cn\//, "").replace(/\/index$/, ""),
@@ -21,6 +22,11 @@ const { entry } = Astro.props;
 const { Content, headings } = await render(entry);
 const pathname = Astro.url.pathname.replace(/\/$/, "") || "/zh-cn/docs";
 const docsRoot = "/zh-cn/docs";
+const markdownPath = `${pathname}/index.md`;
+const markdownUrl = Astro.site ? new URL(markdownPath, Astro.site).href : markdownPath;
+const socialTitle = entry.data.title === "AnyPick 文档"
+  ? entry.data.title
+  : `${entry.data.title} | ${config.title}`;
 const links = [
   ["开始使用", `${docsRoot}/getting-started`],
   ["应用与终端界面", `${docsRoot}/guides/terminal-ui`],
@@ -73,7 +79,11 @@ const sidebar: SidebarItem[] = [
   ]}
   prevNext={{}}
   searchable={true}
-  socialImage="/og-image.png"
+  markdownUrl={markdownUrl}
+  socialImage={`/og/${entry.id.replace(/^zh-cn\//, "")}.png`}
+  socialTitle={socialTitle}
+  collection={entry.collection}
+  entryId={entry.id}
 >
   <Content components={components} />
 </DocsLayout>

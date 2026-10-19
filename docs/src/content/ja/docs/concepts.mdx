@@ -1,0 +1,116 @@
+---
+title: 'コンセプト'
+description: 'クライアント、ソース、バインディング、プリセット - すべての AnyPick コマンドの背後にあるモデル。'
+---
+
+4 つの単語が CLI 全体を伝えます。これらをクリアすると、すべてのコマンドが同じように読み取られます。
+
+|単語 |意味 |
+| --- | --- |
+| **クライアント** |実行する CLI: `claude`、`codex`、`commandcode`、`gemini`、`kiro`、`opencode`、 `workbuddy`、`zcode`、`dsh`、`pi`、`omp` |
+| **出典** |機能: アカウント (`grok/work`)、ゲートウェイ (`openrouter-work`)、プール (`pool:gemini`)、オプトイン ハブ (`hub:default`)、またはプリセット (`@work`) |
+| **バインディング** |具体的なスナップショット: このクライアント → このソース、およびモデルの役割 |
+| **プリセット** |ソースのように解決される、保存されたテンプレート (`@name`)。まだ作成するコマンドはありません。
+
+文法は決して変わりません。
+
+```bash
+anypick use|run <client> --with <source|@preset>
+```
+
+## クライアント
+
+クライアントは、AnyPick が設定方法を知っている CLI です。 `anypick clients` は、それぞれに書き込まれる内容とともにそれらをリストします。
+
+- `claude` — クロード コード (`ANTHROPIC_*` 変数; `run` の隔離された一時ホーム)
+- `codex` — コーデックス CLI
+- `gemini` — Gemini CLI (`GEMINI_API_KEY`、`GEMINI_MODEL`)
+- `kiro` — キロ
+- `opencode` — OpenCode (`opencode.json` の `anypick-managed` プロバイダー)
+- `workbuddy` — WorkBuddy AI / CodeBuddy サブスクリプション アカウント。組み込みプロキシを通じて上記のクライアントにサービスを提供します。 WorkBuddy *アプリ* 自体は独自のログインを直接使用し、保存されたアカウント間でアプリを切り替えると、そのセッション ファイルがネイティブに復元されます。
+- `zcode` — ZCode (`~/.zcode/cli/config.json` および/または `~/.zcode/v2/config.json` の `anypick` プロバイダー)
+- `dsh` — DeepSeek ハーネス (Cordis ベースのコーディング CLI。AnyPick はプロキシ キーを `~/.dsh/.env` に保存し、`llm-deepseek.baseURL` を `~/.dsh/settings.yaml` の管理対象プロキシにポイントし、選択されたデフォルト モデルとソースのモデル カタログがそこにあるため、ハーネスは任意の上流に接続できます)
+- `commandcode` — コマンド コード (`~/.commandcode/providers.json` の OpenAI 互換 BYOK プロバイダー、`auth.json` のプロキシ資格情報)
+- `pi` — Pi (プロキシベース URL を含む `~/.pi/agent/models.json` の `anypick` プロバイダー、および `~/.pi/agent/settings.json` のデフォルトのプロバイダー/モデル選択。 `~/.pi/agent/auth.json` は Pi 管理のままです)
+- `omp` — Omp (プロキシベース URL を持つ `~/.omp/agent/models.yml` の `anypick` プロバイダー。デフォルトのモデルは、omp 独自の UI でユーザーが選択したままになり、`~/.omp/agent/agent.db`)資格情報には決して触れません)
+
+各クライアントには、どのファイルと変数が属するかを説明する分離マニフェストがあり、これにより、`anypick reset <client>` とロールバックがベストエフォートではなく正確になります。
+
+<Aside type="caution" title="ZCode: デスクトップ アプリは独自のモデル選択を保持します">
+ZCode は、選択したモデルを `config.json` の外部に保存します。デスクトップ アプリは、AnyPick が所有していない `~/.zcode/v2/setting.json` からモデルを読み取ります。 AnyPick は、`anypick` プロバイダーを書き込み、CLI 設定の場合は、`model.main` を指します。デスクトップ アプリでは、プロバイダーは * 登録* されているだけです。ZCode 独自のモデル ピッカーで **AnyPick** を 1 回選択すると、`anypick reset zcode` までルーティングされたままになります。
+</Aside>
+
+<Aside type="note" title="どのクライアントがプロバイダーを経由するか">
+`claude`、`codex`、`opencode`、`zcode`、`dsh`、`commandcode`、 `pi` と `omp` は、別のプロバイダーからのソースにバインドできます。プロキシはそのために存在し、正確なマトリックスは `internal/transport/adapter_matrix_test.go` によって強制されます。 `gemini` と `kiro` は独自のプロバイダーのログインのみを受け入れるため、`gemini --with grok/work` はサイレント プロキシではなく拒否されます。 `workbuddy` アプリは独自のログインを直接使用します。 `workbuddy` *アカウント* は引き続きプロキシ経由で上記のクライアントにサービスを提供しており、保存されたアカウント間のアプリの切り替えはセッション ファイルを介してネイティブに機能します。
+</Aside>
+
+そのリストは *バインディング* に関するものです。 AnyPick は、ツールだけが理解できるものではなく、ツール独自の資格情報ファイルを書き込むため、どのアカウントを有効にするかを切り替えることはより広範囲になります。そのため、そのファイルを読み取る他のものはすべてそれに従うことになります。 `claude` は Claude Code CLI とその IDE 拡張機能をカバーしており、`gemini` ログインは Gemini CLI の OAuth または Antigravity のものである可能性があります。
+
+<Aside type="caution" title="Codex デスクトップ アプリは独自のセッションを保持します">
+AnyPick は、Codex CLI が読み取るものである `~/.codex/auth.json` をバックアップおよび復元できます。デスクトップ アプリはサインインしている ChatGPT アカウントを個別に追跡するため、切り替えには従いません。 AnyPick はその不一致を検出し、あるアカウントの使用量を別のアカウントに帰するのではなく、クォータの読み出しを抑制します。
+</Aside>
+
+## ソース
+
+ソースとは、モデルのリクエストに答えることができるものすべてです。
+
+**アカウント** は、他のツールによって作成されたネイティブ ログインです (Codex `auth.json`、Grok 資格情報、Gemini OAuth トークン)。 AnyPick は、複数が共存できるようにスナップショットを作成し、バインディングをアクティブ化するときに選択した 1 つを復元します。 [アカウント](/ja/docs/guides/accounts)を参照してください。
+
+**ゲートウェイ** は、エンドポイント、キー、およびオプションでモデル カタログなど、自分で構成する API プロファイルです。ログインするものは何もありません。 [ゲートウェイ](/ja/docs/guides/gateways)を参照してください。
+
+**プール**は、フェイルオーバーのために、単一ポートの背後にある 1 つのプロバイダーの複数のアカウントをオプトインでグループ化したものです。 [プロキシ](/ja/docs/guides/proxies)を参照してください。
+
+**プロキシ ハブ** は、1 つのローカル アドレスの背後に保存された複数のアカウントを公開し、モデルごとにルートできる個別のオプトイン エンドポイントです (`hub:default`)。 [プロキシ](/ja/docs/guides/proxies)を参照してください。
+
+これらは、`--with` の境界で交換可能です。クライアントは、それがどの種類のものなのかを知りませんし、気にも留めません。
+
+## バインディング
+
+バインディングは**スナップショット**であり、参照ではありません。実行時:
+
+```bash
+anypick use claude --with grok/work
+```
+
+AnyPick はソースを解決し、モデルのデフォルトを選択し、アクティブ化手順を計画し、結果を記録します。後でアカウントまたはプリセットを編集しても、そのバインディングがサイレントに書き換えられることはありません。これが重要です。昨日実行されたものは今日も実行されます。
+
+スコープは 3 つあり、`run` を実行するときにこの順序でチェックされます。
+
+1. **一時的** — `run --with <source>` はその起動にのみ適用されます
+2. **Project** — `anypick link` は、現在のディレクトリをスコープとするバインディングを書き込みます
+3. **グローバル** — `anypick use` はデフォルトを書き込みます
+
+```
+use   = set the global default (persistent)
+run   = launch with the effective binding (ephemeral; never rewrites defaults)
+link  = set a project-local binding
+```
+
+`anypick current` で何が有効かを検査し、オプションで 1 つのクライアントに絞り込みます。
+
+## プリセット
+
+プリセットは、再利用および修正できる名前付きテンプレートです。これは保存されたソース タイプであり、CLI は次のいずれかを検査して解決できます。
+
+```bash
+anypick use claude --with @work-stack
+anypick preset list
+anypick preset show work-stack
+anypick preset remove work-stack
+```
+
+現在、プリセットを**作成**するコマンドはありません。 `use … --save <name>` はここに記載されていますが実装されていないため、`presets` テーブルには何も書き込まれず、新規インストールでは `preset list` は空です。バインディングはすでにスナップショットであるため、プリセットは要件ではなく、クライアント間で 1 つの仕様を再利用するのに便利です。作成パスが配布されるまでは、ソースを `use <client> --with <source>` で直接バインドしてください。
+
+<Aside type="note" title="スナップショットを使用する理由">
+別の方法 (ソースをライブでフォローするバインディング) は、1 か所の変更ですべてのクライアントが起動するものを静かに変更することを意味します。 AnyPick では、代わりに再アクティブ化が明示的に行われます。
+</Aside>
+
+## アクティベーション
+
+バインディングを動作するクライアントに変えることは計画された操作であり、一連の副作用ではありません。 AnyPick はステップ リストを作成し、バックアップ パスを使用して操作ジャーナルに変更ステップを記録し、実行します。ステップが失敗した場合、クライアント構成、ネイティブ認証、および開始されたプロキシなど、以前の状態が復元されます。
+
+`--dry-run` は、書かずに計画を印刷します。 `--trace` は、実行時にシークレットなしでステップに名前を付けます。
+
+## 非対話型の動作
+
+AnyPick は、TTY がない場合はプロンプトを表示せず、ソースを推測することもありません。 `use <client>` には `--with` が必要です。これがないと、コマンドは `2` を終了します。これにより、CI およびスクリプト内で安全になります。 `--no-input` は TTY であってもプロンプトを拒否し、`--json` はコマンド出力を標準出力の 1 つの JSON 値に切り替えます。

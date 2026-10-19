@@ -4,10 +4,12 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/outof0/anypick/go/internal/bindings"
 	"github.com/outof0/anypick/go/internal/client"
+	"github.com/outof0/anypick/go/internal/lock"
 	"github.com/outof0/anypick/go/internal/refs"
 )
 
@@ -195,6 +197,35 @@ func TestCompositionRootWiresTheDeletionCascade(t *testing.T) {
 	}
 }
 
+func TestRefreshingAccountReappliesBoundCodexProfiles(t *testing.T) {
+	a, closeFn := composeForProfiles(t)
+	defer closeFn()
+	ctx := context.Background()
+
+	a.writeCodexAuth(t, "work@example.com", "token-before-refresh")
+	if _, err := a.Accounts.Save(ctx, "codex", "work", true); err != nil {
+		t.Fatal(err)
+	}
+	seedCodexProfile(t, a, "work-profile", refs.AccountRef("codex", "work"))
+	profileAuth := client.CodexProfileAuthPath(a.Root, "work-profile")
+	if err := os.WriteFile(profileAuth, []byte(`{"tokens":{"access_token":"old-profile-token"}}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	a.writeCodexAuth(t, "work@example.com", "token-after-refresh")
+	if _, err := a.Accounts.RefreshSnapshot(ctx, "codex", "work"); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := os.ReadFile(profileAuth)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(got), "token-after-refresh") {
+		t.Fatalf("bound profile retained stale auth after snapshot refresh: %s", got)
+	}
+}
+
 // writeCodexAuth fabricates a signed-in Codex login at the path the composed
 // providers read. Home is a temp dir (testHome), so this never reaches the
 // developer's real ~/.codex.
@@ -208,5 +239,48 @@ func (a *App) writeCodexAuth(t *testing.T, email, token string) {
 		`","account_id":"acct-` + email + `"}}`
 	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestSnapshotCascadeWaitsForOutermostProviderLock(t *testing.T) {
+	a, closeFn := composeForProfiles(t)
+	defer closeFn()
+	ctx := context.Background()
+	a.writeCodexAuth(t, "work@example.com", "token-before")
+	if _, err := a.Accounts.Save(ctx, "codex", "work", true); err != nil {
+		t.Fatal(err)
+	}
+	seedCodexProfile(t, a, "work-profile", refs.AccountRef("codex", "work"))
+	a.writeCodexAuth(t, "work@example.com", "token-after")
+	original := a.Accounts.AfterSnapshotChange
+	called := false
+	a.Accounts.SetAfterSnapshotChange(func(c context.Context, provider, account string) error {
+		called = true
+		if lock.Holds(c, a.Root, refs.ProviderScope("codex")) {
+			t.Error("cascade ran under caller's provider lock")
+		}
+		return original(c, provider, account)
+	})
+	err := lock.WithMutationLock(ctx, a.Root, refs.ProviderScope("codex"), func(c context.Context) error {
+		if _, err := a.Accounts.RefreshSnapshot(c, "codex", "work"); err != nil {
+			return err
+		}
+		if called {
+			t.Error("cascade ran before enclosing mutation completed")
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !called {
+		t.Fatal("cascade was dropped")
+	}
+	data, err := os.ReadFile(client.CodexProfileAuthPath(a.Root, "work-profile"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), "token-after") {
+		t.Fatal("profile remained stale")
 	}
 }

@@ -2,9 +2,8 @@
 
 # Target-OS payload smoke for the staged Linux desktop bundles. Each archive is
 # extracted without installing anything, the bundled Go helper is located, and
-# it must start and answer with the planned version. The GUI itself is not
-# launched (the runner has no display): this is the installer-payload gate that
-# release-scope=all publishes behind.
+# it must answer with the planned version. The packaged GUI then runs under
+# WebDriver/Xvfb with the real Rust host and Go child, in an isolated HOME.
 #
 # usage: linux-payload.sh STAGE_DIR VERSION
 
@@ -38,6 +37,14 @@ smoke_helper() {
   echo "smoke ok: $label helper ($out)"
 }
 
+smoke_desktop() {
+  local root="$1" app
+  app="$(find "$root" -type f -name anypick -print -quit)"
+  [[ -n "$app" ]] || { echo "::error::payload has no AnyPick desktop executable" >&2; return 1; }
+  chmod +x "$app"
+  xvfb-run -a dbus-run-session -- node "${GITHUB_WORKSPACE:-$PWD}/src/tauri/ui/scripts/desktop-e2e.mjs" "$app"
+}
+
 scan_node_free() {
   local root="$1"
   if [[ -z "${GITHUB_WORKSPACE:-}" || ! -d "$GITHUB_WORKSPACE/src/go" ]]; then
@@ -55,6 +62,7 @@ for deb in "$stage"/*.deb; do
   dpkg-deb -x "$deb" "$dir"
   helper="$(find "$dir" -type f -name 'anypick-core' -print -quit)"
   smoke_helper "$helper" "deb"
+  smoke_desktop "$dir"
   scan_node_free "$dir"
   smoked=1
 done
@@ -65,6 +73,7 @@ for image in "$stage"/*.AppImage; do
   ( cd "$work" && "$image" --appimage-extract >/dev/null )
   helper="$(find "$work/squashfs-root" -type f -name 'anypick-core' -print -quit)"
   smoke_helper "$helper" "AppImage"
+  smoke_desktop "$work/squashfs-root"
   scan_node_free "$work/squashfs-root"
   smoked=1
 done
@@ -78,11 +87,12 @@ for rpm in "$stage"/*.rpm; do
   elif command -v rpm2cpio >/dev/null && command -v cpio >/dev/null; then
     ( cd "$dir" && rpm2cpio "$rpm" | cpio -idm --quiet )
   else
-    echo "notice: rpm2archive/rpm2cpio unavailable; skipping the rpm payload smoke"
-    continue
+    echo "::error::rpm2archive/rpm2cpio unavailable; cannot verify the rpm payload" >&2
+    exit 1
   fi
   helper="$(find "$dir" -type f -name 'anypick-core' -print -quit)"
   smoke_helper "$helper" "rpm"
+  smoke_desktop "$dir"
   scan_node_free "$dir"
   smoked=1
 done

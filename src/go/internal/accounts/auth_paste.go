@@ -101,6 +101,9 @@ func (s *Service) commitPastedAuth(ctx context.Context, providerID string, items
 	if err != nil {
 		return nil, err
 	}
+	if err := s.afterSnapshotChanges(ctx, saved); err != nil {
+		return saved, err
+	}
 	return saved, nil
 }
 

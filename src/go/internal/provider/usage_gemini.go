@@ -3,15 +3,17 @@ package provider
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"math"
 	"net/http"
+	"net/url"
 	"sort"
-	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/outof0/anypick/go/internal/proxy"
@@ -23,11 +25,14 @@ import (
 const geminiUsageTimeout = 5 * time.Second
 
 // LiveUsage reads the current Code Assist quota using whichever live OAuth
-// login is valid. It deliberately never refreshes or writes a credential —
-// quota polling runs every 30s and must not rotate a login the owning app is
-// using.
+// login owns it. Access tokens for an expired Google grant are refreshed in
+// memory only: polling must not rewrite the IDE or CLI credential stores.
 func (p *gemini) LiveUsage(ctx context.Context) (*LiveUsage, error) {
-	token, source := p.liveUsageAccessToken()
+	credentials, source := p.liveUsageCredentials()
+	token, err := p.usageAccessToken(ctx, credentials, source)
+	if err != nil {
+		return nil, err
+	}
 	if token == "" {
 		return nil, nil
 	}
@@ -44,30 +49,29 @@ func (p *gemini) LiveUsage(ctx context.Context) (*LiveUsage, error) {
 	return usage, nil
 }
 
-// liveUsageAccessToken returns a currently valid live access token and which
-// OAuth identity owns it, or empty strings. The keychain is excluded on
+// liveUsageCredentials returns the live OAuth grant and its owning source. The keychain is excluded on
 // purpose: a routine status poll must never raise a credentials prompt.
-func (p *gemini) liveUsageAccessToken() (string, string) {
+func (p *gemini) liveUsageCredentials() (*geminiOAuthCredentials, string) {
 	// Follow DetectLive's precedence: the IDE login is authoritative, and a
 	// gemini-cli file is the live login only when Antigravity has none.
 	// Reading the other source's token would report one account's quota under
 	// the current account's name.
 	if payload := p.authoritativeAntigravityCredential(); payload != nil {
 		c := antigravityUsageCredentials(payload)
-		if c == nil || geminiExpired(c, time.Now()) {
-			return "", ""
+		if c == nil {
+			return nil, ""
 		}
-		return c.AccessToken, antigravityOAuthSource
+		return c, antigravityOAuthSource
 	}
 	if p.oauthCredFileFor(geminiCliOAuthSource) == "" {
-		return "", ""
+		return nil, ""
 	}
 	c, err := loadGeminiOAuthCredentials(
 		p.livePath(geminiCliCredentialFiles[0]), geminiCliOAuthSource)
-	if err != nil || c == nil || c.AccessToken == "" || geminiExpired(c, time.Now()) {
-		return "", ""
+	if err != nil || c == nil || c.AccessToken == "" {
+		return nil, ""
 	}
-	return c.AccessToken, geminiCliOAuthSource
+	return c, geminiCliOAuthSource
 }
 
 // antigravityUsageCredentials adapts an Antigravity state/mirror payload to
@@ -107,6 +111,14 @@ func fetchGeminiCodeAssistUsage(ctx context.Context, base, token, ideType, userA
 	)
 	if summaryErr == nil {
 		if usage, perr := parseGeminiQuotaSummary(summaryRaw); perr == nil && usage != nil {
+			// The native IDE's summary currently covers the shared Claude/GPT
+			// windows. Google model quotas live on its model catalogue instead.
+			if ideType == "ANTIGRAVITY" {
+				modelRaw, merr := geminiCodeAssistPost(ctx, base+"/v1internal:fetchAvailableModels", token, userAgent, payload)
+				if merr == nil {
+					usage.Windows = append(usage.Windows, parseGeminiModelQuota(modelRaw)...)
+				}
+			}
 			return usage, nil
 		}
 	} else if geminiCodeAssistAuthError(summaryErr) {
@@ -337,8 +349,8 @@ func sortGeminiSummaryWindows(windows []UsageWindow) {
 }
 
 // parseGeminiQuota converts retrieveUserQuota buckets into usage windows.
-// Buckets that share a fraction and reset instant collapse into one window
-// labelled by model family, so 40 model ids do not become 40 rows.
+// Every model bucket remains separate: matching fractions and resets alone
+// are not evidence of a shared quota.
 func parseGeminiQuota(raw []byte) (*LiveUsage, error) {
 	var body struct {
 		Buckets []geminiQuotaBucket `json:"buckets"`
@@ -364,71 +376,116 @@ func parseGeminiQuota(raw []byte) (*LiveUsage, error) {
 		}
 		windows = append(windows, window)
 	}
-	windows = groupGeminiQuotaWindows(windows)
+	// Equal percentages and reset times do not prove two models share a
+	// quota. Preserve every vendor bucket in the legacy response.
 	if len(windows) == 0 {
 		return nil, nil
 	}
 	return &LiveUsage{Windows: windows}, nil
 }
 
-func groupGeminiQuotaWindows(windows []UsageWindow) []UsageWindow {
-	order := make([]string, 0, len(windows))
-	groups := map[string][]UsageWindow{}
-	for _, window := range windows {
-		reset := "none"
-		if window.ResetsAtMs != nil {
-			reset = strconv.FormatFloat(*window.ResetsAtMs, 'f', -1, 64)
-		}
-		key := fmt.Sprintf("%d:%s", window.RemainingPercent, reset)
-		if _, ok := groups[key]; !ok {
-			order = append(order, key)
-		}
-		groups[key] = append(groups[key], window)
-	}
-	out := make([]UsageWindow, 0, len(order))
-	for _, key := range order {
-		group := groups[key]
-		first := group[0]
-		if len(group) == 1 {
-			out = append(out, first)
-			continue
-		}
-		families := make([]string, 0, len(group))
-		seen := map[string]bool{}
-		for _, window := range group {
-			family := geminiModelFamily(window.Label)
-			if !seen[family] {
-				seen[family] = true
-				families = append(families, family)
-			}
-		}
-		first.Label = fmt.Sprintf("%s (%d)", strings.Join(families, " + "), len(group))
-		out = append(out, first)
-	}
-	return out
+// Google access-token refresh does not request a new grant. Cache the result
+// per source and refresh-token fingerprint, and never write either live store.
+// An account switch invalidates this cache even if the previous token is valid.
+type geminiUsageAuth struct {
+	mu      sync.Mutex
+	key     [32]byte
+	token   string
+	expires time.Time
 }
 
-// geminiModelFamily names a quota bucket's model family the way the reference
-// implementation did: a known family prefix, else the vendor's first id word.
-func geminiModelFamily(model string) string {
-	lower := strings.ToLower(model)
-	switch {
-	case strings.HasPrefix(lower, "gemini"):
-		return "Gemini"
-	case strings.HasPrefix(lower, "claude"):
-		return "Claude"
-	case strings.HasPrefix(lower, "gpt"):
-		return "GPT"
-	case strings.HasPrefix(lower, "chat"):
-		return "Chat"
-	case strings.HasPrefix(lower, "tab"):
-		return "Tab"
+func (p *gemini) usageAccessToken(ctx context.Context, c *geminiOAuthCredentials, source string) (string, error) {
+	if c == nil {
+		return "", nil
 	}
-	if idx := strings.IndexAny(lower, "-_"); idx > 0 {
-		return lower[:idx]
+	if c.AccessToken != "" && !geminiExpired(c, time.Now()) {
+		return c.AccessToken, nil
 	}
-	if lower == "" {
-		return "Other"
+	if c.RefreshToken == "" {
+		return "", fmt.Errorf("gemini OAuth access token expired")
 	}
-	return lower
+	p.usageAuth.mu.Lock()
+	defer p.usageAuth.mu.Unlock()
+	key := sha256.Sum256([]byte(source + "\x00" + c.RefreshToken))
+	if p.usageAuth.key == key && time.Now().Add(geminiOAuthRefreshSkew).Before(p.usageAuth.expires) {
+		return p.usageAuth.token, nil
+	}
+	profile := geminiOAuthProfileFor(source)
+	endpoint, err := oauthTokenEndpoint("GEMINI_TOKEN_ENDPOINT", geminiTokenEndpointDefault)
+	if err != nil {
+		return "", err
+	}
+	form := url.Values{"client_id": {profile.clientID}, "client_secret": {profile.clientSecret}, "refresh_token": {c.RefreshToken}, "grant_type": {"refresh_token"}}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, strings.NewReader(form.Encode()))
+	if err != nil {
+		return "", fmt.Errorf("gemini quota authorization failed")
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	resp, err := (&http.Client{Timeout: geminiUsageTimeout}).Do(req)
+	if err != nil {
+		return "", fmt.Errorf("gemini quota authorization failed")
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("gemini quota authorization HTTP %d", resp.StatusCode)
+	}
+	var token struct {
+		AccessToken string `json:"access_token"`
+		ExpiresIn   int    `json:"expires_in"`
+	}
+	if json.NewDecoder(io.LimitReader(resp.Body, 8192)).Decode(&token) != nil || token.AccessToken == "" || token.ExpiresIn <= 0 {
+		return "", fmt.Errorf("gemini quota authorization response invalid")
+	}
+	p.usageAuth.key, p.usageAuth.token = key, token.AccessToken
+	p.usageAuth.expires = time.Now().Add(time.Duration(token.ExpiresIn) * time.Second)
+	return token.AccessToken, nil
+}
+
+// parseGeminiModelQuota keeps the IDE's model display names. Aliases with
+// identical names and readings share one row; coincidentally equal readings
+// for differently named models remain separate. The API states no cadence.
+func parseGeminiModelQuota(raw []byte) []UsageWindow {
+	var root struct {
+		Models map[string]struct {
+			DisplayName   string `json:"displayName"`
+			ModelProvider string `json:"modelProvider"`
+			QuotaInfo     *struct {
+				RemainingFraction interface{} `json:"remainingFraction"`
+				ResetTime         string      `json:"resetTime"`
+			} `json:"quotaInfo"`
+		} `json:"models"`
+	}
+	if json.Unmarshal(raw, &root) != nil {
+		return nil
+	}
+	ids := make([]string, 0, len(root.Models))
+	for id := range root.Models {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+	windows := []UsageWindow{}
+	seen := map[string]bool{}
+	for _, id := range ids {
+		model := root.Models[id]
+		if model.ModelProvider != "MODEL_PROVIDER_GOOGLE" || model.QuotaInfo == nil || strings.TrimSpace(model.DisplayName) == "" {
+			continue
+		}
+		fraction := numberValue(model.QuotaInfo.RemainingFraction)
+		if math.IsNaN(fraction) || math.IsInf(fraction, 0) {
+			continue
+		}
+		label := strings.TrimSpace(model.DisplayName)
+		key := fmt.Sprintf("%s:%g:%s", label, fraction, model.QuotaInfo.ResetTime)
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+		window := UsageWindow{Label: label, RemainingPercent: clampPercent(fraction * 100), Group: "Gemini models"}
+		if reset, err := time.Parse(time.RFC3339Nano, model.QuotaInfo.ResetTime); err == nil {
+			ms := float64(reset.UnixMilli())
+			window.ResetsAtMs = &ms
+		}
+		windows = append(windows, window)
+	}
+	return windows
 }

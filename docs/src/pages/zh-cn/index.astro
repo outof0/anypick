@@ -1,48 +1,404 @@
 ---
 import { Icon } from "astro-icon/components";
-import BaseLayout from "../../layouts/BaseLayout.astro";
+import Downloads from "../../components/Downloads.astro";
+import AppShot from "../../components/AppShot.astro";
 import Header from "../../components/Header.astro";
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import "../../styles/landing.css";
 
-const title = "AnyPick — 用已有账号运行 Claude Code 和 Codex";
-const description = "切换账号、通过 Grok、Gemini 或 OpenRouter 路由，并在写入配置前预览每项变更。开源 CLI 与桌面应用。";
+const githubUrl = "https://github.com/outof0/anypick";
+const releasesUrl = `${githubUrl}/releases/latest`;
+const guideUrl = "/zh-cn/docs/getting-started/";
+const npmCommand = "npm install -g anypick";
+const title = "在一个本地应用中切换 AI 编程账号 | AnyPick";
+const description = "在本地统一管理 AI 编程账号和 API 网关，为受支持的工具按默认、项目或终端选择兼容来源。";
+
+const routes = [
+  { label: "设置应用默认账号", command: "anypick use claude --with claude/work" },
+  { label: "仅用于当前项目", command: "anypick link claude --with claude/personal" },
+  { label: "仅运行一次", command: "anypick run claude --with openrouter-work" },
+];
+
+const clients = [
+  "Claude Code", "OpenAI Codex", "Gemini CLI", "OpenCode", "Kiro", "Pi",
+  "Omp", "Command Code", "DeepSeek Harness", "WorkBuddy AI", "ZCode",
+];
+
+const safetySteps = [
+  { title: "应用前先检查", body: "桌面应用会显示账号、模型、代理和客户端配置的变更计划。" },
+  { title: "保留其他设置", body: "AnyPick 会追踪自己管理的设置；接管未由它写入的配置前会先询问。" },
+  { title: "需要时恢复", body: "使用 anypick reset 恢复应用之前保存的配置。账号数据保存在本机。" },
+];
+
+const faqs = [
+  {
+    q: "AnyPick 免费吗？",
+    a: "是的。AnyPick 基于 MIT 许可免费开源。你使用自己的服务商账号或 API 密钥，服务商的订阅和使用费用仍然适用。",
+  },
+  {
+    q: "每个编程工具可以使用哪些账号？",
+    a: "可用来源取决于客户端和账号适配器。Claude 登录仅用于 Claude Code；Gemini CLI 和 Kiro 使用各自服务商的账号。完整组合请查看兼容性参考。",
+  },
+  {
+    q: "AnyPick 会通过自己的服务器转发提示词吗？",
+    a: "不会。AnyPick 没有托管的转发服务。工具协议需要转换时，本机 Go 服务只在回环地址运行转换器，再连接到你选择的服务商。",
+  },
+  {
+    q: "账号凭据存在哪里？",
+    a: "AnyPick 将账号数据保存在本机 ~/.anypick。备份文件是可读 JSON，包含可用凭据，请妥善保管。",
+  },
+  {
+    q: "为什么 macOS 会显示安全提示？",
+    a: "应用目前尚未公证。请右键点击应用并选择“打开”，或前往“系统设置 → 隐私与安全性 → 仍要打开”。CLI 也可单独安装。",
+  },
+];
 ---
 
-<BaseLayout title={title} socialTitle={title} description={description} socialImage="/og-image.png">
-  <div class="landing min-h-screen bg-[#080A11] text-[#F8FAFC]">
+<BaseLayout
+  title={title}
+  socialTitle={title}
+  description={description}
+  socialImage="/og-landing.png"
+  socialImageAlt="AnyPick 总览页面，展示当前编程工具、账号路由和本地服务。"
+>
+  <div class="landing" lang="zh-CN">
     <Header showSidebar={false} appearance="landing" locale="zh-CN" />
-    <main id="main-content" class="mx-auto max-w-5xl px-6 py-20 sm:px-10">
-      <p class="text-sm font-semibold uppercase tracking-[0.2em] text-violet-300">Pick any. Code on.</p>
-      <h1 class="mt-6 max-w-4xl text-balance text-5xl font-semibold leading-tight sm:text-7xl">
-        用你已有的账号运行 Claude Code 和 Codex
-      </h1>
-      <p class="mt-7 max-w-3xl text-lg leading-8 text-slate-300">
-        在一个地方切换账号、选择兼容的模型来源，并在写入配置前检查路由。AnyPick 会管理凭据快照、本地协议代理和客户端配置。
-      </p>
-      <div class="mt-10 flex flex-wrap gap-3">
-        <a class="primary-cta" href="/zh-cn/docs/getting-started">
-          开始使用 <Icon name="ph:arrow-right" class="h-4 w-4" />
-        </a>
-        <a class="secondary-cta" href="/zh-cn/docs">
-          浏览文档
-        </a>
-        <a class="secondary-cta" href="https://github.com/outof0/anypick/releases/latest">
-          下载 GitHub Release
-        </a>
-      </div>
-      <section class="mt-16 grid gap-6 border-t border-white/10 pt-8 sm:grid-cols-3" aria-label="AnyPick 功能">
-        <div>
-          <h2 class="font-semibold">跨服务商路由</h2>
-          <p class="mt-2 text-sm leading-6 text-slate-300">为 Claude Code 和 Codex 选择兼容账户、代理或网关。</p>
+
+    <main id="main-content">
+      <section class="landing-hero">
+        <div class="landing-wrap landing-hero-inner">
+          <div class="landing-hero-copy">
+            <p class="landing-eyebrow">面向 AI 编程工具的本地账号切换器</p>
+            <h1>切换 AI 账号，<br /><em>保留现有配置。</em></h1>
+            <p class="landing-lede">
+              工作账号、个人账号，或自己的 API 网关。在一个本地应用中选择 Claude Code、Codex 等受支持工具的来源，无需手动编辑配置文件。
+            </p>
+            <div class="landing-actions">
+              <a class="landing-button landing-button-primary" href="#download" data-download-cta>
+                <span data-download-label>免费下载</span> <Icon name="ph:arrow-down" class="h-4 w-4" aria-hidden="true" />
+              </a>
+              <a class="landing-button landing-button-secondary" href="#how-it-works">
+                了解使用方式 <Icon name="ph:arrow-down" class="h-4 w-4" aria-hidden="true" />
+              </a>
+            </div>
+            <p class="landing-other-platforms"><a href="#download">所有平台与安装方式</a></p>
+            <p class="landing-meta">
+              <span>macOS · Linux · Windows</span>
+              <span>免费开源</span>
+              <span>无需 AnyPick 云服务</span>
+            </p>
+          </div>
+
+          <div class="landing-product-stage">
+            <figure class="landing-product-window">
+              <AppShot
+                name="overview"
+                width={1040}
+                height={760}
+                sizes="(min-width: 1100px) 690px, (min-width: 832px) 52vw, calc(100vw - 3rem)"
+                priority
+                alt="AnyPick 桌面应用总览，显示 Claude Code、OpenAI Codex 和 OpenCode 正在使用已保存的账号，并展示本地代理状态和近期切换记录。使用演示数据。"
+              />
+            </figure>
+            <figure class="landing-tray-window">
+              <AppShot
+                name="tray"
+                width={336}
+                height={430}
+                sizes="(min-width: 832px) 215px, 155px"
+                alt="AnyPick 菜单栏面板，显示已保存账号以及 Claude Code 和 OpenAI Codex 的快速切换选项。使用演示数据。"
+              />
+            </figure>
+            <p class="landing-product-caption">桌面应用 · 演示账号</p>
+          </div>
         </div>
-        <div>
-          <h2 class="font-semibold">原生登录切换</h2>
-          <p class="mt-2 text-sm leading-6 text-slate-300">在支持的服务商账户之间切换，同时保留各自登录流程。</p>
+      </section>
+
+      <section class="landing-proof" aria-label="产品信息">
+        <div class="landing-wrap landing-proof-inner">
+          <div class="landing-proof-item">
+            <strong>支持 11 种编程客户端</strong>
+            <span>继续使用你已经安装的工具。</span>
+          </div>
+          <div class="landing-proof-item">
+            <strong>账号数据保存在本机</strong>
+            <span>无需注册 AnyPick 账号，也无托管转发服务。</span>
+          </div>
+          <div class="landing-proof-item">
+            <strong>MIT 开源</strong>
+            <span>每个版本都提供校验和与 SBOM。</span>
+          </div>
         </div>
-        <div>
-          <h2 class="font-semibold">预览后再更改</h2>
-          <p class="mt-2 text-sm leading-6 text-slate-300">启用路由前查看模型、代理和客户端配置的变更计划。</p>
+      </section>
+
+      <Downloads locale="zh-CN" />
+
+      <section class="landing-section" id="how-it-works">
+        <div class="landing-wrap landing-route-grid">
+          <div>
+            <p class="landing-kicker">贴近日常工作</p>
+            <h2>工作用一个账号，项目再用另一个。</h2>
+            <p class="landing-section-lede">
+              区分工作与个人登录，为项目指定账号，或仅运行一次 API 网关。每次切换的生效范围都由你选择。
+            </p>
+            <p class="landing-route-note">
+              <a class="landing-inline-link" href="/zh-cn/docs/guides/projects/">了解项目绑定 <Icon name="ph:arrow-right" class="inline h-3.5 w-3.5" aria-hidden="true" /></a>
+            </p>
+          </div>
+          <div class="landing-route-list" aria-label="路由示例">
+            {routes.map((route) => (
+              <div class="landing-route-row">
+                <h3>{route.label}</h3>
+                <code>{route.command}</code>
+              </div>
+            ))}
+          </div>
+
+          <ol class="landing-start-steps" aria-label="入门步骤">
+            <li><span aria-hidden="true">01</span><div><h3>保存账号</h3><p>在“账号与 API”中添加服务商登录或 API 网关。</p></div></li>
+            <li><span aria-hidden="true">02</span><div><h3>选择工具</h3><p>在“应用”中选择兼容的已保存来源，检查变更计划。</p></div></li>
+            <li><span aria-hidden="true">03</span><div><h3>继续编程</h3><p>应用变更后使用编程工具。需要时可用 anypick reset 恢复保存的配置。</p></div></li>
+          </ol>
+        </div>
+      </section>
+
+      <section class="landing-section landing-safety-section">
+        <div class="landing-wrap landing-safety-grid">
+          <div>
+            <p class="landing-kicker">修改可检查，也可撤销</p>
+            <h2>配置始终由你掌控。</h2>
+            <div class="landing-safety-list">
+              {safetySteps.map((step, index) => (
+                <article class="landing-safety-item">
+                  <span>0{index + 1}</span>
+                  <div><h3>{step.title}</h3><p>{step.body}</p></div>
+                </article>
+              ))}
+            </div>
+          </div>
+          <figure class="landing-account-shot">
+            <AppShot
+              name="accounts"
+              width={1040}
+              height={760}
+              sizes="(min-width: 832px) 590px, calc(100vw - 3rem)"
+              alt="AnyPick 账号与 API 页面列出已保存的服务商登录和 API 网关。名称与账号信息均为演示数据。"
+            />
+          </figure>
+        </div>
+      </section>
+
+      <section class="landing-section landing-compatibility">
+        <div class="landing-wrap landing-compatibility-grid">
+          <div>
+            <p class="landing-kicker">兼容性</p>
+            <h2>支持的工具，遵守服务商规则。</h2>
+          </div>
+          <div>
+            <p class="landing-section-lede">
+              AnyPick 只提供客户端和账号适配器都支持的路由，不会把所有账号视为可以互换。
+            </p>
+            <div class="landing-client-list" aria-label="支持的编程工具">
+              {clients.map((client) => <span>{client}</span>)}
+            </div>
+            <p class="landing-boundary">
+              <strong>Claude 登录仅用于 Claude Code；Gemini CLI 和 Kiro 使用各自服务商的账号。</strong>其他兼容工具可使用部分外部账号或 API 网关。<a class="landing-inline-link" href="/zh-cn/docs/reference/cli/">查看兼容性参考</a>。
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section class="landing-section landing-safety-section" id="install">
+        <div class="landing-wrap landing-cli-grid">
+          <div>
+            <div class="landing-install-intro">
+              <p class="landing-kicker">桌面应用或终端</p>
+              <h2>桌面应用或终端，选你习惯的方式。</h2>
+              <p class="landing-section-lede">
+                使用桌面应用检查路由计划，或在终端运行同一个 Go 引擎。下方录屏使用隔离的演示账号。
+              </p>
+            </div>
+            <figure class="landing-demo-frame landing-cli-demo">
+              <div class="landing-demo-titlebar" aria-hidden="true"><span></span><span></span><span></span><p>anypick 1.1.0 · 沙盒演示</p></div>
+              <video
+                class="landing-demo-video"
+                controls
+                muted
+                loop
+                playsinline
+                preload="none"
+                width="1280"
+                height="720"
+                poster="/demo/anypick-hero-poster.png"
+                aria-label="CLI 演示：查看账号、添加 OpenRouter 网关、为 Claude Code 设置路由，然后恢复原配置。"
+                data-demo-video
+              >
+                <source src="/demo/anypick-hero.webm" type="video/webm" />
+                <source src="/demo/anypick-hero.mp4" type="video/mp4" />
+                <img src="/demo/anypick-hero.gif" alt="AnyPick CLI 演示" width="1280" height="720" />
+              </video>
+              <figcaption>CLI 实际输出 · AnyPick 1.1.0 · 沙盒账号</figcaption>
+            </figure>
+          </div>
+
+          <div class="landing-install-card" data-install-tabs>
+            <h3 class="landing-install-heading">安装 CLI</h3>
+            <div class="landing-install-tabs" role="tablist" aria-label="选择安装方式">
+              <button id="install-tab-macos" class="landing-install-tab" type="button" role="tab" aria-selected="true" aria-controls="install-panel-macos" data-install-tab="macos">macOS</button>
+              <button id="install-tab-linux" class="landing-install-tab" type="button" role="tab" aria-selected="false" aria-controls="install-panel-linux" tabindex="-1" data-install-tab="linux">Linux</button>
+              <button id="install-tab-windows" class="landing-install-tab" type="button" role="tab" aria-selected="false" aria-controls="install-panel-windows" tabindex="-1" data-install-tab="windows">Windows</button>
+              <button id="install-tab-npm" class="landing-install-tab" type="button" role="tab" aria-selected="false" aria-controls="install-panel-npm" tabindex="-1" data-install-tab="npm">npm</button>
+            </div>
+
+            <div class="landing-install-panel" id="install-panel-macos" role="tabpanel" aria-labelledby="install-tab-macos" data-install-panel="macos">
+              <div class="landing-install-command"><span class="prompt" aria-hidden="true">$</span><code>brew install outof0/tap/anypick</code><button type="button" data-copy="brew install outof0/tap/anypick" aria-label="复制 Homebrew 安装命令"><Icon name="ph:copy" class="h-4 w-4" aria-hidden="true" /><span>复制</span></button></div>
+              <p class="landing-install-hint">桌面应用：<code>brew install --cask outof0/tap/anypick</code>，或从 <a href={releasesUrl}>GitHub Releases 下载 DMG</a>。</p>
+            </div>
+
+            <div class="landing-install-panel" id="install-panel-linux" role="tabpanel" aria-labelledby="install-tab-linux" data-install-panel="linux" hidden>
+              <div class="landing-install-command"><span class="prompt" aria-hidden="true">$</span><code>{npmCommand}</code><button type="button" data-copy={npmCommand} aria-label="复制 npm 安装命令"><Icon name="ph:copy" class="h-4 w-4" aria-hidden="true" /><span>复制</span></button></div>
+              <p class="landing-install-hint">也可从 <a href={releasesUrl}>GitHub Releases</a> 下载 CLI 或桌面应用（.deb、.rpm、AppImage、压缩包）。</p>
+            </div>
+
+            <div class="landing-install-panel" id="install-panel-windows" role="tabpanel" aria-labelledby="install-tab-windows" data-install-panel="windows" hidden>
+              <div class="landing-install-command"><span class="prompt" aria-hidden="true">&gt;</span><code>scoop bucket add outof0 https://github.com/outof0/scoop-bucket</code><button type="button" data-copy="scoop bucket add outof0 https://github.com/outof0/scoop-bucket" aria-label="复制 Scoop bucket 命令"><Icon name="ph:copy" class="h-4 w-4" aria-hidden="true" /><span>复制</span></button></div>
+              <div class="landing-install-command landing-install-command-secondary"><span class="prompt" aria-hidden="true">&gt;</span><code>scoop install anypick</code><button type="button" data-copy="scoop install anypick" aria-label="复制 Scoop 安装命令"><Icon name="ph:copy" class="h-4 w-4" aria-hidden="true" /><span>复制</span></button></div>
+              <p class="landing-install-hint">桌面应用安装包可在 <a href={releasesUrl}>GitHub Releases</a> 获取。</p>
+            </div>
+
+            <div class="landing-install-panel" id="install-panel-npm" role="tabpanel" aria-labelledby="install-tab-npm" data-install-panel="npm" hidden>
+              <div class="landing-install-command"><span class="prompt" aria-hidden="true">$</span><code>{npmCommand}</code><button type="button" data-copy={npmCommand} aria-label="复制 npm 安装命令"><Icon name="ph:copy" class="h-4 w-4" aria-hidden="true" /><span>复制</span></button></div>
+              <p class="landing-install-hint">需要 Node 18+。启动器会下载并校验对应的原生 CLI。</p>
+            </div>
+            <p class="landing-first-run">安装后运行 <code>anypick tui</code>，打开账号选择界面。</p>
+            <a class="landing-release-link" href={guideUrl}>阅读 5 分钟入门指南 <Icon name="ph:arrow-right" class="h-3.5 w-3.5" aria-hidden="true" /></a>
+            <p class="sr-only" aria-live="polite" data-copy-status></p>
+          </div>
+        </div>
+      </section>
+
+      <section class="landing-section">
+        <div class="landing-wrap landing-faq-inner">
+          <p class="landing-kicker">开始切换前</p>
+          <h2>几个常见问题。</h2>
+          <div class="landing-faq">
+            {faqs.map((faq) => <details><summary>{faq.q}</summary><p>{faq.a}</p></details>)}
+          </div>
+        </div>
+      </section>
+
+      <section class="landing-section landing-final">
+        <div class="landing-wrap landing-final-inner">
+          <p class="landing-kicker">从下一次账号切换开始</p>
+          <h2>少改配置，<br />专注编程。</h2>
+          <p class="landing-section-lede">继续使用你已有的账号。从一个工具、一个已保存登录开始。</p>
+          <div class="landing-actions">
+            <a class="landing-button landing-button-primary" href="#download" data-download-cta><span data-download-label>免费下载</span> <Icon name="ph:arrow-right" class="h-4 w-4" aria-hidden="true" /></a>
+            <a class="landing-inline-link" href={guideUrl}>阅读入门指南</a>
+          </div>
+          <p class="landing-meta">MIT 开源许可 · 无需注册 AnyPick · 本地运行</p>
         </div>
       </section>
     </main>
+
+    <footer class="landing-footer">
+      <div class="landing-wrap flex flex-col items-center justify-between gap-4 py-7 sm:flex-row">
+        <a href="/zh-cn" aria-label="AnyPick 首页"><img src="/logo-dark.svg" alt="AnyPick" width="98" height="20" /></a>
+        <nav aria-label="页脚导航" class="flex flex-wrap justify-center gap-x-5 gap-y-2">
+          <a href="/zh-cn/docs/">文档</a>
+          <a href={githubUrl} target="_blank" rel="noopener">GitHub</a>
+          <a href={`${githubUrl}/blob/main/CHANGELOG.md`} target="_blank" rel="noopener">更新日志</a>
+          <a href={`${githubUrl}/blob/main/SECURITY.md`} target="_blank" rel="noopener">安全</a>
+          <a href={`${githubUrl}/blob/main/LICENSE`} target="_blank" rel="noopener">MIT 许可</a>
+        </nav>
+        <span>© OutOf0</span>
+      </div>
+    </footer>
   </div>
+
+  <script>
+    const installRoot = document.querySelector<HTMLElement>("[data-install-tabs]");
+    const tabs = Array.from(installRoot?.querySelectorAll<HTMLButtonElement>("[data-install-tab]") ?? []);
+    const panels = Array.from(installRoot?.querySelectorAll<HTMLElement>("[data-install-panel]") ?? []);
+
+    const activateTab = (name: string, focus = false) => {
+      for (const tab of tabs) {
+        const selected = tab.dataset.installTab === name;
+        tab.setAttribute("aria-selected", String(selected));
+        tab.tabIndex = selected ? 0 : -1;
+        if (selected && focus) tab.focus();
+      }
+      for (const panel of panels) panel.hidden = panel.dataset.installPanel !== name;
+    };
+
+    const platform = navigator.userAgent.toLowerCase();
+    if (platform.includes("windows")) activateTab("windows");
+    else if (platform.includes("linux") && !platform.includes("android")) activateTab("linux");
+
+    for (const [index, tab] of tabs.entries()) {
+      tab.addEventListener("click", () => activateTab(tab.dataset.installTab ?? "macos"));
+      tab.addEventListener("keydown", (event) => {
+        const next = event.key === "ArrowRight" || event.key === "ArrowDown"
+          ? (index + 1) % tabs.length
+          : event.key === "ArrowLeft" || event.key === "ArrowUp"
+            ? (index + tabs.length - 1) % tabs.length
+            : event.key === "Home" ? 0 : event.key === "End" ? tabs.length - 1 : -1;
+        if (next >= 0) {
+          event.preventDefault();
+          activateTab(tabs[next]?.dataset.installTab ?? "macos", true);
+        }
+      });
+    }
+
+    const revealSections = () => {
+      const sections = Array.from(document.querySelectorAll<HTMLElement>(".landing-section"));
+      const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      if (reducedMotion || !("IntersectionObserver" in window)) {
+        sections.forEach((section) => section.classList.add("landing-visible"));
+        return;
+      }
+
+      document.documentElement.dataset.landingMotion = "ready";
+      const observer = new IntersectionObserver((entries, activeObserver) => {
+        for (const entry of entries) {
+          if (!entry.isIntersecting) continue;
+          entry.target.classList.add("landing-visible");
+          activeObserver.unobserve(entry.target);
+        }
+      }, { threshold: 0.08, rootMargin: "0px 0px -5% 0px" });
+
+      for (const section of sections) {
+        if (section.getBoundingClientRect().top < window.innerHeight * 0.88) {
+          section.classList.add("landing-visible");
+        } else {
+          observer.observe(section);
+        }
+      }
+    };
+
+    revealSections();
+
+    const copyStatus = document.querySelector<HTMLElement>("[data-copy-status]");
+    for (const button of document.querySelectorAll<HTMLButtonElement>("[data-copy]")) {
+      button.addEventListener("click", async () => {
+        const command = button.dataset.copy;
+        if (!command) return;
+        try {
+          await navigator.clipboard.writeText(command);
+          button.querySelector("span")!.textContent = "已复制";
+          if (copyStatus) copyStatus.textContent = "安装命令已复制到剪贴板。";
+          window.setTimeout(() => {
+            const label = button.querySelector("span");
+            if (label) label.textContent = "复制";
+          }, 1600);
+        } catch {
+          if (copyStatus) copyStatus.textContent = "无法访问剪贴板。";
+        }
+      });
+    }
+
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      document.querySelector<HTMLVideoElement>("[data-demo-video]")?.pause();
+    }
+  </script>
 </BaseLayout>

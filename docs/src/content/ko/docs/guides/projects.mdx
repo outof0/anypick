@@ -1,0 +1,56 @@
+---
+title: '프로젝트 바인딩'
+description: '전역 기본값을 건드리지 않고 하나의 저장소에 자체 클라이언트 소스를 제공하세요.'
+---
+
+`anypick link`는 현재 디렉터리로 범위가 지정된 바인딩을 작성합니다. 해당 디렉토리 내부에서 클라이언트를 `run`하면 전역 기본값을 무시하고 다른 곳에서는 보이지 않습니다.
+
+```bash
+cd ~/src/my-app
+anypick link claude                        # copy the global binding into this project
+anypick link claude --with grok/work       # or bind explicitly
+anypick run claude                         # project binding wins
+anypick unlink claude
+```
+
+클라이언트가 없는 `anypick unlink`는 현재 디렉터리의 모든 프로젝트 바인딩을 제거합니다.
+
+## 해결 순서
+
+`run`에 바인딩이 필요할 때 가장 먼저 찾은 바인딩을 사용합니다.
+
+명령줄에서 1. `--with` — 이번 출시에만 해당
+2. 현재 디렉터리에 대한 프로젝트 바인딩
+3.  `anypick use`의 전역 바인딩
+
+아무것도 존재하지 않으면 추측하는 대신 `run`가 `5`를 종료합니다.
+
+`anypick current`는 모든 클라이언트에 대한 효과적인 바인딩을 표시하므로 어떤 레이어가 승리했는지 확인할 수 있습니다.
+
+## 전형적인 분할
+
+수동 전환 없이 고객당 하나의 클라이언트:
+
+```bash
+anypick use claude --with grok/work            # your default everywhere
+
+cd ~/src/client-a
+anypick link claude --with openrouter-work     # this repo only
+
+cd ~/src/client-b
+anypick link claude --with gemini/work
+```
+
+<Aside type="note" title="바인딩은 저장소별이 아닌 디렉터리별입니다.">
+바인딩은 `link`를 실행한 디렉터리 경로에 맞춰져 있습니다. 동일한 저장소의 다른 작업 트리는 AnyPick에 관한 한 다른 프로젝트입니다. 이는 일반적으로 원하는 것이며 때로는 놀라운 일입니다.
+</Aside>
+
+## 정리 중
+
+`anypick unlink`는 바인딩을 제거하지만 클라이언트의 구성은 마지막 활성화로 남겨 둡니다. AnyPick이 클라이언트에 대해 작성한 구성을 제거하려면 다음을 수행하십시오.
+
+```bash
+anypick reset claude
+```
+
+`reset`는 AnyPick 관리 구성만 제거합니다. 기본 인증 파일이나 자신의 설정을 건드리지 않습니다.

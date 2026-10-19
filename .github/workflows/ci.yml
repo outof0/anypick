@@ -151,8 +151,16 @@ jobs:
           exit "$rc"
 
   tauri:
-    name: Tauri app / Linux check & UI build
-    runs-on: ubuntu-latest
+    name: Tauri app / ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -166,13 +174,14 @@ jobs:
           node-version: '22.17.1'
 
       - name: Install Linux web dependencies
+        if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y \
             libwebkit2gtk-4.1-dev \
             libayatana-appindicator3-dev \
             librsvg2-dev \
-            patchelf
+            patchelf webkit2gtk-driver xvfb xauth dbus-x11
 
       - name: Select stable Rust
         run: |
@@ -224,6 +233,28 @@ jobs:
         run: |
           cargo install cargo-audit --version 0.22.2 --locked
           cd src/tauri/app && cargo audit
+
+      - name: Install native WebDriver (Linux)
+        if: runner.os == 'Linux'
+        run: cargo install tauri-driver --version 2.1.0 --locked
+
+      - name: Install native WebDriver (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: packaging/smoke/install-webdriver.ps1
+
+      - name: Build the real desktop executable
+        run: cargo build --locked --manifest-path src/tauri/app/Cargo.toml
+
+      - name: Native desktop E2E (Linux)
+        if: runner.os == 'Linux'
+        timeout-minutes: 5
+        run: xvfb-run -a dbus-run-session -- node src/tauri/ui/scripts/desktop-e2e.mjs
+
+      - name: Native desktop E2E (Windows)
+        if: runner.os == 'Windows'
+        timeout-minutes: 5
+        run: node src/tauri/ui/scripts/desktop-e2e.mjs
 
   macos-app:
     name: macOS app / Xcode & universal helper
@@ -319,6 +350,9 @@ jobs:
       - name: Build docs
         run: cd docs && pnpm build
 
+      - name: Check landing SEO and download links
+        run: cd docs && pnpm check:landing
+
       - name: Validate Cloudflare Pages configuration
         run: cd docs && pnpm exec wrangler types "${RUNNER_TEMP}/anypick-pages-env.d.ts"
 
@@ -349,5 +383,6 @@ jobs:
       - name: Check the release payload smoke scripts
         run: |
           bash -n packaging/smoke/linux-payload.sh packaging/smoke/linux-cli-headless.sh
+          node --check src/tauri/ui/scripts/desktop-e2e.mjs
           # shellcheck disable=SC2016 # $null is PowerShell, not shell; the quotes are deliberate.
-          pwsh -NoProfile -Command '[void][System.Management.Automation.Language.Parser]::ParseFile("packaging/smoke/windows-payload.ps1", [ref]$null, [ref]$null)'
+          pwsh -NoProfile -Command 'foreach ($path in @("packaging/smoke/windows-payload.ps1", "packaging/smoke/install-webdriver.ps1")) { $errors = $null; [void][System.Management.Automation.Language.Parser]::ParseFile($path, [ref]$null, [ref]$errors); if ($errors.Count) { throw ($errors | Out-String) } }'

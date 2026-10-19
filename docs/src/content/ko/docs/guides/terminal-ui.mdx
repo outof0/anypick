@@ -1,0 +1,227 @@
+---
+title: '앱 및 터미널 UI'
+description: '앱이 Claude Code, Codex, ZCode, dsh, commandcode, pi 및 omp를 라우팅하는 방법 — 소스를 선택하고, 모델을 설정하고, 미리 본 다음 활성화합니다.'
+sidebar:
+  label: Apps & Terminal UI
+---
+
+`anypick`(또는 `anypick tui`)를 실행하세요. **앱**에 도착합니다. 그 화면이 바로 제품입니다. 각 코딩 도구에 대한 하나의 질문에 답합니다.
+
+> **Claude Code / Codex / ZCode / dsh / commandcode / pi / omp는 지금 무엇을 사용해야 할까요?**
+
+그 대답을 제공하기 위해 다른 모든 것(계정, 게이트웨이, 프록시)이 존재합니다.
+
+```bash
+anypick
+```
+
+## 앱 개요
+
+```
+ anypick / apps
+
+  Routes for Claude Code and Codex
+ › Claude        grok/work · grok-code-fast-1       ● ready
+   Codex         not connected                     ○ not set
+ ──────────────────────────────────────────
+ Claude uses grok/work
+ model grok-code-fast-1 · enter to preview a different route
+ enter change route a accounts g gateways p proxies d diagnose
+```
+
+위에서 아래로 읽으세요:
+
+1. **각 행은 앱입니다** — Claude Code, Codex, ZCode, DeepSeek Harness(`dsh`), 명령 코드(`commandcode`), Pi(`pi`) 또는 Omp (`omp`). Gemini, Kiro 및 WorkBuddy는 여기에 *아닙니다*. 계정 아래에서만 자신의 로그인을 전환합니다.
+2. **가운데 열**은 이를 구동하는 주체(계정, 게이트웨이 등)와 AnyPick이 설정한 모델을 나타냅니다.
+3. **오른쪽의 상태**는 일반 영어(Ready, Native, Not Set 또는 Attention)입니다.
+4. **점선 아래의 두 줄**은 항상 <kbd>enter</kbd>가 이 버튼을 누르기 *전에* 수행할 작업을 나타냅니다.
+5. **바닥글**은 이 화면의 전체 키맵입니다. 키가 나열되지 않으면 여기서는 아무 작업도 수행되지 않습니다.
+
+### 각 상태의 의미
+
+| 알다시피 | 의미 | 해야 할 일 |
+| --- | --- | --- |
+| **준비** | AnyPick은 이미 이 앱을 라우팅하고 있습니다 | <kbd>enter</kbd> 다른 소스나 모델을 원한다면 |
+| **네이티브** | 앱 자체 로그인은 작동하지만 AnyPick이 아직 경로를 관리하지 않습니다 | 선택 사항 - AnyPick이 인계받도록 하려면 <kbd>enter</kbd>만 누르세요 |
+| **설정되지 않음** | 아직 경로가 없습니다 | <kbd>enter</kbd> → **앱 연결** |
+| **주의** | 수정이 필요한 문제(키 누락, 확인 실패 등) | <kbd>enter</kbd> 또는 <kbd>d</kbd> 진단 |
+
+## 경로 구축(주요 흐름)
+
+구성 파일을 직접 편집하지 마십시오. 앱에서 <kbd>enter</kbd>를 누르고 짧은 화면 4개를 걸어보세요. **마지막 확인 전까지는 아무 것도 기록되지 않습니다.**
+
+### 1. 홈 — 앱을 선택하세요
+
+<kbd>↑</kbd> <kbd>↓</kbd> (또는 <kbd>j</kbd> <kbd>k</kbd>)로 이동하세요. 앱 강조 표시 — Claude Code, Codex, ZCode, `dsh`, `commandcode`, `pi` 또는 `omp`. <kbd>enter</kbd>를 누르세요.
+
+- 행이 비어 있거나 기본 전용인 경우 바닥글에 **앱 연결**이라고 표시됩니다.
+- 이미 준비되면 바닥글에 **경로 변경**이라고 표시됩니다.
+
+### 2. 소스 - 누가 전력을 공급해야 합니까?
+
+```
+ anypick / apps / Claude / source
+
+  Native accounts
+ › Anthropic · work@example.com        current live login
+   Anthropic · personal
+
+  Gateways & proxies
+   openrouter-work                     gateway · default model set
+   grok/work                           account proxy
+
+  Saved setups
+   @work-stack                         preset
+ ──────────────────────────────────────────
+ Route Claude through grok/work
+ account proxy · model routing is configured next
+ enter choose route a accounts g gateways esc back
+```
+
+세 그룹(일반 언어):
+
+| 그룹 | 다음과 같은 경우에 선택하세요... |
+| --- | --- |
+| **기본 계정** | *자체* 공급자 로그인에 Claude, Codex 또는 Z.ai가 필요합니다. AnyPick은 저장된 자격 증명을 전환합니다. 앱은 자체 모델 선택기를 유지합니다. ZCode 계정은 암호화된 로컬 로그인에서 감지되거나 Z.ai의 브라우저 흐름을 통해 추가될 수 있습니다. |
+| **게이트웨이 및 프록시** | 다른 공급자, API 키 엔드포인트, 다중 계정 풀 또는 프록시 허브가 필요합니다. AnyPick은 다음으로 모델을 설정합니다. |
+| **저장된 설정** | `presets` 테이블에 이미 사전 설정(`@name`)이 있습니다. 아직 생성된 명령이 없으므로 새로 설치하면 이 그룹이 비어 있습니다. |
+
+**안전한 페어링**만 나타납니다. "Claude → 임의의 호환되지 않는 것"은 표시되지 않습니다. 빈 목록은 먼저 계정을 저장하거나(<kbd>a</kbd>) 게이트웨이를 추가(<kbd>g</kbd>)한다는 의미입니다.
+
+기본 행 → 결과는 **Switch …**입니다. 다른 행 → **Route … through …**.
+
+### 3. 모델 — 필요한 경우에만
+
+기본 동일 공급자 스위치의 경우 건너뛰었습니다.
+
+그렇지 않은 경우:
+
+```
+ anypick / apps / Claude / models
+
+ › default     grok-code-fast-1
+   sonnet      (same as default)
+   opus        (same as default)
+   haiku       (same as default)
+ ──────────────────────────────────────────
+ …
+ enter edit model · a preview route
+```
+
+- **Codex** — 하나의 기본 모델.
+- **Claude** — 기본값과 선택적 소네트/오푸스/하이쿠 역할(해당 이름을 부르는 도구용).
+
+<kbd>enter</kbd>를 사용하여 줄을 편집하고 제안 사항을 입력하거나 선택한 다음 <kbd>a</kbd>(또는 표시된 확인 키)를 눌러 미리보기를 엽니다.
+
+### 4. 미리보기 - 읽은 후 활성화하세요.
+
+```
+ anypick / apps / Claude / preview
+
+ Activate this route for Claude?
+
+ · bind Claude → grok/work
+ · set model grok-code-fast-1
+ · start local proxy if needed
+ · write client config
+
+ enter activate route   esc back
+```
+
+이는 CLI가 실행하는 것과 동일한 계획입니다. 나중에 단계가 실패하면 AnyPick은 이미 변경된 내용을 롤백합니다. 적용하려면 <kbd>enter</kbd>를 누르고, 돌아가서 소스나 모델을 변경하려면 <kbd>esc</kbd>를 누르세요.
+
+성공적으로 활성화되면 **● 준비** 및 새 소스 모델이 행에 있는 앱으로 돌아갑니다.
+
+## 구체적인 예
+
+목표: **Claude Code는 Grok 업무 로그인을 사용해야 합니다.**
+
+1. Grok 도구에 한 번만 로그인하세요(AnyPick은 절대 로그인하지 않습니다).
+2. AnyPick에서: <kbd>a</kbd> → 계정 → 해당 로그인을 `work`(또는 `anypick add account grok --current --name work`)로 저장합니다.
+3. 앱으로 돌아가서 **Claude**, <kbd>enter</kbd>를 강조표시하세요.
+4. **게이트웨이 및 프록시**에서 **grok/work**를 선택하세요.
+5. 요청 시 기본 모델을 설정하세요.
+6. 미리보기 읽기 → <kbd>enter</kbd>.
+
+이제 클로드가 라우팅되었습니다. 평소처럼 Claude Code를 엽니다. AnyPick은 이미 필요한 것을 작성했습니다. Codex, OpenRouter와 같은 게이트웨이, 풀 또는 사전 설정에 대해 동일한 경로가 작동합니다.
+
+## 앱의 키
+
+| 열쇠 | 액션 |
+| --- | --- |
+| <kbd>enter</kbd> | 경로 연결 또는 변경(소스 → 모델 → 미리보기) |
+| <kbd>a</kbd> / <kbd>tab</kbd> | 계정 |
+| <kbd>g</kbd> | 게이트웨이 |
+| <kbd>p</kbd> | 프록시 |
+| <kbd>d</kbd> | 진단 |
+| <kbd>h</kbd> / <kbd>?</kbd> | 이 화면에 대한 도움말 |
+| <kbd>q</kbd> | 터미널 UI 닫기(기존 호환성 프로세스는 변경되지 않음) |
+
+## 기타 판(조연)
+
+<kbd>tab</kbd> 주기 **앱 → 계정 → 게이트웨이 → 프록시 → 앱**. 보조 보드의 <kbd>esc</kbd>가 Apps로 돌아갑니다.
+
+| 보드 | 당신은 그것을 사용하여... |
+| --- | --- |
+| **계정** | 로그인 저장, 전환, 새로 고침, 가져오기/내보내기, 삭제 |
+| **게이트웨이** | 엔드포인트 + API 키 프로필을 저장합니다. 프록시와 같은 앱에 바인딩 |
+| **프록시** | 로컬 번역기, 풀, 프록시 허브 시작/중지 |
+
+이러한 보드는 "Claude는 무엇을 사용합니까?"에 대해 Apps를 대체하지 않습니다. — Apps가 선택하는 선반을 비축합니다.
+
+### 계정 키
+
+| 열쇠 | 액션 |
+| --- | --- |
+| <kbd>enter</kbd> | 현재 로그인 전환, 활성 보기 또는 저장 |
+| <kbd>v</kbd> | 세부정보 및 사용법 |
+| <kbd>a</kbd> | 로그인 추가 |
+| <kbd>i</kbd> / <kbd>e</kbd> | 가져오기/내보내기 |
+| <kbd>r</kbd> | 새로고침 |
+| <kbd>s</kbd> | 스냅샷을 통해 변경된 실시간 로그인 저장 |
+| <kbd>d</kbd> | 삭제 |
+| <kbd>f</kbd> | 공급자별로 필터링 |
+
+<kbd>i</kbd>를 누르면 가져오기 프롬프트에 현재 폴더의 `.json` 봉투 및 AnyPick 백업 파일과 `~/.anypick/exports/`가 나열됩니다. <kbd>↑</kbd>/<kbd>↓</kbd>를 사용하여 하나를 선택하거나 <kbd>tab</kbd>를 사용하여 완료하세요. 공급자의 계정 목록에서 프롬프트가 열리면 다중 계정 백업은 해당 공급자의 계정만 가져옵니다.
+
+### 게이트웨이 키
+
+| 열쇠 | 액션 |
+| --- | --- |
+| <kbd>enter</kbd> | 이 게이트웨이를 사용하는 앱 관리 |
+| <kbd>m</kbd> | 기본 모델 편집 |
+| <kbd>e</kbd> | 엔드포인트 편집 |
+| <kbd>a</kbd> / <kbd>d</kbd> | 추가/삭제 |
+| <kbd>f</kbd> | 공급자별로 필터링 |
+
+### 프록시 키
+
+| 열쇠 | 액션 |
+| --- | --- |
+| <kbd>enter</kbd> | 앱 시작, 관리 또는 저장되지 않은 로그인 저장 |
+| <kbd>m</kbd> | 앱 관리 후 모델 편집 |
+| <kbd>s</kbd> / <kbd>r</kbd> | 중지/다시 시작 |
+| <kbd>d</kbd> | 자동 시작 비활성화 |
+| <kbd>l</kbd> | 로그 |
+| <kbd>p</kbd> | 다중 계정 풀 켜기/끄기 |
+| <kbd>space</kbd> | 풀 구성원 일시 중지 또는 활성화 |
+| <kbd>f</kbd> | 풀의 장애 조치 가드 |
+
+## 상태 문자
+
+| 문양 | 앱 | 다른 곳 |
+| --- | --- | --- |
+| `●` | 준비 | 라이브/사용 |
+| `○` | 설정되지 않음/중지됨 | 저장/중지 |
+| `◐` | 주의 | 변경됨(실시간 로그인 ≠ 스냅샷) |
+| `×` | 실패 | 실패/사용 불가능 |
+
+`NO_COLOR=1`를 사용하면 모양에 여전히 의미가 있습니다. 일반 터미널은 `*`, `o`, `!`, `x`로 대체됩니다.
+
+## UI 닫기
+
+- <kbd>q</kbd> — 터미널 UI를 종료합니다. 기존 호환성 프로세스는 변경되지 않습니다.
+
+이러한 바로가기는 Xcode에서 실행된 `AnyPick.app`를 소유하거나 종료하지 않습니다. 기본 앱은 번들로 제공되는 Go 도우미를 소유하며 일반적인 앱 시작, 창 및 종료 동작을 통해 제어됩니다. [macOS 앱 및 메뉴 바](/ko/docs/guides/tray)를 참조하세요.
+
+스크립트용 명령(`anypick use claude --with grok/work`)과 동일한 경로 작성이 존재합니다. UI는 약한 모드가 아닙니다. 설치 및 최초 저장은 [시작하기](/ko/docs/getting-started)를, 풀과 허브는 [프록시](/ko/docs/guides/proxies)를 참조하세요.

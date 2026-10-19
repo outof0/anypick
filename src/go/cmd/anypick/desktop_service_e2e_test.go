@@ -96,6 +96,14 @@ func TestDesktopServiceCrossProcessCommandKinds(t *testing.T) {
 	writeServiceLine(t, p.stdin, "refresh")
 	_ = awaitServiceFrame(t, p, "snapshot-event")
 
+	writeServicePayload(t, p.stdin, "doctor", map[string]any{
+		"version": 1, "requestId": "doctor-1",
+	})
+	diagnosis := decodeServicePayload(t, awaitServiceFrame(t, p, "doctor"))
+	if diagnosis["requestId"] != "doctor-1" || diagnosis["findings"] == nil {
+		t.Fatalf("doctor response = %#v", diagnosis)
+	}
+
 	writeServicePayload(t, p.stdin, "logs", map[string]any{
 		"version": 1, "requestId": "logs-1", "providerId": "codex",
 		"name": "not-saved", "lines": 20,
@@ -153,7 +161,11 @@ func TestDesktopServiceCrossProcessCommandKinds(t *testing.T) {
 		t.Fatalf("gateway create result = %#v", created)
 	}
 	createdEvent := awaitServiceFrame(t, p, "snapshot-event")
-	if strings.Contains(createdEvent, fixtureSecret) {
+	createdPayload, err := json.Marshal(decodeServicePayload(t, createdEvent))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(createdPayload), fixtureSecret) {
 		t.Fatal("gateway secret crossed the desktop protocol boundary")
 	}
 
@@ -231,10 +243,14 @@ func TestDesktopServiceGeminiGatewayCreate(t *testing.T) {
 	// The gateway must surface as a gateway action in the post-mutation snapshot,
 	// and the secret must not cross the desktop boundary.
 	createdEvt := awaitServiceFrame(t, p, "snapshot-event")
-	if strings.Contains(createdEvt, gwKey) {
+	snap := decodeServicePayload(t, createdEvt)
+	snapshotJSON, err := json.Marshal(snap)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(snapshotJSON), gwKey) {
 		t.Fatal("gemini gateway api key crossed the desktop protocol boundary")
 	}
-	snap := decodeServicePayload(t, createdEvt)
 	inner, _ := snap["snapshot"].(map[string]any)
 	actions, _ := inner["actions"].([]any)
 	found := false

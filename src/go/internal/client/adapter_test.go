@@ -348,3 +348,46 @@ base_url = "https://example.test/v1"
 		t.Fatalf("managed model was duplicated:\n%s", text)
 	}
 }
+
+func TestClaudeInspectNativeRouting(t *testing.T) {
+	for _, tc := range []struct {
+		name, settings string
+		native         bool
+	}{
+		{"missing", "", true},
+		{"subscription", `{"model":"opus"}`, true},
+		{"empty env", `{"env":{}}`, true},
+		{"stale marker", `{"env":{},"_anypickManaged":{"keys":["ANTHROPIC_BASE_URL"]}}`, true},
+		{"managed proxy", `{"env":{"ANTHROPIC_BASE_URL":"http://127.0.0.1:1234","ANTHROPIC_AUTH_TOKEN":"test"},"_anypickManaged":{}}`, false},
+		{"external proxy", `{"env":{"ANTHROPIC_BASE_URL":"https://proxy.example"}}`, false},
+		{"api key", `{"env":{"ANTHROPIC_API_KEY":"test"}}`, false},
+		{"key helper", `{"apiKeyHelper":"my-helper"}`, false},
+		{"bedrock", `{"env":{"CLAUDE_CODE_USE_BEDROCK":"1"}}`, false},
+		{"vertex", `{"env":{"CLAUDE_CODE_USE_VERTEX":"1"}}`, false},
+		{"foundry", `{"env":{"CLAUDE_CODE_USE_FOUNDRY":"1"}}`, false},
+		{"oauth override", `{"env":{"CLAUDE_CODE_OAUTH_TOKEN":"test"}}`, false},
+		{"invalid", `{`, false},
+		{"null", `null`, false},
+		{"invalid env", `{"env":[]}`, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			home := t.TempDir()
+			if tc.settings != "" {
+				path := settingsPath(home)
+				if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(path, []byte(tc.settings), 0o600); err != nil {
+					t.Fatal(err)
+				}
+			}
+			result, err := newClaude(home).Inspect()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if result.Native != tc.native {
+				t.Fatalf("Native = %v, want %v: %+v", result.Native, tc.native, result)
+			}
+		})
+	}
+}

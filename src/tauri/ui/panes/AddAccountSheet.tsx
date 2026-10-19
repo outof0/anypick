@@ -259,8 +259,8 @@ export function AddAccountSheet({
     send('account-save', {
       providerId: provider.providerId,
       name: trimmed,
-      // macOS substitutes a readable sentence for a login it could not
-      // identify, so the saved snapshot always names something.
+      // This is a display hint for host compatibility. The service derives
+      // stored identity only from the provider's saved snapshot.
       identity: identity || `Current ${provider.label} login`,
       sourceId: localMethod?.sourceId || undefined,
     });

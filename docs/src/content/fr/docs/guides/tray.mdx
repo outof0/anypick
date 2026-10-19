@@ -1,0 +1,123 @@
+---
+title: 'Applications de bureau'
+description: 'L''application de bureau AnyPick sur macOS, Linux et Windows, comment elle possède le service Go fourni et le panneau rapide de la barre de menus macOS.'
+---
+
+AnyPick fournit deux frontaux natifs sur un moteur Go (ADR 0020) :
+
+| Plateforme | Front-end | Source |
+| --- | --- | --- |
+| macOS | Application SwiftUI avec un panneau rapide dans la barre de menus | `src/macos/` |
+| Linux, Windows | Application Tauri2 | `src/tauri/` |
+
+Les deux sont des avants, pas des moteurs. Ni l'un ni l'autre ne lit les informations d'identification et ne possède l'état AnyPick : chacun lance, établit une liaison avec, supervise et arrête le service Go fourni, puis restitue ce que ce service lui envoie (ADR 0019 §1).
+
+<Aside type="caution" title="Installer à partir du canal de publication">
+Les versions GitHub contiennent les installateurs macOS `.dmg`/`.zip`, Linux et Windows et les archives CLI. L'application macOS n'est pas notariée. Au premier lancement, cliquez avec le bouton droit sur `AnyPick.app` et choisissez **Ouvrir**, ou accédez à **Paramètres système → Confidentialité et sécurité → Ouvrir quand même**. Vous pouvez également exécuter `xattr -dr com.apple.quarantine /Applications/AnyPick.app`.
+</Aside>
+
+## L'application est propriétaire de son service
+
+Le cycle de vie est axé sur l'application :
+
+```text
+AnyPick.app  (or the Tauri app)
+├── main window
+├── macOS only: menu-bar quick panel
+└── bundled Go service, spawned as:
+    anypick desktop-service --stdio
+```
+
+Au lancement, l'application résout son exécutable Go fourni par rapport à son propre paquet et le démarre en tant qu'enfant. Une négociation de version et de fonctionnalité est terminée avant que les mutations ne soient activées. Les trames sont limitées et la sortie standard est uniquement réservée au protocole.
+
+L'application ne trouve **pas** le service sur `PATH`, ne se connecte pas à un démon permanent ou n'exécute pas de processus Node. Il n'y a pas d'API HTTP localhost, pas de socket et pas de gRPC - aucun d'entre eux nécessite un nouvel ADR accepté.
+
+Les sorties inattendues utilisent une politique de redémarrage limitée ; un assistant incompatible ou défaillant à plusieurs reprises met l’interface utilisateur dans un état dégradé plutôt que de passer silencieusement à un autre moteur.
+
+## macOS
+
+La fermeture de la fenêtre principale laisse l'application et ses services locaux fonctionner - l'élément de la barre de menus reste disponible. Choisissez **Quitter AnyPick** ou le bouton **Quitter** du panneau rapide pour arrêter le service groupé en douceur et terminer l'application.
+
+Sous Linux et Windows, il n'y a pas d'élément de barre de menu, donc la fermeture de la fenêtre ferme l'application et le side-car qui l'accompagne.
+
+### Fenêtre principale
+
+L'application macOS ouvre une fenêtre de gestion de style Paramètres système avec ces destinations de barre latérale :
+
+| Destination | Objectif |
+| --- | --- |
+| **Aperçu** | Progression de l'installation, diagnostics d'installation, attention et résumé du service |
+| **Applications** | Itinéraires clients actuels et sélection des sources |
+| **Comptes et API** | Connexions natives enregistrées et passerelles API |
+| **Hub proxy** | Point de terminaison local unifié, sources, modèles et cycle de vie |
+| **Proxies** | Les proxies par compte et leur cycle de vie |
+| **Activité** | Événements récents et journaux en direct limités |
+| **Sauvegardes** | Exporter, inspecter, importer et restaurer les comptes enregistrés |
+
+Les options à l'échelle de l'application se trouvent dans **Paramètres** (<kbd>⌘,</kbd>), une destination normale dans la barre latérale principale. Le volet groupé contient les préférences de démarrage et d'utilisation ; il vérifie également les versions de GitHub dans **Mises à jour**. Les téléchargements d'installation directe sont enregistrés et vérifiés par rapport à la somme de contrôle de la version, puis ouverts dans le Finder pour une installation manuelle. Les installations du gestionnaire de packages affichent leur commande de mise à niveau. Les paramètres ont également une action pour afficher à nouveau la liste de contrôle de démarrage. Les diagnostics d'installation sont disponibles dans Présentation.
+
+Dans **Comptes et API → Ajouter une connexion**, un fournisseur peut exposer une connexion au navigateur appartenant au fournisseur. AnyPick lance cette méthode, puis vérifie et enregistre les informations d'identification natives résultantes du fournisseur ; il n'imite pas les pages OAuth du fournisseur et ne demande pas le mot de passe du compte.
+
+### Panneau rapide de la barre de menus
+
+L'élément de la barre de menus est un panneau compact de la même application en cours d'exécution, et non une deuxième application. C'est **macOS uniquement**. Il peut :
+
+- afficher l'état de préparation/attention et rechercher des comptes ou des destinations enregistrés ;
+- afficher les itinéraires d'application actifs et les informations d'utilisation prises en charge ;
+- basculez une application prise en charge vers une autre source compatible ;
+- développez Proxy Hub et les lignes de proxy par compte pour le démarrage, l'arrêt et le redémarrage ;
+- ouvrez la fenêtre complète d'AnyPick ou quittez l'application.
+
+La configuration détaillée reste dans la fenêtre principale. L'icône de la barre de menus peut afficher un marqueur d'attention lorsqu'un itinéraire ou un service doit être révisé. Les états de première exécution et dégradés utilisent la même hiérarchie de vues de production que l’état prêt.
+
+### Lancement à la connexion
+
+La bascule native des paramètres utilise macOS `SMAppService`. Si macOS nécessite une approbation manuelle, AnyPick vous dirige vers **Paramètres système → Général → Éléments de connexion**. Il n'installe pas de LaunchAgent personnalisé à partir de l'interface utilisateur.
+
+## Exécuter à partir des sources
+
+**macOS** — nécessite macOS 14+, Xcode et un lanceur Go capable de sélectionner la chaîne d'outils épinglée par `src/go/go.mod` :
+
+```bash
+open src/macos/AnyPick.xcodeproj
+```
+
+Sélectionnez le schéma **AnyPick** partagé et exécutez. Une phase de construction installe l'exécutable Go à l'emplacement `AnyPick.app/Contents/Helpers/anypick-core`. Pour construire à partir de la ligne de commande, utilisez plutôt `make build-macos` ; `make test-macos` exécute les tests unitaires et le contrat d'assistance groupé, et `make verify-macos` affirme en outre que le bundle ne contient aucun moteur d'exécution Node.
+
+**Linux et Windows** — à partir de la racine du référentiel :
+
+```bash
+make run-tauri     # run against the real Go service
+make build-tauri   # package for this platform
+```
+
+### Aperçu des états de l'interface utilisateur sans compte réel
+
+Définissez-les dans le schéma Xcode (**Produit → Schéma → Modifier le schéma → Exécuter → Arguments → Variables d'environnement**), puis Exécuter. Ils pilotent un appareil en mémoire, donc aucun compte ni identifiant n'est nécessaire :
+
+| Variables | Valeurs |
+| --- | --- |
+| `ANYPICK_MACOS_FIXTURE` | `ready`, `loading`, `empty`, `error` |
+| `ANYPICK_MACOS_DESTINATION` | `overview`, `apps`, `accounts`, `proxyHub`, `proxies`, `activity`, `backups` |
+| `ANYPICK_MACOS_FLOW` | `add-account`, `add-gateway`, `tray`, `tray-attention`, `tray-use-with`, `tray-switching`, `tray-recovery` et autres |
+| `ANYPICK_MACOS_APPEARANCE` | `system`, `light`, `dark` |
+| `ANYPICK_MACOS_RENDER_PATH` | un chemin — rend la fenêtre au format PNG et quitte |
+
+Prévisualisez l'appareil plutôt qu'une capture d'écran d'une session précédente : une capture d'écran gèle le design au moment où il a été pris, et pas l'appareil.
+
+## Interface utilisateur du terminal
+
+L’interface utilisateur du terminal est une surface distincte qui ne fait pas partie de l’application. Créez la CLI et exécutez-la :
+
+```bash
+make build          # -> src/go/bin/anypick-dev
+./src/go/bin/anypick-dev tui
+```
+
+ou `make run ARGS="tui"`. Le TUI communique avec le même service Go, mais il ne lance, ne supervise ni n'arrête une application de bureau ouverte séparément ; la fermeture du TUI ne ferme pas l'application et la fermeture de l'application ne ferme pas le TUI.
+
+## Limite de sécurité
+
+Les informations d’identification et les jetons du porteur de proxy par instance restent dans le service Go. Les instantanés de bureau contiennent des identifiants d'état sécurisés et d'action opaques, et non des informations d'identification brutes enregistrées. La connexion stdio de l'assistant est privée à son application propriétaire et ne constitue pas une API d'intégration documentée.
+
+Voir [Applications et interface utilisateur du terminal](/fr/docs/guides/terminal-ui) pour le flux de travail du terminal et [Proxies](/fr/docs/guides/proxies) pour le comportement du proxy et du Hub.

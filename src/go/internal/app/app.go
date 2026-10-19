@@ -326,6 +326,7 @@ func (a *App) compose() error {
 	a.BindingSvc = bindingSvc
 	a.CodexProfileSvc = client.NewProfileService(clientProfileStore)
 	svc.SetAfterSwitch(a.BindingSvc.RealignNativeClientBinding)
+	svc.SetAfterSnapshotChange(a.refreshCodexProfilesForAccount)
 	// Deleting an account must take its named native profiles with it: a Codex
 	// profile whose route is codex/<name> owns a private CODEX_HOME holding
 	// that account's credential, and nothing else can reach it once the row is

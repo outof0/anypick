@@ -27,6 +27,7 @@ type codeAssistQuotaServer struct {
 	project       string
 	buckets       []map[string]interface{}
 	summaryGroups []map[string]interface{}
+	models        map[string]interface{}
 	status        int // applies to every endpoint when non-zero
 	summaryStatus int // overrides status for retrieveUserQuotaSummary
 	quotaStatus   int // overrides status for retrieveUserQuota
@@ -47,6 +48,8 @@ func (s *codeAssistQuotaServer) start(t *testing.T) *httptest.Server {
 			_ = json.NewEncoder(w).Encode(map[string]string{
 				"cloudaicompanionProject": s.project,
 			})
+		case strings.HasSuffix(r.URL.Path, "fetchAvailableModels"):
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{"models": s.models})
 		case strings.HasSuffix(r.URL.Path, "retrieveUserQuotaSummary"):
 			s.summaryCalls++
 			_ = json.NewDecoder(r.Body).Decode(&s.quotaBody)
@@ -121,8 +124,8 @@ func TestGeminiLiveUsageReadsCodeAssistQuota(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LiveUsage: %v", err)
 	}
-	if usage == nil || len(usage.Windows) != 2 {
-		t.Fatalf("windows = %+v, want two grouped windows", usage)
+	if usage == nil || len(usage.Windows) != 3 {
+		t.Fatalf("windows = %+v, want every model window", usage)
 	}
 	if server.loadCalls != 1 || server.quotaCalls != 1 {
 		t.Fatalf("load=%d quota=%d, want one call each", server.loadCalls, server.quotaCalls)
@@ -137,12 +140,11 @@ func TestGeminiLiveUsageReadsCodeAssistQuota(t *testing.T) {
 	if metadata == nil || metadata["ideType"] != "GEMINI_CLI" {
 		t.Fatalf("loadCodeAssist metadata = %v", server.loadBody["metadata"])
 	}
-	// Buckets that share a fraction and reset instant collapse to a family
-	// label; a bucket with a different fraction keeps its own model id.
-	if usage.Windows[0].Label != "Gemini (2)" || usage.Windows[0].RemainingPercent != 42 {
+	// Identical percentages and resets do not prove shared quota.
+	if usage.Windows[0].Label != "gemini-2.5-pro" || usage.Windows[0].RemainingPercent != 42 {
 		t.Fatalf("grouped window = %+v", usage.Windows[0])
 	}
-	if usage.Windows[1].Label != "claude-sonnet-4" || usage.Windows[1].RemainingPercent != 90 {
+	if usage.Windows[2].Label != "claude-sonnet-4" || usage.Windows[2].RemainingPercent != 90 {
 		t.Fatalf("single window = %+v", usage.Windows[1])
 	}
 	if usage.Windows[0].ResetsAtMs == nil {
@@ -150,25 +152,55 @@ func TestGeminiLiveUsageReadsCodeAssistQuota(t *testing.T) {
 	}
 }
 
-func TestGeminiLiveUsageSkipsExpiredTokenWithoutRefreshing(t *testing.T) {
+func TestGeminiLiveUsageRefreshesExpiredGrantInMemory(t *testing.T) {
 	t.Setenv("GEMINI_CONFIG_DIR", "")
 	t.Setenv("GEMINI_CLI_HOME", "")
 	t.Setenv("ANTIGRAVITY_USER_DATA_DIR", "")
 	home := t.TempDir()
-	writeGeminiCLICredential(t, home, "cli-access", "cli-refresh", time.Now().Add(-time.Hour))
-
-	server := &codeAssistQuotaServer{project: "projects/123"}
-	server.start(t)
-
-	usage, err := newGemini(home).LiveUsage(context.Background())
+	writeGeminiCLICredential(t, home, "expired-access", "cli-refresh", time.Now().Add(-time.Hour))
+	path := filepath.Join(home, ".gemini", "oauth_creds.json")
+	before, err := os.ReadFile(path)
 	if err != nil {
-		t.Fatalf("LiveUsage: %v", err)
+		t.Fatal(err)
 	}
-	if usage != nil {
-		t.Fatalf("expired login must not report usage: %+v", usage)
+	refreshCalls := 0
+	tokenServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		refreshCalls++
+		if err := r.ParseForm(); err != nil {
+			t.Fatal(err)
+		}
+		if r.Form.Get("refresh_token") != "cli-refresh" && r.Form.Get("refresh_token") != "other-refresh" {
+			t.Error("wrong grant")
+		}
+		if r.Form.Get("client_id") != geminiOAuthClientID {
+			t.Error("wrong OAuth profile")
+		}
+		_, _ = w.Write([]byte(`{"access_token":"quota-only-token","expires_in":3600}`))
+	}))
+	defer tokenServer.Close()
+	t.Setenv("GEMINI_TOKEN_ENDPOINT", tokenServer.URL)
+	quota := &codeAssistQuotaServer{project: "projects/123", buckets: []map[string]interface{}{{"modelId": "gemini-pro", "remainingFraction": 0}}}
+	quota.start(t)
+	p := newGemini(home)
+	for range 2 {
+		usage, err := p.LiveUsage(context.Background())
+		if err != nil || usage == nil || len(usage.Windows) != 1 || usage.Windows[0].RemainingPercent != 0 {
+			t.Fatalf("usage=%+v err=%v", usage, err)
+		}
 	}
-	if server.loadCalls != 0 || server.quotaCalls != 0 {
-		t.Fatalf("quota polling must not refresh: load=%d quota=%d", server.loadCalls, server.quotaCalls)
+	if refreshCalls != 1 || quota.authorize != "Bearer quota-only-token" {
+		t.Fatalf("refresh=%d auth=%q", refreshCalls, quota.authorize)
+	}
+	after, _ := os.ReadFile(path)
+	if string(before) != string(after) {
+		t.Fatal("quota polling changed native credentials")
+	}
+	writeGeminiCLICredential(t, home, "expired-other", "other-refresh", time.Now().Add(-time.Hour))
+	if _, err := p.LiveUsage(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if refreshCalls != 2 {
+		t.Fatal("cached quota token survived an account switch")
 	}
 }
 
@@ -350,6 +382,7 @@ func TestGeminiLiveUsagePrefersQuotaSummary(t *testing.T) {
 
 	server := &codeAssistQuotaServer{
 		project: "projects/9",
+		models:  map[string]interface{}{"gemini-pro": map[string]interface{}{"displayName": "Gemini Pro", "modelProvider": "MODEL_PROVIDER_GOOGLE", "quotaInfo": map[string]interface{}{"remainingFraction": 0.62, "resetTime": "2026-10-17T00:00:00Z"}}},
 		summaryGroups: []map[string]interface{}{
 			{
 				"displayName": "Gemini Models",
@@ -373,7 +406,7 @@ func TestGeminiLiveUsagePrefersQuotaSummary(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LiveUsage: %v", err)
 	}
-	if usage == nil || len(usage.Windows) != 2 {
+	if usage == nil || len(usage.Windows) != 3 {
 		t.Fatalf("windows = %+v", usage)
 	}
 	if server.summaryCalls != 1 || server.quotaCalls != 0 {
@@ -381,6 +414,9 @@ func TestGeminiLiveUsagePrefersQuotaSummary(t *testing.T) {
 	}
 	if usage.Windows[0].Group != "Gemini Models" || usage.Windows[0].RemainingPercent != 95 {
 		t.Fatalf("summary window = %+v", usage.Windows[0])
+	}
+	if usage.Windows[2].Label != "Gemini Pro" || usage.Windows[2].RemainingPercent != 62 {
+		t.Fatalf("model quota missing: %+v", usage.Windows)
 	}
 }
 
@@ -477,5 +513,23 @@ func TestParseGeminiQuotaSummaryAcceptsStringFraction(t *testing.T) {
 	}
 	if usage.Windows[0].RemainingPercent != 48 {
 		t.Fatalf("string fraction = %+v", usage.Windows[0])
+	}
+}
+
+func TestGeminiModelQuotaKeepsNativeLabelsAndIndependentLimits(t *testing.T) {
+	windows := parseGeminiModelQuota([]byte(`{"models":{
+ "alias-a":{"displayName":"Gemini Flash","modelProvider":"MODEL_PROVIDER_GOOGLE","quotaInfo":{"remainingFraction":0.75,"resetTime":"2026-10-17T00:00:00Z"}},
+ "alias-b":{"displayName":"Gemini Flash","modelProvider":"MODEL_PROVIDER_GOOGLE","quotaInfo":{"remainingFraction":0.75,"resetTime":"2026-10-17T00:00:00Z"}},
+ "pro":{"displayName":"Gemini Pro","modelProvider":"MODEL_PROVIDER_GOOGLE","quotaInfo":{"remainingFraction":0.75,"resetTime":"2026-10-17T00:00:00Z"}},
+ "claude":{"displayName":"Claude","modelProvider":"MODEL_PROVIDER_ANTHROPIC","quotaInfo":{"remainingFraction":1}},
+ "bad":{"displayName":"Bad","modelProvider":"MODEL_PROVIDER_GOOGLE","quotaInfo":{"remainingFraction":"bad"}}
+ }}`))
+	if len(windows) != 2 || windows[0].Label != "Gemini Flash" || windows[1].Label != "Gemini Pro" {
+		t.Fatalf("windows=%+v", windows)
+	}
+	for _, window := range windows {
+		if window.RemainingPercent != 75 || window.Group != "Gemini models" || window.ResetsAtMs == nil || window.LimitWindowSeconds != nil {
+			t.Fatalf("window=%+v", window)
+		}
 	}
 }

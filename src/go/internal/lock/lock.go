@@ -4,6 +4,7 @@ package lock
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"sort"
@@ -125,6 +126,25 @@ func MutationLockPath(root, scope string) string {
 
 type heldKey struct{}
 
+type afterMutationKey struct{}
+type afterMutationQueue struct {
+	mu        sync.Mutex
+	callbacks []func(context.Context) error
+}
+
+// AfterMutation runs derived work after the outermost coordinator releases its
+// locks. Acquiring profile locks while a caller still holds a provider lock
+// reverses the global acquisition order (ADR 0009).
+func AfterMutation(ctx context.Context, fn func(context.Context) error) error {
+	if queue, ok := ctx.Value(afterMutationKey{}).(*afterMutationQueue); ok {
+		queue.mu.Lock()
+		queue.callbacks = append(queue.callbacks, fn)
+		queue.mu.Unlock()
+		return nil
+	}
+	return fn(ctx)
+}
+
 // HeldLocks returns the resolved lock paths held by ctx.
 func HeldLocks(ctx context.Context) map[string]bool {
 	if held, ok := ctx.Value(heldKey{}).(map[string]bool); ok {
@@ -166,7 +186,21 @@ func WithMutationLock(ctx context.Context, root, scope string, fn func(ctx conte
 // nested service calls receive the enriched ctx.
 // A timeout of 0 means the default (5s); pass -1 or AcquireFileLock(…,0)
 // directly for try-lock.
-func WithMutationLocks(ctx context.Context, root string, scopes []string, fn func(context.Context) error, timeout time.Duration) error {
+func WithMutationLocks(ctx context.Context, root string, scopes []string, fn func(context.Context) error, timeout time.Duration) (result error) {
+	if _, nested := ctx.Value(afterMutationKey{}).(*afterMutationQueue); !nested {
+		outer := ctx
+		queue := &afterMutationQueue{}
+		ctx = context.WithValue(ctx, afterMutationKey{}, queue)
+		// Registered before releaseAll's defer, so derived work runs unlocked.
+		defer func() {
+			queue.mu.Lock()
+			callbacks := append([]func(context.Context) error(nil), queue.callbacks...)
+			queue.mu.Unlock()
+			for _, callback := range callbacks {
+				result = errors.Join(result, callback(outer))
+			}
+		}()
+	}
 	if timeout == 0 {
 		timeout = defaultTimeout
 	}

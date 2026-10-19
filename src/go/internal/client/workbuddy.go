@@ -516,5 +516,7 @@ func (a *workbuddyAdapter) Inspect() (*InspectResult, error) {
 	default:
 		res.Summary = "models.json present (no AnyPick entry)"
 	}
+	res.Native = !managed && len(res.Issues) == 0
+	res.RoutingChanged = res.Native && res.Present
 	return res, nil
 }

@@ -1,0 +1,137 @@
+---
+title: 'Solución de problemas'
+description: 'Qué comprueba `anypick doctor`, qué corrige y qué no, y cómo interpretar un error.'
+---
+
+## Comience ejecutando `anypick doctor`
+
+```bash
+anypick doctor
+anypick doctor --fix --dry-run
+anypick doctor --fix -y
+```
+
+`doctor` inspecciona toda la instalación, no se limita a un solo cliente o proveedor. Comprueba el directorio de datos de AnyPick, la base de datos SQLite, las cuentas y puertas de enlace guardadas, los permisos de archivos, los registros PID, los servidores proxy en ejecución y cualquier entrada del diario de operaciones que no haya finalizado.
+
+## Qué puede tocar `--fix`
+
+`--fix` funciona a partir de una lista de seis acciones permitidas. Puede:
+
+- eliminar un archivo PID obsoleto
+- detener un proxy huérfano
+- eliminar una superposición de cliente temporal dejada por `run`
+- reparar permisos en rutas propiedad de AnyPick
+- reconstruir cachés derivados
+- completar una reversión de diario interrumpida
+
+No cambiará de cuenta, no instalará paquetes, no tocará archivos de autenticación nativos ni cambiará sus vínculos. Todo lo que esté fuera de la lista de permitidos se informa como **solo manual**, con la sugerencia impresa al lado; la interfaz de usuario del terminal muestra la misma división.
+
+La acción de superposición temporal es la que se debe leer con atención. Una superposición es un directorio bajo el directorio temporal del sistema, y ​​nada en él registra qué proceso es el propietario, por lo que `--fix` lo juzga solo por su antigüedad y rechaza cualquier modificación en la última hora. Una sesión larga `anypick run` puede durar más de esa hora, y la reparación eliminaría la casa aislada de un cliente en ejecución. Si tiene abierto un `run` de larga duración, omita esta acción y elimine el directorio manualmente una vez que finalice la sesión. Cualquier otra acción de la lista demuestra que su objetivo está muerto antes de tocarlo.
+
+Un archivo de bloqueo obsoleto deliberadamente **no** está en la lista. Los bloqueos de AnyPick son descriptores `flock(2)` que el kernel libera cuando finaliza el proceso de retención, por lo que una falla no deja nada obsoleto que eliminar, y una "reparación" que eliminó un archivo de bloqueo que aún retiene un proceso activo derrotaría al coordinador que evita que los cambios concurrentes de cuentas se corrompan entre sí (ADR 0009). Un borrador anterior de esta página prometía la acción; no puede existir.
+
+<Aside type="tip" title="Vista previa primero">
+`anypick doctor --fix --dry-run` imprime exactamente qué acciones incluidas en la lista permitida se ejecutarían. Vale la pena hacerlo una vez para que la lista de permitidos deje de ser abstracta.
+</Aside>
+
+## Lectura de códigos de salida
+
+| Código | Significado | Causa habitual |
+| --- | --- | --- |
+| `1` | Fallo operativo | Error de ejecución inesperado durante un comando |
+| `2` | Uso no válido | `use` sin `--with` o `--current`, o una mala bandera |
+| `3` | No encontrado | La cuenta, la puerta de enlace, el preset o el nombre del cliente no existen |
+| `4` | Se requiere autenticación | Falta una clave de inicio de sesión o API o ha caducado |
+| `5` | Conflicto de capacidad | La fuente no puede atender a ese cliente o no existe ningún vínculo |
+| `6` | Fallo de salud | Un control de salud falló |
+| `7` | Dependencia faltante | No está instalado un proxy binario externo, como `kirolink` |
+| `8` / `9` | Importación rechazada | Sobre de exportación incorrecto o el archivo es demasiado grande |
+| `130` | Cancelado | Presionaste Ctrl-C |
+
+## Situaciones comunes
+
+### Un cliente se inicia pero ignora la fuente
+
+Compruebe lo que realmente está vigente: un vínculo de proyecto en el directorio actual supera su valor predeterminado global:
+
+```bash
+anypick current claude
+```
+
+Si un vínculo de proyecto obsoleto gana, `anypick unlink claude` lo elimina.
+
+### `run` sale 5 sin vínculo
+
+No existe ningún vínculo efímero, de proyecto o global para ese cliente. Establecer uno:
+
+```bash
+anypick use claude --with grok/work
+```
+
+### Un proxy no se inicia
+
+Mire el registro, luego el puerto:
+
+```bash
+anypick proxy status gemini work
+anypick proxy logs gemini work --lines 100
+anypick proxy config gemini work --port 4131     # move it
+```
+
+Un puerto configurado que ya está retenido ya no falla en el inicio: AnyPick mueve el proxy a un puerto libre, lo conserva, reescribe los clientes vinculados e informa el movimiento como una advertencia. Un proxy abandonado de una sesión anterior aún se puede detener nombrándolo: `anypick proxy stop gemini work`. No existe una forma de "detener todo"; el comando `anypick proxy` sin argumentos imprime su uso.
+
+### El proxy Gemini rechaza un modelo
+
+Una cuenta Gemini solo de OAuth puede iniciar sesión en un cliente, pero no puede controlar el proxy, que necesita `GEMINI_API_KEY` en el inicio de sesión guardado `.env`. Si ambos inicios de sesión existen, guarde la fuente que debe servir el proxy:
+
+```bash
+anypick add account gemini --current --source gemini-cli --name work
+anypick add account gemini --current --source antigravity --name work
+```
+
+### El inicio de sesión guardado y el inicio de sesión en vivo no coinciden
+
+La interfaz de usuario del terminal marca esto `◐ changed`. Significa que la CLI del proveedor escribió una nueva credencial después de que AnyPick tomó su instantánea. Adopte el nuevo:
+
+```bash
+anypick account refresh codex
+```
+
+### Dos cuentas guardadas comparten una instantánea
+
+`anypick doctor` informa `duplicate-snapshot` cuando dos nombres para el mismo proveedor contienen la misma instantánea de credencial. Cambiar entre ellos no puede cambiar el inicio de sesión. AnyPick se niega a crear nuevos pares y solo le pide que limpie los guardados anteriormente:
+
+```bash
+anypick doctor --json                          # exact names, and which to keep
+anypick account remove workbuddy/work
+```
+
+`anypick doctor` indica qué cuenta conservar como `keep <provider>/<account>` e imprime los comandos de eliminación. Cuando ambos nombres están activos (uno activo y otro aún referenciado por un vínculo de cliente), pide volver a vincular los clientes a una sola cuenta en vez de imprimir comandos de eliminación, para que la limpieza no interrumpa una ruta.
+
+### Los servidores proxy siguen ejecutándose después de cerrar la interfaz de usuario
+
+Cerrar la ventana principal de la aplicación nativa no cierra la aplicación. Utilice **Salir de AnyPick** desde la aplicación o el panel rápido de la barra de menú para detener elegantemente el servicio Go incluido.
+
+Cerrar la TUI de origen también deja sin cambios los procesos de compatibilidad existentes. Para detener ese supervisor de compatibilidad de este pago:
+
+```bash
+make run ARGS="tray stop"
+```
+
+`make run ARGS="proxy stop"` deja de ejecutar servidores proxy de cuenta directamente. La TUI inicia su supervisor de compatibilidad solo cuando presiona explícitamente <kbd>Shift+D</kbd> o lo inicia desde la pantalla de ejecución de la bandeja; no controla un `AnyPick.app` lanzado por separado.
+
+### Una activación falló a mitad de camino
+
+Los pasos de activación mutantes se registran en un diario de operaciones con rutas de respaldo, por lo que una activación fallida restaura el estado anterior: configuración del cliente, autenticación nativa y cualquier proxy que haya iniciado. Si el proceso finalizó antes de que pudiera finalizar la reversión, `anypick doctor --fix` lo completa.
+
+Un cambio de cuenta es la misma transacción: si la cuenta recién seleccionada no se puede aplicar a los clientes vinculados, el puntero activo, el vínculo del cliente y el proxy de la cuenta anterior se restauran y el error así lo indica. Nunca debería ver la aplicación reclamar una nueva cuenta activa mientras un cliente todavía apunta al antiguo proxy.
+
+## Profundizando más
+
+```bash
+anypick --trace use claude --with grok/work    # name each step, no secrets
+anypick proxy status <provider> <account>      # live listener state
+anypick doctor --json                          # machine-readable findings
+```
+
+`--trace` imprime el plan de activación paso a paso, que suele ser suficiente para ver qué etapa falló. Combínelo con `--dry-run` para ver el plan sin ejecutarlo.

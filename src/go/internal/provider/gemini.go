@@ -14,7 +14,10 @@ import (
 
 // gemini manages Gemini's local account sources: gemini-cli's ~/.gemini store
 // plus Antigravity's IDE state/keychain login.
-type gemini struct{ home string }
+type gemini struct {
+	home      string
+	usageAuth geminiUsageAuth
+}
 
 func newGemini(home string) *gemini { return &gemini{home: home} }
 

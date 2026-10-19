@@ -1508,6 +1508,40 @@ final class AnyPickTests: XCTestCase {
     XCTAssertTrue(model.usageWindows(for: saved).isEmpty)
   }
 
+  @MainActor
+  func testProductionAccountQuotaDoesNotDependOnInstalledApps() async throws {
+    let (store, model, _) = makeProductionHarness()
+    let windows: [[String: Any]] = [
+      ["label": "5h", "remainingPercent": 54, "limitWindowSeconds": 18000],
+      ["label": "Weekly", "remainingPercent": 34, "limitWindowSeconds": 604800],
+      ["label": "Fable · Weekly", "remainingPercent": 58, "limitWindowSeconds": 604800],
+    ]
+    let payload: [String: Any] = [
+      "revision": 1, "proxyCount": 0, "routes": [], "actions": [], "proxies": [],
+      "accounts": [
+        ["id": "claude/work", "providerId": "claude", "name": "work", "label": "work", "detail": "", "active": true, "canRefresh": true, "switchActionId": ""],
+        ["id": "gemini/work", "providerId": "gemini", "name": "work", "label": "work", "detail": "", "active": true, "canRefresh": true, "switchActionId": ""],
+        ["id": "claude/other", "providerId": "claude", "name": "other", "label": "other", "detail": "", "active": false, "canRefresh": true, "switchActionId": ""],
+      ],
+      "usage": [
+        ["providerId": "claude", "client": "Claude", "account": "work", "windows": windows],
+        ["providerId": "gemini", "client": "Gemini", "account": "work", "windows": [["label": "Weekly Limit Remaining", "remainingPercent": 73, "group": "Gemini models", "limitWindowSeconds": 604800]]],
+      ],
+      "gateways": [], "accountProviders": [], "gatewayProviders": [], "activity": [],
+      "settings": ["launchAtLogin": false, "startEnabledProxies": false, "showQuota": true, "quotaGuardEnabled": false],
+    ]
+    store.consume(Data((try frame("snapshot", payload) + "\n").utf8))
+    await waitUntil(model.accountUsage?["claude/work"]?.count == 3)
+    XCTAssertTrue(model.apps.isEmpty)
+    let claude = try XCTUnwrap(model.accounts.first { $0.id == "claude/work" })
+    let gemini = try XCTUnwrap(model.accounts.first { $0.id == "gemini/work" })
+    let other = try XCTUnwrap(model.accounts.first { $0.id == "claude/other" })
+    XCTAssertEqual(model.usageWindows(for: claude).map(\.remainingPercent), [54, 34, 58])
+    XCTAssertEqual(model.usageWindows(for: gemini).map(\.remainingPercent), [73])
+    XCTAssertTrue(model.usageWindows(for: other).isEmpty)
+    XCTAssertEqual(localizedQuotaWindowLabel(model.usageWindows(for: claude)[2], using: model), "Fable · Weekly")
+  }
+
   // Welcome's Add Login… must land on the Add sheet in Accounts. The sheet's
   // isPresented binding calls dismissFirstRunWelcome again as it closes; that
   // second call used to reset the destination to Overview.

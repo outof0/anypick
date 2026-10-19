@@ -22,8 +22,7 @@
     "editThisPage": "Editar esta página",
     "siteNavigation": "Navegação do site",
     "navigation": "Navegação",
-    "closeSidebar": "Fechar a barra lateral",
-    "englishContent": "O conteúdo desta página está disponível atualmente em inglês."
+    "closeSidebar": "Fechar a barra lateral"
   },
   "search": {
     "label": "Pesquisar na documentação",
@@ -72,5 +71,158 @@
     "tabs": "Gerenciador de pacotes",
     "copy": "Copiar para a área de transferência",
     "copied": "Copiado para a área de transferência"
+  },
+  "docsNav": {
+    "appsTerminalUi": "Apps e interface do terminal",
+    "guides": "Guias",
+    "reference": "Referência"
+  },
+  "landing": {
+    "meta": {
+      "title": "Alterne contas de IA para programação em um app local | AnyPick",
+      "description": "Gerencie contas de IA para programação e gateways de API em um app local. Escolha rotas compatíveis para o app inteiro, um projeto ou uma sessão do terminal.",
+      "socialAlt": "Visão geral do AnyPick com ferramentas de programação compatíveis, rotas de contas e serviços locais."
+    },
+    "hero": {
+      "eyebrow": "O seletor local de contas para ferramentas de programação com IA",
+      "titleStart": "Troque de conta.",
+      "titleEnd": "Continue programando.",
+      "lede": "Conta de trabalho, pessoal ou seu próprio gateway de API. Escolha quais contas Claude Code, Codex e outras ferramentas compatíveis usam em um app local, sem editar arquivos de configuração manualmente.",
+      "primary": "Use o AnyPick grátis",
+      "secondary": "Veja como funciona",
+      "platforms": "macOS · Linux · Windows",
+      "openSource": "Grátis e de código aberto",
+      "noCloud": "Sem nuvem do AnyPick",
+      "overviewAlt": "Visão geral do AnyPick com Claude Code, OpenAI Codex e OpenCode usando contas salvas, além do status do proxy local e das trocas recentes. Dados de demonstração.",
+      "trayAlt": "Painel do AnyPick na barra de menus com contas salvas e troca rápida para Claude Code e OpenAI Codex. Dados de demonstração.",
+      "caption": "App para desktop · contas de demonstração"
+    },
+    "proof": {
+      "aria": "Informações do produto",
+      "clientsTitle": "11 ferramentas de programação compatíveis",
+      "clientsBody": "Continue usando as ferramentas que você já instalou.",
+      "localTitle": "Suas contas ficam no seu computador",
+      "localBody": "Não precisa de conta do AnyPick nem de relay hospedado.",
+      "licenseTitle": "Código aberto · MIT",
+      "licenseBody": "Os lançamentos incluem checksums e uma SBOM."
+    },
+    "workflow": {
+      "kicker": "Feito para o seu dia de trabalho",
+      "title": "Uma conta para o trabalho, outra para este repositório.",
+      "body": "Mantenha separadas as contas pessoais e de trabalho. Use uma conta própria em cada repositório. Teste um gateway de API em uma execução. Escolha o alcance de cada troca.",
+      "projectLink": "Como funcionam os vínculos por projeto",
+      "routesLabel": "Exemplos de rotas",
+      "routeDefault": "Padrão para um app",
+      "routeProject": "Somente neste projeto",
+      "routeSession": "Uma sessão do terminal",
+      "stepsLabel": "Como começar",
+      "saveTitle": "Salve um login",
+      "saveBody": "Adicione um login existente de provedor ou um gateway de API em Contas e APIs.",
+      "toolTitle": "Escolha sua ferramenta",
+      "toolBody": "Selecione uma fonte compatível salva em Apps e revise o plano de alterações.",
+      "applyTitle": "Continue programando",
+      "applyBody": "Aplique a alteração e use sua ferramenta. Execute anypick reset para restaurar as configurações salvas."
+    },
+    "safety": {
+      "kicker": "Altere com segurança. Desfaça quando quiser.",
+      "title": "As configurações continuam sendo suas.",
+      "reviewTitle": "Revise antes de aplicar",
+      "reviewBody": "O app para desktop mostra em um plano as etapas de conta, modelo, proxy e configuração do cliente.",
+      "configTitle": "Mantenha o restante da sua configuração",
+      "configBody": "O AnyPick acompanha as configurações que gerencia e pergunta antes de assumir as que não escreveu.",
+      "restoreTitle": "Restaure quando quiser",
+      "restoreBody": "Use anypick reset para restaurar o estado salvo de um app. As credenciais ficam no diretório local de dados do AnyPick.",
+      "accountAlt": "Tela Contas e APIs do AnyPick com logins de provedores salvos e um gateway de API. Nomes e detalhes são dados de demonstração."
+    },
+    "compatibility": {
+      "kicker": "Compatibilidade",
+      "title": "Ferramentas compatíveis que respeitam as regras dos provedores.",
+      "body": "O AnyPick só oferece rotas compatíveis nas duas pontas da conexão. Nem todas as contas podem ser usadas da mesma forma.",
+      "clients": "Ferramentas de programação compatíveis",
+      "claudeRule": "Logins do Claude ficam no Claude Code. Gemini CLI e Kiro usam suas próprias contas de provedor.",
+      "otherRule": "Outras ferramentas compatíveis podem usar algumas contas externas ou gateways de API.",
+      "reference": "Veja a referência de compatibilidade"
+    },
+    "install": {
+      "kicker": "App para desktop ou terminal",
+      "title": "Comece pelo app ou continue no terminal.",
+      "body": "Revise planos de rotas no app para desktop ou execute o mesmo mecanismo Go no terminal. Esta gravação mostra a CLI com contas de demonstração isoladas.",
+      "demoTitle": "anypick 1.1.0 · demonstração em sandbox",
+      "videoAlt": "Demonstração da CLI: listar contas salvas, adicionar um gateway OpenRouter, direcionar Claude Code por ele e restaurar as configurações originais.",
+      "demoCaption": "Saída real da CLI · AnyPick 1.1.0 · contas de sandbox",
+      "desktop": "App para desktop",
+      "desktopTitle": "Escolha uma conta. Visualize. Aplique.",
+      "desktopBody": "Gerencie contas e revise alterações em uma interface visual. Disponível para macOS, Linux e Windows.",
+      "download": "Baixar o app para desktop",
+      "downloadNote": "Escolha o instalador do seu sistema no GitHub Releases.",
+      "cli": "Instalar a CLI",
+      "method": "Escolha um método de instalação",
+      "copy": "Copiar",
+      "copyCommand": "Copiar comando de instalação do {{name}}",
+      "brewBefore": "App para desktop: execute brew install --cask outof0/tap/anypick ou baixe o ",
+      "brewLink": "DMG no GitHub Releases",
+      "brewAfter": ".",
+      "linuxBefore": "Ou baixe o pacote CLI ou o app para desktop em ",
+      "linuxLink": "GitHub Releases",
+      "linuxAfter": " (.deb, .rpm, AppImage, tarball).",
+      "windowsBefore": "Os instaladores do app para desktop estão no ",
+      "windowsLink": "GitHub Releases",
+      "windowsAfter": ".",
+      "npmHint": "Requer Node 18 ou posterior. O launcher baixa e verifica a CLI nativa correspondente.",
+      "firstRun": "Após instalar, execute",
+      "guide": "Leia o guia de 5 minutos",
+      "copied": "Copiado",
+      "copyStatus": "Comando de instalação copiado para a área de transferência.",
+      "copyFailed": "O acesso à área de transferência não está disponível.",
+      "picker": "para abrir o seletor de contas."
+    },
+    "faq": {
+      "kicker": "Alguns detalhes práticos",
+      "title": "Antes de trocar.",
+      "freeQ": "O AnyPick é grátis?",
+      "freeA": "Sim. O AnyPick é gratuito e de código aberto sob a licença MIT. Você usa suas próprias contas ou chaves de API; as cobranças de assinatura e uso do provedor continuam valendo.",
+      "accountsQ": "Quais contas posso usar com cada ferramenta de programação?",
+      "accountsA": "As rotas disponíveis dependem do cliente e do adaptador de conta. Logins do Claude ficam no Claude Code; Gemini CLI e Kiro usam suas próprias contas. A {{accountsALink}} lista as combinações compatíveis.",
+      "accountsALink": "referência de compatibilidade",
+      "relayQ": "O AnyPick envia prompts pelos próprios servidores?",
+      "relayA": "Não. O AnyPick não tem relay hospedado. Quando duas ferramentas usam protocolos de API diferentes, o serviço Go local executa o tradutor em loopback e envia as solicitações ao provedor escolhido.",
+      "credentialsQ": "Onde as credenciais são armazenadas?",
+      "credentialsA": "O AnyPick armazena os dados da conta localmente em ~/.anypick. Os backups são JSON legíveis com credenciais ativas; mantenha-os privados.",
+      "macQ": "Por que o macOS avisa ao abrir o app?",
+      "macA": "O app ainda não foi notarizado. Clique com o botão direito e escolha Open, ou acesse System Settings → Privacy & Security → Open Anyway. A CLI pode ser instalada separadamente."
+    },
+    "final": {
+      "kicker": "Sua próxima troca de conta começa aqui",
+      "titleStart": "Menos edição de configuração.",
+      "titleEnd": "Mais programação.",
+      "body": "Use as contas que você já tem. Comece com uma ferramenta e um login salvo.",
+      "cta": "Use o AnyPick grátis",
+      "guide": "Leia o guia de configuração",
+      "meta": "Licença MIT · Sem cadastro no AnyPick · Executado localmente"
+    },
+    "footer": {
+      "home": "Página inicial do AnyPick",
+      "navigation": "Rodapé",
+      "docs": "Documentação",
+      "changelog": "Registro de alterações",
+      "security": "Segurança",
+      "license": "Licença MIT"
+    }
+  },
+  "downloads": {
+    "kicker": "Baixar AnyPick",
+    "title": "Sua próxima troca de conta começa aqui.",
+    "body": "App desktop gratuito. Escolha sua plataforma, instale e adicione uma conta que você já usa.",
+    "forPlatform": "Baixar para {{platform}}",
+    "formats": "Outros formatos",
+    "releases": "Versões e somas de verificação",
+    "mac": "macOS 14+ · Apple Silicon + Intel",
+    "linux": "Ubuntu / Debian · x86-64",
+    "windows": "Windows 10+ · x64",
+    "arm": "Linux ARM64 ou Windows ARM64? Use a CLI nativa.",
+    "guide": "Guia de instalação",
+    "unavailable": "Este lançamento não inclui o app desktop.",
+    "firstRun": "Abra o app → adicione uma conta → escolha sua ferramenta.",
+    "allPlatforms": "Todas as plataformas e opções"
   }
 }

@@ -1,0 +1,85 @@
+---
+title: 'プラグイン'
+description: 'ネイティブ AnyPick ビルドでプラグイン レジストリが行うこと (インストール、固定、有効化)、およびプラグイン コードが実行されない理由。'
+---
+
+ネイティブ AnyPick ビルドでは、プラグイン **レジストリ**は保持されますが、プラグイン **ホスト**は保持されません。プラグインをインストールし、パッケージ全体のダイジェストに固定して、名前で有効にすることができます。何もロードされず、コードも実行されません。
+
+<Aside type="caution" title="ネイティブ ビルドではプラグイン コードは実行されません">
+以前のリリースでは、サードパーティのプラグイン モジュールが AnyPick プロセスにロードされていました。ネイティブ ビルドではそうではありません。プラグイン ホストがないため、有効なプラグインはサードパーティ コードに資格情報へのアクセスを許可しません。 [ADR-0021](https://github.com/outof0/anypick/blob/main/adr/0021-plugin-host-removed-from-native-builds.md) を参照してください。これを永続的な保証ではなく、現在の状態として扱います。Go ネイティブのエグゼキューターが着陸した場合、このページと `SECURITY.md` は同じコミット内で変更されます。
+</Aside>
+
+## まだ機能するもの
+
+```bash
+anypick plugin add ./acme-provider   # recorded, disabled, digest pinned
+anypick plugin list
+anypick plugin enable acme-provider  # prompts — records the trust decision
+```
+
+`add` は決して有効になりません。どちらの方法でも、プラグインは AnyPick のレジストリに記録されます。
+
+```
+  off  acme-provider        1.0.0      82aae3b7898d
+    /Users/you/src/acme-provider
+```
+
+短い 16 進数は、プラグイン パッケージ全体 (マニフェストおよびディレクトリの下に同梱されるすべてのファイル) の SHA-256 ダイジェストです。 AnyPick はロードのたびに再計算して比較するため、承認後に変更されたパッケージは拒否されます。
+
+```
+  fail acme-provider        1.0.0      82aae3b7898d
+    plugin acme-provider has changed since you trusted it
+    → anypick plugin trust acme-provider
+```
+
+これは意図的な摩擦であり、キャッシュミスではありません。ダイジェストはあなたが承認したものです。差分を確認し、`anypick plugin trust acme-provider` で再度ピンを固定します。
+
+## 何が変わったのか
+
+ホストが存在しないため、すべての候補はロードではなくロード失敗を報告します。これは意図的なものです。サイレントな空のリストは健全なプラグイン セットのように見えるため、代わりに `anypick doctor`、`plugin list`、およびデスクトップ アプリのすべてがその理由を明らかにします。
+
+```bash
+anypick plugin disable acme-provider  # keep it installed, stop considering it
+anypick plugin remove acme-provider   # uninstall
+ANYPICK_NO_PLUGINS=1 anypick doctor   # skip every plugin for one run
+```
+
+## 互換性のあるプロバイダーが組み込まれています
+
+`bundled:popular-providers` パックとして出荷されていたプロバイダーは、Go エンジンによって直接登録されるようになりました。何もインストールする必要はありません。すぐに管理対象アカウントとして使用できます。以下の表は、サブスクリプション キーのベンダーを示しています。完全な組み込みセットは、`src/go/internal/provider/compatible.go` の `BuiltinDefinitions()` です。
+
+```bash
+# Omit the --secret value to use the masked prompt.
+anypick add account kimi --credential subscription-key --secret --name personal
+anypick add account minimax --credential api-key --secret --name paygo \
+  --option profile=global
+anypick add account mimo --credential subscription-key --secret --name europe \
+  --option profile=token-plan-ams
+```
+
+|プロバイダー | `api-key` | `subscription-key` プロフィール |
+| --- | --- | --- |
+|キミ |オープンプラットフォーム (`global`, `china`) |キミコードメンバーシップ |
+| GLM | BigModel / Z.AI (`china`, `global`) | GLM コーディング プラン (`china`, `global`) |
+|ミニマックス |従量課金制 (`china`, `global`) |トークンプラン (`china`, `global`) |
+|ミモ |従量課金制 (`global`) + API キー経由のトークン プラン (`token-plan-cn`、`token-plan-sgp`、`token-plan-ams`) |トークンプラン (`token-plan-cn`, `token-plan-sgp`, `token-plan-ams`) |
+|ディープシーク |プラットフォームAPI | — |
+|クウェン |モデルスタジオ (`intl`, `china`) |コーディングプラン / トークンプラン |
+|アーク |ボルセンジン / バイトプラス (`china`, `global`) |コーディングプラン (`china`, `global`) |
+|トークンハブ | Tencent の従量課金制 | Tencent コーディング プラン |
+|オープンルーター |マルチモデル API | — |
+|グロククラウド |推論 API | — |
+|ミストラル | La Plateforme API | — |
+|一緒に |推論 API | — |
+|花火 |サーバーレス API | — |
+|大脳 |推論 API | — |
+|シリコンフロー |推論 API | — |
+| NVIDIA NIM |ホスト型 NIM API | — |
+
+サブスクリプション キーは、API キーと同じ認証済みのローカル プロキシおよびプールの背後に保持されます。プロキシは実際のクライアント `User-Agent` を保持します。消費者向け Web サイトのセッションをインポートしたり、別のコーディング ツールのふりをしたりすることはありません。サブスクリプションは、プロバイダーが許可する対話型コーディング シナリオにのみ使用してください。 OpenRouter、GroqCloud、Fireworks は、文書化されたネイティブ Response エンドポイントを使用します。他の OpenAI 互換プロファイルは、チャット完了を通じて応答を変換します。
+
+エンドポイントと製品の選択は、プロバイダーの現在のドキュメントに従います: [キミ コード](https://www.kimi.com/code/docs/)、[GLM コーディング プラン](https://docs.bigmodel.cn/cn/coding-plan/tool/others)、[MiniMax トークン プラン](https://platform.minimax.io/docs/token-plan/quickstart)、[MiMo トークン プラン](https://mimo.mi.com/docs/en-US/price/tokenplan/subscription)、[Qwen コーディング]プラン](https://help.aliyun.com/en/model-studio/coding-plan)、[BytePlus ModelArk コーディング プラン](https://docs.byteplus.com/api/docs/ModelArk/2188959)、[Tencent TokenHub コーディング プラン](https://cloud.tencent.com/document/product/1823/130092)、[OpenRouter](https://openrouter.ai/docs/quickstart)、 [GroqCloud](https://console.groq.com/docs/openai)、[ミストラル](https://docs.mistral.ai/api)、[Together AI](https://docs.together.ai/docs/inference/openai-compatibility)、[花火](https://docs.fireworks.ai/tools-sdks/openai-compatibility)、 [Cerebras](https://inference-docs.cerebras.ai/resources/openai)、[SiliconFlow](https://docs.siliconflow.com/en/userguide/quickstart)、および[NVIDIA NIM](https://docs.api.nvidia.com/nim/reference/z-ai-glm5.1-infer)。
+
+## 今すぐプロバイダーを追加します
+
+Go-native executor が存在するまでは、プロバイダーを追加するということは、ソースから AnyPick を構築し、それをツリー内に登録することを意味します。寄稿者ガイドでは、プロバイダーが別のベンダーのモデル ID を継承しないようにするモデル ポリシーなど、優れたプロバイダーの実装内容について説明しています。

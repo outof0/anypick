@@ -20,6 +20,7 @@ extension MacOSDesignModel {
 
   func usageWindows(for account: DesignAccount) -> [DesignUsageWindow] {
     guard isCurrentAccount(account), showUsage else { return [] }
+    if let accountUsage { return accountUsage[account.id] ?? [] }
     // Quota is reported for the live login of one provider. Match by engine
     // provider family, not by display name: "OpenAI" (the account row) is the
     // "codex" app, and a fuzzy name match silently dropped its usage.

@@ -774,14 +774,18 @@ func (s *Server) handleAccountSave(ctx context.Context, raw json.RawMessage, m M
 			if saveErr != nil {
 				return saveErr
 			}
-			// account-save treats a blank label as absent, while a non-blank
-			// label is committed under the same provider scope as the snapshot.
+			// Identity comes only from the provider snapshot. Host display hints
+			// can be shared by unrelated logins and are not account identifiers.
+			patch := store.MetaPatch{}
 			if jsonFieldPresent(raw, "label") {
 				label := strings.TrimSpace(m.Label)
 				if label != "" && label != saved.Label {
-					saved, saveErr = s.Deps.Accounts.PatchMeta(c, m.ProviderID, saved.Name,
-						store.MetaPatch{LabelSet: true, Label: label})
+					patch.LabelSet = true
+					patch.Label = label
 				}
+			}
+			if patch.LabelSet {
+				saved, saveErr = s.Deps.Accounts.PatchMeta(c, m.ProviderID, saved.Name, patch)
 			}
 			return saveErr
 		})

@@ -1,0 +1,116 @@
+---
+title: '개념'
+description: '클라이언트, 소스, 바인딩 및 사전 설정 — 모든 AnyPick 명령 뒤에 있는 모델입니다.'
+---
+
+4개의 단어가 전체 CLI를 전달합니다. 일단 명확해지면 모든 명령은 같은 방식으로 읽혀집니다.
+
+| 단어 | 의미 |
+| --- | --- |
+| **클라이언트** | 실행하는 CLI: `claude`, `codex`, `commandcode`, `gemini`, `kiro`, `opencode`, `workbuddy`, `zcode`, `dsh`, `pi`, `omp` |
+| **출처** | 이를 지원하는 요소: 계정(`grok/work`), 게이트웨이(`openrouter-work`), 풀(`pool:gemini`), 옵트인 허브(`hub:default`) 또는 사전 설정(`@work`) |
+| **바인딩** | 구체적인 스냅샷: 이 클라이언트 → 이 소스와 모델 역할 |
+| **사전 설정** | 소스처럼 확인되는 저장된 템플릿(`@name`) 아직 생성된 명령이 없습니다 |
+
+문법은 절대 변하지 않습니다:
+
+```bash
+anypick use|run <client> --with <source|@preset>
+```
+
+## 클라이언트
+
+클라이언트는 CLI AnyPick이 구성 방법을 알고 있습니다. `anypick clients`는 각각에 대해 작성한 내용과 함께 이를 나열합니다.
+
+- `claude` — 클로드 코드(`ANTHROPIC_*` 변수, `run`에 격리된 임시 홈)
+- `codex` — 코덱스 CLI
+- `gemini` — Gemini CLI (`GEMINI_API_KEY`, `GEMINI_MODEL`)
+- `kiro` — 키로
+- `opencode` — OpenCode(`opencode.json`의 `anypick-managed` 공급자)
+- `workbuddy` — WorkBuddy AI/CodeBuddy 구독 계정은 내장된 프록시를 통해 위 클라이언트에 서비스를 제공합니다. WorkBuddy *앱* 자체는 자체 로그인을 직접 사용하며 저장된 계정 간에 앱을 전환하면 기본적으로 세션 파일이 복원됩니다.
+- `zcode` — ZCode(`~/.zcode/cli/config.json` 및/또는 `~/.zcode/v2/config.json`의 `anypick` 공급자)
+- `dsh` — DeepSeek Harness(Cordis 기반 코딩 CLI; AnyPick은 프록시 키를 `~/.dsh/.env`에 저장하고, `llm-deepseek.baseURL`를 `~/.dsh/settings.yaml`의 관리형 프록시에 지정하고, 선택한 기본 모델과 소스의 모델 카탈로그를 거기에 고정하여 하네스가 어떤 업스트림에도 탈 수 있도록 합니다)
+- `commandcode` — 명령 코드(`~/.commandcode/providers.json`의 OpenAI 호환 BYOK 공급자, `auth.json`의 프록시 자격 증명 포함)
+- `pi` — Pi(프록시 기본 URL이 있는 `~/.pi/agent/models.json`의 `anypick` 공급자와 `~/.pi/agent/settings.json`의 기본 공급자/모델 선택; `~/.pi/agent/auth.json`는 Pi 관리를 유지합니다)
+- `omp` — Omp(프록시 기본 URL이 있는 `~/.omp/agent/models.yml`의 `anypick` 제공자, 기본 모델은 omp의 자체 UI에서 사용자 선택을 유지하고 `~/.omp/agent/agent.db` 자격 증명은 절대 건드리지 않습니다)
+
+각 클라이언트에는 어떤 파일과 변수가 속해 있는지 설명하는 격리 매니페스트가 있습니다. 이것이 `anypick reset <client>`와 최선의 노력이 아닌 정확한 롤백을 가능하게 합니다.
+
+<Aside type="caution" title="ZCode: 데스크톱 앱은 자체 모델 선택을 유지합니다.">
+ZCode는 선택한 모델을 `config.json` 외부에 저장합니다. 데스크톱 앱은 AnyPick이 소유하지 않은 `~/.zcode/v2/setting.json`에서 이를 읽습니다. AnyPick은 `anypick` 공급자를 작성하고 CLI 구성의 경우 이를 `model.main`로 지정합니다. 데스크톱 앱에서 공급자는 *등록*만 됩니다. ZCode의 자체 모델 선택기에서 **AnyPick**을 한 번 선택하면 `anypick reset zcode`까지 계속 라우팅됩니다.
+</Aside>
+
+<Aside type="note" title="공급자를 교차하는 클라이언트">
+`claude`, `codex`, `opencode`, `zcode`, `dsh`, `commandcode`, `pi` 및 `omp`는 다른 공급자의 소스에 바인딩될 수 있습니다. 이를 위해 프록시가 존재하며 정확한 매트릭스는 `internal/transport/adapter_matrix_test.go`에 의해 적용됩니다. `gemini` 및 `kiro`는 자체 제공업체의 로그인만 허용하므로 `gemini --with grok/work`는 자동으로 프록시되지 않고 거부됩니다. `workbuddy` 앱은 자체 로그인을 직접 사용합니다. `workbuddy` *계정*은 여전히 ​​프록시를 통해 위의 클라이언트에 서비스를 제공하며 저장된 계정 간의 앱 전환은 기본적으로 세션 파일을 통해 작동합니다.
+</Aside>
+
+그 목록은 *바인딩*에 관한 것입니다. AnyPick은 자신만이 이해할 수 있는 파일이 아닌 도구의 자체 자격 증명 파일을 작성하므로 해당 파일을 읽는 다른 모든 항목이 따라오기 때문에 어떤 계정이 라이브인지 전환하는 것이 더 광범위합니다. `claude`에는 Claude Code CLI 및 해당 IDE 확장이 포함되며, `gemini` 로그인은 Gemini CLI의 OAuth 또는 Antigravity 로그인일 수 있습니다.
+
+<Aside type="caution" title="Codex 데스크탑 앱은 자체 세션을 유지합니다.">
+AnyPick은 Codex CLI가 읽는 `~/.codex/auth.json`를 백업하고 복원할 수 있습니다. 데스크톱 앱은 로그인된 ChatGPT 계정을 별도로 추적하므로 스위치를 따르지 않습니다. AnyPick은 한 계정의 사용량을 다른 계정에 귀속시키는 대신 불일치를 감지하고 할당량 판독을 억제합니다.
+</Aside>
+
+## 소스
+
+소스는 모델 요청에 응답할 수 있는 모든 것입니다.
+
+**계정**은 다른 도구에서 생성한 기본 로그인입니다(Codex `auth.json`, Grok 자격 증명, Gemini OAuth 토큰). AnyPick은 여러 개가 공존할 수 있도록 스냅샷을 찍고, 바인딩을 활성화할 때 선택한 것을 복원합니다. [계정](/ko/docs/guides/accounts)을 참조하세요.
+
+**게이트웨이**는 엔드포인트, 키, 선택적으로 모델 카탈로그 등 사용자가 직접 구성하는 API 프로필입니다. 로그인할 내용이 없습니다. [게이트웨이](/ko/docs/guides/gateways)를 참조하세요.
+
+**풀**은 장애 조치를 위해 단일 포트 뒤에 있는 한 제공업체의 여러 계정을 선택적으로 그룹화한 것입니다. [프록시](/ko/docs/guides/proxies)를 참조하세요.
+
+**프록시 허브**는 하나의 로컬 주소 뒤에 저장된 여러 계정을 노출하고 모델별로 경로를 지정할 수 있는 별도의 선택 엔드포인트입니다(`hub:default`). [프록시](/ko/docs/guides/proxies)를 참조하세요.
+
+`--with` 경계에서 서로 바꿔 사용할 수 있습니다. 클라이언트는 그것이 어떤 종류인지 알지도 관심도 없습니다.
+
+## 바인딩
+
+바인딩은 참조가 아닌 **스냅샷**입니다. 실행할 때:
+
+```bash
+anypick use claude --with grok/work
+```
+
+AnyPick은 소스를 확인하고, 모델 기본값을 선택하고, 활성화 단계를 계획하고, 결과를 기록합니다. 나중에 계정이나 사전 설정을 편집해도 해당 바인딩이 자동으로 다시 작성되지 않습니다. 이것이 바로 요점입니다. 어제 실행한 작업은 오늘도 실행됩니다.
+
+`run`를 실행하면 세 가지 범위가 이 순서대로 확인됩니다.
+
+1. **임시** — `run --with <source>`는 해당 출시에만 적용됩니다.
+2. **프로젝트** — `anypick link`는 현재 디렉터리로 범위가 지정된 바인딩을 씁니다.
+3. **글로벌** — `anypick use`는 기본값을 씁니다.
+
+```
+use   = set the global default (persistent)
+run   = launch with the effective binding (ephemeral; never rewrites defaults)
+link  = set a project-local binding
+```
+
+`anypick current`를 사용하여 무엇이 유효한지 검사하고 선택적으로 하나의 클라이언트로 범위를 좁힙니다.
+
+## 사전 설정
+
+사전 설정은 재사용하고 수정할 수 있는 명명된 템플릿입니다. 이는 저장된 소스 유형이며 CLI는 다음 중 하나를 검사하고 해결할 수 있습니다.
+
+```bash
+anypick use claude --with @work-stack
+anypick preset list
+anypick preset show work-stack
+anypick preset remove work-stack
+```
+
+현재 사전 설정을 **생성**하는 명령이 없습니다. `use … --save <name>`는 여기에 문서화되어 있지만 구현되지 않았으므로 `presets` 테이블에 아무 것도 쓰지 않으며 새로 설치할 때 `preset list`는 비어 있습니다. 바인딩은 이미 스냅샷이므로 사전 설정은 요구 사항이 아니라 클라이언트 전체에서 하나의 사양을 재사용하기 위한 편의입니다. 생성 경로가 나올 때까지 `use <client> --with <source>`를 사용하여 소스를 직접 바인딩하세요.
+
+<Aside type="note" title="스냅샷을 사용해야 하는 이유">
+대안(소스를 실시간으로 따르는 바인딩)은 한 곳에서 변경하면 모든 클라이언트가 실행하는 내용이 조용히 변경된다는 의미입니다. AnyPick은 대신 명시적으로 재활성화를 수행합니다.
+</Aside>
+
+## 활성화
+
+바인딩을 작업 클라이언트로 전환하는 것은 일련의 부작용이 아니라 계획된 작업입니다. AnyPick은 단계 목록을 구축하고, 백업 경로와 함께 작업 저널에 변경 단계를 기록한 후 실행합니다. 단계가 실패하면 이전 상태(클라이언트 구성, 기본 인증 및 시작된 모든 프록시)가 복원됩니다.
+
+`--dry-run`는 쓰지 않고 계획을 인쇄합니다. `--trace`는 비밀 없이 실행되는 단계의 이름을 지정합니다.
+
+## 비대화형 동작
+
+AnyPick은 TTY가 없을 때 메시지를 표시하지 않으며 소스를 추측하지도 않습니다. `use <client>`에는 `--with`가 필요합니다. 이것이 없으면 명령은 `2`를 종료합니다. 이렇게 하면 CI와 스크립트에서 안전해집니다. `--no-input`는 TTY에서도 프롬프트를 거부하고 `--json`는 명령 출력을 stdout에서 하나의 JSON 값으로 전환합니다.

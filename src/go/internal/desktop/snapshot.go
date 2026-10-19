@@ -342,6 +342,8 @@ func (b *snapshotBuilder) accountsAndProxies(ctx context.Context) {
 			continue
 		}
 		active, _ := b.srv.Deps.Accounts.Active(ctx, providerID)
+		nativeClientID := nativeClientIDOf(pv, providerID)
+		nativeRouting := b.srv.clientUsesNativeLogin(nativeClientID)
 
 		sort.Slice(list, func(i, j int) bool { return list[i].Meta.Name < list[j].Meta.Name })
 		for _, acc := range list {
@@ -372,7 +374,7 @@ func (b *snapshotBuilder) accountsAndProxies(ctx context.Context) {
 			// cannot serve.
 			if _, cerr := b.srv.Deps.Clients.Get(clientID); cerr == nil {
 				b.registry[routeID] = b.srv.routeActivator(clientID, refs.AccountRef(providerID, acc.Meta.Name))
-				selected := active == name
+				selected := active == name && nativeRouting
 				short := shortNameOf(b.srv, pv)
 				if clientID != providerID {
 					short = designAppName(clientID)
@@ -573,7 +575,7 @@ func (b *snapshotBuilder) crossProviderActions(ctx context.Context) {
 		// ("Saved account" vs "AnyPick proxy"), so the UI cannot dedupe them.
 		boundSource := ""
 		if b.srv.Deps.Bindings != nil {
-			if binding, berr := b.srv.Deps.Bindings.GetGlobalContext(ctx, clientID); berr == nil && binding != nil {
+			if binding, berr := b.bindingFor(ctx, clientID); berr == nil && binding != nil {
 				boundSource = refs.SerializeRef(binding.Spec.Source)
 			}
 		}
@@ -717,11 +719,19 @@ func (b *snapshotBuilder) currentRouteActions(ctx context.Context, appIDs []stri
 	// no binding (native login case).
 	for _, clientID := range appIDs {
 		short := designAppName(clientID)
-		binding, berr := b.srv.Deps.Bindings.GetGlobalContext(ctx, clientID)
+		binding, berr := b.bindingFor(ctx, clientID)
 		if berr != nil {
 			return berr
 		}
-		cur, _ := b.srv.Deps.Accounts.Current(ctx, clientID)
+		nativeProviderID := clientID
+		if pv := b.srv.nativeProvider(clientID); pv != nil {
+			nativeProviderID = pv.ID()
+		}
+		active, _ := b.srv.Deps.Accounts.Active(ctx, nativeProviderID)
+		var live provider.LiveAuthStatus
+		if pv := b.srv.nativeProvider(clientID); pv != nil {
+			live, _ = pv.DetectLive()
+		}
 
 		var row *ActionRow
 		switch {
@@ -765,27 +775,26 @@ func (b *snapshotBuilder) currentRouteActions(ctx context.Context, appIDs []stri
 			// Re-invoking the selected route re-applies its source through the
 			// planner regardless of kind; never a silent no-op.
 			b.registry[id] = b.srv.routeActivator(clientID, srcRef)
-		case cur != nil && cur.Live.Present && cur.Active != "":
-			pv2, perr := b.srv.Deps.Providers.Get(clientID)
+		case live.Present && active != "" && b.srv.clientUsesNativeLogin(clientID):
+			pv2, perr := b.srv.Deps.Providers.Get(nativeProviderID)
 			sn := clientID
 			if perr == nil && pv2 != nil {
 				sn = provider.ShortNameOf(pv2)
 			}
 			id := b.actionID()
-			active := cur.Active
 			row = &ActionRow{
 				ID: id, ClientID: clientID,
 				SourceID:     clientID,
 				Client:       short,
 				Label:        fmt.Sprintf("%s · %s", sn, active),
-				Detail:       displaySafeIdentity(cur.Live.Identity),
+				Detail:       displaySafeIdentity(live.Identity),
 				Kind:         "native",
 				Presentation: "app-route",
 				Selected:     true,
 				Enabled:      true,
 				RouteKind:    "direct-account",
 			}
-			b.registry[id] = b.srv.routeActivator(clientID, refs.AccountRef(clientID, active))
+			b.registry[id] = b.srv.routeActivator(clientID, refs.AccountRef(nativeProviderID, active))
 		}
 		if row != nil {
 			b.snap.Actions = append(b.snap.Actions, *row)
@@ -799,19 +808,14 @@ func (b *snapshotBuilder) routes(ctx context.Context, appIDs []string) {
 		var binding *bindings.Global
 		if b.srv.Deps.Bindings != nil {
 			var berr error
-			binding, berr = b.srv.Deps.Bindings.GetGlobalContext(ctx, clientID)
+			binding, berr = b.bindingFor(ctx, clientID)
 			if berr != nil {
 				// A single client binding must not blank the whole snapshot
 				// (Proxies pane included). Treat it as unbound.
 				binding = nil
 			}
 		}
-		nativePresent := false
-		if _, perr := b.srv.Deps.Providers.Get(clientID); perr == nil {
-			if cur, cerr2 := b.srv.Deps.Accounts.Current(ctx, clientID); cerr2 == nil && cur != nil {
-				nativePresent = cur.Live.Present
-			}
-		}
+		nativePresent := b.srv.clientUsesNativeLogin(clientID)
 		route := map[string]any{
 			"clientId": clientID,
 			"client":   designAppName(clientID),
@@ -827,6 +831,13 @@ func (b *snapshotBuilder) routes(ctx context.Context, appIDs []string) {
 		case nativePresent:
 			route["source"] = "native login"
 			route["status"] = "native"
+		default:
+			if b.srv.Deps.Bindings != nil {
+				if saved, err := b.srv.Deps.Bindings.GetGlobalContext(ctx, clientID); err == nil && saved != nil {
+					route["status"] = "attention"
+					route["attentionReason"] = "Live configuration no longer uses the saved connection. Choose a connection to apply it again."
+				}
+			}
 		}
 		b.snap.Routes = append(b.snap.Routes, route)
 	}
@@ -1174,11 +1185,26 @@ func suppressUsageRow(ctx context.Context, s *Server, providerID, active string)
 	if active == "" {
 		return false
 	}
-	cur, err := s.Deps.Accounts.Current(ctx, providerID)
-	if err != nil || cur == nil {
+	account, err := s.Deps.Accounts.CachedAccount(ctx, providerID, active)
+	if err != nil || account == nil {
 		return false
 	}
-	return cur.LiveMatchKnown && !cur.IsLiveMatch
+	pv, err := s.Deps.Providers.Get(providerID)
+	if err != nil {
+		return false
+	}
+	live, err := pv.DetectLive()
+	if err != nil {
+		return false
+	}
+	if account.Meta.Identity != "" && strings.EqualFold(strings.TrimSpace(account.Meta.Identity), strings.TrimSpace(live.Identity)) {
+		return false
+	}
+	if matcher, ok := pv.(provider.LiveMatcher); ok {
+		match, known, err := matcher.SnapshotMatchesLive(account.SnapshotDir)
+		return err == nil && known && !match
+	}
+	return false
 }
 
 func (s *Server) buildUsage(ctx context.Context) []UsageSnapshotRow {
@@ -1196,11 +1222,14 @@ func (s *Server) buildUsage(ctx context.Context) []UsageSnapshotRow {
 		if active, _ := s.Deps.Accounts.Active(ctx, providerID); active != "" {
 			account = active
 		}
+		row := UsageSnapshotRow{ProviderID: providerID, Client: provider.ShortNameOf(pv), Account: orString(account, providerID), Windows: []map[string]interface{}{}}
 		if suppressUsageRow(ctx, s, providerID, account) {
+			rows = append(rows, row)
 			continue
 		}
 		usage, uerr := lup.LiveUsage(ctx)
 		if uerr != nil || usage == nil || len(usage.Windows) == 0 {
+			rows = append(rows, row)
 			continue
 		}
 		short := provider.ShortNameOf(pv)
@@ -1223,9 +1252,10 @@ func (s *Server) buildUsage(ctx context.Context) []UsageSnapshotRow {
 			windows = append(windows, entry)
 		}
 		rows = append(rows, UsageSnapshotRow{
-			Client:  short,
-			Account: orString(account, providerID),
-			Windows: windows,
+			ProviderID: providerID,
+			Client:     short,
+			Account:    orString(account, providerID),
+			Windows:    windows,
 		})
 	}
 	return rows
@@ -1445,7 +1475,8 @@ func snapActionsOrder(snap *Snapshot) []string {
 
 // UsageSnapshotRow is one live-usage readout row.
 type UsageSnapshotRow struct {
-	Client  string                   `json:"client"`
-	Account string                   `json:"account"`
-	Windows []map[string]interface{} `json:"windows"`
+	ProviderID string                   `json:"providerId,omitempty"`
+	Client     string                   `json:"client"`
+	Account    string                   `json:"account"`
+	Windows    []map[string]interface{} `json:"windows"`
 }

@@ -2,20 +2,24 @@
 
 This is one of two native front ends. The other is the macOS app in
 `src/macos/` (SwiftUI); this one is Tauri 2 + React and targets Linux and
-Windows (ADR 0020). The release workflow defaults to `desktop-no-macos`: it
-builds AppImage/deb/rpm, MSI and NSIS artifacts, and each payload is
-smoke-tested on its own OS (`packaging/smoke/`) before it can reach a GitHub
-Release. `cli-only` omits desktop installers; `all` also includes the signed
-macOS app after Apple signing is configured. The GUI itself is not launched on
-a hosted runner; the smoke gate extracts the installer and runs the bundled Go
-helper.
+Windows (ADR 0020). The release workflow defaults to `all`: it builds
+AppImage/deb/rpm, MSI and NSIS artifacts alongside the SwiftUI macOS app.
+`cli-only` omits desktop installers. The macOS app currently uses an ad-hoc
+signature and is not notarized.
+
+Each Linux/Windows payload is smoke-tested on its own OS (`packaging/smoke/`)
+before it can reach a GitHub Release. The gate extracts each installer, checks
+the bundled Go helper, then drives that payload's desktop executable through
+native WebDriver with an isolated HOME and an empty executable search path
+(ADR 0020 §8). Both drivers are resolved before that restriction. Linux uses
+Xvfb and WebKitGTK; Windows uses WebView2 and its matching Edge driver.
 
 **This app owns no AnyPick state and never reads credentials.** It launches,
 handshakes with, supervises and shuts down the bundled Go service, then renders
 what that service sends it (ADR 0019 §1):
 
 - app → service: `invoke`, `mutate`, `logs`, and simple commands;
-- service → app: filtered `snapshot`, `result`, and `logs` messages.
+- service → app: snapshots/events, results, logs, Doctor reports and backup previews.
 
 The transport is a hidden `anypick desktop-service --stdio` process whose stdout
 is protocol-only, behind a version/capability handshake that check every
@@ -193,6 +197,34 @@ released: on the engine's terminal frame, matched by id, never on a timer. The
 tests assert that directly, because a timeout-based release re-enables a button
 whose mutation has not landed.
 
+The native host has two additional gates. Rust's `protocol_service_tests.rs`
+launches the Go sidecar prepared by `build.rs` and passes every received frame
+through production `AppProtocol`, including Doctor, logs, backup previews,
+mutations, protocol errors, refresh and shutdown. It runs in `cargo test` on
+Linux and Windows. A Go-only cross-process test cannot exercise this boundary.
+
+`scripts/desktop-e2e.mjs` launches the real desktop executable using
+`tauri-driver`, without fixture mode or a JavaScript bridge shim. It checks the
+first snapshot, Doctor's displayed terminal report, a new snapshot after
+refresh, every pane, Add Login saving an isolated file-backed Codex account
+through the real UI and strict Go decoder without treating the UI display hint
+as a stored account identity, Activity fetching the stopped fixture proxy's
+logs, and Quick Backup writing the account's backup inside the
+isolated test home. The account and a setting must both survive closing and
+reopening the app. The test auth file has no access token, so it cannot make an
+authenticated provider request. CI runs it on Ubuntu and Windows; release payload tests run it against extracted deb/AppImage/rpm and
+MSI/NSIS executables. Use `xvfb-run -a dbus-run-session -- node
+src/tauri/ui/scripts/desktop-e2e.mjs /absolute/path/to/anypick` on Linux, or
+`node src/tauri/ui/scripts/desktop-e2e.mjs C:/absolute/path/to/anypick.exe`
+on Windows, from the repository root. Install `tauri-driver` 2.1.0 plus
+`webkit2gtk-driver`/Xvfb on Linux; Windows CI uses
+`packaging/smoke/install-webdriver.ps1` to match the installed WebView2 runtime.
+
+These gates do not perform real browser sign-ins, spend subscription quota, or
+prove every provider's upstream still accepts its credentials. Unit tests,
+native GUI tests and payload tests report their separate scopes; a fixture
+browser pass is not evidence that an installer or native bridge works.
+
 Adding a command to a pane means adding it to `lib/service.ts` first. A pane
 never builds a wire line: the engine rejects any key that is not on the
 operation's allowlist with a `MALFORMED_FRAME` that names nothing useful.
@@ -230,13 +262,12 @@ front ends look healthy.
 
 ## CI
 
-The `tauri` job in `.github/workflows/ci.yml` (ubuntu) runs on every push and
-PR to `main`: `make check-paths check-protocol`, `npm ci`, `make typecheck-tauri-ui`,
-`make test-tauri-ui`, `make build-tauri-ui`, then `cargo check --locked`.
-
-The UI tests run on the headless Linux runner because they need jsdom and
-nothing else: no webview, no Go service, no display. That is why they are
-enforced here and not left to a developer's machine.
+The `tauri` matrix in `.github/workflows/ci.yml` runs on Ubuntu and Windows on
+every push and PR to `main`. Both run the cross-language gates, UI typecheck,
+UI tests/build, Rust check/format/tests/clippy/audit, and native desktop E2E.
+The Linux GUI runs under Xvfb; Windows uses the native WebView2 driver. Release
+jobs repeat the native gate against packaged executables, not only build-tree
+binaries.
 
 Out of scope for CI (needs a real desktop and installed clients): running
 against a developer's `~/.anypick`, tray-icon click geometry, and OS

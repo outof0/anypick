@@ -1,0 +1,184 @@
+---
+title: 'Empezando'
+description: 'Instale una versión de AnyPick, abra Aplicaciones y conecte Claude o Codex a un inicio de sesión que ya tenga.'
+---
+
+AnyPick responde una pregunta cotidiana:
+
+> **¿Qué inicio de sesión debería utilizar Claude Code o Codex en este momento?**
+
+Ya pagas por los proveedores. Ya utilizas herramientas de codificación. AnyPick toma instantáneas de esos inicios de sesión, inicia un traductor local cuando las herramientas hablan protocolos diferentes y escribe la configuración del cliente, para que pueda elegir una vez en **Aplicaciones** en lugar de editar archivos a mano.
+
+## Instalar una versión
+
+Instale la CLI desde la última [versión de GitHub](https://github.com/outof0/anypick/releases/latest) con el administrador de paquetes para su plataforma:
+
+```bash
+# macOS
+brew install outof0/tap/anypick
+
+# Linux, or any OS with Node 18+ (downloads the matching native CLI on first run)
+npm install -g anypick
+```
+
+```powershell
+# Windows
+scoop bucket add outof0 https://github.com/outof0/scoop-bucket
+scoop install anypick
+```
+
+Las aplicaciones de escritorio (`.dmg`, `.deb`, `.rpm`, AppImage, `.msi`, `.exe`) y archivos tar CLI con suma de comprobación se adjuntan a cada [lanzamiento](https://github.com/outof0/anypick/releases/latest). Verifique la instalación con `anypick --version`, luego ejecute `anypick doctor`.
+
+## Canales de lanzamiento y compilaciones de origen
+
+<Render file="install-es" />
+
+## Abrir aplicaciones
+
+El destino nativo de macOS abre automáticamente su ventana principal habitual. Su panel rápido de barra de menú es parte de la misma aplicación y permanece disponible cuando se cierra la ventana principal.
+
+Para el flujo de trabajo del terminal:
+
+```bash
+anypick tui
+```
+
+Llegas a **Aplicaciones**:
+
+```
+ anypick / apps
+
+  Routes for Claude Code and Codex
+ › Claude        not connected                     ○ not set
+   Codex         not connected                     ○ not set
+ ────────────────────────────────────────────────────────────────────────
+ Connect Claude
+ enter to build a route
+ enter connect app a accounts g gateways p proxies d diagnose
+```
+
+Aquí solo aparecen **Claude Code**, **Codex**, **OpenCode**, **ZCode**, **`dsh`**, **`commandcode`**, **`pi`** y **`omp`**; pueden apuntar a casi cualquier fuente guardada. Otras herramientas cambian sus propios inicios de sesión en Cuentas.
+
+Tres hábitos que hacen que la UI sea segura para los no expertos:
+
+- **La línea debajo de la regla es lo que hará <kbd>enter</kbd>.** Léelo primero.
+- **El pie de página es el mapa de teclas completo.** Sin menús ocultos.
+- **No se guarda nada hasta que una vista previa lo indique.** Siempre puedes volver a <kbd>esc</kbd>.
+
+Los ejemplos de comandos siguientes muestran la gramática CLI de AnyPick. Instale la CLI desde los archivos enumerados con suma de verificación en la versión de GitHub, o mediante el iniciador npm ligero con `npm install --global anypick` (Nodo 18+; descarga la CLI nativa correspondiente en la primera ejecución); también puedes ejecutar los mismos argumentos desde este pago con `make run ARGS="…"`; por ejemplo, `make run ARGS="list accounts"` (o compilar una vez con `make build` y ejecutar `./src/go/bin/anypick-dev …` directamente).
+
+Tutorial completo de fuente → modelos → vista previa: [Terminal UI · Aplicaciones](/es/docs/guides/terminal-ui).
+
+## Guardar un inicio de sesión una vez
+
+AnyPick puede iniciar un inicio de sesión en el navegador propiedad del proveedor; no implementa ni imita el flujo OAuth del proveedor.
+
+En la interfaz de usuario: <kbd>a</kbd> **Cuentas** → <kbd>a</kbd> **agregar**. O:
+
+<Steps>
+<Step title="Agregar el inicio de sesión">
+```bash
+anypick add account codex --new --name personal
+# opens Codex browser Auth and saves the result
+
+# If Codex is already signed in, snapshot it instead:
+anypick add account codex --current --name personal
+```
+</Step>
+<Step title="Verlo en la lista">
+```bash
+anypick list accounts
+```
+</Step>
+</Steps>
+
+El par `provider/name` (por ejemplo, `codex/personal` o `grok/work`) es la **fuente** que adjuntarás a una aplicación.
+
+<Aside type="tip" title="Segundo inicio de sesión en el mismo proveedor">
+`anypick add account codex --new --name work` guarda la credencial actual, abre la autenticación del navegador del proveedor, guarda el resultado y mantiene guardada la primera cuenta. Se prefiere la autenticación oficial; Los métodos comunitarios declarados por el proveedor siguen siendo seleccionables.
+</Aside>
+
+## Conectar una aplicación (IU de aplicaciones)
+
+Vuelva a **Aplicaciones** (presione <kbd>esc</kbd> hasta que vea `anypick / apps`):
+
+1. Resalte **Claude** o **Codex**.
+2. Presione <kbd>enter</kbd> (**conectar aplicación**).
+3. Elija una fuente:
+   - **Cuentas nativas**: la misma marca que la aplicación (cambio simple).
+   - **puertas de enlace y proxies**: Grok, OpenRouter, proxy Gemini, grupos,…
+   - **Configuraciones guardadas**: un preset que guardaste anteriormente.
+4. Si se le solicita, elija modelos (Claude puede configurar predeterminado/soneto/opus/haiku).
+5. Lea la **vista previa**: qué se escribirá y qué proxy se inicia.
+6. Presione <kbd>enter</kbd> para activar.
+
+Cuando regrese a Aplicaciones, la fila debería mostrar **● listo** con `source · model`.
+
+Ese es el producto completo para el uso diario. Abra la herramienta de codificación como de costumbre.
+
+## Los mismos pasos que los comandos (opcional)
+
+Los scripts y la CI utilizan las mismas operaciones sin la interfaz de usuario:
+
+```bash
+anypick use codex --with codex/personal
+anypick run codex
+```
+
+Ejemplo entre proveedores: Claude en una cuenta de Grok (el proxy se inicia automáticamente):
+
+```bash
+anypick add account grok --current --name work
+anypick use claude --with grok/work
+anypick run claude
+```
+
+Clave API en lugar de un inicio de sesión: registre una **puerta de enlace**, luego selecciónela en Aplicaciones o pásela a `--with`:
+
+```bash
+anypick add gateway openrouter-work \
+  --provider openrouter \
+  --endpoint https://openrouter.ai/api/v1 \
+  --api-key "$OPENROUTER_API_KEY" \
+  --model anthropic/claude-sonnet-4
+
+anypick use claude --with openrouter-work
+```
+
+## Después de la configuración: aplicación o terminal
+
+En macOS, la [aplicación nativa y barra de menú](/es/docs/guides/tray) son la primera superficie diaria de la aplicación. Utilice la ventana completa para administración y el panel rápido de la barra de menú para acciones de ruta y servicio. Al cerrar la ventana principal, la aplicación se ejecuta; explícito **Quit AnyPick** detiene el servicio incluido y sale.
+
+La interfaz de usuario del terminal sigue siendo una superficie de desarrollo de código fuente independiente; no posee ni detiene una aplicación nativa lanzada por separado.
+
+<Aside type="note" title="Sin TTY, sin interfaz de usuario">
+Las ejecuciones canalizadas o no interactivas nunca abren aplicaciones. Desnudo `anypick` en un script imprime ayuda y sale para que nada se cuelgue esperando una clave.
+</Aside>
+
+## Donde viven las cosas
+
+| | |
+| --- | --- |
+| Datos | `~/.anypick/anypick.db` |
+| Anular inicio | `ANYPICK_HOME=/path` |
+| Finalización de la concha | `source <(anypick completion zsh)` — también `bash`, `fish` |
+
+## Siguiente
+
+<CardGrid>
+  <Card title="Aplicaciones y interfaz de usuario de terminal" href="/es/docs/guides/terminal-ui">
+    Generador de rutas completo: grupos de fuentes, modelos, vista previa, cada clave.
+  </Card>
+  <Card title="Aplicación macOS y barra de menú" href="/es/docs/guides/tray">
+    Ciclo de vida de la aplicación nativa, servicio Go incluido y panel rápido.
+  </Card>
+  <Card title="Conceptos" href="/es/docs/concepts">
+    Cliente, fuente, vínculo, preset: cuatro palabras detrás de la interfaz de usuario.
+  </Card>
+  <Card title="Referencia CLI" href="/es/docs/reference/cli">
+    Cada comando, bandera, código de salida y variable de entorno.
+  </Card>
+  <Card title="Solución de problemas" href="/es/docs/reference/troubleshooting">
+    Qué comprueba `anypick doctor` y qué se niega a tocar.
+  </Card>
+</CardGrid>

@@ -1,0 +1,56 @@
+---
+title: 'プロジェクトバインディング'
+description: 'グローバルなデフォルトを変更せずに、1 つのリポジトリに独自のクライアント ソースを与えます。'
+---
+
+`anypick link` は、現在のディレクトリをスコープとするバインディングを書き込みます。そのディレクトリ内からクライアント `run` を実行すると、グローバル デフォルトよりも優先され、他の場所では表示されなくなります。
+
+```bash
+cd ~/src/my-app
+anypick link claude                        # copy the global binding into this project
+anypick link claude --with grok/work       # or bind explicitly
+anypick run claude                         # project binding wins
+anypick unlink claude
+```
+
+クライアントなしで `anypick unlink` を実行すると、現在のディレクトリにあるすべてのプロジェクト バインドが削除されます。
+
+## 解決順序
+
+`run` がバインディングを必要とする場合、最初に見つかったバインディングを取得します。
+
+コマンドラインの1. `--with` - この起動のみ
+2.  現在のディレクトリのプロジェクト バインド
+3. `anypick use` からのグローバル バインディング
+
+存在しない場合、`run` は推測するのではなく、`5` を終了します。
+
+`anypick current` は、すべてのクライアントの有効なバインディングを表示するため、どのレイヤーが勝ったかを確認できます。
+
+## 典型的な分割
+
+手動で切り替えることなく、顧客ごとに 1 つのクライアント:
+
+```bash
+anypick use claude --with grok/work            # your default everywhere
+
+cd ~/src/client-a
+anypick link claude --with openrouter-work     # this repo only
+
+cd ~/src/client-b
+anypick link claude --with gemini/work
+```
+
+<Aside type="note" title="バインディングはリポジトリごとではなくディレクトリごとです">
+バインディングは、`link` を実行したディレクトリ パスにキー設定されます。AnyPick に関する限り、同じリポジトリの別のワークツリーは別のプロジェクトです。通常、これが望ましいことですが、場合によっては驚くべきこともあります。
+</Aside>
+
+## クリーンアップ
+
+`anypick unlink` はバインディングを削除しますが、クライアントの構成は最後のアクティブ化で残されたままにします。 AnyPick がクライアント用に作成した設定を削除するには、次の手順を実行します。
+
+```bash
+anypick reset claude
+```
+
+`reset` は、AnyPick 管理の構成のみを削除します。ネイティブの認証ファイルや独自の設定には決して影響しません。

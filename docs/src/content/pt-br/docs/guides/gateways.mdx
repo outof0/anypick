@@ -1,0 +1,86 @@
+---
+title: 'Gateways'
+description: 'Registre um endpoint, uma chave e um catálogo de modelo e vincule qualquer cliente a ele.'
+---
+
+Um gateway é um perfil de API: um endpoint, uma credencial e, opcionalmente, uma lista de modelos. Não há fluxo de login nem processo local – o cliente se comunica diretamente com o endpoint remoto.
+
+## Adicione um
+
+```bash
+anypick add gateway openrouter-work \
+  --provider openrouter \
+  --endpoint https://openrouter.ai/api/v1 \
+  --api-key "$OPENROUTER_API_KEY" \
+  --model anthropic/claude-sonnet-4 \
+  --models default=anthropic/claude-sonnet-4 \
+  --models opus=anthropic/claude-opus-4-8
+
+anypick use claude --with openrouter-work
+anypick run claude
+```
+
+| Bandeira | Significado |
+| --- | --- |
+| `--provider <id>` | Qual formato de catálogo o endpoint segue |
+| `--endpoint <url>` | URL base |
+| `--api-key <key>` | Chave armazenada no banco de dados AnyPick |
+| `--api-key-env <var>` | Ler a chave de uma variável de ambiente na ativação em vez de armazená-la |
+| `--model <id>` | Modelo padrão para este gateway |
+| `--models <role=id>` | Fixe uma função de modelo de cliente (`default`, `sonnet`, `opus`, `haiku`,…) em um modelo de gateway; repita a bandeira para mais funções |
+| `--gateway-id <id>` | ID de gateway para provedores que endereçam vários gateways por endpoint |
+
+`--models` é um mapa de funções, não uma lista livre de IDs: o valor armazenado é gravado nos slots de função de cada cliente, portanto, um ID simples não tem função à qual anexar e o sinalizador é recusado. Passe `role=model-id`, uma vez por função.
+
+Os provedores de catálogo incluem `anthropic`, `openai`, `openrouter`, `grok-api`, `gemini-api`, `litellm`, `local`, `custom` e `cloudflare-aigateway` — o conjunto completo é `Builtin()` em `src/go/internal/catalog/catalog.go`.
+
+O Cloudflare AI Gateway precisa de um endpoint explícito (o URL base incorpora o ID da conta Cloudflare) e um ID de gateway:
+
+```bash
+anypick add gateway cf-prod \
+  --provider cloudflare-aigateway \
+  --endpoint https://api.cloudflare.com/client/v4/accounts/ACCOUNT_ID/ai/v1 \
+  --api-key "$CF_API_TOKEN" \
+  --gateway-id my-gateway
+```
+
+Omita `--gateway-id` para usar o provedor padrão (`default`).
+
+<Aside type="tip" title="Chaves que você prefere não armazenar">
+`--api-key-env OPENROUTER_API_KEY` registra o nome da variável, não o segredo. AnyPick lê quando ativa a ligação, então a chave permanece em seu ambiente ou gerenciador de segredos.
+</Aside>
+
+## Gateway ou proxy?
+
+Ambos são fontes e terminam da mesma maneira – `use <client> --with <source>`. Eles diferem no que está por trás deles.
+
+| | Procuração (conta) | Gateway (perfil API) |
+| --- | --- | --- |
+| Autenticação | Instantâneo de login nativo, além de um processo local | Endpoint + chave mantida por AnyPick |
+| Configuração | Faça login com a CLI do provedor e, em seguida, faça snapshot | Cole um endpoint e uma chave |
+| Modelos | Descoberto no proxy em execução | Padrões de gateway ou por ligação |
+| Para onde vão as solicitações | `127.0.0.1:<port>` → montante | Direto ao ponto final |
+
+Alcance um portal quando você segura uma chave. Alcance uma conta quando você tiver uma assinatura.
+
+## Modelos no seletor do cliente
+
+Para clientes com um registro de modelo nativo – Codex, OpenCode, ZCode, Command Code e DSH – AnyPick grava o catálogo com escopo de origem para que os ids disponíveis no cliente correspondam ao gateway ou proxy selecionado. Defina o padrão com `--model`; torna-se o modelo no qual o cliente começa.
+
+Claude Code, Gemini CLI e Kiro expõem a seleção de modelos por meio de variáveis ​​de ambiente ou slots de função nativos, em vez de um registro de modelo gravável. AnyPick configura seus valores nativos padrão/função, mas não pode inventar uma lista do lado do cliente que esses programas não leem.
+
+Os proxies de conta não precisam disso - AnyPick lê seu catálogo `/v1/models` ativo sempre que ativa o cliente.
+
+## Gerenciando gateways
+
+```bash
+anypick gateway list
+anypick gateway show openrouter-work
+anypick gateway edit openrouter-work -m anthropic/claude-sonnet-4
+anypick gateway edit openrouter-work --endpoint https://…  --api-key "$NEW_KEY"
+anypick gateway remove old-gateway -y
+```
+
+`show` mascara a chave. Passe o sinalizador global `--reveal` para imprimi-lo, o que é exatamente tão perigoso quanto parece.
+
+As ligações são instantâneos, portanto, a edição de um gateway não altera retroativamente um cliente que já está vinculado a ele. Execute novamente `use` para escolher o novo endpoint ou modelo.

@@ -1,0 +1,116 @@
+---
+title: 'Konzepte'
+description: 'Clients, Quellen, Bindungen und Voreinstellungen – das Modell hinter jedem AnyPick-Befehl.'
+---
+
+Vier Wörter tragen die gesamte CLI. Sobald sie klar sind, liest sich jeder Befehl gleich.
+
+| Wort | Bedeutung |
+| --- | --- |
+| **Client** | Die von Ihnen ausgeführte CLI: `claude`, `codex`, `commandcode`, `gemini`, `kiro`, `opencode`, `workbuddy`, `zcode`, `dsh`, `pi`, `omp` |
+| **Quelle** | Was es antreibt: ein Konto (`grok/work`), ein Gateway (`openrouter-work`), ein Pool (`pool:gemini`), der Opt-In-Hub (`hub:default`) oder eine Voreinstellung (`@work`) |
+| **Binding** | Eine konkrete Momentaufnahme: dieser Client → diese Quelle, plus Modellrollen |
+| **Voreinstellung** | Eine gespeicherte Vorlage (`@name`), die wie eine Quelle aufgelöst wird; Noch kein Befehl erstellt einen |
+
+Die Grammatik ändert sich nie:
+
+```bash
+anypick use|run <client> --with <source|@preset>
+```
+
+## Clients
+
+Ein Client ist eine CLI, die AnyPick konfigurieren kann. `anypick clients` listet sie zusammen mit den jeweiligen Angaben auf:
+
+- `claude` – Claude Code (`ANTHROPIC_*` Variablen; isoliertes temporäres Home auf `run`)
+- `codex` – Codex CLI
+- `gemini` – Gemini CLI (`GEMINI_API_KEY`, `GEMINI_MODEL`)
+- `kiro` – Kiro
+- `opencode` – OpenCode (ein `anypick-managed`-Anbieter in `opencode.json`)
+- `workbuddy` – WorkBuddy AI-/CodeBuddy-Abonnementkonten, die die oben genannten Clients über den integrierten Proxy bedienen. Die WorkBuddy *App* selbst verwendet ihr eigenes Login direkt und beim Wechseln der App zwischen gespeicherten Konten wird ihre Sitzungsdatei nativ wiederhergestellt.
+- `zcode` – ZCode (ein `anypick`-Anbieter in `~/.zcode/cli/config.json` und/oder `~/.zcode/v2/config.json`)
+- `dsh` – DeepSeek Harness (eine Cordis-basierte Codierungs-CLI; AnyPick speichert den Proxy-Schlüssel in `~/.dsh/.env`, zeigt `llm-deepseek.baseURL` auf den verwalteten Proxy in `~/.dsh/settings.yaml` und pinnt das ausgewählte Standardmodell und der Modellkatalog der Quelle dort, sodass der Harness auf jedem Upstream fahren kann)
+- `commandcode` – Command Code (ein OpenAI-kompatibler BYOK-Anbieter in `~/.commandcode/providers.json`, mit seinen Proxy-Anmeldeinformationen in `auth.json`)
+- `pi` – Pi (ein `anypick`-Anbieter in `~/.pi/agent/models.json` mit der Proxy-Basis-URL und der Standardanbieter-/Modellauswahl in `~/.pi/agent/settings.json`; `~/.pi/agent/auth.json` bleibt Pi-verwaltet)
+- `omp` – Omp (ein `anypick`-Anbieter in `~/.omp/agent/models.yml` mit der Proxy-Basis-URL; das Standardmodell bleibt die Auswahl des Benutzers in der eigenen Benutzeroberfläche von omp und `~/.omp/agent/agent.db` Anmeldeinformationen werden niemals berührt)
+
+Jeder Client verfügt über ein Isolationsmanifest, das beschreibt, welche Dateien und Variablen zu ihm gehören. Dadurch werden `anypick reset <client>` und Rollback exakt und nicht nach Best-Effort durchgeführt.
+
+<Aside type="caution" title="ZCode: Die Desktop-App behält ihre eigene Modellauswahl">
+ZCode speichert sein ausgewähltes Modell außerhalb von `config.json` – die Desktop-App liest es von `~/.zcode/v2/setting.json`, das AnyPick nicht besitzt. AnyPick schreibt den Anbieter `anypick` und zeigt für die CLI-Konfiguration `model.main` darauf. In der Desktop-App ist der Anbieter nur *registriert*: Wählen Sie einmal **AnyPick** in ZCodes eigener Modellauswahl aus und es bleibt geroutet, bis Sie `anypick reset zcode`.
+</Aside>
+
+<Aside type="note" title="Welche Clients anbieterübergreifend sind">
+`claude`, `codex`, `opencode`, `zcode`, `dsh`, `commandcode`, `pi` und `omp` können an eine Quelle eines anderen Anbieters gebunden werden – dafür existieren die Proxys, und die genaue Matrix wird durch `internal/transport/adapter_matrix_test.go` erzwungen. `gemini` und `kiro` akzeptieren nur die Anmeldung ihres eigenen Anbieters, daher wird `gemini --with grok/work` abgelehnt und nicht stillschweigend weitergeleitet. Die `workbuddy`-App verwendet direkt ihr eigenes Login; `workbuddy` *Konten* bedienen die oben genannten Clients weiterhin über den Proxy, und das Umschalten der App zwischen gespeicherten Konten funktioniert nativ über ihre Sitzungsdatei.
+</Aside>
+
+In dieser Liste geht es um *Bindung*. Der Wechsel, welches Konto aktiv ist, ist umfassender, da AnyPick die eigene Anmeldeinformationsdatei des Tools schreibt und nicht etwas, das nur das Tool versteht – alles andere, was diese Datei liest, folgt also. `claude` deckt die Claude Code CLI und ihre IDE-Erweiterungen ab, und ein `gemini`-Login kann das OAuth oder Antigravity der Gemini CLI sein.
+
+<Aside type="caution" title="Die Codex-Desktop-App führt ihre eigene Sitzung">
+AnyPick kann `~/.codex/auth.json` sichern und wiederherstellen, was von der Codex-CLI gelesen wird. Die Desktop-App verfolgt ihr angemeldetes ChatGPT-Konto separat, sodass sie keinem Wechsel folgt. AnyPick erkennt diese Meinungsverschiedenheit und unterdrückt die Quotenauslesung, anstatt die Nutzung eines Kontos einem anderen zuzuordnen.
+</Aside>
+
+## Quellen
+
+Eine Quelle ist alles, was Modellanfragen beantworten kann.
+
+**Konten** sind native Logins, die von einem anderen Tool erstellt wurden – ein Codex `auth.json`, ein Grok-Zugangsdaten, ein Gemini OAuth-Token. AnyPick erstellt einen Snapshot davon, sodass mehrere nebeneinander existieren können, und stellt den von Ihnen ausgewählten wieder her, wenn Sie eine Bindung aktivieren. Siehe [Konten](/de/docs/guides/accounts).
+
+**Gateways** sind API-Profile, die Sie selbst konfigurieren: ein Endpunkt, ein Schlüssel und optional ein Modellkatalog. Nichts zum Einloggen. Siehe [Gateways](/de/docs/guides/gateways).
+
+**Pools** sind eine optionale Gruppierung mehrerer Konten eines Anbieters hinter einem einzelnen Port für Failover. Siehe [Proxies](/de/docs/guides/proxies).
+
+**Proxy Hub** ist ein separater Opt-in-Endpunkt, der mehrere gespeicherte Konten hinter einer lokalen Adresse offenlegen und nach Modell weiterleiten kann (`hub:default`). Siehe [Proxies](/de/docs/guides/proxies).
+
+Sie sind an der `--with`-Grenze austauschbar. Ein Client weiß weder, welche Sorte er bekommen hat, noch kümmert es ihn.
+
+## Bindungen
+
+Eine Bindung ist ein **Schnappschuss**, keine Referenz. Wenn Sie laufen:
+
+```bash
+anypick use claude --with grok/work
+```
+
+AnyPick löst die Quelle auf, wählt Modellstandards aus, plant die Aktivierungsschritte und zeichnet das Ergebnis auf. Durch spätere Änderungen am Konto oder der Voreinstellung wird diese Bindung nicht stillschweigend neu geschrieben – und darum geht es. Was gestern lief, läuft auch heute noch.
+
+Es gibt drei Bereiche, die in dieser Reihenfolge überprüft werden, wenn Sie `run`:
+
+1. **Ephemeral** – `run --with <source>` gilt nur für diesen Start
+2. **Projekt** – `anypick link` schreibt eine Bindung mit Gültigkeitsbereich für das aktuelle Verzeichnis
+3. **Global** – `anypick use` schreibt den Standardwert
+
+```
+use   = set the global default (persistent)
+run   = launch with the effective binding (ephemeral; never rewrites defaults)
+link  = set a project-local binding
+```
+
+Überprüfen Sie, was mit `anypick current` in Kraft ist, optional eingeschränkt auf einen Client.
+
+## Voreinstellungen
+
+Eine Voreinstellung ist eine benannte Vorlage, die Sie wiederverwenden und überarbeiten können. Es handelt sich um einen gespeicherten Quelltyp, den die CLI prüfen und auflösen kann:
+
+```bash
+anypick use claude --with @work-stack
+anypick preset list
+anypick preset show work-stack
+anypick preset remove work-stack
+```
+
+Derzeit gibt es keinen Befehl, der eine Voreinstellung **erstellt**. `use … --save <name>` wurde hier dokumentiert, aber nie implementiert, daher schreibt nichts die Tabelle `presets` und `preset list` ist bei einer Neuinstallation leer. Da es sich bei Bindungen bereits um Snapshots handelt, ist eine Voreinstellung eher eine praktische Möglichkeit für die Wiederverwendung einer Spezifikation auf mehreren Clients als eine Anforderung. Bis ein Erstellungspfad versendet wird, binden Sie die Quelle direkt mit `use <client> --with <source>`.
+
+<Aside type="note" title="Warum Schnappschüsse">
+Die Alternative – Bindungen, die ihre Quelle live verfolgen – bedeutet, dass eine Änderung an einer Stelle stillschweigend das ändert, was jeder Client startet. AnyPick macht stattdessen die Reaktivierung explizit.
+</Aside>
+
+## Aktivierung
+
+Die Umwandlung einer Bindung in einen funktionierenden Client ist eine geplante Operation und keine Reihe von Nebenwirkungen. AnyPick erstellt eine Schrittliste, zeichnet mutierende Schritte in einem Betriebsjournal mit Sicherungspfaden auf und führt sie dann aus. Wenn ein Schritt fehlschlägt, wird der vorherige Status wiederhergestellt – Clientkonfiguration, native Authentifizierung und alle von ihm gestarteten Proxys.
+
+`--dry-run` druckt den Plan ohne zu schreiben. `--trace` benennt die Schritte, während sie ausgeführt werden, ohne Geheimnisse.
+
+## Nicht interaktives Verhalten
+
+AnyPick fragt nie nach, wenn kein TTY vorhanden ist, und errät niemals eine Quelle. `use <client>` erfordert `--with`; Ohne diese Angabe wird der Befehl beendet `2`. Dies macht es in CI und in Skripten sicher. `--no-input` lehnt Eingabeaufforderungen sogar auf einem TTY ab und `--json` schaltet die Befehlsausgabe auf einen JSON-Wert auf stdout um.

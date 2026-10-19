@@ -1,0 +1,86 @@
+---
+title: 'Puertas de enlace'
+description: 'Registre un punto final, una clave y un catálogo de modelos, luego vincule cualquier cliente a él.'
+---
+
+Una puerta de enlace es un perfil de API: un punto final, una credencial y, opcionalmente, una lista de modelos. No hay flujo de inicio de sesión ni proceso local: el cliente habla directamente con el punto final remoto.
+
+## Agregar uno
+
+```bash
+anypick add gateway openrouter-work \
+  --provider openrouter \
+  --endpoint https://openrouter.ai/api/v1 \
+  --api-key "$OPENROUTER_API_KEY" \
+  --model anthropic/claude-sonnet-4 \
+  --models default=anthropic/claude-sonnet-4 \
+  --models opus=anthropic/claude-opus-4-8
+
+anypick use claude --with openrouter-work
+anypick run claude
+```
+
+| Bandera | Significado |
+| --- | --- |
+| `--provider <id>` | Qué forma de catálogo sigue el punto final |
+| `--endpoint <url>` | URL básica |
+| `--api-key <key>` | Clave almacenada en la base de datos AnyPick |
+| `--api-key-env <var>` | Lea la clave de una variable de entorno durante la activación en lugar de almacenarla |
+| `--model <id>` | Modelo predeterminado para esta puerta de enlace |
+| `--models <role=id>` | Anclar una función de modelo de cliente (`default`, `sonnet`, `opus`, `haiku`,…) a un modelo de puerta de enlace; repite la bandera para más roles |
+| `--gateway-id <id>` | ID de puerta de enlace para proveedores que abordan varias puertas de enlace por punto final |
+
+`--models` es un mapa de roles, no una lista gratuita de identificadores: el valor almacenado se escribe en las ranuras de roles de cada cliente, por lo que un identificador simple no tiene ningún rol al que adjuntar y la bandera se rechaza. Pase `role=model-id`, una vez por rol.
+
+Los proveedores de catálogo incluyen `anthropic`, `openai`, `openrouter`, `grok-api`, `gemini-api`, `litellm`, `local`, `custom` y `cloudflare-aigateway`: el conjunto completo es `Builtin()` en `src/go/internal/catalog/catalog.go`.
+
+Cloudflare AI Gateway necesita un punto final explícito (la URL base incorpora la identificación de la cuenta de Cloudflare) y una identificación de la puerta de enlace:
+
+```bash
+anypick add gateway cf-prod \
+  --provider cloudflare-aigateway \
+  --endpoint https://api.cloudflare.com/client/v4/accounts/ACCOUNT_ID/ai/v1 \
+  --api-key "$CF_API_TOKEN" \
+  --gateway-id my-gateway
+```
+
+Omita `--gateway-id` para utilizar el proveedor predeterminado (`default`).
+
+<Aside type="tip" title="Claves que preferirías no almacenar">
+`--api-key-env OPENROUTER_API_KEY` registra el nombre de la variable, no el secreto. AnyPick la lee cuando activa el vínculo, por lo que la clave permanece en su entorno o administrador secreto.
+</Aside>
+
+## ¿puerta de enlace o proxy?
+
+Ambas son fuentes y ambas terminan de la misma manera: `use <client> --with <source>`. Se diferencian en lo que hay detrás de ellos.
+
+| | Proxy (cuenta) | puerta de enlace (perfil API) |
+| --- | --- | --- |
+| Autenticación | Instantánea de inicio de sesión nativa, más un proceso local | Punto final + clave en poder de AnyPick |
+| Configuración | Inicie sesión con la CLI del proveedor, luego instantánea | Pegue un punto final y una clave |
+| Modelos | Descubierto desde el proxy en ejecución | Valores predeterminados de puerta de enlace o por vínculo |
+| Adónde van las solicitudes | `127.0.0.1:<port>` → upstream | Directo al punto final |
+
+Busque una puerta de enlace cuando mantenga presionada una tecla. Obtenga una cuenta cuando tenga una suscripción.
+
+## Modelos en el selector del cliente
+
+Para clientes con un registro de modelo nativo (Codex, OpenCode, ZCode, Command Code y DSH), AnyPick escribe el catálogo con ámbito de origen para que los identificadores disponibles en el cliente coincidan con la puerta de enlace o el proxy seleccionado. Establezca el valor predeterminado con `--model`; se convierte en el modelo con el que comienza el cliente.
+
+Claude Code, Gemini CLI y Kiro exponen la selección de modelos a través de variables de entorno o espacios de roles nativos en lugar de un registro de modelos grabable. AnyPick configura sus valores nativos predeterminados/de función, pero no puede inventar una lista del lado del cliente que esos programas no leen.
+
+Los servidores proxy de cuenta no necesitan esto: AnyPick lee su catálogo en vivo `/v1/models` cada vez que activa el cliente.
+
+## Administrar puertas de enlace
+
+```bash
+anypick gateway list
+anypick gateway show openrouter-work
+anypick gateway edit openrouter-work -m anthropic/claude-sonnet-4
+anypick gateway edit openrouter-work --endpoint https://…  --api-key "$NEW_KEY"
+anypick gateway remove old-gateway -y
+```
+
+`show` enmascara la clave. Pase la bandera global `--reveal` para imprimirla, que es exactamente tan peligrosa como parece.
+
+los vínculos son instantáneas, por lo que editar una puerta de enlace no cambia retroactivamente un cliente que ya está vinculado a ella. Vuelva a ejecutar `use` para seleccionar el nuevo punto final o modelo.

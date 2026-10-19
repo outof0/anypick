@@ -1,0 +1,56 @@
+---
+title: 'Liên kết dự án'
+description: 'Cung cấp cho một kho lưu trữ nguồn client riêng mà không cần chạm vào mặc định chung của bạn.'
+---
+
+`anypick link` ghi một binding trong phạm vi thư mục hiện tại. Nó vượt qua mặc định chung khi bạn `run` một client từ bên trong thư mục đó và nó vô hình ở mọi nơi khác.
+
+```bash
+cd ~/src/my-app
+anypick link claude                        # copy the global binding into this project
+anypick link claude --with grok/work       # or bind explicitly
+anypick run claude                         # project binding wins
+anypick unlink claude
+```
+
+`anypick unlink` không có ứng dụng khách sẽ xóa mọi binding dự án trong thư mục hiện tại.
+
+## Thứ tự giải quyết
+
+Khi `run` cần một binding, nó sẽ lấy liên kết đầu tiên mà nó tìm thấy:
+
+1. `--with` trên dòng lệnh — chỉ lần khởi chạy này
+2. Liên kết dự án cho thư mục hiện tại
+3. binding toàn cầu từ `anypick use`
+
+Nếu không tồn tại, `run` sẽ thoát `5` thay vì đoán.
+
+`anypick current` hiển thị binding hiệu quả cho mọi client, vì vậy bạn có thể biết lớp nào đã thắng.
+
+## Một sự phân chia điển hình
+
+Một client cho mỗi client mà không cần chuyển đổi thủ công:
+
+```bash
+anypick use claude --with grok/work            # your default everywhere
+
+cd ~/src/client-a
+anypick link claude --with openrouter-work     # this repo only
+
+cd ~/src/client-b
+anypick link claude --with gemini/work
+```
+
+<Aside type="note" title="Các binding dành cho mỗi thư mục, không phải trên mỗi repo">
+Liên kết được khóa theo đường dẫn thư mục mà bạn đã chạy `link` trong đó. Một cây công việc khác của cùng một kho lưu trữ là một dự án khác đối với AnyPick — thường là những gì bạn muốn và đôi khi gây ngạc nhiên.
+</Aside>
+
+## Dọn dẹp
+
+`anypick unlink` xóa liên kết nhưng vẫn giữ nguyên cấu hình của client như lần kích hoạt cuối cùng. Để loại bỏ cấu hình AnyPick đã viết cho client:
+
+```bash
+anypick reset claude
+```
+
+`reset` chỉ xóa cấu hình do AnyPick quản lý. Nó không bao giờ chạm vào các tệp xác thực gốc hoặc cài đặt của riêng bạn.

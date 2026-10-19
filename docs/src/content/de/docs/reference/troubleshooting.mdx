@@ -1,0 +1,137 @@
+---
+title: 'Fehlerbehebung'
+description: 'Was `anypick doctor` überprüft, was der Befehl repariert und was nicht, und wie sich Fehler lesen lassen.'
+---
+
+## Starten Sie mit `anypick doctor`
+
+```bash
+anypick doctor
+anypick doctor --fix --dry-run
+anypick doctor --fix -y
+```
+
+`doctor` überprüft die gesamte Installation – es beschränkt sich nicht auf einen Clients oder Anbieter. Es überprüft das AnyPick-Datenverzeichnis, die SQLite-Datenbank, gespeicherte Konten und Gateways, Dateiberechtigungen, PID-Datensätze, laufende Proxys und alle nicht abgeschlossenen Vorgangsjournaleinträge.
+
+## Was `--fix` berühren darf
+
+`--fix` arbeitet mit einer harten Zulassungsliste von sechs Aktionen. Es kann:
+
+- löschen Sie eine veraltete PID-Datei
+- stoppen Sie einen verwaisten Proxy
+- löschen Sie ein temporäres Client-Overlay, das von `run` hinterlassen wurde.
+- Reparaturberechtigungen für AnyPick-eigene Pfade
+- abgeleitete Caches neu erstellen
+- Führen Sie ein unterbrochenes Journal-Rollback durch
+
+Es werden keine Konten gewechselt, keine Pakete installiert, keine nativen Authentifizierungsdateien berührt oder Ihre Bindungen geändert. Alles außerhalb der Zulassungsliste wird als **nur manuell** gemeldet, mit dem daneben gedruckten Vorschlag – die Terminal-Benutzeroberfläche zeigt die gleiche Aufteilung.
+
+Die Aktion „Temporäre Überlagerung“ sollte sorgfältig gelesen werden. Ein Overlay ist ein Verzeichnis unter dem temporären Systemverzeichnis, und nichts darin zeichnet auf, welcher Prozess es besitzt. Daher beurteilt `--fix` es allein nach Alter und lehnt alle Änderungen ab, die in der letzten Stunde geändert wurden. Eine lange `anypick run`-Sitzung kann diese Stunde überdauern, und die Reparatur würde dann das isolierte Zuhause eines laufenden Clients löschen. Wenn Sie ein `run` mit langer Laufzeit geöffnet haben, überspringen Sie diese Aktion und löschen Sie das Verzeichnis manuell, sobald die Sitzung beendet ist. Jede andere Aktion auf der Liste beweist, dass ihr Ziel tot ist, bevor sie es berührt.
+
+Eine veraltete Sperrdatei ist absichtlich **nicht** auf der Liste. Bei den Sperren von AnyPick handelt es sich um `flock(2)`-Deskriptoren, die der Kernel freigibt, wenn der Halteprozess beendet wird, so dass bei einem Absturz nichts Veraltetes zum Löschen zurückbleibt – und eine „Reparatur“, die eine Sperrdatei entfernt, die ein Live-Prozess noch enthält, den Koordinator außer Kraft setzen würde, der verhindert, dass gleichzeitige Kontoänderungen sich gegenseitig beschädigen (ADR 0009). Ein früherer Entwurf dieser Seite versprach die Aktion; es kann nicht existieren.
+
+<Aside type="tip" title="Zuerst Vorschau">
+`anypick doctor --fix --dry-run` gibt genau aus, welche Aktionen auf der Zulassungsliste ausgeführt werden würden. Es lohnt sich, dies einmal zu tun, damit die Zulassungsliste nicht mehr abstrakt ist.
+</Aside>
+
+## Exit-Codes lesen
+
+| Code | Bedeutung | Übliche Ursache |
+| --- | --- | --- |
+| `1` | Betriebsstörung | Unerwarteter Laufzeitfehler während eines Befehls |
+| `2` | Ungültige Verwendung | `use` ohne `--with` oder `--current` oder eine schlechte Flagge |
+| `3` | Nicht gefunden | Konto, Gateway, Voreinstellung oder Clientname existieren nicht |
+| `4` | Authentifizierung erforderlich | Ein Anmelde- oder API-Schlüssel fehlt oder ist abgelaufen |
+| `5` | Fähigkeitskonflikt | Die Quelle kann diesen Client nicht bedienen oder es ist keine Bindung vorhanden |
+| `6` | Gesundheitsversagen | Eine Gesundheitsprüfung ist fehlgeschlagen |
+| `7` | Fehlende Abhängigkeit | Eine externe Proxy-Binärdatei wie `kirolink` ist nicht installiert |
+| `8` / `9` | Import abgelehnt | Fehlerhafter Exportumschlag oder das Archiv ist zu groß |
+| `130` | Abgesagt | Sie haben Strg-C | gedrückt
+
+## Häufige Situationen
+
+### Ein Client startet, ignoriert aber die Quelle
+
+Überprüfen Sie, was tatsächlich in Kraft ist – eine Projektbindung im aktuellen Verzeichnis übertrifft Ihren globalen Standard:
+
+```bash
+anypick current claude
+```
+
+Wenn eine veraltete Projektbindung erfolgreich ist, wird sie durch `anypick unlink claude` entfernt.
+
+### `run` beendet 5 ohne Bindung
+
+Für diesen Client gibt es keine flüchtige, projektbezogene oder globale Bindung. Stellen Sie eins ein:
+
+```bash
+anypick use claude --with grok/work
+```
+
+### Ein Proxy startet nicht
+
+Schauen Sie sich das Protokoll und dann den Port an:
+
+```bash
+anypick proxy status gemini work
+anypick proxy logs gemini work --lines 100
+anypick proxy config gemini work --port 4131     # move it
+```
+
+Ein konfigurierter Port, der bereits belegt ist, schlägt nicht mehr beim Start fehl: AnyPick verschiebt den Proxy auf einen freien Port, behält ihn bei, schreibt gebundene Clients neu und meldet die Verschiebung als Warnung. Ein Proxy, der von einer früheren Sitzung übrig geblieben ist, kann immer noch gestoppt werden, indem man ihm den Namen `anypick proxy stop gemini work` gibt. Es gibt kein „Alles stoppen“-Formular; Der Befehl `anypick proxy` ohne Argumente gibt seine Verwendung aus.
+
+### Der Gemini-Proxy lehnt ein Modell ab
+
+Ein Nur-OAuth-Gemini-Konto kann einen Client anmelden, aber nicht den Proxy steuern, der `GEMINI_API_KEY` in den gespeicherten Anmeldedaten `.env` benötigt. Wenn beide Anmeldungen vorhanden sind, speichern Sie die Quelle, die der Proxy bereitstellen soll:
+
+```bash
+anypick add account gemini --current --source gemini-cli --name work
+anypick add account gemini --current --source antigravity --name work
+```
+
+### Der gespeicherte Login und der Live-Login stimmen nicht überein
+
+Die Terminal-Benutzeroberfläche markiert dies mit `◐ changed`. Dies bedeutet, dass die CLI des Anbieters neue Anmeldeinformationen geschrieben hat, nachdem AnyPick seinen Snapshot erstellt hat. Übernehmen Sie das Neue:
+
+```bash
+anypick account refresh codex
+```
+
+### Zwei gespeicherte Konten teilen sich einen Snapshot
+
+`anypick doctor` meldet `duplicate-snapshot`, wenn zwei Namen für denselben Anbieter denselben Anmeldeinformations-Snapshot enthalten. Ein Wechsel zwischen ihnen kann die Anmeldung nicht ändern. AnyPick weigert sich, neue Paare zu erstellen und fordert Sie lediglich auf, die zuvor gespeicherten Paare zu bereinigen:
+
+```bash
+anypick doctor --json                          # exact names, and which to keep
+anypick account remove workbuddy/work
+```
+
+`anypick doctor` nennt das Konto, das unter `keep <provider>/<account>` behalten werden soll, und gibt die Löschbefehle aus. Wenn beide Namen aktiv sind — einer aktiv und der andere noch von einer Clientbindung referenziert — fordert der Befehl dazu auf, die Clients erneut an ein Konto zu binden, statt Löschbefehle auszugeben. So unterbricht die Bereinigung keine Route.
+
+### Proxys laufen weiter, nachdem ich die Benutzeroberfläche geschlossen habe
+
+Durch das Schließen des Hauptfensters der nativen App wird die App nicht beendet. Verwenden Sie **Quit AnyPick** in der App oder im Quick Panel der Menüleiste, um den gebündelten Go-Dienst ordnungsgemäß zu beenden.
+
+Durch das Schließen der Quell-TUI bleiben auch bestehende Kompatibilitätsprozesse unverändert. So stoppen Sie diesen Kompatibilitäts-Supervisor von diesem Checkout aus:
+
+```bash
+make run ARGS="tray stop"
+```
+
+`make run ARGS="proxy stop"` stoppt die direkte Ausführung von Konto-Proxys. Die TUI startet ihren Kompatibilitäts-Supervisor nur, wenn Sie explizit <kbd>Shift+D</kbd> drücken oder ihn über den Tray-Runtime-Bildschirm starten; Es steuert kein separat gestartetes `AnyPick.app`.
+
+### Eine Aktivierung ist auf halbem Weg fehlgeschlagen
+
+Mutierende Aktivierungsschritte werden in einem Betriebsjournal mit Sicherungspfaden aufgezeichnet, sodass bei einer fehlgeschlagenen Aktivierung der vorherige Status wiederhergestellt wird – Client-Konfiguration, native Authentifizierung und alle von ihr gestarteten Proxys. Wenn der Prozess abgebrochen wurde, bevor das Rollback abgeschlossen werden konnte, wird er von `anypick doctor --fix` abgeschlossen.
+
+Ein Kontowechsel ist dieselbe Transaktion: Wenn das neu ausgewählte Konto nicht auf gebundene Clients angewendet werden kann, werden der aktive Zeiger, die Clientbindung und der Proxy des vorherigen Kontos alle wiederhergestellt, und der Fehler besagt dies. Sie sollten niemals sehen, dass die App ein neues aktives Konto beansprucht, während ein Client noch auf den alten Proxy verweist.
+
+## Tiefer graben
+
+```bash
+anypick --trace use claude --with grok/work    # name each step, no secrets
+anypick proxy status <provider> <account>      # live listener state
+anypick doctor --json                          # machine-readable findings
+```
+
+`--trace` druckt den Aktivierungsplan Schritt für Schritt aus, was normalerweise ausreicht, um zu sehen, welche Phase fehlgeschlagen ist. Kombinieren Sie es mit `--dry-run`, um den Plan anzuzeigen, ohne ihn auszuführen.

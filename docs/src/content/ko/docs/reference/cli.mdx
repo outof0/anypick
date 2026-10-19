@@ -1,0 +1,331 @@
+---
+title: 'CLI 참조'
+description: '모든 AnyPick 명령, 전역 플래그, 종료 코드 및 환경 변수.'
+---
+
+명령 이름은 `anypick`입니다. GitHub 릴리스에서 체크섬 목록 아카이브를 다운로드하거나 `npm install --global anypick`(노드 18 이상, 처음 실행 시 일치하는 기본 CLI 다운로드)를 사용하여 씬 npm 실행 프로그램을 설치하세요. 개발 중에 `make run ARGS="…"`를 사용하여 체크아웃에서 동일한 명령 트리를 실행하세요. 예를 들어 `make run ARGS="list accounts"`입니다.
+
+기본 macOS 애플리케이션은 별도의 앱 소유 대상입니다. 번들로 제공되는 Go 서비스 자체를 시작하며 상위 항목으로 사용하기 위해 이 CLI가 필요하지 않습니다.
+
+## 글로벌 플래그
+
+모든 명령에 유효합니다.
+
+| 플래그 | 효과 |
+| --- | --- |
+| `-V, --version` | 버전을 인쇄하고 종료 |
+| `--json` | 기계가 읽을 수 있는 출력 |
+| `-v, --verbose` | 자세한 로깅 |
+| `-q, --quiet` | 최소 출력 |
+| `--dry-run` | 계획을 인쇄하세요. 아무것도 쓰지 마세요 |
+| `--reveal` | 비밀 표시 — 위험함 |
+| `--no-input` | TTY에서도 프롬프트를 표시하지 않음 |
+| `-y, --yes` | 파괴적인 확인 건너뛰기 |
+| `--trace` | 비밀 없이 내부 단계 이름 인쇄 |
+| `--tui` | 이 실행을 위한 터미널 UI 열기 |
+| `--tray` | 이 소스 CLI 실행을 위한 호환 트레이 표면 선택 |
+
+## 바인딩
+
+```bash
+anypick use <client> --with <source> [--model <id>] [--transport auto|direct|proxy] [--allow-foreign-config]
+anypick use codex --with <source> --profile <name> [--model <id>] [--transport auto|direct|proxy] [--allow-foreign-config]
+anypick run <client> (--with <source>|--profile <name>) [--model <id>] -- <args…>
+anypick codex profile login <name> [--auth-method <id>] [--source <id>]
+anypick codex profile list
+anypick codex profile show <name>
+anypick codex profile remove <name> [--yes]
+anypick current <provider>
+anypick models <client> [--with <source>]
+anypick link <client> [--with <source>] [--model <id>] [--allow-foreign-config]
+anypick unlink [client]
+anypick reset [client]
+```
+
+| 명령 | 설명 |
+| --- | --- |
+| `use` | 클라이언트가 기본적으로 사용하는 항목 설정(`--with` 필수) |
+| `run` | 효과적인 바인딩으로 클라이언트 시작 |
+| `current` | 한 공급자의 효과적인 바인딩 표시 |
+| `models` | 바인딩된 소스가 게시하는 모델 ID 나열 |
+| `link` / `unlink` | 현재 디렉터리에 대한 프로젝트 범위 바인딩. `link` `--with` 없이 저장된 전역 사양을 다시 적용 |
+| `reset` | 클라이언트에 대한 AnyPick 관리 구성 제거 |
+
+`--with`는 계정(`grok/work`), 게이트웨이 이름, 풀(`pool:gemini`), 프록시 허브(`hub:default`) 또는 사전 설정(`@work-stack`)을 허용합니다. `--transport`는 플래너가 선택하도록 하는 대신 경로 정책을 고정합니다.
+
+#### 클라이언트 구성은 AnyPick이 소유하지 않습니다.
+
+AnyPick은 다른 도구의 구성 파일을 작성하므로 작성했음을 증명할 수 없는 값의 대체를 거부합니다. `~/.claude/settings.json` 또는 Codex 구성이 이미 자신의 로그인 또는 엔드포인트를 가리키는 경우 `use`는 `CLIENT_CONFIG_FOREIGN`로 실패하고 파일과 키의 이름을 지정합니다. 구성은 바이트 동일하게 유지됩니다.
+
+`--allow-foreign-config`는 명시적인 대답입니다. 현재 파일을 `$ANYPICK_HOME/recovery/clients/<client>/` 아래에 백업한 다음 해당 값을 바꿉니다. 동의는 실행별로 이루어지며 지속되지 않으며 데스크톱 앱은 플래그 대신 **AnyPick으로 관리** 버튼을 사용하여 동일한 질문을 합니다. 이미 관리하고 있는 클라이언트(루프백 프록시 엔드포인트 또는 AnyPick의 관리 마커를 전달하는 구성)는 묻지 않고 업데이트됩니다.
+
+### 명명된 Codex 프로필
+
+`--profile`는 Codex에 안정적인 기본 프로필 이름을 제공하고 AnyPick은 그 뒤에 소스를 저장합니다. 이는 하나의 셸이나 스크립트에 여러 개의 저장된 경로가 필요할 때 유용합니다. 각 프로필에는 자체 `CODEX_HOME`, `<name>.config.toml` 및 `auth.json`가 있습니다. 프록시 지원 프로필은 소유자 전용 환경 파일도 가져옵니다.
+
+저장된 Codex 계정의 경우 `auto`는 기본 프로필 홈을 사용하고 해당 계정의 저장된 `auth.json`를 복사합니다. 데스크톱 앱의 라이브 `CODEX_HOME`에는 영향을 미치지 않습니다. 데스크톱 로그인을 전환하지 않고 계정과 프로필을 생성하려면 `profile login`를 사용하세요.
+
+```bash
+anypick codex profile login work
+anypick use codex --with codex/work --profile work --model gpt-5.6
+anypick use codex --with openrouter-work --profile gateway
+anypick use codex --with hub:default --profile hub-work
+```
+
+`profile login`는 `CODEX_HOME=$ANYPICK_HOME/clients/codex/profiles/work/codex-home`를 사용하여 공식 Codex 로그인을 실행하므로 브라우저 흐름은 여기에 계정 B를 기록합니다. 그런 다음 AnyPick은 `codex/work` 스냅샷과 동일한 파일을 저장하고 데스크탑 활성 포인터를 복원합니다. 대신 계정 지원 프록시를 사용하려면 이를 활성화하고 `--transport proxy`를 고정하세요.
+
+```bash
+anypick proxy enable codex work
+anypick use codex --with codex/work --profile work-proxy --transport proxy
+```
+
+기본 Codex CLI 구성은 `--profile` 없이 동일한 경로를 허용합니다.
+
+```bash
+anypick use codex --with codex/work --transport proxy
+anypick use codex --with hub:default
+```
+
+격리된 Codex CLI 프로세스를 통해 프로필을 실행하려면 다음을 사용하세요.
+
+```bash
+anypick run codex --profile personal -- exec --help
+anypick codex profile list
+```
+
+원시 호출의 경우 `anypick codex profile show <name>`에서 인쇄한 `launch` 명령을 사용하세요. 프로필별 `CODEX_HOME`를 명시적으로 설정합니다. 프록시 지원 프로필은 소유자 전용 env 파일도 제공합니다. 해당 env 파일을 인쇄하거나 커밋하지 마세요. 이 파일에는 로컬 프록시 자격 증명이 포함되어 있습니다. 허브 지원 프로필에는 고유한 경로 토큰이 있으므로 하나의 프로필을 활성화해도 기본 경로나 다른 프로필이 무효화되지 않습니다. 이 명령은 Codex CLI를 구성합니다. Codex Desktop은 자체 로그인 계정을 유지하며 CLI의 `CODEX_HOME`를 따르지 않습니다.
+
+`anypick codex profile remove <name>`는 경로와 AnyPick이 생성한 파일(프로필 구성, 모델 카탈로그 및 env 파일)을 삭제합니다. 프로필의 비공개 `CODEX_HOME`는 그대로 유지되므로 동일한 이름으로 다시 로그인하면 해당 프로필이 재사용됩니다. 프로필이 가리키는 *계정*을 제거하는 것은 다릅니다. `anypick account remove codex work`는 또한 해당 계정에 바인딩된 명명된 프로필, 자격 증명 홈을 포함하여 제거하고 결과에서 이름을 지정합니다. 게이트웨이, 허브, 풀 또는 다른 계정을 가리키는 프로필은 건드리지 않습니다. AnyPick은 다음 시작 시 이전 삭제에서 남은 프로필을 비우고, `anypick doctor`는 그때까지 이를 보고합니다.
+
+<Aside type="caution" title="비대화형 사용">
+`use <client>`에는 `--with`가 필요합니다. 이것이 없으면 소스를 파생할 것이 없으므로 명령은 추측하는 대신 `2`를 종료합니다.
+</Aside>
+
+## 인벤토리
+
+```bash
+anypick list [providers|accounts]   # default: providers
+anypick providers
+anypick clients
+```
+
+`ls` 별칭도 없고 `list gateways|clients|presets` 형식도 없습니다. 게이트웨이, 사전 설정 및 플러그인에는 각각 아래에 고유한 명령 계열이 있습니다.
+
+## 소스 추가
+
+```bash
+anypick add account <provider> --name <name> [--current|--new] [--source <id>] [--force]
+anypick add account <provider> --new --name <name> [--auth-method <id>] [--source <id>]
+anypick add account <provider> --name <name> --credential <kind> --secret [--option profile=<id>] [--region <region>]
+anypick add gateway <name> --provider <id> [--endpoint url]
+    [--api-key [key] | --api-key-env <var> | --secret <key>]
+    [--model <id>] [--models <role=id>]
+```
+
+`--current`는 현재 활성화된 로그인의 스냅샷을 찍습니다. `--new`는 사용 가능한 공급자 소유 브라우저 로그인을 사용하고 결과 기본 자격 증명을 저장합니다. 그렇지 않으면 현재 로그인을 숨기고 수동 연속을 인쇄합니다. 공식적인 방법이 선호되는 반면, `--auth-method <id>`는 커뮤니티 방법을 포함하여 공급자가 선언하는 모든 방법을 선택할 수 있습니다. `--source <id>`는 다중 소스 공급자를 위한 명시적인 기본 저장소를 선택합니다. `--credential <kind>`(호환되는 공급자의 경우 `--api-key` 포함) 및 `--secret`, `--api-key` 또는 기본 `--api-key` 프롬프트가 API 키 자격 증명을 제공합니다. `--profile` 또는 `--option profile=<id>`는 엔드포인트 프로필을 선택하고 `--region`는 Kiro API 키 클라우드 지역입니다. 마스크된 프롬프트를 사용하려면 `--secret` 값을 생략하거나 `ANYPICK_SECRET`를 통해 전달하세요.
+
+## 계정
+
+```bash
+anypick account list [provider]
+anypick account refresh [provider [name]] [--all]
+anypick account remove <provider> <name> [--yes]
+anypick account export <provider> <name> [--out <file>]   # -o <file>; defaults to ~/.anypick/exports/*.json
+anypick account export [provider] --all [--out <file>] [--overwrite]
+anypick account import <provider> <name> <file.json> [--force]   # or -i <file.json>
+anypick account import <file.json> [<file2.json> …] [--force]
+```
+
+`refresh`는 공급자의 현재 라이브 로그인을 저장된 계정에 적용합니다. 공급자가 없으면 저장된 모든 계정을 시도합니다. 공급자(및 선택적으로 이름)를 사용하면 해당 항목만 새로 고쳐집니다. 한 계정에 다른 계정의 스냅샷을 제공하는 새로 고침은 거부됩니다. 즉, 하나의 로그인은 하나의 계정에 유지됩니다. 따라서 전체 공급자를 새로 고치면 고유한 로그인을 현재 라이브 로그인으로 조용히 축소할 수 없습니다. `rm` 별칭이 없습니다.
+
+## 게이트웨이
+
+```bash
+anypick gateway add <name> --provider <id> [--endpoint url]
+    [--api-key [key]|--api-key-env <var>|--secret <key>]
+    [--model <id>] [--models <role=id>]
+anypick gateway list
+anypick gateway show <name>
+anypick gateway edit <name> [--endpoint url] [--model id] [-m id] [--api-key key]
+anypick gateway remove <name>
+```
+
+`show`는 전역 `--reveal`를 전달하지 않는 한 API 키를 마스크합니다. `edit`는 저장된 키를 대체하기 위해 `--api-key`를 허용하고 `--model`의 약식으로 `-m`를 허용합니다.
+
+## 사전 설정
+
+```bash
+anypick preset list
+anypick preset show <name>
+anypick preset remove <name>
+```
+
+사전 설정 이름은 여기서 `@` 없이 작성됩니다. `@` 접두사는 `--with`에서 접두어를 참조하는 방법일 뿐입니다.
+
+## 프록시
+
+```bash
+anypick proxy enable|disable <provider> <account> [--port N]
+anypick proxy start|stop|status|token <provider> <account>
+anypick proxy config <provider> <account> [--port N]
+anypick proxy restart <provider> <account>
+anypick proxy logs <provider> <account> [--lines N] [--follow]
+```
+
+`--port` on `enable`/`config`는 포트를 고정합니다. 그렇지 않으면 첫 번째 사용 가능한 포트가 사용됩니다. `token`는 프록시에 대한 인증 토큰/API 키를 인쇄하거나 순환(`--rotate`)합니다. `logs`는 기본적으로 마지막 50줄을 인쇄합니다.
+
+### 풀
+
+```bash
+anypick proxy pool status <provider>
+anypick proxy pool enable <provider> [--strategy failover|round-robin]
+    [--mode single|multi] [--port N] [-p N] [+account|-account ...]
+anypick proxy pool member <provider> <account> <on|off>
+anypick proxy pool start <provider>
+anypick proxy pool stop <provider>
+anypick proxy pool disable <provider>
+```
+
+`enable`는 한 번의 통화로 `+account` 회원을 추가하고 `-account` 회원을 일시중지합니다. 기본 전략은 `failover`이고, 기본 모드는 `multi`입니다. `round-robin`를 사용하면 각 요청은 다음 적격 회원부터 시작됩니다. `failover`를 사용하면 마지막으로 응답한 계정이 거부될 때까지 계속 서비스를 제공합니다. 어느 쪽이든 할당량 클래스 오류가 발생하면 요청이 다음 멤버로 이동됩니다.
+
+### 프록시 허브
+
+```bash
+anypick proxy hub status <name>
+anypick proxy hub enable <name> [--host <host>] [--port N] [-p N]
+    [--strategy failover|round-robin] [--start]
+anypick proxy hub source <name> <provider> <account>
+anypick proxy hub owner <name> <model> <provider>/<account>
+anypick proxy hub preview <name>
+anypick proxy hub start <name>
+anypick proxy hub stop <name>
+```
+
+`source` 토글: 현재 소스가 제거되고, 없는 소스가 추가됩니다(계정 이름이 필요함). `--strategy round-robin`는 허브가 각 모델을 하나의 모델에 고정하는 대신 이를 제공할 수 있는 활성화된 계정(모델이 해결하는 공급자의 계정)에 분산하도록 만듭니다. 플래그가 없으면 현재 모드가 유지됩니다. 하나 이상의 소스가 활성화된 후 `--with hub:<name>`로 바인딩합니다. `owner` 두 소스가 동일한 모델 ID를 광고할 때 어떤 계정이 승리할지 선택합니다. `preview`는 카탈로그를 새로 고치고 경로와 충돌을 인쇄합니다.
+
+## 플러그인
+
+```bash
+anypick plugin list
+anypick plugin add <dir>
+anypick plugin enable <name>
+anypick plugin disable <name>
+anypick plugin trust <name>
+anypick plugin remove <name>
+```
+
+`add`는 **비활성화**된 로컬 디렉터리를 설치합니다. `enable`는 신뢰 결정 및 프롬프트입니다. TTY가 없으면 전역 `-y`가 필요합니다. `trust`는 플러그인 코드가 변경된 후 패키지 다이제스트를 다시 고정합니다. [플러그인](/ko/docs/guides/plugins)을 참조하세요.
+
+## 소스 CLI 표면 및 호환성 감독자
+
+```bash
+anypick tui
+anypick tray
+anypick start
+anypick status
+anypick stop
+```
+
+`anypick tui`는 항상 [앱/단말기 UI](/ko/docs/guides/terminal-ui)를 엽니다. `tray` 명령 계열은 Go 엔진에 의해 구현됩니다(TypeScript 트리 및 해당 트레이 표면은 더 이상 존재하지 않음). `anypick tray`는 호환성 스냅샷을 인쇄하고 `start`, `status` 및 `stop` 호환성 감독자와 그것이 소유한 프록시를 제어합니다.
+
+이러한 명령은 기본 앱 소유권을 정의하지 않습니다. macOS 앱은 `Contents/Helpers/anypick-core`를 확인하고 시작하며, 메뉴 표시줄 빠른 패널을 동일한 애플리케이션 내에 유지하고, 명시적인 앱 종료 시 도우미를 중지합니다. [macOS 앱 및 메뉴 바](/ko/docs/guides/tray)를 참조하세요.
+
+## 건강
+
+```bash
+anypick doctor [target]
+anypick doctor --fix [--dry-run] [-y]
+```
+
+`--fix`가 터치할 수 있는 항목은 [문제 해결](/ko/docs/reference/troubleshooting)을 참조하세요.
+
+## 업데이트 확인
+
+```bash
+anypick update
+anypick update --json
+```
+
+이 권고 점검은 실행 중인 버전을 최신 GitHub 릴리스와 비교합니다. 사용 가능한 설치 경로를 인쇄합니다. 설치가 변경되지는 않습니다. 지침은 릴리스 페이지, 사용 가능한 패키지 관리자 또는 소스 체크아웃을 가리킵니다.
+
+```bash
+git pull && make build
+```
+
+릴리스가 게시될 때까지 검사에서는 `no published release yet`를 보고하고 소스 워크플로를 가리킵니다. `--json`는 현재 버전과 최신 버전을 반환합니다.
+
+```bash
+anypick update --json
+```
+
+```json
+{ "current": "1.0.0", "latest": "1.1.0" }
+```
+
+업데이트 엔진에는 명시적인 확인 및 다운로드 명령도 있습니다. macOS **설정 → 업데이트** 창에서는 동일한 명령을 사용합니다.
+
+```bash
+anypick update check --json
+anypick update download --json
+```
+
+`check`는 감지된 채널에 대한 업데이트 상태와 설치 작업을 보고합니다. `download`는 직접 설치 자산을 AnyPick의 사용자 캐시로 가져오고 해당 릴리스의 체크섬 파일과 비교하여 SHA-256을 확인합니다. 설치된 앱을 교체하거나 다시 시작하지 않습니다. 설정에서 **Finder에 표시**를 선택하면 다운로드한 파일이 열리므로 해당 채널에 대한 일반적인 단계를 사용하여 설치할 수 있습니다. 패키지 관리자 설치에는 해당 업그레이드 명령이 표시됩니다.
+
+macOS 앱은 공증되지 않습니다. 첫 실행 승인 단계는 [데스크톱 앱](/ko/docs/guides/tray)에서 확인하세요.
+
+<Aside type="caution" title="다운로드가 자동으로 설치되지 않습니다.">
+직접 설치의 경우 업데이트 확인을 통해 릴리스 자산을 다운로드하고 확인합니다. 여전히 해당 다운로드를 수동으로 설치합니다. 패키지 관리 설치 또는 로컬 `.deb` 또는 `.rpm` 파일 재설치를 위해 AnyPick에 표시된 명령을 사용하세요.
+</Aside>
+
+## 쉘 완성
+
+```bash
+anypick completion zsh     # also: bash | fish
+```
+
+쉘 시작 파일에 추가하거나 직접 평가하십시오.
+
+```bash
+source <(anypick completion zsh)
+```
+
+## 종료 코드
+
+| 코드 | 의미 |
+| --- | --- |
+| `0` | 성공 |
+| `1` | 운영 실패 |
+| `2` | 잘못된 사용 — 클라이언트 또는 소스 누락, TTY 없이 `use` |
+| `3` | 찾을 수 없음 |
+| `4` | 인증이 필요합니다 |
+| `5` | 기능 충돌, 지원되지 않는 전송 또는 바인딩 없음 |
+| `6` | 건강 실패 |
+| `7` | 외부 프록시 바이너리와 같은 필수 종속성 누락 |
+| `8` | 형식이 잘못되었거나 신뢰할 수 없는 가져오기 봉투 |
+| `9` | 가져오기 크기 또는 파일 수 제한을 초과함 |
+| `130` | SIGINT로 취소됨 |
+
+## 환경 변수
+
+### 애니픽
+
+| 변수 | 효과 |
+| --- | --- |
+| `ANYPICK_HOME` | 데이터 디렉토리. 기본값 `~/.anypick` |
+| `ANYPICK_LANG` | 표시 언어(`en`, `zh-CN`, `es`, `fr`, `de`, `ja`, `ko`, `pt-BR` 또는 `vi`). 기본값은 프로세스 로케일입니다(`LC_ALL`, `LC_MESSAGES` 또는 `LANG`; Windows에서는 기본 UI 언어를 사용함). 지원되지 않는 로케일과 번역되지 않은 메시지는 영어로 대체됩니다 |
+| `ANYPICK_SECRET` | `add account` / `add <provider>`에 대한 자격 증명 값이므로 프로세스 목록에 표시되지 않습니다 |
+| `ANYPICK_NO_PLUGINS=1` | 플러그인 로딩을 완전히 건너뛰기 |
+| `NO_COLOR` | 모든 색상을 버리십시오. 문자 모양은 여전히 ​​상태를 전달합니다 |
+
+### 제공자 재정의
+
+| 변수 | 효과 |
+| --- | --- |
+| `GEMINI_API_KEY`, `GOOGLE_API_KEY` | `add account gemini --current`가 읽은 라이브 Gemini API 키 |
+| `GEMINI_API_KEY_UPSTREAM` | Gemini API 키 업스트림 기본 URL 재정의 |
+| `GEMINI_CODE_ASSIST_UPSTREAM` | Gemini Code Assist 엔드포인트 재정의 |
+| `GEMINI_CLI_HOME`, `GEMINI_CONFIG_DIR` | Gemini config-dir 해결(`GEMINI_CLI_HOME` 승리, CLI와 일치) |
+| `CLAUDE_BINARY`, `CODEX_BINARY`, `KIRO_BINARY`, `GROK_BINARY` | 특정 클라이언트 바이너리 실행 |
+| `KIROLINK_BIN` | 외부 `kirolink` 바이너리 경로 |
+| `WORKBUDDY_BASE_URL` | WorkBuddy/CodeBuddy API 기반 재정의 |
+| `CLINE_API_BASE_URL`, `CLINE_WORKOS_CLIENT_ID` | Cline API/WorkOS 재정의(클라이언트 ID는 공개이며 내장된 기본값을 재정의함) |

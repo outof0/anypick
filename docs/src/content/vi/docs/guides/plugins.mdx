@@ -1,0 +1,85 @@
+---
+title: 'Plugin'
+description: 'Chức năng đăng ký plugin thực hiện trong bản dựng AnyPick gốc — cài đặt, ghim, bật — và tại sao không có mã plugin nào được thực thi.'
+---
+
+Bản dựng AnyPick gốc giữ plugin **đăng ký** nhưng không giữ plugin **máy chủ**. Bạn có thể cài đặt một plugin, ghim nó vào toàn bộ gói thông báo và kích hoạt nó theo tên; không có gì tải hoặc chạy mã của nó.
+
+<Aside type="caution" title="Không có mã plugin nào chạy trong bản dựng gốc">
+Các bản phát hành trước đó đã tải mô-đun plugin của bên thứ ba vào quy trình AnyPick. Bản dựng gốc không: không có máy chủ plugin, do đó, plugin đã bật sẽ không cấp cho mã của bên thứ ba quyền truy cập vào thông tin xác thực của bạn ngay hôm nay. Xem [ADR-0021](https://github.com/outof0/anypick/blob/main/adr/0021-plugin-host-removed-from-native-builds.md). Hãy coi đây là trạng thái hiện tại chứ không phải là sự đảm bảo vĩnh viễn — nếu người thực thi Go-native đến, trang này và `SECURITY.md` thay đổi trong cùng một cam kết.
+</Aside>
+
+## Những gì vẫn hoạt động
+
+```bash
+anypick plugin add ./acme-provider   # recorded, disabled, digest pinned
+anypick plugin list
+anypick plugin enable acme-provider  # prompts — records the trust decision
+```
+
+`add` không bao giờ bật. Dù sao thì plugin cũng được ghi lại trong sổ đăng ký của AnyPick.
+
+```
+  off  acme-provider        1.0.0      82aae3b7898d
+    /Users/you/src/acme-provider
+```
+
+Hex ngắn là bản tóm tắt SHA-256 của toàn bộ gói plugin (tệp kê khai và mọi tệp được gửi trong thư mục). AnyPick tính toán lại và so sánh nó trên mỗi lần tải, do đó, gói đã thay đổi kể từ khi bạn phê duyệt sẽ bị từ chối:
+
+```
+  fail acme-provider        1.0.0      82aae3b7898d
+    plugin acme-provider has changed since you trusted it
+    → anypick plugin trust acme-provider
+```
+
+Đó là sự xung đột có chủ ý chứ không phải lỗi bộ nhớ đệm - bản tóm tắt là những gì bạn đã phê duyệt. Xem lại sự khác biệt rồi ghim lại bằng `anypick plugin trust acme-provider`.
+
+## Điều gì đã thay đổi
+
+Vì không có máy chủ nên mọi ứng viên đều báo cáo lỗi tải thay vì tải. Điều này là có chủ ý: một danh sách trống im lặng sẽ trông giống như một bộ plugin lành mạnh, vì vậy, `anypick doctor`, `plugin list` và ứng dụng dành cho máy tính để bàn đều hiển thị lý do thay thế.
+
+```bash
+anypick plugin disable acme-provider  # keep it installed, stop considering it
+anypick plugin remove acme-provider   # uninstall
+ANYPICK_NO_PLUGINS=1 anypick doctor   # skip every plugin for one run
+```
+
+## Các nhà cung cấp tương thích được tích hợp sẵn
+
+Các nhà cung cấp từng cung cấp gói `bundled:popular-providers` hiện đã được đăng ký trực tiếp bởi công cụ Go. Bạn không cần cài đặt bất cứ thứ gì — chúng có sẵn dưới dạng tài khoản được quản lý ngay lập tức. Bảng dưới đây bao gồm các nhà cung cấp khóa đăng ký; bộ cài sẵn đầy đủ là `BuiltinDefinitions()` trong `src/go/internal/provider/compatible.go`.
+
+```bash
+# Omit the --secret value to use the masked prompt.
+anypick add account kimi --credential subscription-key --secret --name personal
+anypick add account minimax --credential api-key --secret --name paygo \
+  --option profile=global
+anypick add account mimo --credential subscription-key --secret --name europe \
+  --option profile=token-plan-ams
+```
+
+| Nhà cung cấp | `api-key` | Hồ sơ `subscription-key` |
+| --- | --- | --- |
+| Kimi | Nền tảng mở (`global`, `china`) | Thành viên Kimi Code |
+| GLM | BigModel / Z.AI (`china`, `global`) | GLM Coding Plan (`china`, `global`) |
+| MiniMax | trả tiền khi bạn sử dụng (`china`, `global`) | Gói mã thông báo (`china`, `global`) |
+| MiMo | trả tiền khi bạn sử dụng (`global`) + Gói mã thông báo qua api-key (`token-plan-cn`, `token-plan-sgp`, `token-plan-ams`) | Gói mã thông báo (`token-plan-cn`, `token-plan-sgp`, `token-plan-ams`) |
+| DeepSeek | API nền tảng | — |
+| Qwen | Model Studio (`intl`, `china`) | Coding Plan / Token Plan |
+| Ark | Volcengine / BytePlus (`china`, `global`) | Coding Plan (`china`, `global`) |
+| TokenHub | Tencent trả tiền khi bạn sử dụng | Coding Plan Tencent |
+| OpenRouter | API đa mô hình | — |
+| GroqCloud | API suy luận | — |
+| Mistral | API La Plateforme | — |
+| Cùng nhau | API suy luận | — |
+| Fireworks | API không có máy chủ | — |
+| Não | API suy luận | — |
+| SiliconFlow | API suy luận | — |
+| NVIDIA NIM | API NIM được lưu trữ | — |
+
+Các khóa đăng ký nằm sau cùng một nhóm và proxy cục bộ đã được xác thực như các khóa API. Proxy giữ client thực `User-Agent`; nó không nhập phiên trang web của người tiêu dùng hoặc giả vờ là một công cụ lập trình khác. Chỉ sử dụng đăng ký cho các kịch bản lập trình tương tác mà nhà cung cấp cho phép. OpenRouter, GroqCloud và Fireworks sử dụng điểm cuối Responses gốc được ghi lại của họ; các cấu hình tương thích với OpenAI khác dịch Responses thông qua Chat Completions.
+
+Các lựa chọn điểm cuối và sản phẩm tuân theo tài liệu hiện tại của nhà cung cấp: [Kimi Code](https://www.kimi.com/code/docs/), [GLM Coding Plan](https://docs.bigmodel.cn/cn/coding-plan/tool/others), [MiniMax Token Plan](https://platform.minimax.io/docs/token-plan/quickstart), [MiMo Token Plan](https://mimo.mi.com/docs/en-US/price/tokenplan/subscription), [Qwen Coding Gói](https://help.aliyun.com/en/model-studio/coding-plan), [Coding Plan BytePlus ModelArk](https://docs.byteplus.com/api/docs/ModelArk/2188959), [Coding Plan Tencent TokenHub](https://cloud.tencent.com/document/product/1823/130092), [OpenRouter](https://openrouter.ai/docs/quickstart), [GroqCloud](https://console.groq.com/docs/openai), [Mistral](https://docs.mistral.ai/api), [Together AI](https://docs.together.ai/docs/inference/openai-compatibility), [Fireworks](https://docs.fireworks.ai/tools-sdks/openai-compatibility), [Cerebras](https://inference-docs.cerebras.ai/resources/openai), [SiliconFlow](https://docs.siliconflow.com/en/userguide/quickstart) và [NVIDIA NIM](https://docs.api.nvidia.com/nim/reference/z-ai-glm5.1-infer).
+
+## Thêm nhà cung cấp ngay hôm nay
+
+Cho đến khi tồn tại trình thực thi Go-native, việc thêm nhà cung cấp có nghĩa là xây dựng AnyPick từ nguồn và đăng ký nó trên cây. Hướng dẫn dành cho người đóng góp bao gồm những gì một nhà cung cấp tốt triển khai — bao gồm cả chính sách mô hình của nó, chính sách này giúp nhà cung cấp của bạn không kế thừa mã nhận dạng mô hình của nhà cung cấp khác.

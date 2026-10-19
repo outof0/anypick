@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	toml "github.com/pelletier/go-toml/v2"
+
 	"github.com/outof0/anypick/go/internal/atomicfile"
 	"github.com/outof0/anypick/go/internal/transport"
 )
@@ -987,7 +989,7 @@ func (a *codexAdapter) Inspect() (*InspectResult, error) {
 	raw, err := os.ReadFile(configPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return &InspectResult{Present: false, Issues: []string{"config.toml not found"}, ConfigPaths: []string{configPath}}, nil
+			return &InspectResult{Native: true, Issues: []string{"config.toml not found"}, ConfigPaths: []string{configPath}}, nil
 		}
 		return nil, err
 	}
@@ -995,15 +997,38 @@ func (a *codexAdapter) Inspect() (*InspectResult, error) {
 	// marker is a prefix of the native one, and a comment can mention either.
 	// The same whole-line rule as the strippers decides presence.
 	issues := codexConfigIssues(configPath, string(raw))
+	var config struct {
+		Provider string `toml:"model_provider"`
+		BaseURL  string `toml:"openai_base_url"`
+		Profile  string `toml:"profile"`
+		Profiles map[string]struct {
+			Provider string `toml:"model_provider"`
+		} `toml:"profiles"`
+		Providers map[string]struct {
+			BaseURL string `toml:"base_url"`
+		} `toml:"model_providers"`
+	}
+	parsed := toml.Unmarshal(raw, &config) == nil
+	if config.Profile != "" {
+		profile, ok := config.Profiles[config.Profile]
+		parsed = parsed && ok
+		if profile.Provider != "" {
+			config.Provider = profile.Provider
+		}
+	}
+	native := parsed &&
+		(config.Provider == "" || config.Provider == "openai") && config.BaseURL == "" && config.Providers["openai"].BaseURL == ""
 	rawText := string(raw)
 	if !hasMarkerLine(rawText, codexBeginMarker) && !hasMarkerLine(rawText, codexNativeBeginMarker) {
 		issues = append(issues, "no anypick-managed block")
-		return &InspectResult{Present: false, Issues: issues, ConfigPaths: []string{configPath}}, nil
+		return &InspectResult{Native: native, RoutingChanged: parsed && config.Provider != "anypick", Issues: issues, ConfigPaths: []string{configPath}}, nil
 	}
 	return &InspectResult{
-		Present:     true,
-		Issues:      issues,
-		ConfigPaths: []string{configPath, codexModelCatalogPath(configPath)},
+		Present:        true,
+		Native:         native,
+		RoutingChanged: parsed && config.Provider != "anypick",
+		Issues:         issues,
+		ConfigPaths:    []string{configPath, codexModelCatalogPath(configPath)},
 	}, nil
 }
 

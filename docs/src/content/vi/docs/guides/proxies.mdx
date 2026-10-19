@@ -1,0 +1,166 @@
+---
+title: 'Proxy'
+description: 'Cách AnyPick chuyển đổi giữa các giao thức và cách kiểm tra hoặc kiểm soát các quy trình cục bộ.'
+---
+
+Khi client và tài khoản không sử dụng cùng một giao thức, AnyPick sẽ chạy proxy cục bộ giữa chúng. Nó bắt đầu theo yêu cầu như một phần của quá trình kích hoạt và dừng lại với người giám sát, vì vậy trong quá trình sử dụng bình thường, không có gì phải quản lý. Mọi thứ trên trang này đều nhằm mục đích kiểm tra và gỡ lỗi.
+
+## Proxy làm gì
+
+Mỗi proxy của nhà cung cấp chấp nhận nhiều định dạng dây và chuyển tiếp tới API thực của nhà cung cấp:
+
+- **grok** — một tuyến đường tương thích với OpenAI và Anthropic, chuyển tiếp danh mục `/v1/models` upstream đã được xác thực và các id mô hình được yêu cầu không thay đổi
+- **opencode** — Danh mục Zen và Go, lựa chọn giữa Messages, Chat Completions, Responses và giao thức Google dựa trên những gì mô hình hỗ trợ
+- **gemini** — API Gemini theo khóa hoặc Code Assist của OAuth, bao gồm yêu cầu `/v1/responses` hiện đại và các bản phát hành Codex CLI hiện tại trong vòng đời SSE dự kiến
+- **kiro** — được ủy quyền cho hệ nhị phân `kirolink` / `kiro-proxy` bên ngoài nếu bạn đã cài đặt
+- **workbuddy** — Chat Completions OpenAI (và chuyển đổi giao thức Anthropic) cho đăng ký CodeBuddy. Một số mô hình suy luận có thể lan man (`OK.` / `Let me
+  write.`); dừng lượt và chọn một slug không phải bộ định tuyến, chẳng hạn như `hy3` nếu điều đó xảy ra.
+- **cline** — Các lần Chat Completions OpenAI tới cổng Cline
+- **plugin nhà cung cấp tương thích** — Messages Anthropic gốc khi nhà cung cấp hiển thị nó, các lần Chat Completions OpenAI nếu không, cùng với vòng đời Responses được Codex sử dụng; Khóa đăng ký API và gói thuê bao lập trình sử dụng cùng một ranh giới cục bộ
+
+Khám phá mô hình ưu tiên phát trực tiếp và chỉ sử dụng dự phòng do nhà cung cấp sở hữu khi `/models` bị thiếu hoặc không có sẵn: Gemini đọc `models.list` đối với tài khoản khóa API và Code Assist `fetchAvailableModels` đối với tài khoản OAuth; OpenCode kết hợp các danh mục trực tiếp với siêu dữ liệu của nhà cung cấp. Các mô hình mới xuất hiện mà không có bản phát hành AnyPick.
+
+Ý định lý luận vẫn tồn tại trong bản dịch. Codex và OpenAI `reasoning_effort`, Responses `reasoning.effort`, Claude `output_config.effort`, tư duy thích ứng, `budget_tokens` rõ ràng và tóm tắt tư duy trực quan đều được giữ nguyên; Google định tuyến đưa ý định tương tự vào `thinkingConfig` của Gemini và tách biệt phần tóm tắt suy nghĩ với câu trả lời cuối cùng. Các tuyến đường Anthropic và OpenAI bản địa là truyền qua.
+
+## Cổng mặc định
+
+Một proxy sử dụng cổng nhóm đã được định cấu hình của nó khi một cổng được thiết lập; nếu không thì nhà cung cấp sẽ quảng cáo `DefaultProxyPort` khi nhà cung cấp khai báo một, nếu không thì dự phòng `8080` được chia sẻ (`plannedPoolPort` trong `src/go/internal/activation/planner.go`, `defaultPoolPort` trong `src/go/internal/proxy/service_pool.go`). Được tuyên bố hôm nay: Ark `4155`, TokenHub `4156`, GroqCloud `4148`, Fireworks `4151`, Cerebras `4152`, NVIDIA NIM `4154` (tất cả trong `src/go/internal/provider/compatible.go`). Một proxy không có cổng được định cấu hình và không có nhà cung cấp mặc định nào sẽ lấy cổng miễn phí đầu tiên.
+
+## Vòng đời thủ công
+
+```bash
+anypick proxy status <provider> <account>
+anypick proxy start <provider> <account>
+anypick proxy stop <provider> <account>
+anypick proxy enable <provider> <account> [--port N]
+anypick proxy disable <provider> <account>
+anypick proxy config <provider> <account> [--port N]
+anypick proxy restart <provider> <account>
+anypick proxy logs <provider> <account> [--lines N] [--follow]
+```
+
+`enable` định cấu hình proxy và khởi động nó; `config` thay đổi cổng và khởi động lại proxy; `restart` dừng và bắt đầu cùng một tài khoản. `status`, `start`, `stop` và `logs` mỗi cặp đều có cặp `<provider> <account>` chính xác — không có dạng "tất cả proxy".
+
+## Nguồn xác thực của Gemini
+
+Gemini chấp nhận hai lần đăng nhập. Tài khoản nào lưu trữ sẽ được quyết định khi tài khoản được lưu, không phải trên mỗi proxy:
+
+```bash
+anypick add account gemini --current --source gemini-cli --name work
+anypick add account gemini --current --source Antigravity --name work
+```
+
+Bỏ qua `--source` và AnyPick suy ra nó từ các tệp mà ứng dụng để lại (trước tiên là gemini-cli). Proxy phân phát từ ảnh chụp nhanh đã lưu, do đó, việc chuyển đổi nguồn được ghim có nghĩa là lưu một tài khoản mới và các bí danh danh mục vẫn nằm trong một nguồn — id triển khai Antigravity không bao giờ được gửi nhầm qua Gemini CLI.
+
+## Chế độ xác thực OpenCode
+
+Công cụ Go phân giải **một** danh mục OpenCode cho mỗi tài khoản, từ thông tin xác thực thực sự được đăng nhập: hàng đăng ký Go nhắm mục tiêu `https://opencode.ai/zen/go/v1`, bất kỳ mục tiêu chính Zen/Go nào khác `https://opencode.ai/zen/v1`. Cờ TypeScript `--auth-mode auto|public|api`, định tuyến danh mục theo từng mô hình và ghi đè `OPENCODE_PROXY_UPSTREAM` không được chuyển; lưu tài khoản từ thông tin xác thực bạn muốn cung cấp.
+
+Chìa khóa được tra cứu theo thứ tự này, lần đánh đầu tiên sẽ thắng:
+
+1. cửa hàng thông tin xác thực CLI trực tiếp (`opencode.db` dưới `OPENCODE_DATA_DIR`);
+2. the `opencode.db` đã lưu **bên cạnh** `auth.json` của tài khoản;
+3. `auth.json` trong ảnh chụp nhanh đã lưu.
+
+Cửa hàng trực tiếp được kiểm tra trước tiên vì CLI beta không còn ghi lại `auth.json` khi đăng nhập nữa — một ảnh chụp nhanh được lưu trước khi bạn chuyển đổi tài khoản sẽ tiếp tục cung cấp khóa của tài khoản trước đó.
+
+Tài khoản có thông tin đăng nhập đã lưu không có khóa Zen/Go — `auth.json` chỉ OAuth, chẳng hạn như đăng nhập ChatGPT hoặc Anthropic — không thể điều khiển proxy này. Thay vào đó, những thông tin đăng nhập đó được áp dụng cho client gốc bởi `anypick use`; proxy không thành công với `NO_LIVE_AUTH`:
+
+- không lưu `auth.json`: *Không có xác thực OpenCode nào.* với các đề xuất `opencode auth login` / `anypick add opencode --name <name>`;
+- `auth.json` hiện diện nhưng không thể đọc được: *Xác thực mã mở không thể đọc được: &lt;path&gt;.*;
+- `auth.json` có thể đọc được nhưng chỉ giữ các hàng OAuth: *Proxy OpenCode cần khóa API Zen/Go trong auth.json hoặc kho thông tin xác thực CLI …*.
+
+## Nhóm nhiều tài khoản
+
+Mặc định là một quy trình proxy cho mỗi tài khoản. Một nhóm đặt nhiều tài khoản của một nhà cung cấp vào sau một cổng duy nhất, do đó, client sẽ thấy một điểm cuối và AnyPick xử lý việc xoay vòng.
+
+```bash
+anypick proxy pool enable gemini -p 4150
+anypick proxy pool member gemini work on
+anypick proxy pool member gemini alt off      # keep it configured but paused
+anypick proxy pool status gemini
+
+anypick use claude --with pool:gemini
+
+anypick proxy pool disable gemini             # back to one process per account
+```
+
+Trong bảng proxy của giao diện người dùng thiết bị đầu cuối, `p` chuyển đổi nhóm và <kbd>space</kbd> tạm dừng hoặc bật lại thành viên dưới con trỏ. Trên hàng nhóm nhiều tài khoản, <kbd>f</kbd> bật tắt trình bảo vệ chuyển đổi dự phòng theo định mức an toàn.
+
+<Aside type="note" title="Chọn tham gia có chủ ý">
+Một nhóm có trạng thái chia sẻ: một cổng, một số thông tin xác thực và vòng xoay mà bạn không thấy theo yêu cầu. Ưu tiên proxy cho mỗi tài khoản trừ khi bạn đặc biệt muốn một điểm cuối có tính năng chuyển đổi dự phòng.
+</Aside>
+
+### Chuyển đổi dự phòng, xoay vòng và bảo vệ hạn ngạch
+
+`--strategy failover` (mặc định) tiếp tục phân phát từ tài khoản được trả lời lần cuối và chỉ tiếp tục khi tài khoản đó bị từ chối. `--strategy
+round-robin` thay vào đó bắt đầu mỗi yêu cầu ở thành viên tiếp theo của vòng, do đó, các yêu cầu liên tiếp sẽ trải rộng trên các tài khoản:
+
+```bash
+anypick proxy pool enable kiro --strategy round-robin
+```
+
+Cả hai chiến lược chỉ áp dụng cho các thành viên *đủ điều kiện*: tài khoản mà người bảo vệ hạn ngạch đã đặt thời gian hồi chiêu sẽ bị bỏ qua và vòng quay cũng bỏ qua. Sự khác biệt là ở chỗ lần thử bắt đầu, chứ không phải liệu nó có thất bại hay không - thành viên trả lời có lỗi cấp hạn ngạch vẫn chuyển yêu cầu cho thành viên tiếp theo.
+
+Khi **mọi** thành viên đang hạ nhiệt, nhóm tiếp tục phân phát: nó sẽ thử tài khoản sẽ khôi phục sớm nhất và chuyển câu trả lời của nhà cung cấp lại cho người gọi, thay vì từ chối cục bộ. Chỉ một lần thử để nhà cung cấp được điều tiết hoàn toàn sẽ không bị ảnh hưởng bởi việc đi vòng quanh. Do đó, đăng ký đã hết sẽ hiển thị chính xác những gì nhà cung cấp đã nói (`429`, `402` hoặc thời gian đặt lại), đó là những gì client có thể thực hiện:
+
+```jsonc
+// ~/.anypick/config.json — set false to restore the local refusal
+{
+  "ui": {
+    "quotaGuard": {
+      "enabled": true,
+      "cooldownMinutes": 60,
+      "serveWhenAllCooling": true
+    }
+  }
+}
+```
+
+Bản thân bộ bảo vệ được bật tắt cho mỗi nhóm: <kbd>f</kbd> trên hàng nhóm trong giao diện người dùng thiết bị đầu cuối hoặc `enabled` trong cấu hình ở trên.
+
+## Proxy Hub (chọn tham gia)
+
+Nhóm giữ một nhà cung cấp. **Proxy Hub** hợp nhất là một bề mặt chọn tham gia riêng biệt có thể hiển thị một số tài khoản đã lưu đằng sau một điểm cuối cục bộ và tuyến đường theo mô hình. Kích hoạt nó mà không cần viết lại các binding hiện có, thêm nguồn, sau đó liên kết:
+
+```bash
+anypick proxy hub enable default -p 4140 --start
+anypick proxy hub source default grok work
+anypick proxy hub status default
+anypick use claude --with hub:default
+```
+
+### Rotation: một chế độ chung cho hub
+
+Mỗi tài khoản trong trung tâm đều có công tắc bật/tắt riêng và trung tâm có một chế độ chung để cách các yêu cầu chọn trong số các tài khoản bạn đã bật. Theo mặc định (`failover`), mỗi mô hình sẽ chuyển đến tài khoản sở hữu nó — hoặc nguồn đầu tiên khi không có gì xác nhận mô hình đó. **Xoay vòng giữa các tài khoản** trải rộng từng mô hình trên *mọi tài khoản đã bật có thể phân phát mô hình đó*, do đó, ba thông tin đăng nhập Gemini đã lưu sẽ chia sẻ công việc thay vì một thông tin đăng nhập nhận mọi yêu cầu:
+
+```bash
+anypick proxy hub enable default --strategy round-robin
+```
+
+"Có thể phân phát" xuất phát từ danh mục nhà cung cấp, do đó, hai nhà cung cấp quảng cáo cùng một id mô hình (ví dụ: proxy tương thích và nhà cung cấp) đều thay phiên nhau; những tài khoản không thể phục vụ mô hình được yêu cầu sẽ không bao giờ được chọn. Khi các danh mục không biết gì về một mô hình, việc xoay vòng vẫn nằm trong nhà cung cấp mà mô hình phân giải và chủ sở hữu mô hình được ghi lại vẫn quyết định nhà cung cấp nào trả lời - việc xoay vòng chỉ thay đổi *tài khoản nào* của nhà cung cấp đó.
+
+Chuyển đổi trên mỗi tài khoản là toàn bộ quy tắc thành viên: một tài khoản bị tắt không bao giờ là ứng cử viên và việc tắt mọi tài khoản của một nhà cung cấp chỉ đơn giản là loại bỏ nhà cung cấp đó khỏi trung tâm. Chế độ này mang tính toàn cầu — không phải một bộ chuyển mạch cho mỗi nhà cung cấp — vì trung tâm phân giải nguồn theo yêu cầu và sau đó phân bổ nguồn đó.
+
+Trung tâm cũng giữ **bảo vệ hạn ngạch** (cùng cài đặt `ui.quotaGuard`): khi nhà cung cấp từ chối yêu cầu vì khóa hoặc tài khoản đã hết hạn ngạch, tài khoản đó sẽ nguội đi và yêu cầu sẽ chuyển sang tài khoản được bật tiếp theo có thể phân phát cùng một mô hình. Việc từ chối của nhà cung cấp mà không đổ lỗi cho thông tin xác thực (500 thực, giới hạn tốc độ mỗi phút) sẽ được trao cho bạn nguyên văn - trung tâm không chi tiêu hạn ngạch của tài khoản khác cho nó. Khi mọi ứng cử viên đang nguội, nó vẫn phục vụ ứng viên phục hồi sớm nhất và đưa ra phán quyết của mình, trừ khi `serveWhenAllCooling` sai. Proxy nhóm giữ quyền bảo vệ riêng của họ; cái này chỉ áp dụng cho hub.
+
+Bảng Proxy liệt kê Hub là hàng riêng của nó khi được định cấu hình; <kbd>enter</kbd> hoặc <kbd>m</kbd> mở trình chỉnh sửa Hub. Ưu tiên các proxy thông thường cho mỗi tài khoản trừ khi bạn đặc biệt cần một điểm cuối được chia sẻ giữa các nhà cung cấp.
+
+## Quyền sở hữu quy trình
+
+Trong kiến trúc macOS gốc, `AnyPick.app` sở hữu dịch vụ Go đi kèm và dịch vụ Go sở hữu các quy trình proxy cục bộ. Đóng cửa sổ chính giúp ứng dụng tiếp tục chạy; ứng dụng rõ ràng Thoát sẽ dừng trình trợ giúp và các dịch vụ của nó một cách khéo léo. Mục thanh menu là chế độ xem của cùng một ứng dụng đó, không phải là trình giám sát độc lập.
+
+Công cụ cờ vây trực tiếp sở hữu cùng một người giám sát (`cmdTray` / `runSuperviseChild` trong `src/go/cmd/anypick/lifecycle.go`):
+
+```bash
+anypick tray          # app surface (same core as `anypick app`)
+anypick tray start
+anypick tray status
+anypick tray stop     # stop that supervisor and the proxies it owns
+```
+
+Từ kho lưu trữ này, hãy chạy các biểu mẫu đó bằng `make run ARGS="…"`. Việc đóng TUI bằng <kbd>q</kbd> sẽ giữ nguyên trạng thái giám sát nền. Các hành động <kbd>Shift+D</kbd> và <kbd>t</kbd> của nó không quản lý ứng dụng gốc được khởi chạy riêng.
+
+Những đứa trẻ mồ côi được dọn sạch thay vì tích lũy: khi khởi động, AnyPick phát hành các hợp đồng thuê mà quá trình sở hữu của chúng đã kết thúc và dừng proxy của chúng.
+
+Trình cài đặt Linux và Windows Tauri được xuất bản từ cùng một quy trình phát hành như ứng dụng macOS. Xem [trang phát hành](https://github.com/outof0/anypick/releases/latest) để biết nội dung hiện tại; không có trình cài đặt chỉ có khay riêng biệt.

@@ -96,7 +96,11 @@ claims that had to be walked back.
   images, robots.txt, the sitemap, and every header/footer link.
 - Deploys are Cloudflare Pages Direct Uploads via `wrangler.jsonc`
   (`pages_build_output_dir = "./dist"`), so `pnpm build` must run first —
-  `predeploy` chains `astro check && astro build` for exactly that reason.
+  `predeploy` refreshes the published GitHub release manifest, checks types, builds,
+  and validates the landing HTML before uploading. `pnpm refresh:downloads` updates
+  `src/data/release.json`; offline builds use that checked-in snapshot. Run
+  `pnpm check:landing` after building to check all nine landing pages, SEO metadata,
+  and installer links.
 
 ## Where the authority lives
 

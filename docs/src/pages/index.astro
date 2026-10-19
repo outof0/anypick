@@ -1,530 +1,390 @@
 ---
 import { Icon } from "astro-icon/components";
 import { config } from "virtual:nimbus/config";
+import Downloads from "../components/Downloads.astro";
 import AppShot from "../components/AppShot.astro";
 import Header from "../components/Header.astro";
 import BaseLayout from "../layouts/BaseLayout.astro";
+import "../styles/landing.css";
+import { getTranslator, localizedPath, type Locale } from "@/i18n";
+
+interface Props {
+  locale?: Locale;
+}
+
+const { locale = "en" } = Astro.props;
+const t = await getTranslator(locale);
 
 const githubUrl = config.github ?? "https://github.com/outof0/anypick";
 const releasesUrl = `${githubUrl}/releases/latest`;
-const changelogUrl = `${githubUrl}/blob/main/CHANGELOG.md`;
-const securityUrl = `${githubUrl}/blob/main/SECURITY.md`;
-const licenseUrl = `${githubUrl}/blob/main/LICENSE`;
-const gettingStartedUrl = "/docs/getting-started/";
+const gettingStartedUrl = localizedPath(locale, "/docs/getting-started/");
+const projectsGuideUrl = localizedPath(locale, "/docs/guides/projects/");
+const compatibilityUrl = localizedPath(locale, "/docs/reference/cli/");
+const homeUrl = localizedPath(locale, "/");
+const docsUrl = localizedPath(locale, "/docs/");
 const npmCommand = "npm install -g anypick";
-const socialTitle = "AnyPick: switch AI coding agents between accounts & API keys";
-const metaDescription =
-  "Pick which login or API key Claude Code, Codex, Gemini CLI and 8 more use: globally, per project, or per terminal. Open source. One command to undo.";
+const title = t("landing.meta.title");
+const description = t("landing.meta.description");
 
-const scopes = [
+const routes = [
+  { label: t("landing.workflow.routeDefault"), command: "anypick use claude --with claude/work" },
+  { label: t("landing.workflow.routeProject"), command: "anypick link claude --with claude/personal" },
+  { label: t("landing.workflow.routeSession"), command: "anypick run claude --with openrouter-work" },
+];
+
+const clients = [
+  "Claude Code", "OpenAI Codex", "Gemini CLI", "OpenCode", "Kiro", "Pi",
+  "Omp", "Command Code", "DeepSeek Harness", "WorkBuddy AI", "ZCode",
+];
+
+const safetySteps = [
   {
-    label: "Everywhere",
-    command: "anypick use claude --with claude/work",
-    body: "Sets the default for that app.",
+    title: t("landing.safety.reviewTitle"),
+    body: t("landing.safety.reviewBody"),
   },
   {
-    label: "This project",
-    command: "anypick link claude --with claude/personal",
-    body: "Applies only inside this directory.",
-    href: "/docs/guides/projects",
+    title: t("landing.safety.configTitle"),
+    body: t("landing.safety.configBody"),
   },
   {
-    label: "This terminal only",
-    command: "anypick run claude --with openrouter-work",
-    body: "Launches one isolated session. Your global config isn't touched.",
+    title: t("landing.safety.restoreTitle"),
+    body: t("landing.safety.restoreBody"),
   },
 ];
 
-const agents = ["Claude Code", "OpenAI Codex", "Gemini CLI", "OpenCode", "Kiro", "Pi", "Omp", "Command Code", "DeepSeek Harness", "WorkBuddy AI", "ZCode"];
-const logins = ["Claude Code", "OpenAI Codex", "Google Gemini", "xAI Grok", "Kiro", "Cline", "OpenCode", "WorkBuddy", "Z.ai (GLM)"];
-const apiKeys = ["OpenRouter", "DeepSeek", "Moonshot Kimi", "Qwen", "MiniMax", "Mistral", "Groq", "Cerebras", "Fireworks", "Together", "NVIDIA NIM", "SiliconFlow", "Cloudflare AI Gateway", "Volcengine Ark", "Xiaomi MiMo"];
-
-const safety = [
+const faqs = [
   {
-    icon: "ph:shield-check",
-    title: "Only touches what it owns.",
-    body: "AnyPick marks the exact keys it writes (_anypickManaged in Claude's settings, a fenced # BEGIN anypick-managed block in Codex's config.toml). Your theme, MCP servers and other settings stay put.",
+    q: t("landing.faq.freeQ"),
+    a: t("landing.faq.freeA"),
   },
   {
-    icon: "ph:hand",
-    title: "Asks before taking over.",
-    body: "If a file already has settings AnyPick didn't write, it stops: “Nothing was changed; confirm the takeover.” When you confirm, it backs up the original first.",
+    q: t("landing.faq.accountsQ"),
+    ...(() => {
+      const marker = "___COMPATIBILITY_LINK___";
+      const answer = t("landing.faq.accountsA", { accountsALink: marker });
+      const [before = answer, ...after] = answer.split(marker);
+      return {
+        aBefore: before,
+        aAfter: after.join(marker),
+        link: t("landing.faq.accountsALink"),
+      };
+    })(),
   },
   {
-    icon: "ph:arrow-counter-clockwise",
-    title: "One command to undo.",
-    body: "anypick reset claude restores the settings you had before.",
+    q: t("landing.faq.relayQ"),
+    a: t("landing.faq.relayA"),
+  },
+  {
+    q: t("landing.faq.credentialsQ"),
+    a: t("landing.faq.credentialsA"),
+  },
+  {
+    q: t("landing.faq.macQ"),
+    a: t("landing.faq.macA"),
   },
 ];
-
-const trust = [
-  { icon: "ph:code", title: "Open source, MIT.", body: "Read every line on GitHub." },
-  { icon: "ph:path", title: "No middleman.", body: "AnyPick never relays your traffic through anyone's servers. Requests go straight to the provider you chose, through a local translator when needed." },
-  { icon: "ph:handshake", title: "Plays by provider rules.", body: "Claude logins only ever power Claude Code. AnyPick reuses logins created by each provider's own sign-in. It never asks for your password." },
-  { icon: "ph:lock-key", title: "Secrets stay behind one boundary.", body: "Credentials and proxy tokens live in the Go core, never in the UI." },
-  { icon: "ph:seal-check", title: "Verifiable builds.", body: "Release checksums, an SPDX SBOM, and npm provenance attestations." },
-  { icon: "ph:cube", title: "One native binary.", body: "No background daemon you didn't ask for, and the CLI needs no Node runtime (npm is just a launcher)." },
-];
-
-const byHand = [
-  { task: "Switch Claude Code to another account", manual: "Log out, clear the keychain, re-login", anypick: "anypick use claude --with claude/personal" },
-  { task: "Try a provider without losing your setup", manual: "Export env vars and hope ANTHROPIC_API_KEY=\"\" is right", anypick: "anypick run claude --with openrouter-work" },
-  { task: "Different account per repo", manual: "CLAUDE_CONFIG_DIR aliases that leak", anypick: "anypick link …" },
-  { task: "Codex on a non-OpenAI provider", manual: "Hand-write model_providers TOML", anypick: "anypick use codex --with <gateway>" },
-  { task: "Undo", manual: "Remember what you changed", anypick: "anypick reset <app>" },
-];
-
-const faq = [
-  { q: "Is it free?", a: "Yes. AnyPick is MIT-licensed." },
-  { q: "Does AnyPick see or relay my prompts?", a: "No. AnyPick has no servers. When a translator is needed, it runs on 127.0.0.1 on your machine." },
-  { q: "Where are my credentials stored?", a: "Locally in ~/.anypick. Remove everything with npm uninstall -g anypick and by deleting ~/.anypick." },
-  { q: "Is this allowed by the providers?", a: "AnyPick reuses logins created by each provider's own sign-in and keeps Claude logins inside Claude Code. API keys are used under your own agreement with each provider. Check your provider's terms for subscription use in third-party tools." },
-  { q: "What happens to my existing config?", a: "AnyPick won't overwrite settings it didn't write without asking, backs them up when you confirm, and anypick reset restores them." },
-  { q: "Which apps and providers work together?", a: "See the CLI reference and guides. AnyPick only offers the pairings that work." },
-  { id: "faq-macos", q: "Why does macOS warn me?", a: "The app isn't notarized yet. Right-click AnyPick.app → Open, or go to System Settings → Privacy & Security → Open Anyway. The CLI via Homebrew is unaffected." },
-  { q: "I used anypick 1.0.0 from npm. What changed?", a: "1.1.0 replaced the JavaScript CLI with the native one, which doesn't run third-party plugins. Pin anypick@1.0.0 if you need the old one." },
-];
-
 ---
 
 <BaseLayout
-  title={socialTitle}
-  socialTitle={socialTitle}
-  description={metaDescription}
+  title={title}
+  socialTitle={title}
+  description={description}
   socialImage="/og-landing.png"
-  socialImageAlt="AnyPick: Pick which account every AI coding agent uses. Shown next to the AnyPick desktop app's Overview page in dark mode."
+  socialImageAlt={t("landing.meta.socialAlt")}
 >
-  <div class="landing min-h-screen bg-[#080A11] text-[#F8FAFC]">
-    <Header showSidebar={false} appearance="landing" />
+  <div
+    class="landing"
+    lang={locale}
+    data-copy-label={t("landing.install.copy")}
+    data-copied-label={t("landing.install.copied")}
+    data-copy-message={t("landing.install.copyStatus")}
+    data-copy-failed={t("landing.install.copyFailed")}
+  >
+    <Header showSidebar={false} appearance="landing" locale={locale} />
 
     <main id="main-content">
-      <section class="hero relative isolate overflow-hidden">
-        <div class="hero-grid pointer-events-none absolute inset-0 -z-20" aria-hidden="true"></div>
-        <div class="hero-light pointer-events-none absolute -z-10" aria-hidden="true"></div>
-
-        <div class="mx-auto w-full max-w-7xl px-5 pt-14 pb-16 sm:px-8 sm:pt-20 lg:pt-24 lg:pb-24">
-          <div class="hero-copy mx-auto max-w-4xl text-center">
-            <p class="eyebrow">
-              <span></span>
-              Pick any. Code on.
-            </p>
-            <h1 class="mt-5 text-balance text-[clamp(2.4rem,6.4vw,4.6rem)] font-semibold leading-[1.02] tracking-[-0.05em]">
-              Pick which account <span>every AI coding agent uses.</span>
-            </h1>
-            <p class="mx-auto mt-6 max-w-3xl text-pretty text-lg leading-8 text-[#98A2B3] sm:text-xl">
-              Point Claude Code, Codex, Gemini CLI and 8 more at any login or API key you have: globally, per project, or for one terminal. AnyPick writes the config, translates protocols when needed, and puts everything back with one command.
-            </p>
-            <div class="mt-8 flex flex-wrap items-center justify-center gap-3">
-              <a class="primary-cta" href={releasesUrl}>
-                Download the desktop app
-                <Icon name="ph:arrow-up-right" class="h-4 w-4" />
+      <section class="landing-hero">
+        <div class="landing-wrap landing-hero-inner">
+          <div class="landing-hero-copy">
+            <p class="landing-eyebrow">{t("landing.hero.eyebrow")}</p>
+            <h1>{t("landing.hero.titleStart")}<br /><em>{t("landing.hero.titleEnd")}</em></h1>
+            <p class="landing-lede">{t("landing.hero.lede")}</p>
+            <div class="landing-actions">
+              <a class="landing-button landing-button-primary" href="#download" data-download-cta>
+                <span data-download-label>{t("landing.hero.primary")}</span> <Icon name="ph:arrow-down" class="h-4 w-4" aria-hidden="true" />
               </a>
-              <a class="secondary-cta" href="#install">
-                Install the CLI
-                <Icon name="ph:arrow-down" class="h-4 w-4" />
+              <a class="landing-button landing-button-secondary" href="#how-it-works">
+                {t("landing.hero.secondary")} <Icon name="ph:arrow-down" class="h-4 w-4" aria-hidden="true" />
               </a>
             </div>
-            <p class="install-meta mt-4">Free and open source (MIT) · macOS · Linux · Windows · One native binary, checksummed</p>
-            <p class="install-meta mt-1">macOS: first launch? See <a class="text-link" href="#faq-macos">how to open an unsigned app</a>.</p>
+            <p class="landing-other-platforms"><a href="#download">{t("downloads.allPlatforms")}</a></p>
+            <p class="landing-meta">
+              <span>{t("landing.hero.platforms")}</span>
+              <span>{t("landing.hero.openSource")}</span>
+              <span>{t("landing.hero.noCloud")}</span>
+            </p>
           </div>
 
-          <figure class="app-frame hero-shot mx-auto mt-12 max-w-5xl">
+          <div class="landing-product-stage">
+            <figure class="landing-product-window">
+              <AppShot
+                name="overview"
+                width={1040}
+                height={760}
+                sizes="(min-width: 1100px) 690px, (min-width: 832px) 52vw, calc(100vw - 3rem)"
+                priority
+                alt={t("landing.hero.overviewAlt")}
+              />
+            </figure>
+            <figure class="landing-tray-window">
+              <AppShot
+                name="tray"
+                width={336}
+                height={430}
+                sizes="(min-width: 832px) 215px, 155px"
+                alt={t("landing.hero.trayAlt")}
+              />
+            </figure>
+            <p class="landing-product-caption">{t("landing.hero.caption")}</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="landing-proof" aria-label={t("landing.proof.aria")}>
+        <div class="landing-wrap landing-proof-inner">
+          <div class="landing-proof-item">
+            <strong>{t("landing.proof.clientsTitle")}</strong>
+            <span>{t("landing.proof.clientsBody")}</span>
+          </div>
+          <div class="landing-proof-item">
+            <strong>{t("landing.proof.localTitle")}</strong>
+            <span>{t("landing.proof.localBody")}</span>
+          </div>
+          <div class="landing-proof-item">
+            <strong>{t("landing.proof.licenseTitle")}</strong>
+            <span>{t("landing.proof.licenseBody")}</span>
+          </div>
+        </div>
+      </section>
+
+      <Downloads locale={locale} />
+
+      <section class="landing-section" id="how-it-works">
+        <div class="landing-wrap landing-route-grid">
+          <div>
+            <p class="landing-kicker">{t("landing.workflow.kicker")}</p>
+            <h2>{t("landing.workflow.title")}</h2>
+            <p class="landing-section-lede">{t("landing.workflow.body")}</p>
+            <p class="landing-route-note">
+              <a class="landing-inline-link" href={projectsGuideUrl}>{t("landing.workflow.projectLink")} <Icon name="ph:arrow-right" class="inline h-3.5 w-3.5" aria-hidden="true" /></a>
+            </p>
+          </div>
+          <div class="landing-route-list" aria-label={t("landing.workflow.routesLabel")}>
+            {routes.map((route) => (
+              <div class="landing-route-row">
+                <h3>{route.label}</h3>
+                <code>{route.command}</code>
+              </div>
+            ))}
+          </div>
+
+          <ol class="landing-start-steps" aria-label={t("landing.workflow.stepsLabel")}>
+            <li><span aria-hidden="true">01</span><div><h3>{t("landing.workflow.saveTitle")}</h3><p>{t("landing.workflow.saveBody")}</p></div></li>
+            <li><span aria-hidden="true">02</span><div><h3>{t("landing.workflow.toolTitle")}</h3><p>{t("landing.workflow.toolBody")}</p></div></li>
+            <li><span aria-hidden="true">03</span><div><h3>{t("landing.workflow.applyTitle")}</h3><p>{t("landing.workflow.applyBody")}</p></div></li>
+          </ol>
+        </div>
+      </section>
+
+      <section class="landing-section landing-safety-section">
+        <div class="landing-wrap landing-safety-grid">
+          <div>
+            <p class="landing-kicker">{t("landing.safety.kicker")}</p>
+            <h2>{t("landing.safety.title")}</h2>
+            <div class="landing-safety-list">
+              {safetySteps.map((step, index) => (
+                <article class="landing-safety-item">
+                  <span>0{index + 1}</span>
+                  <div>
+                    <h3>{step.title}</h3>
+                    <p>{step.body}</p>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </div>
+          <figure class="landing-account-shot">
             <AppShot
-              name="overview"
+              name="accounts"
               width={1040}
               height={760}
-              sizes="(min-width: 1088px) 1024px, calc(100vw - 2.5rem)"
-              priority
-              alt="AnyPick desktop app for macOS, dark mode, on the Overview page. Installation Health has a Run Doctor button. Active Apps lists Claude Code and OpenAI Codex using the Work account and OpenCode using demo-team, each through an AnyPick proxy. Services shows 3 of 3 proxies running, and Recent Activity logs each app's latest account switch."
+              sizes="(min-width: 832px) 590px, calc(100vw - 3rem)"
+              alt={t("landing.safety.accountAlt")}
             />
           </figure>
         </div>
       </section>
 
-      <section class="section-shell border-y border-white/8 bg-[#0B0D15]">
-        <div class="mx-auto max-w-7xl px-5 sm:px-8">
-          <div class="feature-row">
-            <div class="section-heading">
-              <p class="section-kicker">Accounts &amp; APIs</p>
-              <h2>Every login and API key, in one list.</h2>
-              <p>Claude, Codex, Gemini, Kiro, Cline and OpenRouter accounts sit side by side with your API gateways. A check mark shows which one each app is using right now.</p>
-            </div>
-            <figure class="app-frame">
-              <AppShot
-                name="accounts"
-                width={1040}
-                height={760}
-                sizes="(min-width: 1024px) 50vw, calc(100vw - 2.5rem)"
-                alt="The Accounts & APIs page in AnyPick's dark-mode desktop app. It lists nine saved accounts: three Claude (Personal, Team, Work), two Codex (Client, Work), one each for Gemini, Kiro and Cline, and an OpenRouter key named demo-team. The Claude and Codex Work accounts have green check marks. Below is one API gateway, Staging Gateway, with Add Login and Add API Gateway buttons. All emails are example.com demo data."
-              />
-            </figure>
-          </div>
-        </div>
-      </section>
-
-      <section class="section-shell">
-        <div class="mx-auto max-w-7xl px-5 sm:px-8">
-          <div class="feature-row feature-row-reverse">
-            <div class="section-heading">
-              <p class="section-kicker">Menu bar</p>
-              <h2>Switch without leaving your editor.</h2>
-              <p>Open the menu bar panel, see how much usage each account has left, and pick a different one for Claude Code or Codex in one click.</p>
-            </div>
-            <figure class="app-frame app-frame-tray">
-              <AppShot
-                name="tray"
-                width={336}
-                height={430}
-                sizes="336px"
-                alt="AnyPick's macOS menu bar panel in dark mode. A search field reads 'Search 9 saved accounts'. Claude Code is using Work with 68% usage left, and OpenAI Codex is using Work with 81% left. Each has chips for switching accounts and a Switch link. Below are Other Apps (Gemini, Kiro), a proxies row showing 3 running, and Quit and Open AnyPick buttons."
-              />
-            </figure>
-          </div>
-        </div>
-      </section>
-
-      <section class="section-shell border-y border-white/8 bg-[#0B0D15]">
-        <div class="mx-auto max-w-7xl px-5 sm:px-8">
-          <div class="feature-row">
-            <div class="section-heading">
-              <p class="section-kicker">Settings</p>
-              <h2>Runs quietly. Steps aside at the limit.</h2>
-              <p>Open at login, start your proxies when the app launches, show remaining usage, and skip accounts that have hit their usage limit.</p>
-              <a class="secondary-cta mt-6" href={releasesUrl}>Download for macOS · Windows · Linux <Icon name="ph:arrow-up-right" class="h-4 w-4" /></a>
-              <p class="note mt-3">Screenshots show the macOS app with demo data. The Windows and Linux apps use the same engine and accounts.</p>
-            </div>
-            <figure class="app-frame">
-              <AppShot
-                name="settings"
-                width={1040}
-                height={760}
-                sizes="(min-width: 1024px) 50vw, calc(100vw - 2.5rem)"
-                alt="The Settings page in AnyPick's dark-mode desktop app. Under Startup, Open at Login and Start Enabled Proxies at Launch are on. Under Getting Started, a Show button brings back the setup checklist. Under Usage, Show Usage Remaining and Skip Accounts That Reach Their Usage Limit are on."
-              />
-            </figure>
-          </div>
-        </div>
-      </section>
-
-      <section class="section-shell" id="cli">
-        <div class="mx-auto max-w-5xl px-5 sm:px-8">
-          <div class="section-heading mx-auto max-w-3xl text-center">
-            <p class="section-kicker">Prefer the terminal?</p>
-            <h2>The same picker, as a CLI.</h2>
-            <p>Everything in this recording is real output from <code>anypick</code> 1.1.0, run in a sandbox with demo accounts.</p>
-          </div>
-          <div class="mt-10">
-              <figure class="demo-frame">
-                <div class="demo-titlebar" aria-hidden="true">
-                  <span></span><span></span><span></span>
-                  <p>anypick 1.1.0 · real CLI output, sandboxed demo accounts</p>
-                </div>
-                <video
-                  class="demo-video"
-                  autoplay
-                  muted
-                  loop
-                  playsinline
-                  preload="metadata"
-                  width="1280"
-                  height="720"
-                  poster="/demo/anypick-hero-poster.png"
-                  aria-label="Terminal demo: list saved accounts, add an OpenRouter gateway, point Claude Code at it, then reset back to the original settings."
-                  data-demo-video
-                >
-                  <source src="/demo/anypick-hero.webm" type="video/webm" />
-                  <source src="/demo/anypick-hero.mp4" type="video/mp4" />
-                  <img src="/demo/anypick-hero.gif" alt="AnyPick terminal demo" width="1280" height="720" />
-                </video>
-                <figcaption>Save the logins you have, bring any API key, pick one, undo with one command.</figcaption>
-              </figure>
-
-              <div id="install" class="install-card mt-8 scroll-mt-24" data-install-tabs>
-                <p class="install-label">Install the CLI</p>
-                <div class="install-tabs mt-3" role="tablist" aria-label="Choose an install method">
-                  <button id="install-tab-macos" class="install-tab" type="button" role="tab" aria-selected="true" aria-controls="install-panel-macos" data-install-tab="macos">macOS</button>
-                  <button id="install-tab-linux" class="install-tab" type="button" role="tab" aria-selected="false" aria-controls="install-panel-linux" tabindex="-1" data-install-tab="linux">Linux</button>
-                  <button id="install-tab-windows" class="install-tab" type="button" role="tab" aria-selected="false" aria-controls="install-panel-windows" tabindex="-1" data-install-tab="windows">Windows</button>
-                  <button id="install-tab-npm" class="install-tab" type="button" role="tab" aria-selected="false" aria-controls="install-panel-npm" tabindex="-1" data-install-tab="npm">Any OS</button>
-                </div>
-
-                <div class="install-panel" id="install-panel-macos" role="tabpanel" aria-labelledby="install-tab-macos" data-install-panel="macos">
-                  <div class="install-shell">
-                    <span class="prompt" aria-hidden="true">$</span>
-                    <code>brew install outof0/tap/anypick</code>
-                    <button type="button" data-copy="brew install outof0/tap/anypick" aria-label="Copy Homebrew install command">
-                      <Icon name="ph:copy" class="copy-icon h-4 w-4" />
-                      <Icon name="ph:check" class="check-icon hidden h-4 w-4" />
-                      <span>Copy</span>
-                    </button>
-                  </div>
-                  <p class="install-hint">Desktop app: <code>brew install --cask outof0/tap/anypick</code> or the <a class="text-link" href={releasesUrl}>.dmg on GitHub Releases</a>.</p>
-                </div>
-
-                <div class="install-panel" id="install-panel-linux" role="tabpanel" aria-labelledby="install-tab-linux" data-install-panel="linux" hidden>
-                  <div class="install-shell">
-                    <span class="prompt" aria-hidden="true">$</span>
-                    <code>{npmCommand}</code>
-                    <button type="button" data-copy={npmCommand} aria-label="Copy npm install command">
-                      <Icon name="ph:copy" class="copy-icon h-4 w-4" />
-                      <Icon name="ph:check" class="check-icon hidden h-4 w-4" />
-                      <span>Copy</span>
-                    </button>
-                  </div>
-                  <p class="install-hint">Or grab a package from <a class="text-link" href={releasesUrl}>GitHub Releases</a>: .deb · .rpm · AppImage · tarball.</p>
-                </div>
-
-                <div class="install-panel" id="install-panel-windows" role="tabpanel" aria-labelledby="install-tab-windows" data-install-panel="windows" hidden>
-                  <div class="install-shell">
-                    <span class="prompt" aria-hidden="true">&gt;</span>
-                    <code>scoop bucket add outof0 https://github.com/outof0/scoop-bucket</code>
-                    <button type="button" data-copy="scoop bucket add outof0 https://github.com/outof0/scoop-bucket" aria-label="Copy Scoop bucket command">
-                      <Icon name="ph:copy" class="copy-icon h-4 w-4" />
-                      <Icon name="ph:check" class="check-icon hidden h-4 w-4" />
-                      <span>Copy</span>
-                    </button>
-                  </div>
-                  <div class="install-shell mt-2">
-                    <span class="prompt" aria-hidden="true">&gt;</span>
-                    <code>scoop install anypick</code>
-                    <button type="button" data-copy="scoop install anypick" aria-label="Copy Scoop install command">
-                      <Icon name="ph:copy" class="copy-icon h-4 w-4" />
-                      <Icon name="ph:check" class="check-icon hidden h-4 w-4" />
-                      <span>Copy</span>
-                    </button>
-                  </div>
-                  <p class="install-hint">Desktop app: .msi · .exe installer on <a class="text-link" href={releasesUrl}>GitHub Releases</a>.</p>
-                </div>
-
-                <div class="install-panel" id="install-panel-npm" role="tabpanel" aria-labelledby="install-tab-npm" data-install-panel="npm" hidden>
-                  <div class="install-shell">
-                    <span class="prompt" aria-hidden="true">$</span>
-                    <code>{npmCommand}</code>
-                    <button type="button" data-copy={npmCommand} aria-label="Copy npm install command">
-                      <Icon name="ph:copy" class="copy-icon h-4 w-4" />
-                      <Icon name="ph:check" class="check-icon hidden h-4 w-4" />
-                      <span>Copy</span>
-                    </button>
-                  </div>
-                  <p class="install-hint">Node 18+. Downloads the matching native CLI on first run.</p>
-                </div>
-
-                <a class="desktop-release-link" href={gettingStartedUrl}>
-                  Read the 5-minute guide
-                  <Icon name="ph:arrow-right" class="h-4 w-4" aria-hidden="true" />
-                </a>
-                <p class="sr-only" aria-live="polite" data-copy-status></p>
-              </div>
-          </div>
-        </div>
-      </section>
-
-      <section class="section-shell border-y border-white/8 bg-[#0B0D15]">
-        <div class="mx-auto max-w-7xl px-5 sm:px-8">
-          <div class="section-heading max-w-3xl">
-            <p class="section-kicker">Scope</p>
-            <h2>Work account in this repo. Personal in that one. OpenRouter in the next terminal.</h2>
-            <p>Most switchers flip one global setting, and every open session flips with it. AnyPick lets you choose how far a change reaches.</p>
-          </div>
-          <div class="mt-10 grid gap-4 lg:grid-cols-3">
-            {scopes.map((s) => (
-              <article class="proof-card">
-                <h3>{s.label}</h3>
-                <pre class="cmd"><code>{s.command}</code></pre>
-                <p>{s.body}</p>
-                {s.href && <a href={s.href}>Project bindings <Icon name="ph:arrow-right" class="h-4 w-4" /></a>}
-              </article>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section class="section-shell">
-        <div class="mx-auto max-w-7xl px-5 sm:px-8">
-          <div class="section-heading max-w-3xl">
-            <p class="section-kicker">Works with what you already use</p>
-            <h2>11 coding agents. 32 sources. One picker.</h2>
-          </div>
-          <div class="mt-10 grid gap-8 lg:grid-cols-3">
-            <div>
-              <h3 class="list-title">Coding agents</h3>
-              <ul class="chip-list">{agents.map((a) => <li>{a}</li>)}</ul>
-            </div>
-            <div>
-              <h3 class="list-title">Sign in, or reuse the login you already have</h3>
-              <ul class="chip-list">{logins.map((a) => <li>{a}</li>)}</ul>
-            </div>
-            <div>
-              <h3 class="list-title">Bring an API key</h3>
-              <ul class="chip-list">{apiKeys.map((a) => <li>{a}</li>)}<li>and more</li></ul>
-            </div>
-          </div>
-          <p class="boundary-note mt-8">Not every pairing makes sense, and AnyPick only offers the ones that work. <strong>Claude logins power Claude Code only.</strong> The Gemini CLI and Kiro apps only switch between their own provider's accounts. <a class="text-link" href="/docs/reference/cli">CLI reference</a></p>
-        </div>
-      </section>
-
-      <section class="section-shell border-y border-white/8 bg-[#0B0D15]">
-        <div class="mx-auto grid max-w-7xl gap-12 px-5 sm:px-8 lg:grid-cols-[1fr_1fr] lg:items-start">
+      <section class="landing-section landing-compatibility">
+        <div class="landing-wrap landing-compatibility-grid">
           <div>
-            <div class="section-heading">
-              <p class="section-kicker">Safe by default</p>
-              <h2>It won't clobber your config. And it can always put it back.</h2>
-            </div>
-            <div class="mt-8 space-y-6">
-              {safety.map((s) => (
-                <div class="benefit-row">
-                  <span><Icon name={s.icon} class="h-5 w-5" /></span>
-                  <div><h3>{s.title}</h3><p>{s.body}</p></div>
-                </div>
-              ))}
-            </div>
-            <p class="note mt-6">In the desktop app, every change is shown as a plan you approve before anything is written.</p>
+            <p class="landing-kicker">{t("landing.compatibility.kicker")}</p>
+            <h2>{t("landing.compatibility.title")}</h2>
           </div>
-          <div class="diff-stack" aria-label="settings.json before, after use, and after reset (real output from the demo recording; token redacted)">
-            <div class="plan-panel">
-              <div class="diff-head"><p>~/.claude/settings.json · before</p></div>
-              <pre class="diff"><code>{`{"theme":"dark"}`}</code></pre>
+          <div>
+            <p class="landing-section-lede">{t("landing.compatibility.body")}</p>
+            <div class="landing-client-list" aria-label={t("landing.compatibility.clients")}>
+              {clients.map((client) => <span>{client}</span>)}
             </div>
-            <div class="plan-panel">
-              <div class="diff-head"><p>after <code>anypick use claude --with openrouter-work</code></p></div>
-              <pre class="diff"><code><span class="add">{`+ "_anypickManaged": { "keys": ["ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_BASE_URL", "ANTHROPIC_API_KEY"] },
-+ "env": {
-+   "ANTHROPIC_AUTH_TOKEN": "<redacted>",
-+   "ANTHROPIC_BASE_URL": "https://openrouter.ai/api"
-+ },`}</span>{`
-  "theme": "dark"`}</code></pre>
-            </div>
-            <div class="plan-panel">
-              <div class="diff-head"><p>after <code>anypick reset claude --yes</code></p></div>
-              <pre class="diff"><code>{`{"theme":"dark"}`}</code></pre>
-            </div>
+            <p class="landing-boundary">
+              <strong>{t("landing.compatibility.claudeRule")}</strong> {t("landing.compatibility.otherRule")} <a class="landing-inline-link" href={compatibilityUrl}>{t("landing.compatibility.reference")}</a>.
+            </p>
           </div>
         </div>
       </section>
 
-      <section class="section-shell">
-        <div class="mx-auto grid max-w-7xl gap-12 px-5 sm:px-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
-          <div class="section-heading">
-            <p class="section-kicker">Different protocols? Handled.</p>
-            <h2>Codex on OpenRouter. Claude Code on Kimi. No glue scripts.</h2>
-            <p>Coding agents speak different APIs: Anthropic Messages, OpenAI Responses. When the agent and the provider don't match, AnyPick starts a small translator on your machine (loopback only) and points the agent at it. AnyPick's core starts and owns the translator.</p>
-            <p class="note mt-4">When a translator is used, the agent's config gets a local, per-proxy token, not your provider key. No server to run, no YAML, no <code>ANTHROPIC_API_KEY=""</code> tricks to remember.</p>
+      <section class="landing-section landing-safety-section" id="install">
+        <div class="landing-wrap landing-cli-grid">
+          <div>
+            <div class="landing-install-intro">
+              <p class="landing-kicker">{t("landing.install.kicker")}</p>
+              <h2>{t("landing.install.title")}</h2>
+              <p class="landing-section-lede">{t("landing.install.body")}</p>
+            </div>
+            <figure class="landing-demo-frame landing-cli-demo">
+              <div class="landing-demo-titlebar" aria-hidden="true">
+                <span></span><span></span><span></span>
+                <p>{t("landing.install.demoTitle")}</p>
+              </div>
+              <video
+                class="landing-demo-video"
+                controls
+                muted
+                loop
+                playsinline
+                preload="none"
+                width="1280"
+                height="720"
+                poster="/demo/anypick-hero-poster.png"
+                aria-label={t("landing.install.videoAlt")}
+                data-demo-video
+              >
+                <source src="/demo/anypick-hero.webm" type="video/webm" />
+                <source src="/demo/anypick-hero.mp4" type="video/mp4" />
+                <img src="/demo/anypick-hero.gif" alt="AnyPick CLI demo" width="1280" height="720" />
+              </video>
+              <figcaption>{t("landing.install.demoCaption")}</figcaption>
+            </figure>
           </div>
-          <pre class="code-block"><code><span class="c"># see what this connection can serve</span>
-anypick add gateway openrouter-work --provider openrouter --api-key "$OPENROUTER_API_KEY"
-anypick models codex --with openrouter-work
-anypick use codex --with openrouter-work
 
-<span class="c"># Claude Code via a local translator</span>
-anypick add account kimi --name main --api-key "$MOONSHOT_API_KEY"
-anypick use claude --with kimi/main --model &lt;kimi-model-id&gt;</code></pre>
+          <div class="landing-install-card" data-install-tabs>
+            <h3 class="landing-install-heading">{t("landing.install.cli")}</h3>
+            <div class="landing-install-tabs" role="tablist" aria-label={t("landing.install.method")}>
+              <button id="install-tab-macos" class="landing-install-tab" type="button" role="tab" aria-selected="true" aria-controls="install-panel-macos" data-install-tab="macos">macOS</button>
+              <button id="install-tab-linux" class="landing-install-tab" type="button" role="tab" aria-selected="false" aria-controls="install-panel-linux" tabindex="-1" data-install-tab="linux">Linux</button>
+              <button id="install-tab-windows" class="landing-install-tab" type="button" role="tab" aria-selected="false" aria-controls="install-panel-windows" tabindex="-1" data-install-tab="windows">Windows</button>
+              <button id="install-tab-npm" class="landing-install-tab" type="button" role="tab" aria-selected="false" aria-controls="install-panel-npm" tabindex="-1" data-install-tab="npm">npm</button>
+            </div>
+
+            <div class="landing-install-panel" id="install-panel-macos" role="tabpanel" aria-labelledby="install-tab-macos" data-install-panel="macos">
+              <div class="landing-install-command">
+                <span class="prompt" aria-hidden="true">$</span>
+                <code>brew install outof0/tap/anypick</code>
+                <button type="button" data-copy="brew install outof0/tap/anypick" aria-label={t("landing.install.copyCommand", { name: "Homebrew" })}><Icon name="ph:copy" class="h-4 w-4" aria-hidden="true" /><span>{t("landing.install.copy")}</span></button>
+              </div>
+              <p class="landing-install-hint">{t("landing.install.brewBefore")}<a href={releasesUrl}>{t("landing.install.brewLink")}</a>{t("landing.install.brewAfter")}</p>
+            </div>
+
+            <div class="landing-install-panel" id="install-panel-linux" role="tabpanel" aria-labelledby="install-tab-linux" data-install-panel="linux" hidden>
+              <div class="landing-install-command">
+                <span class="prompt" aria-hidden="true">$</span>
+                <code>{npmCommand}</code>
+                <button type="button" data-copy={npmCommand} aria-label={t("landing.install.copyCommand", { name: "npm" })}><Icon name="ph:copy" class="h-4 w-4" aria-hidden="true" /><span>{t("landing.install.copy")}</span></button>
+              </div>
+              <p class="landing-install-hint">{t("landing.install.linuxBefore")}<a href={releasesUrl}>{t("landing.install.linuxLink")}</a>{t("landing.install.linuxAfter")}</p>
+            </div>
+
+            <div class="landing-install-panel" id="install-panel-windows" role="tabpanel" aria-labelledby="install-tab-windows" data-install-panel="windows" hidden>
+              <div class="landing-install-command">
+                <span class="prompt" aria-hidden="true">&gt;</span>
+                <code>scoop bucket add outof0 https://github.com/outof0/scoop-bucket</code>
+                <button type="button" data-copy="scoop bucket add outof0 https://github.com/outof0/scoop-bucket" aria-label={t("landing.install.copyCommand", { name: "Scoop" })}><Icon name="ph:copy" class="h-4 w-4" aria-hidden="true" /><span>{t("landing.install.copy")}</span></button>
+              </div>
+              <div class="landing-install-command landing-install-command-secondary">
+                <span class="prompt" aria-hidden="true">&gt;</span>
+                <code>scoop install anypick</code>
+                <button type="button" data-copy="scoop install anypick" aria-label={t("landing.install.copyCommand", { name: "Scoop" })}><Icon name="ph:copy" class="h-4 w-4" aria-hidden="true" /><span>{t("landing.install.copy")}</span></button>
+              </div>
+              <p class="landing-install-hint">{t("landing.install.windowsBefore")}<a href={releasesUrl}>{t("landing.install.windowsLink")}</a>{t("landing.install.windowsAfter")}</p>
+            </div>
+
+            <div class="landing-install-panel" id="install-panel-npm" role="tabpanel" aria-labelledby="install-tab-npm" data-install-panel="npm" hidden>
+              <div class="landing-install-command">
+                <span class="prompt" aria-hidden="true">$</span>
+                <code>{npmCommand}</code>
+                <button type="button" data-copy={npmCommand} aria-label={t("landing.install.copyCommand", { name: "npm" })}><Icon name="ph:copy" class="h-4 w-4" aria-hidden="true" /><span>{t("landing.install.copy")}</span></button>
+              </div>
+              <p class="landing-install-hint">{t("landing.install.npmHint")}</p>
+            </div>
+            <p class="landing-first-run">{t("landing.install.firstRun")} <code>anypick tui</code> {t("landing.install.picker")}</p>
+            <a class="landing-release-link" href={gettingStartedUrl}>{t("landing.install.guide")} <Icon name="ph:arrow-right" class="h-3.5 w-3.5" aria-hidden="true" /></a>
+            <p class="sr-only" aria-live="polite" data-copy-status></p>
+          </div>
         </div>
       </section>
 
-      <section class="section-shell border-y border-white/8 bg-[#0B0D15]">
-        <div class="mx-auto grid max-w-7xl gap-12 px-5 sm:px-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
-          <div class="section-heading">
-            <p class="section-kicker">Your first 60 seconds</p>
-            <h2>From install to coding in three commands.</h2>
-            <p>Then: <code>anypick list accounts</code> · <code>anypick tui</code> (an interactive picker) · <code>anypick doctor</code></p>
-            <a class="primary-cta mt-6" href={gettingStartedUrl}>Read the 5-minute guide <Icon name="ph:arrow-right" class="h-4 w-4" /></a>
-          </div>
-          <pre class="code-block"><code>brew install outof0/tap/anypick                    <span class="c"># or: npm i -g anypick</span>
-anypick add account claude --current --name work   <span class="c"># save the login you're signed in to</span>
-anypick use claude --with claude/work              <span class="c"># pick it</span></code></pre>
-        </div>
-      </section>
-
-
-      <section class="section-shell border-y border-white/8 bg-[#0B0D15]">
-        <div class="mx-auto max-w-7xl px-5 sm:px-8">
-          <div class="section-heading max-w-3xl">
-            <p class="section-kicker">Why you can trust it with your keys</p>
-            <h2>Your keys stay on your machine and go straight to your provider.</h2>
-          </div>
-          <div class="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {trust.map((t) => (
-              <article class="proof-card">
-                <span class="proof-icon"><Icon name={t.icon} class="h-5 w-5" /></span>
-                <h3>{t.title}</h3>
-                <p>{t.body}</p>
-              </article>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section class="section-shell">
-        <div class="mx-auto max-w-7xl px-5 sm:px-8">
-          <div class="section-heading max-w-3xl">
-            <p class="section-kicker">Comparison</p>
-            <h2>AnyPick vs. doing it by hand</h2>
-          </div>
-          <div class="table-wrap mt-10">
-            <table class="compare">
-              <thead><tr><th scope="col"><span class="sr-only">Task</span></th><th scope="col">By hand</th><th scope="col">AnyPick</th></tr></thead>
-              <tbody>
-                {byHand.map((r) => (
-                  <tr><th scope="row">{r.task}</th><td data-label="By hand">{r.manual}</td><td data-label="AnyPick"><code>{r.anypick}</code></td></tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </section>
-
-      <section class="section-shell border-t border-white/8 bg-[#0B0D15]">
-        <div class="mx-auto max-w-4xl px-5 sm:px-8">
-          <div class="section-heading">
-            <p class="section-kicker">FAQ</p>
-            <h2>Questions</h2>
-          </div>
-          <div class="mt-8 divide-y divide-white/8 border-y border-white/8">
-            {faq.map((f) => (
-              <details class="faq" id={f.id}>
-                <summary>{f.q}</summary>
-                <p>{f.a}</p>
+      <section class="landing-section">
+        <div class="landing-wrap landing-faq-inner">
+          <p class="landing-kicker">{t("landing.faq.kicker")}</p>
+          <h2>{t("landing.faq.title")}</h2>
+          <div class="landing-faq">
+            {faqs.map((faq) => (
+              <details>
+                <summary>{faq.q}</summary>
+                {"a" in faq ? (
+                  <p>{faq.a}</p>
+                ) : (
+                  <p>{faq.aBefore}<a href={compatibilityUrl}>{faq.link}</a>{faq.aAfter}</p>
+                )}
               </details>
             ))}
           </div>
         </div>
       </section>
 
-      <section class="px-5 py-20 sm:px-8 sm:py-28">
-        <div class="closing mx-auto max-w-7xl overflow-hidden px-6 py-14 text-center sm:px-10 sm:py-20">
-          <div class="closing-light" aria-hidden="true"></div>
-          <h2 class="relative mx-auto max-w-3xl text-balance text-[clamp(2.4rem,6vw,4.5rem)] font-semibold leading-[1] tracking-[-0.05em]">Pick once. Keep coding.</h2>
-          <div class="relative mt-8 flex flex-wrap justify-center gap-3">
-            <a class="primary-cta" href="#install">Install the CLI <Icon name="ph:arrow-up" class="h-4 w-4" /></a>
-            <a class="secondary-cta" href={releasesUrl}>Download the app <Icon name="ph:arrow-up-right" class="h-4 w-4" /></a>
+      <section class="landing-section landing-final">
+        <div class="landing-wrap landing-final-inner">
+          <p class="landing-kicker">{t("landing.final.kicker")}</p>
+          <h2>{t("landing.final.titleStart")}<br />{t("landing.final.titleEnd")}</h2>
+          <p class="landing-section-lede">{t("landing.final.body")}</p>
+          <div class="landing-actions">
+            <a class="landing-button landing-button-primary" href="#download" data-download-cta><span data-download-label>{t("landing.final.cta")}</span> <Icon name="ph:arrow-down" class="h-4 w-4" aria-hidden="true" /></a>
+            <a class="landing-inline-link" href={gettingStartedUrl}>{t("landing.final.guide")}</a>
           </div>
+          <p class="landing-meta">{t("landing.final.meta")}</p>
         </div>
       </section>
     </main>
 
-    <footer class="border-t border-white/8 px-5 py-8 sm:px-8">
-      <div class="mx-auto flex max-w-7xl flex-col items-center justify-between gap-5 sm:flex-row">
-        <div class="flex items-center gap-4">
-          <img src="/logo-dark.svg" alt={config.title} width="98" height="20" />
-          <p class="text-sm font-semibold text-[#c4b5fd]">Pick any. Code on.</p>
-        </div>
-        <div class="flex flex-wrap justify-center gap-5 text-sm">
-          <a href="/docs">Docs</a>
+    <footer class="landing-footer">
+      <div class="landing-wrap flex flex-col items-center justify-between gap-4 py-7 sm:flex-row">
+        <a href={homeUrl} aria-label={t("landing.footer.home")}><img src="/logo-dark.svg" alt="AnyPick" width="98" height="20" /></a>
+        <nav aria-label={t("landing.footer.navigation")} class="flex flex-wrap justify-center gap-x-5 gap-y-2">
+          <a href={docsUrl}>{t("landing.footer.docs")}</a>
           <a href={githubUrl} target="_blank" rel="noopener">GitHub</a>
-          <a href={changelogUrl} target="_blank" rel="noopener">Changelog</a>
-          <a href={securityUrl} target="_blank" rel="noopener">Security</a>
-          <a href={licenseUrl} target="_blank" rel="noopener">MIT License</a>
-          <span class="text-[#8b93a7]">© OutOf0</span>
-        </div>
+          <a href={`${githubUrl}/blob/main/CHANGELOG.md`} target="_blank" rel="noopener">{t("landing.footer.changelog")}</a>
+          <a href={`${githubUrl}/blob/main/SECURITY.md`} target="_blank" rel="noopener">{t("landing.footer.security")}</a>
+          <a href={`${githubUrl}/blob/main/LICENSE`} target="_blank" rel="noopener">{t("landing.footer.license")}</a>
+        </nav>
+        <span>© OutOf0</span>
       </div>
     </footer>
   </div>
 
   <script>
-    const status = document.querySelector("[data-copy-status]");
-    const installTabs = document.querySelector<HTMLElement>("[data-install-tabs]");
-    const tabs = Array.from(installTabs?.querySelectorAll<HTMLButtonElement>("[data-install-tab]") ?? []);
-    const panels = Array.from(installTabs?.querySelectorAll<HTMLElement>("[data-install-panel]") ?? []);
+    const installRoot = document.querySelector<HTMLElement>("[data-install-tabs]");
+    const tabs = Array.from(installRoot?.querySelectorAll<HTMLButtonElement>("[data-install-tab]") ?? []);
+    const panels = Array.from(installRoot?.querySelectorAll<HTMLElement>("[data-install-panel]") ?? []);
 
     const activateTab = (name: string, focus = false) => {
       for (const tab of tabs) {
@@ -536,6 +396,10 @@ anypick use claude --with claude/work              <span class="c"># pick it</sp
       for (const panel of panels) panel.hidden = panel.dataset.installPanel !== name;
     };
 
+    const platform = navigator.userAgent.toLowerCase();
+    if (platform.includes("windows")) activateTab("windows");
+    else if (platform.includes("linux") && !platform.includes("android")) activateTab("linux");
+
     for (const [index, tab] of tabs.entries()) {
       tab.addEventListener("click", () => activateTab(tab.dataset.installTab ?? "macos"));
       tab.addEventListener("keydown", (event) => {
@@ -543,941 +407,64 @@ anypick use claude --with claude/work              <span class="c"># pick it</sp
           ? (index + 1) % tabs.length
           : event.key === "ArrowLeft" || event.key === "ArrowUp"
             ? (index + tabs.length - 1) % tabs.length
-            : event.key === "Home"
-              ? 0
-              : event.key === "End"
-                ? tabs.length - 1
-                : -1;
-        if (next < 0) return;
-        event.preventDefault();
-        activateTab(tabs[next].dataset.installTab ?? "macos", true);
-      });
-    }
-
-    const userAgent = navigator.userAgent.toLowerCase();
-    const detectedOS = /macintosh|mac os x|iphone|ipad/.test(userAgent)
-      ? "macos"
-      : /windows/.test(userAgent)
-        ? "windows"
-        : /linux|x11/.test(userAgent)
-          ? "linux"
-          : null;
-    if (detectedOS) activateTab(detectedOS);
-
-    // Respect reduced motion: keep the poster frame and let the user press play.
-    const demo = document.querySelector<HTMLVideoElement>("[data-demo-video]");
-    if (demo && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      demo.removeAttribute("autoplay");
-      demo.pause();
-      demo.controls = true;
-    }
-
-    document.querySelectorAll<HTMLButtonElement>("[data-copy]").forEach((button) => {
-      button.addEventListener("click", async () => {
-        const value = button.dataset.copy;
-        if (!value) return;
-        const label = button.querySelector("span");
-        const originalLabel = button.getAttribute("aria-label") ?? "Copy command";
-        try {
-          await navigator.clipboard.writeText(value);
-          button.querySelector(".copy-icon")?.classList.add("hidden");
-          button.querySelector(".check-icon")?.classList.remove("hidden");
-          if (label) label.textContent = "Copied";
-          button.setAttribute("aria-label", "Copied install command");
-          if (status) status.textContent = "Install command copied";
-          window.setTimeout(() => {
-            button.querySelector(".copy-icon")?.classList.remove("hidden");
-            button.querySelector(".check-icon")?.classList.add("hidden");
-            if (label) label.textContent = "Copy";
-            button.setAttribute("aria-label", originalLabel);
-          }, 1800);
-        } catch {
-          if (status) status.textContent = "Could not copy install command";
+            : event.key === "Home" ? 0 : event.key === "End" ? tabs.length - 1 : -1;
+        if (next >= 0) {
+          event.preventDefault();
+          activateTab(tabs[next]?.dataset.installTab ?? "macos", true);
         }
       });
-    });
+    }
+
+    const revealSections = () => {
+      const sections = Array.from(document.querySelectorAll<HTMLElement>(".landing-section"));
+      const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      if (reducedMotion || !("IntersectionObserver" in window)) {
+        sections.forEach((section) => section.classList.add("landing-visible"));
+        return;
+      }
+
+      document.documentElement.dataset.landingMotion = "ready";
+      const observer = new IntersectionObserver((entries, activeObserver) => {
+        for (const entry of entries) {
+          if (!entry.isIntersecting) continue;
+          entry.target.classList.add("landing-visible");
+          activeObserver.unobserve(entry.target);
+        }
+      }, { threshold: 0.08, rootMargin: "0px 0px -5% 0px" });
+
+      for (const section of sections) {
+        if (section.getBoundingClientRect().top < window.innerHeight * 0.88) {
+          section.classList.add("landing-visible");
+        } else {
+          observer.observe(section);
+        }
+      }
+    };
+
+    revealSections();
+
+    const landing = document.querySelector<HTMLElement>(".landing");
+    const copyStatus = document.querySelector<HTMLElement>("[data-copy-status]");
+    for (const button of document.querySelectorAll<HTMLButtonElement>("[data-copy]")) {
+      button.addEventListener("click", async () => {
+        const command = button.dataset.copy;
+        if (!command) return;
+        try {
+          await navigator.clipboard.writeText(command);
+          button.querySelector("span")!.textContent = landing?.dataset.copiedLabel ?? "";
+          if (copyStatus) copyStatus.textContent = landing?.dataset.copyMessage ?? "";
+          window.setTimeout(() => {
+            const label = button.querySelector("span");
+            if (label) label.textContent = landing?.dataset.copyLabel ?? "";
+          }, 1600);
+        } catch {
+          if (copyStatus) copyStatus.textContent = landing?.dataset.copyFailed ?? "";
+        }
+      });
+    }
+
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      document.querySelector<HTMLVideoElement>("[data-demo-video]")?.pause();
+    }
   </script>
 </BaseLayout>
-
-<style>
-  .landing {
-    color-scheme: dark;
-  }
-
-  .hero {
-    background:
-      linear-gradient(180deg, rgb(11 15 25 / 0.25), #080a11 92%),
-      #0b0f19;
-  }
-
-  .hero-grid {
-    opacity: 0.22;
-    background-image:
-      linear-gradient(rgb(255 255 255 / 0.045) 1px, transparent 1px),
-      linear-gradient(90deg, rgb(255 255 255 / 0.045) 1px, transparent 1px);
-    background-size: 42px 42px;
-    mask-image: linear-gradient(to bottom, black, transparent 88%);
-  }
-
-  .hero-light {
-    top: 3rem;
-    right: -10rem;
-    width: 56rem;
-    height: 56rem;
-    border-radius: 999px;
-    background: radial-gradient(circle, rgb(124 58 237 / 0.2), transparent 67%);
-  }
-
-  .eyebrow,
-  .section-kicker {
-    color: #a78bfa;
-    font-family: var(--font-mono);
-    font-size: 0.72rem;
-    font-weight: 600;
-    letter-spacing: 0.13em;
-    text-transform: uppercase;
-  }
-
-  .eyebrow {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.65rem;
-    margin: 0;
-  }
-
-  .eyebrow span {
-    width: 0.45rem;
-    height: 0.45rem;
-    border-radius: 999px;
-    background: #22c55e;
-    box-shadow: 0 0 18px rgb(34 197 94 / 0.7);
-  }
-
-  h1 span {
-    background: linear-gradient(110deg, #f8fafc 5%, #c4b5fd 52%, #7c3aed 110%);
-    background-clip: text;
-    color: transparent;
-  }
-
-  .hero-copy strong {
-    color: #f8fafc;
-    font-weight: 550;
-  }
-
-  .primary-cta,
-  .secondary-cta {
-    display: inline-flex;
-    min-height: 2.8rem;
-    align-items: center;
-    justify-content: center;
-    gap: 0.55rem;
-    border-radius: 0.75rem;
-    padding: 0.72rem 1.05rem;
-    font-size: 0.9rem;
-    font-weight: 650;
-    text-decoration: none;
-    transition: 160ms ease;
-  }
-
-  .primary-cta {
-    background: #7c3aed;
-    color: white;
-    box-shadow: 0 12px 36px rgb(124 58 237 / 0.25);
-  }
-
-  .primary-cta:hover {
-    background: #8b5cf6;
-    transform: translateY(-1px);
-  }
-
-
-
-
-
-  .secondary-cta {
-    border: 1px solid rgb(255 255 255 / 0.13);
-    background: rgb(255 255 255 / 0.035);
-    color: #d6d9e0;
-  }
-
-  .secondary-cta:hover {
-    border-color: rgb(255 255 255 / 0.22);
-    background: rgb(255 255 255 / 0.07);
-    color: white;
-  }
-
-  .primary-cta:focus-visible,
-
-  .install-card {
-    border: 1px solid rgb(255 255 255 / 0.12);
-    border-radius: 1rem;
-    background: rgb(4 6 12 / 0.72);
-    box-shadow: 0 14px 40px rgb(0 0 0 / 0.22);
-  }
-
-  .install-tabs {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 0.25rem;
-    padding: 0.45rem;
-    border-bottom: 1px solid rgb(255 255 255 / 0.09);
-  }
-
-  .install-tab {
-    min-width: 0;
-    min-height: 2.3rem;
-    border: 0;
-    border-radius: 0.6rem;
-    padding: 0.4rem 0.3rem;
-    background: transparent;
-    color: #98a2b3;
-    font-size: 0.78rem;
-    font-weight: 600;
-  }
-
-  .install-tab:hover {
-    background: rgb(255 255 255 / 0.06);
-    color: #f8fafc;
-  }
-
-  .install-tab[aria-selected="true"] {
-    background: rgb(124 58 237 / 0.2);
-    color: #e9ddff;
-  }
-
-  .install-tab:focus-visible {
-    outline: 2px solid #c4b5fd;
-    outline-offset: 1px;
-  }
-
-  .install-panel[hidden] {
-    display: none !important;
-  }
-
-  .install-panel {
-    min-width: 0;
-    padding: 0.9rem 0.75rem;
-  }
-
-  .install-label {
-    margin: 0 0 0.45rem 0.2rem;
-    color: #8b93a7;
-    font-family: var(--font-mono);
-    font-size: 0.67rem;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-  }
-
-  .install-label-spaced {
-    margin-top: 0.9rem;
-  }
-
-  .install-hint {
-    margin: 0.75rem 0.2rem 0;
-    color: #8b93a7;
-    font-size: 0.75rem;
-    line-height: 1.5;
-  }
-
-  .desktop-release-link {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.6rem;
-    padding: 0.8rem 1rem;
-    border-top: 1px solid rgb(255 255 255 / 0.09);
-    color: #c4b5fd;
-    font-size: 0.78rem;
-    font-weight: 600;
-    text-decoration: none;
-  }
-
-  .desktop-release-link:hover {
-    color: #e9ddff;
-  }
-
-  .desktop-release-link:focus-visible {
-    outline: 2px solid #c4b5fd;
-    outline-offset: -3px;
-  }
-
-  .install-meta {
-    color: #8b93a7;
-    font-family: var(--font-mono);
-    font-size: 0.7rem;
-    letter-spacing: 0.04em;
-  }
-
-  .macos-warning {
-    border-left: 2px solid rgb(167 139 250 / 0.45);
-    padding-left: 0.8rem;
-    color: #98a2b3;
-    font-size: 0.76rem;
-    line-height: 1.65;
-  }
-
-  .macos-warning strong {
-    color: #d6d9e0;
-    font-weight: 600;
-  }
-
-  .macos-warning code {
-    color: #d6d9e0;
-    font-family: var(--font-mono);
-    font-size: 0.7rem;
-    overflow-wrap: anywhere;
-  }
-
-  .install-shell {
-    display: grid;
-    grid-template-columns: auto 1fr auto;
-    align-items: center;
-    gap: 0.75rem;
-    min-height: 2.9rem;
-    padding: 0.35rem 0.35rem 0.35rem 1rem;
-    border: 1px solid rgb(255 255 255 / 0.1);
-    border-radius: 0.85rem;
-    background: rgb(4 6 12 / 0.55);
-    box-shadow: 0 10px 28px rgb(0 0 0 / 0.16);
-  }
-
-  .install-shell .prompt {
-    color: #7c3aed;
-    font-family: var(--font-mono);
-  }
-
-  .install-shell code {
-    overflow: hidden;
-    color: #d6d9e0;
-    font-family: var(--font-mono);
-    font-size: 0.78rem;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .install-shell button {
-    display: inline-flex;
-    min-height: 2.2rem;
-    align-items: center;
-    gap: 0.4rem;
-    border: 0;
-    border-radius: 0.6rem;
-    padding: 0 0.75rem;
-    background: rgb(255 255 255 / 0.07);
-    color: #98a2b3;
-    font-size: 0.75rem;
-    font-weight: 600;
-  }
-
-  .install-shell button:hover {
-    background: rgb(255 255 255 / 0.11);
-    color: white;
-  }
-
-  .install-shell button:focus-visible {
-    outline: 2px solid #c4b5fd;
-    outline-offset: 2px;
-  }
-
-  .section-shell {
-    padding-block: clamp(5.5rem, 10vw, 8.5rem);
-    scroll-margin-top: 4rem;
-  }
-
-  .section-heading h2 {
-    margin-top: 1rem;
-    color: #f8fafc;
-    font-size: clamp(2.25rem, 5vw, 3.8rem);
-    font-weight: 620;
-    line-height: 1.04;
-    letter-spacing: -0.045em;
-    text-wrap: balance;
-  }
-
-  .section-heading > p:last-child {
-    margin-top: 1.35rem;
-    color: #98a2b3;
-    font-size: 1.08rem;
-    line-height: 1.8;
-  }
-
-  .workflow-card,
-  .proof-card {
-    border: 1px solid rgb(255 255 255 / 0.09);
-    border-radius: 1rem;
-    background: rgb(255 255 255 / 0.025);
-  }
-
-  .workflow-card {
-    padding: 1.6rem;
-  }
-
-  .workflow-card:hover,
-  .proof-card:hover {
-    border-color: rgb(167 139 250 / 0.3);
-    background: rgb(124 58 237 / 0.045);
-  }
-
-  .step-number {
-    display: grid;
-    width: 2.5rem;
-    height: 2.5rem;
-    flex: 0 0 auto;
-    place-items: center;
-    border: 1px solid rgb(167 139 250 / 0.22);
-    border-radius: 0.7rem;
-    background: rgb(124 58 237 / 0.1);
-    color: #a78bfa;
-    font-family: var(--font-mono);
-    font-size: 0.72rem;
-  }
-
-  .workflow-card h3,
-  .benefit-row h3,
-  .proof-card h3 {
-    color: #f8fafc;
-    font-size: 1rem;
-    font-weight: 620;
-  }
-
-  .workflow-card p,
-  .benefit-row p,
-  .proof-card p {
-    margin-top: 0.55rem;
-    color: #98a2b3;
-    font-size: 0.9rem;
-    line-height: 1.7;
-  }
-
-  .plan-panel {
-    border: 1px solid rgb(255 255 255 / 0.1);
-    border-radius: 1.1rem;
-    background: #0b0d15;
-    box-shadow: 0 30px 80px rgb(0 0 0 / 0.2);
-  }
-
-  .text-link {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.45rem;
-    color: #a78bfa;
-    font-size: 0.86rem;
-    font-weight: 600;
-    text-decoration: none;
-  }
-
-  .text-link:hover {
-    color: #c4b5fd;
-  }
-
-  .plan-code {
-    background: #07090e;
-  }
-
-  .plan-titlebar {
-    display: flex;
-    align-items: center;
-    gap: 0.38rem;
-    padding-bottom: 1rem;
-    border-bottom: 1px solid rgb(255 255 255 / 0.08);
-  }
-
-  .plan-titlebar span {
-    width: 0.45rem;
-    height: 0.45rem;
-    border-radius: 999px;
-    background: #343947;
-  }
-
-  .plan-titlebar span:first-child {
-    background: #7c3aed;
-  }
-
-  .plan-titlebar p {
-    margin-left: auto;
-    color: #8b93a7;
-    font-family: var(--font-mono);
-    font-size: 0.66rem;
-  }
-
-  .plan-code ol {
-    margin: 0;
-    padding: 0;
-    list-style: none;
-  }
-
-  .plan-code li {
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr) auto;
-    align-items: center;
-    gap: 1rem;
-    padding: 1rem 0;
-    border-bottom: 1px solid rgb(255 255 255 / 0.06);
-  }
-
-  .plan-code li:last-child {
-    border: 0;
-  }
-
-  .plan-code li > span {
-    color: #8b93a7;
-    font-family: var(--font-mono);
-    font-size: 0.68rem;
-  }
-
-  .plan-code li div {
-    display: grid;
-    gap: 0.2rem;
-  }
-
-  .plan-code strong {
-    color: #e6e8ee;
-    font-size: 0.82rem;
-    font-weight: 580;
-  }
-
-  .plan-code small {
-    overflow: hidden;
-    color: #8b93a7;
-    font-family: var(--font-mono);
-    font-size: 0.68rem;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .plan-code b {
-    color: #a78bfa;
-    font-family: var(--font-mono);
-    font-size: 0.65rem;
-    font-weight: 500;
-  }
-
-  .benefit-row {
-    display: grid;
-    grid-template-columns: auto 1fr;
-    gap: 1rem;
-  }
-
-  .benefit-row > span,
-  .proof-icon {
-    display: grid;
-    width: 2.6rem;
-    height: 2.6rem;
-    place-items: center;
-    border: 1px solid rgb(167 139 250 / 0.2);
-    border-radius: 0.75rem;
-    background: rgb(124 58 237 / 0.09);
-    color: #a78bfa;
-  }
-
-  .proof-card {
-    display: flex;
-    min-height: 19rem;
-    flex-direction: column;
-    padding: 1.7rem;
-    transition: 160ms ease;
-  }
-
-  .proof-card h3 {
-    margin-top: 1.5rem;
-    font-size: 1.08rem;
-  }
-
-  .proof-card a {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-    margin-top: auto;
-    padding-top: 1.8rem;
-    color: #a78bfa;
-    font-size: 0.82rem;
-    font-weight: 600;
-    text-decoration: none;
-  }
-
-  .proof-card a:hover,
-  footer a:hover {
-    color: #c4b5fd;
-  }
-
-  .boundary-note {
-    display: flex;
-    gap: 0.85rem;
-    padding: 1.1rem 1.2rem;
-    border: 1px solid rgb(167 139 250 / 0.15);
-    border-radius: 0.9rem;
-    background: rgb(124 58 237 / 0.05);
-    color: #98a2b3;
-    font-size: 0.82rem;
-    line-height: 1.65;
-  }
-
-  .boundary-note strong {
-    color: #d6d9e0;
-    font-weight: 600;
-  }
-
-  .closing {
-    position: relative;
-    isolation: isolate;
-    border: 1px solid rgb(255 255 255 / 0.1);
-    border-radius: 1.5rem;
-    background: #0b0d15;
-  }
-
-  .closing-light {
-    position: absolute;
-    z-index: -1;
-    inset: -60% 10% auto;
-    height: 28rem;
-    border-radius: 999px;
-    background: radial-gradient(circle, rgb(124 58 237 / 0.3), transparent 68%);
-  }
-
-  footer a {
-    color: #98a2b3;
-    text-decoration: none;
-  }
-
-  @media (max-width: 40rem) {
-    .install-shell button span {
-      display: none;
-    }
-
-
-
-
-
-    .install-shell code {
-      overflow: visible;
-      overflow-wrap: anywhere;
-      text-overflow: clip;
-      white-space: normal;
-    }
-
-    .plan-code li {
-      grid-template-columns: auto minmax(0, 1fr);
-    }
-
-    .plan-code b {
-      display: none;
-    }
-  }
-
-  @media (prefers-reduced-motion: no-preference) {
-    .hero-copy {
-      animation: hero-enter 650ms ease-out both;
-    }
-
-    .hero-product {
-      animation: product-enter 750ms 100ms ease-out both;
-    }
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    *,
-    *::before,
-    *::after {
-      scroll-behavior: auto !important;
-      transition-duration: 0.01ms !important;
-      animation-duration: 0.01ms !important;
-      animation-iteration-count: 1 !important;
-    }
-  }
-
-  @keyframes hero-enter {
-    from {
-      opacity: 0;
-      transform: translateY(14px);
-    }
-  }
-
-  @keyframes product-enter {
-    from {
-      opacity: 0;
-      transform: translateY(18px) scale(0.985);
-    }
-  }
-
-  .demo-frame {
-    overflow: hidden;
-    border: 1px solid rgb(255 255 255 / 0.1);
-    border-radius: 1rem;
-    background: #0b0b12;
-    box-shadow: 0 40px 120px rgb(124 58 237 / 0.18), 0 0 0 1px rgb(124 58 237 / 0.08);
-  }
-  .demo-titlebar {
-    display: flex;
-    align-items: center;
-    gap: 0.45rem;
-    border-bottom: 1px solid rgb(255 255 255 / 0.08);
-    padding: 0.7rem 1rem;
-  }
-  .demo-titlebar span {
-    width: 0.7rem;
-    height: 0.7rem;
-    border-radius: 999px;
-    background: rgb(255 255 255 / 0.14);
-  }
-  .demo-titlebar p {
-    margin: 0 0 0 0.6rem;
-    overflow: hidden;
-    color: #8b93a7;
-    font-family: var(--font-mono);
-    font-size: 0.72rem;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .demo-video {
-    display: block;
-    width: 100%;
-    height: auto;
-    aspect-ratio: 16 / 9;
-  }
-  .demo-frame figcaption {
-    border-top: 1px solid rgb(255 255 255 / 0.08);
-    padding: 0.75rem 1rem;
-    color: #98a2b3;
-    font-size: 0.85rem;
-    text-align: center;
-  }
-  .cmd,
-  .code-block,
-  .diff {
-    margin: 0.9rem 0;
-    overflow-x: auto;
-    border: 1px solid rgb(255 255 255 / 0.08);
-    border-radius: 0.6rem;
-    background: #07080d;
-    padding: 0.8rem 1rem;
-    color: #e6e6f0;
-    font-family: var(--font-mono);
-    font-size: 0.8rem;
-    line-height: 1.6;
-  }
-  .code-block {
-    margin: 0;
-    padding: 1.2rem 1.3rem;
-    font-size: 0.82rem;
-  }
-  .code-block .c {
-    color: #7d8597;
-  }
-  .diff {
-    margin: 0;
-    border: 0;
-    border-radius: 0;
-  }
-  .diff .add {
-    color: #3ddc97;
-  }
-  .diff-stack {
-    display: grid;
-    gap: 0.9rem;
-  }
-  .plan-titlebar code,
-  .section-heading code,
-  .install-meta code,
-  .install-hint code,
-  .compare code {
-    font-family: var(--font-mono);
-    font-size: 0.85em;
-    color: #c4b5fd;
-  }
-  .list-title {
-    margin: 0 0 0.9rem;
-    color: #f8fafc;
-    font-size: 0.95rem;
-    font-weight: 650;
-  }
-  .chip-list {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.45rem;
-    margin: 0;
-    padding: 0;
-    list-style: none;
-  }
-  .chip-list li {
-    border: 1px solid rgb(255 255 255 / 0.1);
-    border-radius: 999px;
-    background: rgb(255 255 255 / 0.03);
-    padding: 0.3rem 0.7rem;
-    color: #d6d9e0;
-    font-size: 0.82rem;
-  }
-  .app-frame {
-    margin: 0;
-    overflow: hidden;
-    border-radius: 0.9rem;
-    box-shadow: 0 40px 120px rgb(124 58 237 / 0.16), 0 20px 60px rgb(0 0 0 / 0.45);
-  }
-  .app-frame img {
-    display: block;
-    width: 100%;
-    height: auto;
-  }
-  .hero-shot {
-    box-shadow: 0 50px 140px rgb(124 58 237 / 0.25), 0 24px 70px rgb(0 0 0 / 0.5);
-  }
-  .app-frame-tray {
-    justify-self: center;
-    width: min(100%, 336px);
-    border-radius: 1rem;
-  }
-  .feature-row {
-    display: grid;
-    gap: 2.5rem;
-    align-items: center;
-  }
-  @media (min-width: 64rem) {
-    .feature-row {
-      grid-template-columns: 0.8fr 1.2fr;
-      gap: 4rem;
-    }
-    .feature-row-reverse {
-      grid-template-columns: 1.2fr 0.8fr;
-    }
-    .feature-row-reverse > .section-heading {
-      order: 2;
-    }
-  }
-  .table-wrap {
-    overflow-x: auto;
-    border: 1px solid rgb(255 255 255 / 0.08);
-    border-radius: 0.9rem;
-  }
-  .compare {
-    width: 100%;
-    min-width: 40rem;
-    border-collapse: collapse;
-    font-size: 0.88rem;
-  }
-  .compare th,
-  .compare td {
-    border-bottom: 1px solid rgb(255 255 255 / 0.07);
-    padding: 0.9rem 1.1rem;
-    text-align: left;
-    vertical-align: top;
-  }
-  .compare thead th {
-    color: #a78bfa;
-    font-family: var(--font-mono);
-    font-size: 0.72rem;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-  }
-  .compare tbody th {
-    color: #f8fafc;
-    font-weight: 600;
-  }
-  .compare td {
-    color: #98a2b3;
-  }
-  .compare tr:last-child > * {
-    border-bottom: 0;
-  }
-  .faq summary {
-    cursor: pointer;
-    padding: 1.1rem 0;
-    color: #f8fafc;
-    font-weight: 600;
-  }
-  .faq p {
-    margin: 0 0 1.2rem;
-    color: #98a2b3;
-    line-height: 1.7;
-  }
-  .text-link {
-    color: #c4b5fd;
-  }
-  .section-heading h2 {
-    font-size: clamp(2rem, 3.6vw, 3.1rem);
-  }
-  .boundary-note {
-    display: block;
-  }
-  .grid > *,
-  .flex > * {
-    min-width: 0;
-  }
-  .note {
-    color: #8b93a7;
-    font-size: 0.9rem;
-    line-height: 1.7;
-  }
-  .diff-head {
-    border-bottom: 1px solid rgb(255 255 255 / 0.08);
-    padding: 0.6rem 1rem;
-  }
-  .diff-head p {
-    margin: 0;
-    color: #8b93a7;
-    font-family: var(--font-mono);
-    font-size: 0.72rem;
-  }
-  .plan-panel {
-    overflow: hidden;
-  }
-  .hero-copy .install-meta {
-    line-height: 1.7;
-  }
-  .install-card .install-label {
-    margin: 0;
-  }
-  .section-heading > p:not(.section-kicker) {
-    margin-top: 1.2rem;
-  }
-  .proof-card {
-    min-height: 0;
-  }
-  .proof-card > a {
-    margin-top: auto;
-  }
-  .diff {
-    white-space: pre-wrap;
-    overflow-wrap: anywhere;
-  }
-  .cmd {
-    white-space: pre-wrap;
-    overflow-wrap: anywhere;
-  }
-  @media (max-width: 40rem) {
-    .code-block {
-      white-space: pre-wrap;
-      overflow-wrap: anywhere;
-    }
-    .compare {
-      min-width: 0;
-    }
-    .compare thead {
-      display: none;
-    }
-    .compare tr,
-    .compare th,
-    .compare td {
-      display: block;
-    }
-    .compare tr {
-      border-bottom: 1px solid rgb(255 255 255 / 0.07);
-      padding: 0.6rem 0;
-    }
-    .compare th,
-    .compare td {
-      border: 0;
-      padding: 0.25rem 1rem;
-    }
-    .compare td::before {
-      content: attr(data-label) ": ";
-      color: #a78bfa;
-      font-family: var(--font-mono);
-      font-size: 0.7rem;
-      text-transform: uppercase;
-    }
-    .code-block,
-    .cmd,
-    .diff {
-      font-size: 0.74rem;
-    }
-  }
-</style>

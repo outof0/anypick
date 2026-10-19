@@ -1,0 +1,39 @@
+<Aside type="caution" title="Canais de lançamento">
+As versões do GitHub são a fonte canônica para arquivos CLI listados com soma de verificação para macOS, Linux e Windows, além do macOS universal `.dmg`/`.zip`, instaladores de desktop Linux e instaladores do Windows. O aplicativo macOS não é autenticado; na primeira inicialização, clique com o botão direito em `AnyPick.app` e escolha **Abrir** ou escolha **Abrir assim mesmo** em **Configurações do sistema → Privacidade e segurança**. Você também pode executar `xattr -dr com.apple.quarantine /Applications/AnyPick.app`. O iniciador thin npm (`npm install --global anypick`, Node 18+) baixa e verifica a CLI nativa correspondente na primeira execução. A partir da versão 1.1.0 ele substitui o antigo JavaScript `anypick@1.0.x` no npm. Crie a partir deste repositório quando estiver testando alterações não lançadas.
+</Aside>
+
+Instale o aplicativo CLI ou macOS com Homebrew:
+
+```bash
+brew install outof0/tap/anypick
+brew install --cask outof0/tap/anypick
+```
+
+Instale a CLI do Windows com Scoop:
+
+```powershell
+scoop bucket add outof0 https://github.com/outof0/scoop-bucket
+scoop install anypick
+```
+
+Para o destino de origem macOS nativo (requer macOS 14+, Xcode e Go):
+
+```bash
+open src/macos/AnyPick.xcodeproj
+```
+
+Selecione o esquema compartilhado **AnyPick** e execute. A compilação agrupa o serviço Go dentro do aplicativo; ele não compila Swift ou Go quando o aplicativo é iniciado.
+
+Para o fluxo de trabalho de origem atual da CLI e da IU do terminal (é necessário Go 1.26+):
+
+```bash
+make build
+./src/go/bin/anypick-dev --help
+./src/go/bin/anypick-dev tui
+```
+
+## Servidor sem cabeça/Linux
+
+A CLI é um binário Go estático: nenhum kit de ferramentas GUI e nenhum TTY necessário para comandos não interativos. Sem terminal, `anypick tui` sai com `NO_TTY`; use `anypick list`, `anypick use`, `anypick status`, `anypick serve` ou outros comandos CLI (`start` / `status` / `stop`).
+
+Os dados residem em `~/.anypick` (substituir por `ANYPICK_HOME`). `anypick serve` escuta apenas em `127.0.0.1` — acesse-o de outro host com um túnel SSH. Atualize baixando um novo arquivo de lançamento, `npm install --global anypick@latest` ou `anypick update` (verifica os lançamentos do GitHub).

@@ -1,0 +1,227 @@
+---
+title: 'Applications et interface utilisateur du terminal'
+description: 'Comment les applications acheminent Claude Code, Codex, ZCode, dsh, commandcode, pi et omp : choisissez une source, définissez les modèles, prévisualisez, puis activez.'
+sidebar:
+  label: Apps & Terminal UI
+---
+
+Exécutez `anypick` (ou `anypick tui`). Vous arrivez sur **Apps**. Cet écran est le produit : il répond à une question pour chaque outil de codage –
+
+> **Que devrait utiliser Claude Code / Codex / ZCode / dsh / commandcode / pi / omp en ce moment ?**
+
+Tout le reste (comptes, passerelles, proxys) existe pour alimenter cette réponse.
+
+```bash
+anypick
+```
+
+## Applications en un coup d'œil
+
+```
+ anypick / apps
+
+  Routes for Claude Code and Codex
+ › Claude        grok/work · grok-code-fast-1       ● ready
+   Codex         not connected                     ○ not set
+ ──────────────────────────────────────────
+ Claude uses grok/work
+ model grok-code-fast-1 · enter to preview a different route
+ enter change route a accounts g gateways p proxies d diagnose
+```
+
+Lisez-le de haut en bas :
+
+1. **Chaque ligne est une application** — Claude Code, Codex, ZCode, DeepSeek Harness (`dsh`), Command Code (`commandcode`), Pi (`pi`) ou Omp (`omp`). Gemini, Kiro et WorkBuddy ne sont *pas* ici ; ils changent uniquement leur propre connexion sous Comptes.
+2. **La colonne du milieu** indique qui l'alimente (compte, passerelle, …) et quel modèle défini par AnyPick.
+3. **Le statut** sur la droite est en anglais simple : prêt, natif, non défini ou attention.
+4. **Les deux lignes sous la règle pointillée** indiquent toujours ce que <kbd>enter</kbd> fera *avant* que vous appuyiez dessus.
+5. **Le pied de page** est le clavier complet de cet écran. Si une clé n'est pas répertoriée, elle ne fait rien ici.
+
+### Ce que signifie chaque statut
+
+| Vous voyez | Signification | Que faire |
+| --- | --- | --- |
+| **prêt** | AnyPick achemine déjà cette application | <kbd>enter</kbd> si vous souhaitez une source ou un modèle différent |
+| **natif** | La propre connexion de l'application fonctionne, mais AnyPick ne gère pas encore l'itinéraire | Facultatif — appuyez uniquement sur <kbd>enter</kbd> si vous souhaitez qu'AnyPick prenne le relais |
+| **non défini** | Pas encore d'itinéraire | <kbd>enter</kbd> → **application de connexion** |
+| **attention** | Quelque chose doit être corrigé (clé manquante, vérification échouée, …) | <kbd>enter</kbd> ou <kbd>d</kbd> diagnostiquer |
+
+## Construire un itinéraire (le flux principal)
+
+Vous ne modifiez jamais les fichiers de configuration à la main. Appuyez sur <kbd>enter</kbd> sur une application et parcourez quatre écrans courts. **Rien n'est écrit jusqu'à la dernière confirmation.**
+
+### 1. Accueil – choisissez l'application
+
+Déplacez-vous avec <kbd>↑</kbd> <kbd>↓</kbd> (ou <kbd>j</kbd> <kbd>k</kbd>). Mettez en surbrillance une application : Claude Code, Codex, ZCode, `dsh`, `commandcode`, `pi` ou `omp`. Appuyez sur <kbd>enter</kbd>.
+
+- Le pied de page indique **connecter l'application** lorsque la ligne est vide ou uniquement native.
+- Le pied de page indique **changer d'itinéraire** lorsqu'il est déjà prêt.
+
+### 2. Source : qui doit l'alimenter ?
+
+```
+ anypick / apps / Claude / source
+
+  Native accounts
+ › Anthropic · work@example.com        current live login
+   Anthropic · personal
+
+  Gateways & proxies
+   openrouter-work                     gateway · default model set
+   grok/work                           account proxy
+
+  Saved setups
+   @work-stack                         preset
+ ──────────────────────────────────────────
+ Route Claude through grok/work
+ account proxy · model routing is configured next
+ enter choose route a accounts g gateways esc back
+```
+
+Trois groupes, en langage simple :
+
+| Groupe | Choisissez ceci quand… |
+| --- | --- |
+| **Comptes natifs** | Vous voulez Claude, Codex ou Z.ai sur sa *propre* connexion de fournisseur. AnyPick change les informations d'identification enregistrées ; l'application conserve son propre sélecteur de modèle. Les comptes ZCode peuvent être détectés à partir de la connexion locale cryptée ou ajoutés via le flux du navigateur de Z.ai. |
+| **Passerelles et proxys** | Vous souhaitez un autre fournisseur, un point de terminaison de clé API, un pool multi-comptes ou le Proxy Hub. AnyPick définira ensuite les modèles. |
+| **Configurations enregistrées** | Un préréglage (`@name`) déjà dans la table `presets`. Aucune commande n'en crée encore, ce groupe est donc vide lors d'une nouvelle installation. |
+
+Seuls les **appariements sécurisés** apparaissent. Vous ne verrez pas "Claude → chose incompatible aléatoire" — une liste vide signifie enregistrer un compte (<kbd>a</kbd>) ou ajouter une passerelle (<kbd>g</kbd>) en premier.
+
+Ligne native → le résultat est **Switch…** ; autres lignes → **Acheminer… jusqu'à…**.
+
+### 3. Modèles — uniquement en cas de besoin
+
+Ignoré pour les commutateurs natifs du même fournisseur.
+
+Sinon :
+
+```
+ anypick / apps / Claude / models
+
+ › default     grok-code-fast-1
+   sonnet      (same as default)
+   opus        (same as default)
+   haiku       (same as default)
+ ──────────────────────────────────────────
+ …
+ enter edit model · a preview route
+```
+
+- **Codex** — un modèle par défaut.
+- **Claude** — rôles sonnet/opus/haïku par défaut plus facultatifs (pour les outils qui appellent ces noms).
+
+Modifiez une ligne avec <kbd>enter</kbd>, tapez ou choisissez une suggestion, puis <kbd>a</kbd> (ou la touche de confirmation affichée) pour ouvrir l'aperçu.
+
+### 4. Aperçu – lisez, puis activez
+
+```
+ anypick / apps / Claude / preview
+
+ Activate this route for Claude?
+
+ · bind Claude → grok/work
+ · set model grok-code-fast-1
+ · start local proxy if needed
+ · write client config
+
+ enter activate route   esc back
+```
+
+Il s’agit du même plan que celui exécuté par la CLI. Si une étape échoue plus tard, AnyPick annule ce qu'elle a déjà modifié. Appuyez sur <kbd>enter</kbd> pour appliquer, <kbd>esc</kbd> pour revenir en arrière et changer de source ou de modèle.
+
+Après une activation réussie, vous revenez aux applications avec **greet** et le nouveau modèle source · sur la ligne.
+
+## Un exemple concret
+
+Objectif : **Claude Code doit utiliser votre identifiant de travail Grok.**
+
+1. Connectez-vous une fois avec l'outil de Grok (AnyPick ne se connecte jamais pour vous).
+2. Dans AnyPick : <kbd>a</kbd> → Comptes → enregistrez cette connexion sous `work` (ou `anypick add account grok --current --name work`).
+3. De retour sur les applications, mettez en surbrillance **Claude**, <kbd>enter</kbd>.
+4. Sous **Passerelles et proxys**, choisissez **grok/work**.
+5. Définissez le modèle par défaut si vous y êtes invité.
+6. Lire l'aperçu → <kbd>enter</kbd>.
+
+Claude est désormais en déroute. Ouvrez Claude Code comme vous le faites habituellement ; AnyPick a déjà écrit ce dont il a besoin. Le même chemin fonctionne pour le Codex, les passerelles comme OpenRouter, les pools ou un préréglage.
+
+## Touches sur les applications
+
+| Clé | Actions |
+| --- | --- |
+| <kbd>enter</kbd> | Se connecter ou modifier un itinéraire (source → modèles → aperçu) |
+| <kbd>a</kbd> / <kbd>tab</kbd> | Comptes |
+| <kbd>g</kbd> | Passerelles |
+| <kbd>p</kbd> | Proxies |
+| <kbd>d</kbd> | Diagnostiquer |
+| <kbd>h</kbd> / <kbd>?</kbd> | Aide pour cet écran |
+| <kbd>q</kbd> | Fermez l'interface utilisateur du terminal (les processus de compatibilité existants restent inchangés) |
+
+## Autres planches (casting de soutien)
+
+Cycles <kbd>tab</kbd> **Applications → Comptes → Passerelles → Proxy → Applications**. <kbd>esc</kbd> sur une carte secondaire revient aux applications.
+
+| Conseil | Vous l'utilisez pour… |
+| --- | --- |
+| **Comptes** | Enregistrer, changer, actualiser, importer/exporter, supprimer les connexions |
+| **Passerelles** | Stocker les profils de point de terminaison et de clé API ; les lier à des applications comme un proxy |
+| **Proxy** | Démarrer/arrêter les proxies locaux, les pools et Proxy Hub |
+
+Ces forums ne remplacent jamais les applications pour « qu'est-ce que Claude utilise ? » - ils stockent les étagères parmi lesquelles Apps choisit.
+
+### Clés des comptes
+
+| Clé | Actions |
+| --- | --- |
+| <kbd>enter</kbd> | Changer, afficher les informations actives ou enregistrer la connexion actuelle |
+| <kbd>v</kbd> | Détails et utilisation |
+| <kbd>a</kbd> | Ajouter un identifiant |
+| <kbd>i</kbd> / <kbd>e</kbd> | Importer/exporter |
+| <kbd>r</kbd> | Actualiser |
+| <kbd>s</kbd> | Enregistrer une connexion en direct modifiée sur son instantané |
+| <kbd>d</kbd> | Supprimer |
+| <kbd>f</kbd> | Filtrer par fournisseur |
+
+Lorsque vous appuyez sur <kbd>i</kbd>, l'invite d'importation répertorie les enveloppes `.json` et les fichiers de sauvegarde AnyPick du dossier actuel et `~/.anypick/exports/`. Utilisez <kbd>↑</kbd>/<kbd>↓</kbd> pour en choisir un ou <kbd>tab</kbd> pour le compléter. Lorsque l'invite est ouverte à partir de la liste des comptes d'un fournisseur, une sauvegarde multi-comptes importe uniquement les comptes de ce fournisseur.
+
+### Clés des passerelles
+
+| Clé | Actions |
+| --- | --- |
+| <kbd>enter</kbd> | Gérer les applications qui utilisent cette passerelle |
+| <kbd>m</kbd> | Modifier les modèles par défaut |
+| <kbd>e</kbd> | Modifier le point de terminaison |
+| <kbd>a</kbd> / <kbd>d</kbd> | Ajouter/supprimer |
+| <kbd>f</kbd> | Filtrer par fournisseur |
+
+### Clés proxy
+
+| Clé | Actions |
+| --- | --- |
+| <kbd>enter</kbd> | Démarrez, gérez des applications ou enregistrez une connexion non enregistrée |
+| <kbd>m</kbd> | Gérez les applications, puis modifiez les modèles |
+| <kbd>s</kbd> / <kbd>r</kbd> | Arrêter/redémarrer |
+| <kbd>d</kbd> | Désactiver le démarrage automatique |
+| <kbd>l</kbd> | Journaux |
+| <kbd>p</kbd> | Pool multi-comptes activé/désactivé |
+| <kbd>space</kbd> | Suspendre ou activer un membre du pool |
+| <kbd>f</kbd> | Garde de basculement sur une piscine |
+
+## Glyphes d'état
+
+| Glyphe | Sur les applications | Ailleurs |
+| --- | --- | --- |
+| `●` | prêt | vivre / utiliser |
+| `○` | non réglé / arrêté | enregistré / arrêté |
+| `◐` | attention | modifié (connexion en direct ≠ instantané) |
+| `×` | échoué | échoué / indisponible |
+
+Avec `NO_COLOR=1` les formes ont toujours un sens ; les terminaux simples reviennent à `*`, `o`, `!`, `x`.
+
+## Fermeture de l'interface utilisateur
+
+- <kbd>q</kbd> — quittez l'interface utilisateur du terminal ; les processus de compatibilité existants restent inchangés.
+
+Ces raccourcis ne possèdent ni ne terminent un `AnyPick.app` lancé depuis Xcode. L'application native possède son assistant Go fourni et est contrôlée via le comportement normal de lancement, de fenêtre et de fermeture de l'application. Voir [application macOS et barre de menus](/fr/docs/guides/tray).
+
+La même construction de routes existe sous forme de commandes (`anypick use claude --with grok/work`) pour les scripts ; l'interface utilisateur n'est pas un mode plus faible. Voir [Mise en route](/fr/docs/getting-started) pour l'installation et la première sauvegarde, et [Proxies](/fr/docs/guides/proxies) pour les pools et le hub.

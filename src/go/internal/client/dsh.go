@@ -646,5 +646,12 @@ func (a *dshAdapter) Inspect() (*InspectResult, error) {
 	if res.Present {
 		res.Summary = "AnyPick proxy configured"
 	}
+	if !res.Present {
+		for _, path := range DshConfigPaths(a.home) {
+			if _, err := os.Stat(path); err == nil {
+				res.RoutingChanged = true
+			}
+		}
+	}
 	return res, nil
 }

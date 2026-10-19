@@ -317,7 +317,8 @@ describe('Apps pane', () => {
   });
 
   it('shows the reported quota, and hides it when the setting is off', async () => {
-    const { user } = mount(({ service, snapshot }) => <AppsPane service={service} snapshot={snapshot} />);
+    const native = snapshotFixture({ actions: snapshotFixture().actions.map((action) => ({ ...action, selected: false })) });
+    const { user } = mount(({ service, snapshot }) => <AppsPane service={service} snapshot={snapshot} />, native);
     await user.click(screen.getByTestId('apps-row-claude'));
     expect(screen.getByTestId('apps-quota-claude-0')).toHaveTextContent('5h');
     expect(screen.getByTestId('apps-quota-claude-0')).toHaveTextContent('42% remaining');
@@ -332,9 +333,11 @@ describe('Apps pane', () => {
 
   it('keeps vendor quota group headings in the app detail pane', async () => {
     const snapshot = snapshotFixture({
+      actions: snapshotFixture().actions.map((action) => ({ ...action, selected: action.clientId === 'claude', sourceId: 'account/gemini/Work', routeKind: 'managed-account' })),
       usage: [
         {
-          client: 'Claude',
+          providerId: 'gemini',
+          client: 'Gemini',
           account: 'Work',
           windows: [
             { label: 'Weekly', remainingPercent: 64, limitWindowSeconds: 604800, group: 'Gemini Models' },

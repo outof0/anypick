@@ -28,7 +28,7 @@ import {
   nativeProviderName,
   quotaWindowLabel,
   transportDisplayName,
-  usageForClient,
+  usageForApp,
 } from '../lib/model';
 import type { ServicePort } from '../lib/service';
 import { translate, translateSource } from '../lib/i18n';
@@ -112,7 +112,7 @@ export function AppDetailPane({
       ? modelRolesResult.result.message
       : undefined;
 
-  const usageWindows = usageForClient(snapshot.usage, app.clientId)?.windows ?? [];
+  const usageWindows = usageForApp(snapshot.usage, app.clientId, snapshot.actions)?.windows ?? [];
   const usageGroups = groupUsageWindows(usageWindows).map((group) => ({
     ...group,
     rows: group.windows.map((window) => ({ window, index: usageWindows.indexOf(window) })),

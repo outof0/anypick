@@ -1,4 +1,5 @@
 ---
+import { Icon } from "astro-icon/components";
 import {
   languageSwitchHref,
   localeNames,
@@ -15,54 +16,277 @@ interface Props {
 
 const { locale, pathname, label, appearance = "docs" } = Astro.props;
 const landing = appearance === "landing";
+const localeCodes: Record<Locale, string> = {
+  en: "EN",
+  "zh-CN": "简",
+  es: "ES",
+  fr: "FR",
+  de: "DE",
+  ja: "JA",
+  ko: "KO",
+  "pt-BR": "PT",
+  vi: "VI",
+};
 ---
 
-<details class:list={["language-switcher relative", landing ? "language-switcher-landing" : ""]}>
-  <summary
-    aria-label={label}
-    class:list={[
-      "cursor-pointer list-none rounded-md px-2 py-1 text-xs no-underline outline-none focus-visible:ring-2",
-      landing
-        ? "text-[#D6D9E0] hover:bg-white/5 focus-visible:ring-[#A78BFA]"
-        : "text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-ring",
-    ]}
-  >
-    {localeNames[locale]}
-    <span aria-hidden="true" class="ml-1">⌄</span>
+<details class:list={["language-switcher", landing ? "language-switcher-landing" : ""]} data-language-switcher>
+  <summary class="language-trigger" aria-label={`${label}: ${localeNames[locale]}`}>
+    <Icon name="ph:globe" class="language-globe" aria-hidden="true" />
+    <span class="language-current-name-full">{localeNames[locale]}</span>
+    <span class="language-current-name-short" aria-hidden="true">{localeCodes[locale]}</span>
+    <Icon name="ph:caret-down" class="language-chevron" aria-hidden="true" />
   </summary>
-  <nav
-    aria-label={label}
-    class:list={[
-      "absolute right-0 z-50 mt-1 max-h-80 min-w-44 overflow-y-auto rounded-md border p-1 shadow-lg",
-      landing
-        ? "border-white/10 bg-[#111827] text-[#F8FAFC]"
-        : "border-border bg-popover text-popover-foreground",
-    ]}
-  >
-    <ul class="m-0 list-none p-0">
-      {supportedLocales.map((targetLocale) => (
-        <li>
-          <a
-            href={languageSwitchHref(pathname, targetLocale)}
-            lang={targetLocale}
-            aria-current={targetLocale === locale ? "page" : undefined}
-            class:list={[
-              "block rounded px-2 py-1.5 text-sm no-underline outline-none",
-              landing
-                ? "hover:bg-white/10 focus-visible:bg-white/10"
-                : "hover:bg-accent focus-visible:bg-accent",
-            ]}
-          >
-            {localeNames[targetLocale]}
-          </a>
-        </li>
-      ))}
-    </ul>
-  </nav>
+  <div class="language-menu">
+    <div class="language-menu-heading">
+      <span>{label}</span>
+      <span class="language-menu-count">{supportedLocales.length}</span>
+    </div>
+    <nav aria-label={label}>
+      <ul>
+        {supportedLocales.map((targetLocale) => (
+          <li>
+            <a
+              href={languageSwitchHref(pathname, targetLocale)}
+              lang={targetLocale}
+              aria-current={targetLocale === locale ? "page" : undefined}
+              class="language-menu-link"
+            >
+              <span class="language-code" aria-hidden="true">{localeCodes[targetLocale]}</span>
+              <span class="language-name">{localeNames[targetLocale]}</span>
+              {targetLocale === locale && <Icon name="ph:check" class="language-check" aria-hidden="true" />}
+            </a>
+          </li>
+        ))}
+      </ul>
+    </nav>
+  </div>
 </details>
 
 <style>
-  .language-switcher > summary::-webkit-details-marker {
+  .language-switcher {
+    --language-bg: var(--nb-card);
+    --language-fg: var(--nb-foreground);
+    --language-muted: var(--nb-muted-foreground);
+    --language-border: var(--nb-border);
+    --language-hover: var(--nb-accent);
+    --language-selected: color-mix(in oklch, var(--nb-primary) 11%, var(--nb-card));
+    --language-primary: var(--nb-primary);
+    position: relative;
+    flex-shrink: 0;
+  }
+
+  .language-switcher-landing {
+    --language-bg: #15151c;
+    --language-fg: #f3f1f7;
+    --language-muted: #a09daa;
+    --language-border: rgb(255 255 255 / 0.14);
+    --language-hover: rgb(255 255 255 / 0.08);
+    --language-selected: rgb(124 58 237 / 0.2);
+    --language-primary: #c4b0ff;
+  }
+
+  .language-trigger {
+    display: inline-flex;
+    min-height: 2.25rem;
+    align-items: center;
+    gap: 0.42rem;
+    border: 1px solid transparent;
+    border-radius: 0.55rem;
+    padding: 0.32rem 0.55rem;
+    color: var(--language-muted);
+    cursor: pointer;
+    font-size: 0.75rem;
+    font-weight: 550;
+    line-height: 1;
+    list-style: none;
+    transition: color 150ms ease, background-color 150ms ease, border-color 150ms ease;
+    white-space: nowrap;
+  }
+
+  .language-trigger::-webkit-details-marker {
     display: none;
   }
+
+  .language-trigger:hover,
+  .language-switcher[open] > .language-trigger {
+    border-color: var(--language-border);
+    background: var(--language-hover);
+    color: var(--language-fg);
+  }
+
+  .language-globe {
+    width: 0.95rem;
+    height: 0.95rem;
+  }
+
+  .language-current-name-short {
+    display: none;
+  }
+
+  .language-chevron {
+    width: 0.68rem;
+    height: 0.68rem;
+    opacity: 0.72;
+    transition: transform 150ms ease;
+  }
+
+  .language-switcher[open] .language-chevron {
+    transform: rotate(180deg);
+  }
+
+  .language-menu {
+    position: absolute;
+    top: calc(100% + 0.5rem);
+    right: 0;
+    z-index: 100;
+    width: min(15rem, calc(100vw - 1rem));
+    max-height: min(72vh, 27rem);
+    overflow: auto;
+    overscroll-behavior: contain;
+    border: 1px solid var(--language-border);
+    border-radius: 0.8rem;
+    padding: 0.35rem;
+    background: var(--language-bg);
+    box-shadow: 0 18px 48px rgb(0 0 0 / 0.2), 0 3px 10px rgb(0 0 0 / 0.08);
+    color: var(--language-fg);
+    transform-origin: top right;
+  }
+
+  .language-menu-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 2.25rem;
+    border-bottom: 1px solid var(--language-border);
+    margin: 0 0.25rem 0.3rem;
+    color: var(--language-muted);
+    font-size: 0.65rem;
+    font-weight: 650;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .language-menu-count {
+    display: grid;
+    width: 1.25rem;
+    height: 1.25rem;
+    place-items: center;
+    border: 1px solid var(--language-border);
+    border-radius: 50%;
+    font-size: 0.58rem;
+    letter-spacing: 0;
+  }
+
+  .language-menu ul {
+    display: grid;
+    gap: 0.12rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .language-menu-link {
+    display: grid;
+    min-height: 2.35rem;
+    grid-template-columns: 2rem minmax(0, 1fr) 1rem;
+    align-items: center;
+    gap: 0.55rem;
+    border-radius: 0.48rem;
+    padding: 0.35rem 0.5rem;
+    color: var(--language-fg);
+    font-size: 0.8rem;
+    line-height: 1.2;
+    text-decoration: none;
+    transition: background-color 130ms ease, color 130ms ease;
+  }
+
+  .language-menu-link:hover,
+  .language-menu-link:focus-visible {
+    background: var(--language-hover);
+    color: var(--language-fg);
+  }
+
+  .language-menu-link[aria-current="page"] {
+    background: var(--language-selected);
+    color: var(--language-fg);
+    font-weight: 620;
+  }
+
+  .language-code {
+    display: grid;
+    width: 1.8rem;
+    height: 1.55rem;
+    place-items: center;
+    border: 1px solid var(--language-border);
+    border-radius: 0.35rem;
+    color: var(--language-muted);
+    font-family: var(--nb-font-mono);
+    font-size: 0.59rem;
+    font-weight: 650;
+  }
+
+  .language-menu-link[aria-current="page"] .language-code {
+    border-color: color-mix(in oklch, var(--language-primary) 36%, var(--language-border));
+    color: var(--language-primary);
+  }
+
+  .language-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .language-check {
+    width: 0.9rem;
+    height: 0.9rem;
+    color: var(--language-primary);
+  }
+
+  @media (max-width: 32rem) {
+    .language-current-name-full {
+      display: none;
+    }
+
+    .language-current-name-short {
+      display: inline;
+    }
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .language-switcher[open] .language-menu {
+      animation: language-menu-in 140ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+    }
+  }
+
+  @keyframes language-menu-in {
+    from { opacity: 0; transform: translateY(-0.25rem) scale(0.98); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
 </style>
+
+<script>
+  function initLanguageSwitchers() {
+    const switchers = Array.from(document.querySelectorAll<HTMLDetailsElement>("[data-language-switcher]"));
+    if (document.documentElement.hasAttribute("data-language-switcher-ready")) return;
+    document.documentElement.setAttribute("data-language-switcher-ready", "true");
+
+    document.addEventListener("pointerdown", (event) => {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      for (const switcher of switchers) {
+        if (switcher.open && !switcher.contains(target)) switcher.open = false;
+      }
+    });
+
+    document.addEventListener("keydown", (event) => {
+      if (event.key !== "Escape") return;
+      for (const switcher of switchers) {
+        if (!switcher.open) continue;
+        switcher.open = false;
+        switcher.querySelector("summary")?.focus();
+      }
+    });
+  }
+
+  initLanguageSwitchers();
+</script>

@@ -3,21 +3,36 @@
 import { Icon } from "astro-icon/components";
 import { getTranslator, localeForPath } from "@/i18n";
 
+interface Props {
+  appearance?: "docs" | "landing";
+}
+
+const { appearance = "docs" } = Astro.props;
 const t = await getTranslator(localeForPath(Astro.url.pathname));
 ---
 
 <button
   data-search-trigger
   type="button"
-  class="hidden sm:flex items-center gap-2 rounded-md border border-border bg-card px-2.5 py-1.5 text-sm text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground"
+  class:list={[
+    "items-center justify-center transition-colors focus-visible:outline-none focus-visible:ring-2",
+    appearance === "landing"
+      ? "flex h-9 w-9 rounded-lg text-[#98A2B3] hover:bg-white/5 hover:text-[#F8FAFC] focus-visible:ring-[#A78BFA]"
+      : "hidden gap-2 rounded-md border border-border bg-card px-2.5 py-1.5 text-sm text-muted-foreground hover:border-border-strong hover:text-foreground focus-visible:ring-ring sm:flex",
+  ]}
   aria-label={t("search.label")}
+  title={t("search.label")}
   aria-keyshortcuts="Control+K"
 >
-  <Icon name="ph:magnifying-glass" class="h-4 w-4" />
-  <span class="hidden md:inline">{t("search.trigger")}</span>
-  <kbd class="inline-flex items-center gap-0.5 rounded border border-border bg-muted px-1.5 py-0.5 text-[0.625rem] font-medium text-muted-foreground">
-    <span data-shortcut-key>Ctrl</span>K
-  </kbd>
+  <Icon name="ph:magnifying-glass" class="h-4 w-4" aria-hidden="true" />
+  {appearance === "docs" && (
+    <>
+      <span class="hidden md:inline">{t("search.trigger")}</span>
+      <kbd class="inline-flex items-center gap-0.5 rounded border border-border bg-muted px-1.5 py-0.5 text-[0.625rem] font-medium text-muted-foreground">
+        <span data-shortcut-key>Ctrl</span>K
+      </kbd>
+    </>
+  )}
 </button>
 
 <script>

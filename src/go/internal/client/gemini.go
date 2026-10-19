@@ -272,6 +272,26 @@ func (a *geminiAdapter) Inspect() (*InspectResult, error) {
 	_, setErr := os.Stat(geminiSettingsPath(a.home))
 	present := envErr == nil || setErr == nil
 	res := &InspectResult{Present: present}
+	res.Native = true
+	if setErr != nil && !os.IsNotExist(setErr) {
+		res.Native = false
+	}
+	if raw, err := os.ReadFile(geminiEnvPath(a.home)); err == nil {
+		for _, line := range strings.Split(string(raw), "\n") {
+			line = strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(line), "export "))
+			key, value, ok := strings.Cut(line, "=")
+			if !ok || strings.HasPrefix(key, "#") {
+				continue
+			}
+			for _, override := range []string{"GEMINI_API_KEY", "GOOGLE_API_KEY", "GOOGLE_GEMINI_BASE_URL", "GEMINI_API_BASE_URL", "GOOGLE_APPLICATION_CREDENTIALS", "GOOGLE_GENAI_USE_VERTEXAI"} {
+				if strings.TrimSpace(key) == override && strings.Trim(strings.TrimSpace(value), `"'`) != "" {
+					res.Native = false
+				}
+			}
+		}
+	} else if !os.IsNotExist(err) {
+		res.Native = false
+	}
 	// A direct activation restores the OAuth file and writes neither .env nor
 	// settings.json, so the two paths above are blind to it and every direct
 	// gemini activation ended with "gemini reports no anypick-managed
@@ -284,6 +304,7 @@ func (a *geminiAdapter) Inspect() (*InspectResult, error) {
 	if setErr == nil {
 		keys, err := readManagedMarkerKeys(geminiSettingsPath(a.home))
 		if err != nil {
+			res.Native = false
 			res.Issues = []string{"settings.json unreadable"}
 			return res, nil
 		}
@@ -295,6 +316,7 @@ func (a *geminiAdapter) Inspect() (*InspectResult, error) {
 			res.Summary = "settings present"
 		}
 	}
+	res.RoutingChanged = res.Native && res.Present
 	return res, nil
 }
 
@@ -312,7 +334,7 @@ func readManagedMarkerKeys(path string) ([]string, error) {
 			Keys []string `json:"keys"`
 		} `json:"_anypickManaged"`
 	}
-	if json.Unmarshal(raw, &doc) != nil {
+	if json.Unmarshal(raw, &doc) != nil || !jsonLooksObject(raw) {
 		return nil, fmt.Errorf("unreadable settings")
 	}
 	return doc.Managed.Keys, nil

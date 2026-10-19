@@ -22,8 +22,7 @@
     "editThisPage": "Edit this page",
     "siteNavigation": "Site navigation",
     "navigation": "Navigation",
-    "closeSidebar": "Close sidebar",
-    "englishContent": "This page content is currently available in English."
+    "closeSidebar": "Close sidebar"
   },
   "search": {
     "label": "Search documentation",
@@ -72,5 +71,158 @@
     "tabs": "Package manager",
     "copy": "Copy to clipboard",
     "copied": "Copied to clipboard"
+  },
+  "docsNav": {
+    "appsTerminalUi": "Apps & Terminal UI",
+    "guides": "Guides",
+    "reference": "Reference"
+  },
+  "landing": {
+    "meta": {
+      "title": "AnyPick — AI Account Switcher for Claude Code & Codex",
+      "description": "Switch Claude Code, Codex and other AI coding accounts without editing config files. Free, open-source desktop app for macOS, Windows and Linux. Download AnyPick.",
+      "socialAlt": "AnyPick Overview showing supported coding tools, account routes, and local services."
+    },
+    "hero": {
+      "eyebrow": "The local account switcher for AI coding tools",
+      "titleStart": "Switch AI accounts.",
+      "titleEnd": "Keep coding.",
+      "lede": "Work account. Personal account. Your own API gateway. Choose what Claude Code, Codex, and other supported tools use from one local app, without editing config files by hand.",
+      "primary": "Download AnyPick — free",
+      "secondary": "See how it works",
+      "platforms": "macOS · Linux · Windows",
+      "openSource": "Free & open source",
+      "noCloud": "No AnyPick cloud",
+      "overviewAlt": "AnyPick desktop Overview with Claude Code, OpenAI Codex, and OpenCode using saved accounts, plus local proxy status and recent switches. Demo data.",
+      "trayAlt": "AnyPick menu bar panel with saved accounts and quick switching for Claude Code and OpenAI Codex. Demo data.",
+      "caption": "Desktop app · demo accounts"
+    },
+    "proof": {
+      "aria": "Product facts",
+      "clientsTitle": "11 supported coding clients",
+      "clientsBody": "Use the tools you already have installed.",
+      "localTitle": "Your accounts stay local",
+      "localBody": "No AnyPick account or hosted relay required.",
+      "licenseTitle": "Open source · MIT",
+      "licenseBody": "Releases include checksums and an SBOM."
+    },
+    "workflow": {
+      "kicker": "Built for your workday",
+      "title": "One account for work. Another for this repo.",
+      "body": "Keep work and personal logins separate. Give a repo its own account. Try an API gateway for one run. Choose how far each switch should reach.",
+      "projectLink": "How project bindings work",
+      "routesLabel": "Route examples",
+      "routeDefault": "Default for an app",
+      "routeProject": "Only this project",
+      "routeSession": "One terminal session",
+      "stepsLabel": "How to get started",
+      "saveTitle": "Save a login",
+      "saveBody": "Add an existing provider login or an API gateway in Accounts & APIs.",
+      "toolTitle": "Choose your tool",
+      "toolBody": "Pick a compatible saved source in Apps, then review the change plan.",
+      "applyTitle": "Keep coding",
+      "applyBody": "Apply the change and use your coding tool. Restore its saved settings with anypick reset."
+    },
+    "safety": {
+      "kicker": "Safe to change. Easy to undo.",
+      "title": "Your settings stay yours.",
+      "reviewTitle": "Review before applying",
+      "reviewBody": "The desktop app shows the account, model, proxy, and client-config steps in a route plan.",
+      "configTitle": "Keep the rest of your config",
+      "configBody": "AnyPick tracks the settings it manages and asks before taking over settings it did not write.",
+      "restoreTitle": "Restore when you want",
+      "restoreBody": "Use anypick reset to restore the saved state for an app. Credentials stay in your local AnyPick data directory.",
+      "accountAlt": "AnyPick Accounts & APIs listing saved provider logins and an API gateway. Names and account details are demo data."
+    },
+    "compatibility": {
+      "kicker": "Compatibility",
+      "title": "Supported tools, with provider rules intact.",
+      "body": "AnyPick only offers routes supported by both sides of the connection. It does not treat every account as interchangeable.",
+      "clients": "Supported coding tools",
+      "claudeRule": "Claude logins stay in Claude Code. Gemini CLI and Kiro use their own provider accounts.",
+      "otherRule": "Other compatible tools can use selected external accounts or API gateways.",
+      "reference": "See the compatibility reference"
+    },
+    "install": {
+      "kicker": "Desktop app or terminal",
+      "title": "Prefer the terminal?",
+      "body": "Install the CLI to use the same Go engine in your terminal. This recording uses sandboxed demo accounts.",
+      "demoTitle": "anypick 1.1.0 · sandbox demo",
+      "videoAlt": "CLI demo: list saved accounts, add an OpenRouter gateway, route Claude Code through it, then restore the original settings.",
+      "demoCaption": "Real CLI output · AnyPick 1.1.0 · sandbox accounts",
+      "desktop": "Desktop app",
+      "desktopTitle": "Pick an account. Preview. Apply.",
+      "desktopBody": "Manage accounts and review changes in a visual interface. Available for macOS, Linux, and Windows.",
+      "download": "Download desktop app",
+      "downloadNote": "Choose your OS installer on GitHub Releases.",
+      "cli": "Install the CLI",
+      "method": "Choose an install method",
+      "copy": "Copy",
+      "copyCommand": "Copy {{name}} install command",
+      "brewBefore": "Desktop app: brew install --cask outof0/tap/anypick or download the ",
+      "brewLink": "DMG from GitHub Releases",
+      "brewAfter": ".",
+      "linuxBefore": "Or download the CLI package or desktop app from ",
+      "linuxLink": "GitHub Releases",
+      "linuxAfter": " (.deb, .rpm, AppImage, tarball).",
+      "windowsBefore": "Desktop app installers are on ",
+      "windowsLink": "GitHub Releases",
+      "windowsAfter": ".",
+      "npmHint": "Requires Node 18+. The launcher downloads and verifies the matching native CLI.",
+      "firstRun": "After installing, run",
+      "guide": "Read the 5-minute guide",
+      "copied": "Copied",
+      "copyStatus": "Install command copied to clipboard.",
+      "copyFailed": "Clipboard access is unavailable.",
+      "picker": "to open the account picker."
+    },
+    "faq": {
+      "kicker": "A few practical details",
+      "title": "Before you switch.",
+      "freeQ": "Is AnyPick free?",
+      "freeA": "Yes. AnyPick is free and open source under the MIT license. You use your own provider accounts or API keys; their subscription and usage charges still apply.",
+      "accountsQ": "Which accounts can I use with each coding tool?",
+      "accountsA": "Available routes depend on the client and account adapter. Claude logins stay in Claude Code; Gemini CLI and Kiro use their own provider accounts. The {{accountsALink}} lists the supported combinations.",
+      "accountsALink": "compatibility reference",
+      "relayQ": "Does AnyPick send prompts through its servers?",
+      "relayA": "No. AnyPick has no hosted relay. When two tools need different API protocols, the local Go service runs the translator on loopback and sends requests to the provider you selected.",
+      "credentialsQ": "Where are credentials stored?",
+      "credentialsA": "AnyPick stores account data locally in ~/.anypick. Backups contain working credentials in readable JSON, so keep them private.",
+      "macQ": "Why does macOS warn when opening the app?",
+      "macA": "The app is not notarized yet. Open it with right-click → Open, or use System Settings → Privacy & Security → Open Anyway. The CLI is available separately."
+    },
+    "final": {
+      "kicker": "Your next account switch starts here",
+      "titleStart": "Less config editing.",
+      "titleEnd": "More coding.",
+      "body": "Use the accounts you already have. Start with one tool and one saved login.",
+      "cta": "Get AnyPick — free",
+      "guide": "Read the setup guide",
+      "meta": "MIT licensed · No AnyPick sign-up · Runs locally"
+    },
+    "footer": {
+      "home": "AnyPick home",
+      "navigation": "Footer",
+      "docs": "Docs",
+      "changelog": "Changelog",
+      "security": "Security",
+      "license": "MIT License"
+    }
+  },
+  "downloads": {
+    "kicker": "Download AnyPick",
+    "title": "Your next switch starts here.",
+    "body": "Free desktop app. Choose your platform, install, then add a login you already use.",
+    "forPlatform": "Download for {{platform}}",
+    "formats": "Other formats",
+    "releases": "All releases & checksums",
+    "mac": "macOS 14+ · Apple Silicon + Intel",
+    "linux": "Ubuntu / Debian · x86-64",
+    "windows": "Windows 10+ · x64",
+    "arm": "Linux ARM64 or Windows ARM64? Use the native CLI.",
+    "guide": "Setup guide",
+    "unavailable": "Desktop app not included in this release.",
+    "firstRun": "Open the app → add a login → choose your coding tool.",
+    "allPlatforms": "All platforms & install options"
   }
 }

@@ -4,6 +4,20 @@ import { defineCollection } from "astro:content";
 import { z } from "astro/zod";
 import { docsCollection, partialsCollection } from "nimbus-docs/content";
 
+function localizedDocsCollection(base: string) {
+  return defineCollection(
+    docsCollection({
+      // IDs stay `docs/<slug>` so Nimbus can build the existing docs sidebar
+      // against this locale's content without inventing a second URL scheme.
+      base,
+      pattern: "docs/**/*.{md,mdx}",
+      schemaFields: {
+        audience: z.literal("human").optional(),
+      },
+    }),
+  );
+}
+
 export const collections = {
   docs: defineCollection(
     docsCollection({
@@ -20,7 +34,7 @@ export const collections = {
       },
     }),
   ),
-  docsZh: defineCollection(
+  _docsZh: defineCollection(
     docsCollection({
       base: ".",
       pattern: "zh-cn/docs/**/*.{md,mdx}",
@@ -29,5 +43,12 @@ export const collections = {
       },
     }),
   ),
+  _docsEs: localizedDocsCollection("es"),
+  _docsFr: localizedDocsCollection("fr"),
+  _docsDe: localizedDocsCollection("de"),
+  _docsJa: localizedDocsCollection("ja"),
+  _docsKo: localizedDocsCollection("ko"),
+  _docsPtBr: localizedDocsCollection("pt-br"),
+  _docsVi: localizedDocsCollection("vi"),
   partials: defineCollection(partialsCollection()),
 };

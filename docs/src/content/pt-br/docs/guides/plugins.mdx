@@ -1,0 +1,85 @@
+---
+title: 'Plug-ins'
+description: 'O que o registro do plugin faz em uma construção nativa do AnyPick – instalar, fixar, habilitar – e por que nenhum código do plugin é executado.'
+---
+
+Uma construção nativa do AnyPick mantém o **registro** do plugin, mas não o **host** do plugin. Você pode instalar um plugin, fixá-lo em um resumo do pacote completo e habilitá-lo por nome; nada carrega ou executa seu código.
+
+<Aside type="caution" title="Nenhum código de plugin é executado em uma compilação nativa">
+Versões anteriores carregavam módulos de plugins de terceiros no processo AnyPick. As compilações nativas não: não há host de plug-in, portanto, um plug-in habilitado não concede ao código de terceiros acesso às suas credenciais hoje. Consulte [ADR-0021](https://github.com/outof0/anypick/blob/main/adr/0021-plugin-host-removed-from-native-builds.md). Trate isso como o estado atual, não como uma garantia permanente - se um executor Go-native chegar, esta página e `SECURITY.md` mudam no mesmo commit.
+</Aside>
+
+## O que ainda funciona
+
+```bash
+anypick plugin add ./acme-provider   # recorded, disabled, digest pinned
+anypick plugin list
+anypick plugin enable acme-provider  # prompts — records the trust decision
+```
+
+`add` nunca é ativado. O plugin é registrado no registro do AnyPick de qualquer maneira.
+
+```
+  off  acme-provider        1.0.0      82aae3b7898d
+    /Users/you/src/acme-provider
+```
+
+O hexadecimal curto é um resumo SHA-256 de todo o pacote do plugin (manifesto e todos os arquivos enviados no diretório). AnyPick recalcula e compara a cada carga, então um pacote que mudou desde que você o aprovou é recusado:
+
+```
+  fail acme-provider        1.0.0      82aae3b7898d
+    plugin acme-provider has changed since you trusted it
+    → anypick plugin trust acme-provider
+```
+
+Isso é um atrito intencional, não uma falha no cache – o resumo é o que você aprovou. Revise a comparação e fixe-a novamente com `anypick plugin trust acme-provider`.
+
+## O que mudou
+
+Como não há host, todo candidato relata uma falha de carregamento em vez de carregamento. Isso é deliberado: uma lista vazia e silenciosa pareceria um conjunto de plug-ins saudável, então `anypick doctor`, `plugin list` e o aplicativo de desktop revelam o motivo.
+
+```bash
+anypick plugin disable acme-provider  # keep it installed, stop considering it
+anypick plugin remove acme-provider   # uninstall
+ANYPICK_NO_PLUGINS=1 anypick doctor   # skip every plugin for one run
+```
+
+## Provedores compatíveis são integrados
+
+Os provedores que costumavam enviar como pacote `bundled:popular-providers` agora são registrados diretamente pelo mecanismo Go. Você não instala nada – eles estão disponíveis como contas gerenciadas prontas para uso. A tabela abaixo abrange os fornecedores de chaves de assinatura; o conjunto integrado completo é `BuiltinDefinitions()` em `src/go/internal/provider/compatible.go`.
+
+```bash
+# Omit the --secret value to use the masked prompt.
+anypick add account kimi --credential subscription-key --secret --name personal
+anypick add account minimax --credential api-key --secret --name paygo \
+  --option profile=global
+anypick add account mimo --credential subscription-key --secret --name europe \
+  --option profile=token-plan-ams
+```
+
+| Provedor | `api-key` | perfis `subscription-key` |
+| --- | --- | --- |
+| Kimi | Plataforma aberta (`global`, `china`) | Associação ao Código Kimi |
+| GLM | BigModel / Z.AI (`china`, `global`) | Plano de codificação GLM (`china`, `global`) |
+| MiniMax | pré-pago (`china`, `global`) | Plano de token (`china`, `global`) |
+| MiMo | pré-pago (`global`) + Plano de token via chave de API (`token-plan-cn`, `token-plan-sgp`, `token-plan-ams`) | Plano de token (`token-plan-cn`, `token-plan-sgp`, `token-plan-ams`) |
+| DeepSeek | API da plataforma | — |
+| Qwen | Estúdio de modelo (`intl`, `china`) | Plano de Codificação / Plano de Token |
+| Arca | Volcengine / BytePlus (`china`, `global`) | Plano de codificação (`china`, `global`) |
+| Token Hub | Tencent pré-pago | Plano de codificação Tencent |
+| OpenRouter | API multimodelo | — |
+| GroqCloud | API de inferência | — |
+| Mistral | API de plataforma | — |
+| Juntos | API de inferência | — |
+| Fogos de artifício | API sem servidor | — |
+| Cérebros | API de inferência | — |
+| SiliconFlow | API de inferência | — |
+| NVIDIA NIM | API NIM hospedada | — |
+
+As chaves de assinatura permanecem no mesmo proxy e pool local autenticado que as chaves de API. O proxy mantém o cliente real `User-Agent`; ele não importa uma sessão de site do consumidor nem finge ser outra ferramenta de codificação. Use uma assinatura apenas para os cenários de codificação interativos permitidos pelo seu provedor. OpenRouter, GroqCloud e Fireworks usam seus endpoints de respostas nativos documentados; outros perfis compatíveis com OpenAI traduzem respostas por meio de conclusões de bate-papo.
+
+As escolhas de endpoint e produto seguem a documentação atual dos fornecedores: [Código Kimi](https://www.kimi.com/code/docs/), [Plano de codificação GLM](https://docs.bigmodel.cn/cn/coding-plan/tool/others), [Plano de token MiniMax](https://platform.minimax.io/docs/token-plan/quickstart), [Plano de token MiMo](https://mimo.mi.com/docs/en-US/price/tokenplan/subscription), [Codificação Qwen Plano](https://help.aliyun.com/en/model-studio/coding-plan), [Plano de codificação BytePlus ModelArk](https://docs.byteplus.com/api/docs/ModelArk/2188959), [Plano de codificação Tencent TokenHub](https://cloud.tencent.com/document/product/1823/130092), [OpenRouter](https://openrouter.ai/docs/quickstart), [GroqCloud](https://console.groq.com/docs/openai), [Mistral](https://docs.mistral.ai/api), [Juntos AI](https://docs.together.ai/docs/inference/openai-compatibility), [Fogos de artifício](https://docs.fireworks.ai/tools-sdks/openai-compatibility), [Cerebras](https://inference-docs.cerebras.ai/resources/openai), [SiliconFlow](https://docs.siliconflow.com/en/userguide/quickstart) e [NVIDIA NIM](https://docs.api.nvidia.com/nim/reference/z-ai-glm5.1-infer).
+
+## Adicionando um provedor hoje
+
+Até que exista um executor Go-native, adicionar um provedor significa construir o AnyPick a partir da fonte e registrá-lo na árvore. O guia do contribuidor cobre o que um bom provedor implementa — incluindo sua política de modelo, que é o que impede seu provedor de herdar os IDs de modelo de outro fornecedor.

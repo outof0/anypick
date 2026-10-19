@@ -1,0 +1,192 @@
+---
+title: 'Cuentas'
+description: 'Instantánea de los inicios de sesión del proveedor nativo para que varios puedan coexistir y cualquier cliente pueda usarlos.'
+---
+
+Una cuenta es un inicio de sesión creado por la propia CLI de un proveedor o una clave de proveedor que usted proporcionó para su proxy local. AnyPick toma una instantánea del mismo, por lo que puedes conservar varios, alternar entre ellos y prestar uno a un cliente que nunca fue diseñado para usarlo.
+
+## Proveedores compatibles
+
+| Proveedor | Autenticación en vivo | Cómo llegan otros clientes |
+| --- | --- | --- |
+| `claude` | Llavero Claude Code / `~/.claude/.credentials.json` | directo, sólo para Claude Code |
+| `codex` | `~/.codex/auth.json` | directo, sólo para el Codex |
+| `grok` | `~/.grok/auth.json` | proxy dual incorporado (OpenAI + Anthropic) |
+| `opencode` | Tienda de autenticación OpenCode | proxy dual Zen/Go incorporado |
+| `gemini` | `~/.gemini/` (`.env`, oauth, cuentas), Estado antigravedad/llavero | proxy dual incorporado → API Gemini |
+| `kiro` | almacén secreto kiro-cli, `~/.aws/sso/cache`, o una clave API que usted proporcione | externo `kirolink` / `kiro-proxy`, si está instalado |
+| `workbuddy` | Suscripción a WorkBuddy / CodeBuddy (OAuth de flujo de dispositivo) | proxy OpenAI incorporado, que atiende a los clientes anteriores; `anypick use workbuddy/<name>` también cambia la aplicación WorkBuddy a través de su archivo de sesión |
+| `cline` | Inicio de sesión de ClinePass / Cline WorkOS | proxy OpenAI incorporado (aún no hay adaptador de cliente Cline) |
+
+`anypick providers` es el inventario autorizado para la construcción de su máquina. Además de los proveedores nativos mencionados anteriormente, el motor Go envía directamente los proveedores de claves API y claves de suscripción compatibles; no requieren un complemento `popular-providers`. Consulte [Los proveedores compatibles están integrados](/es/docs/guides/plugins) para ver los perfiles de credenciales y ejemplos.
+
+<Aside type="caution" title="Las copias de seguridad de la cuenta contienen credenciales">
+Los archivos de copia de seguridad de la cuenta son JSON legibles y AnyPick no los cifra. Guárdelos como credenciales de trabajo. Cubren cuentas guardadas; Los secretos de la puerta de enlace, las preferencias y el historial de actividad no son una copia de seguridad completa de la aplicación.
+</Aside>
+
+## Guardar un inicio de sesión
+
+AnyPick delega el inicio de sesión del navegador a iniciadores de inicio de sesión propiedad del proveedor y luego lee la credencial que escriben en la ubicación normal del proveedor. Dos maneras de entrar:
+
+<Tabs>
+<TabItem label="Guarde el inicio de sesión en vivo">
+```bash
+claude login
+anypick add account claude --current --name personal
+
+codex login
+anypick add account codex --current --name personal
+```
+La credencial que está activa en este momento se convierte en una instantánea guardada llamada `codex/personal`.
+</TabItem>
+<TabItem label="Iniciar un nuevo inicio de sesión">
+```bash
+anypick add account codex --new --name work
+```
+Cuando un proveedor instalado expone la autenticación del navegador, AnyPick realiza una copia de seguridad de la credencial activa, abre el flujo del navegador del proveedor, verifica el nuevo inicio de sesión nativo y lo guarda con el nuevo nombre en un solo comando. Codex, Claude Code, Kiro, Grok y Gemini proporcionan este camino. Z.ai también admite la importación del inicio de sesión cifrado de ZCode en esta Mac o el inicio del flujo de su navegador oficial. El selector de Gemini tiene fuentes separadas de Gemini CLI y Google compatibles con Antigravity; AnyPick abre el flujo de Google OAuth directamente porque `gemini` no tiene un comando de solo inicio de sesión. Si no hay ningún iniciador de navegador disponible, AnyPick vuelve a borrar el inicio de sesión en vivo y le indica cómo guardarlo después de iniciar sesión con una herramienta respaldada por el proveedor.
+</TabItem>
+</Tabs>
+
+Los métodos oficiales se muestran primero y son los predeterminados porque es menos probable que entren en conflicto con la política del proveedor. No son una lista blanca: un complemento de proveedor completo puede exponer un método comunitario y usted puede elegirlo explícitamente con `--auth-method <id>` o el selector de métodos. Los términos del proveedor aún se aplican.
+
+Un inicio de sesión se guarda una vez. Se rechaza guardar material de credenciales que AnyPick ya tiene con un segundo nombre y el error nombra la cuenta que ya lo tiene: use esa cuenta o elimínela (`anypick account remove <provider>/<name>`) antes de guardar con un nuevo nombre. De lo contrario, dos nombres para una instantánea parecerían dos cuentas que no cambiaron nada; `anypick doctor` informa los pares guardados antes de esta regla.
+
+Si falla el inicio de sesión en el navegador o el guardado de la instantánea, AnyPick restaura el inicio de sesión nativo anterior y el puntero de cuenta activa. Las URL de autorización, los códigos de un solo uso y la salida del iniciador no se copian en la bandeja ni en la salida JSON.
+
+Para Gemini, `--source gemini-cli|antigravity` elige qué inicio de sesión leer cuando ambos existen. En la aplicación macOS, **En esta Mac** importa la suscripción que ya inició sesión en Gemini CLI o Antigravity. **Nueva cuenta** te permite elegir la fuente de Google e iniciar sesión como otra cuenta. Un flujo fallido o cancelado restaura el inicio de sesión anterior y la cuenta activa; AnyPick nunca escribe un nuevo inicio de sesión en la base de datos o llavero IDE de Antigravity.
+
+Las claves API de Gemini (`GEMINI_API_KEY` o `GOOGLE_API_KEY`) también se pueden guardar como cuentas nativas con nombre. Esto es independiente de un perfil de puerta de enlace y funciona incluso cuando no hay ningún inicio de sesión de Gemini CLI o Antigravity:
+
+```bash
+anypick add account gemini --credential api-key --secret --name studio
+```
+
+La hoja Agregar inicio de sesión de macOS mantiene disponibles las tres rutas de Gemini: el inicio de sesión que ya está en esta Mac, un nuevo inicio de sesión de suscripción de Google y un formulario de clave API separado. La ruta de la clave API es propiedad de AnyPick y no reemplaza el inicio de sesión nativo.
+
+## Guardar una clave en lugar de un inicio de sesión
+
+Algunos proveedores aceptan una clave que ya posee. La forma genérica es:
+
+```bash
+anypick add account mimo --credential subscription-key --secret --name work \
+  --option profile=singapore
+```
+
+Omita el valor `--secret` y AnyPick lo solicitará en una terminal, para que la clave nunca ingrese a su historial de shell. Cada `--option key=value` debe ser un calificador declarado por ese proveedor (`profile` hoy). La CLI no se cierra en nada más en lugar de abandonarla silenciosamente.
+
+> **Las claves API de Kiro aún no se aceptan.** El proveedor `kiro` declara que no
+> `CredentialDefinitions` (no es un `CredentialInputProvider`), entonces
+> `add account kiro --api-key/--region` falla cerrado en `SaveInput` con
+> `UNSUPPORTED_CREDENTIAL_INPUT`, y un `--region` desnudo se rechaza en
+> `cmd/anypick/main.go` antes de que llegue al proveedor. Kiro inicia sesión a través de
+> inicio de sesión en el navegador (`--new`) e instantáneas del inicio de sesión en vivo (`--current`)
+> funciona según lo documentado.
+
+En la [UI del terminal](/es/docs/guides/terminal-ui), el mismo flujo es **Utilizar una clave API** en la pantalla para agregar cuenta, que se ofrece a los proveedores que declaran productos de credenciales escritas. La clave se oculta a medida que la escribe y los perfiles de los terminales se generan a partir del contrato del proveedor.
+
+Una clave no es un inicio de sesión en esta máquina: se almacena solo en AnyPick, por lo que al activarla se deja intacto cualquier inicio de sesión nativo en el disco y `account refresh` no lo sobrescribirá.
+
+Los proveedores instalados mediante un complemento pueden declarar otros productos de credenciales sin agregar indicadores CLI específicos del proveedor. La forma genérica es:
+
+```bash
+anypick add account <provider> --credential <kind> --secret --name <name>
+anypick add account mimo --credential subscription-key --secret --name work \
+  --option profile=singapore
+```
+
+Cada `--option key=value` debe ser un calificador declarado por ese proveedor. La TUI presenta los mismos tipos y perfiles de puntos finales del contrato del proveedor. En la aplicación macOS, estos proveedores muestran un formulario de clave API en Agregar inicio de sesión en lugar de un flujo de inicio de sesión.
+
+<Aside type="caution" title="Un inicio de sesión en vivo a la vez">
+Las CLI de proveedor normalmente mantienen una credencial en su hogar predeterminado. Las cuentas guardadas se encuentran en la tienda de AnyPick y la activación ordinaria restaura la seleccionada en la ruta de ese proveedor. Los perfiles con nombre del Codex son la excepción: cada uno obtiene un `CODEX_HOME` aislado, por lo que se pueden ejecutar varias cuentas CLI del Codex a la vez. No edite un archivo de autenticación administrado manualmente mientras su perfil esté activo.
+</Aside>
+
+## Usando una cuenta
+
+```bash
+anypick use codex --with codex/personal    # same-protocol: direct
+anypick use claude --with grok/work        # cross-protocol: proxy starts on demand
+anypick use commandcode --with workbuddy/work --model deepseek-4.1-flash
+anypick run commandcode --with workbuddy/work --model deepseek-4.1-flash --
+anypick run claude
+```
+
+Codex CLI también admite rutas con nombre. AnyPick le da a cada ruta con nombre su propia `CODEX_HOME`, configuración de perfil nativo y `auth.json`, para que los perfiles puedan apuntar a diferentes cuentas guardadas o puertas de enlace sin sobrescribir la configuración o inicio de sesión global del Codex:
+
+```bash
+anypick codex profile login personal
+anypick codex profile login work
+anypick use codex --with codex/personal --profile personal
+anypick use codex --with codex/work --profile work
+anypick use codex --with hub:default --profile shared
+anypick codex profile list
+anypick run codex --profile work -- exec --help
+```
+
+`profile login` abre el inicio de sesión oficial del Codex en la página de inicio del perfil seleccionado, luego guarda la credencial resultante como `codex/<name>` y materializa el perfil. No reemplaza el `~/.codex/auth.json` predeterminado de la aplicación de escritorio. Para una cuenta ya guardada en AnyPick, `anypick use ... --profile <name>` copia su instantánea en la página de inicio del perfil. Los perfiles respaldados por puerta de enlace utilizan su punto final guardado directamente. Si un perfil debe usar un proxy AnyPick específico de la cuenta en lugar de la autenticación nativa del Codex, habilite el proxy de la cuenta y pase `--transport proxy`. Un perfil respaldado por Hub tiene un token de ruta independiente, por lo que no invalida otro perfil del Codex. La configuración predeterminada de Codex CLI también puede usar un proxy de cuenta o un Hub directamente:
+
+```bash
+anypick use codex --with codex/work --transport proxy
+anypick use codex --with hub:default
+```
+
+Estas rutas configuran la CLI del Codex. Codex Desktop conserva su propia cuenta iniciada y no sigue la CLI `CODEX_HOME`.
+
+Cuando el cliente y la cuenta hablan protocolos diferentes, AnyPick inicia un proxy de traducción local y le indica al cliente. No inicia el proxy usted mismo: el Command Code recibe un proveedor `anypick-managed` compatible con OpenAI en `~/.commandcode/providers.json`; su token de proxy por instancia se guarda en `~/.commandcode/auth.json`. Consulte [Proxies](/es/docs/guides/proxies) si lo desea.
+
+## Uso en vivo y cuota
+
+Cuando un proveedor informa el uso en vivo, la aplicación macOS lo muestra en los detalles de la cuenta y la aplicación. Antigravity informa ventanas semanales y de cinco horas agrupadas por familia de modelos, como **Modelos Gemini** y **Modelos Claude y GPT**. AnyPick lee la credencial del proveedor actual para esta pantalla; no actualiza ni escribe el inicio de sesión. El uso está disponible solo cuando la cuenta del proveedor está activa en esta Mac. Codex Desktop mantiene su propio inicio de sesión separado de Codex CLI, por lo que AnyPick no muestra una lectura de cuota cuando esas cuentas no coinciden.
+
+## Administrar cuentas guardadas
+
+```bash
+anypick account list                   # or: anypick list accounts
+anypick account refresh codex          # refresh the live login
+anypick account refresh codex work     # refresh one saved account
+anypick account refresh codex --all    # refresh every saved account
+anypick account remove codex old -y
+```
+
+`refresh` renueva los tokens de OAuth vigentes. La cuenta mantiene su nombre, por lo que los vínculos que apuntan a ella siguen funcionando; no es necesario volver a encuadernar nada. Sale de un valor distinto de cero si algún objetivo falló e imprime cuál.
+
+`remove` también elimina todos los perfiles del Codex con nombre cuya ruta era esa cuenta (consulte [Perfiles del Codex con nombre](/es/docs/reference/cli)). Un perfil posee un `CODEX_HOME` privado que contiene el `auth.json` de la cuenta, por lo que dejarlo atrás dejaría varada una credencial que nada en AnyPick podría alcanzar nuevamente. La limpieza se informa, no se calla:
+
+```bash
+anypick account remove codex work -y
+# removed codex/work Removed named profile(s): codex/work.
+```
+
+Los perfiles que apuntan a otro lugar (una puerta de enlace, un centro, un grupo u otra cuenta guardada) se dejan en paz. Eliminar una cuenta nunca elimina un perfil que utiliza una fuente diferente. Si la fila de la cuenta ya desapareció pero un perfil aún apunta a ella (una eliminación de un AnyPick anterior, un bloqueo entre las dos escrituras o una base de datos restaurada sin sus filas de cuenta), AnyPick elimina el perfil la próxima vez que se inicia y lo dice en stderr; `anypick doctor` lo informa antes de eso.
+
+## Exportar e importar
+
+Mover una cuenta a otra máquina:
+
+```bash
+anypick account export codex work -o ./work.json
+anypick account import codex work -i ./work.json
+```
+
+Cuando se omite `--out`, la exportación escribe un archivo `.json` exclusivo del propietario en `~/.anypick/exports/` e imprime su ruta exacta. Para mover varias cuentas en un paquete, exporte todas las cuentas (o un proveedor) a una única copia de seguridad JSON:
+
+```bash
+anypick account export --all --out ./accounts.json
+anypick account import ./accounts.json
+```
+
+También puede importar varios archivos JSON de una sola cuenta con un solo comando, por ejemplo `anypick account import ./work.json ./personal.json`. `import` se niega a sobrescribir un nombre existente a menos que pase `--force`. Una identidad de inicio de sesión ya guardada con un nombre diferente permanece bloqueada, incluso con `--force`; utilice ese nombre existente al reemplazarlo. Las etiquetas de visualización de claves API no cuentan como identidades de inicio de sesión.
+
+Las importaciones CLI, TUI y de escritorio aceptan tanto exportaciones de cuenta única como copias de seguridad de cuentas. El selector de archivos del escritorio acepta archivos `.json` y `.anypick-backup` y le permite revisar las cuentas antes de importarlas.
+
+<Aside type="danger" title="Las exportaciones contienen credenciales activas">
+Un archivo exportado contiene los tokens reales en formato simple. Trátelo como la credencial que es: transfiéralo a través de un canal en el que confíe y elimínelo después.
+</Aside>
+
+## Valores predeterminados del modelo
+
+Cuando un vínculo adjunta un proxy de cuenta a Claude, AnyPick establece los roles del modelo de Claude:
+
+- `ANTHROPIC_MODEL` — el valor predeterminado
+- `ANTHROPIC_DEFAULT_SONNET_MODEL`, `…_OPUS_MODEL`, `…_HAIKU_MODEL`
+
+Los valores provienen del catálogo en vivo `/v1/models` del proxy en ejecución cuando hay uno disponible, por lo que los modelos recién lanzados aparecen sin una actualización de AnyPick. Cámbielos más tarde con <kbd>m</kbd> en el tablero Proxy o Gateways, desde Aplicaciones reconstruyendo la ruta o volviendo a vincular con un `--model` explícito.

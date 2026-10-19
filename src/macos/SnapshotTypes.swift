@@ -323,6 +323,7 @@ struct UsageWindow: Decodable {
 }
 
 struct UsageSnapshot: Decodable, Identifiable {
+  let providerId: String?
   var id: String { "\(client):\(account)" }
   let client: String
   let account: String

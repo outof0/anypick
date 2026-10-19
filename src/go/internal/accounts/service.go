@@ -58,10 +58,11 @@ type CurrentResult struct {
 }
 
 type Service struct {
-	Store       *store.AccountStore
-	Providers   *provider.Registry
-	Proxy       ProxyStopper
-	AfterSwitch func(ctx context.Context, providerID, accountName string) error
+	Store               *store.AccountStore
+	Providers           *provider.Registry
+	Proxy               ProxyStopper
+	AfterSwitch         func(ctx context.Context, providerID, accountName string) error
+	AfterSnapshotChange func(ctx context.Context, providerID, accountName string) error
 	// BeforeDelete runs inside the deletion's own mutation lock, after the
 	// proxy for this account has stopped and before the account row is
 	// removed. It is the cascade hook: a named native profile whose route is
@@ -118,6 +119,37 @@ func New(st *store.AccountStore, reg *provider.Registry) *Service {
 // bindings package.
 func (s *Service) SetAfterSwitch(fn func(context.Context, string, string) error) {
 	s.AfterSwitch = fn
+}
+
+// SetAfterSnapshotChange installs the optional reapply hook for resources
+// derived from an account snapshot. It runs only after the snapshot commit and
+// all enclosing mutation locks have completed.
+func (s *Service) SetAfterSnapshotChange(fn func(context.Context, string, string) error) {
+	s.AfterSnapshotChange = fn
+}
+
+func (s *Service) afterSnapshotChange(ctx context.Context, providerID, accountName string) error {
+	if s.AfterSnapshotChange == nil {
+		return nil
+	}
+	return lock.AfterMutation(ctx, func(c context.Context) error {
+		if err := s.AfterSnapshotChange(c, providerID, accountName); err != nil {
+			return anyerr.Wrapf(err,
+				"account snapshot was saved, but dependent Codex profiles could not be refreshed",
+				"ACCOUNT_PROFILE_REFRESH_FAILED", anyerr.WithMutated(true))
+		}
+		return nil
+	})
+}
+
+func (s *Service) afterSnapshotChanges(ctx context.Context, metas []store.Meta) error {
+	var errs []error
+	for _, meta := range metas {
+		if err := s.afterSnapshotChange(ctx, meta.Provider, meta.Name); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	return errors.Join(errs...)
 }
 
 // SetBeforeDelete installs the optional cascade that removes named native
@@ -200,6 +232,9 @@ func (s *Service) SaveInput(ctx context.Context, providerID, name string, in Cre
 	})
 	if err != nil {
 		return store.Meta{}, err
+	}
+	if err := s.afterSnapshotChange(ctx, providerID, accountName); err != nil {
+		return result, err
 	}
 	return result, nil
 }
@@ -309,6 +344,9 @@ func (s *Service) SaveWithSource(ctx context.Context, providerID, name, source s
 	if err != nil {
 		return store.Meta{}, err
 	}
+	if err := s.afterSnapshotChange(ctx, providerID, accountName); err != nil {
+		return result, err
+	}
 	return result, nil
 }
 
@@ -345,7 +383,13 @@ func (s *Service) RefreshSnapshot(ctx context.Context, providerID, name string) 
 		}
 		return refreshErr
 	})
-	return result, err
+	if err != nil {
+		return store.Meta{}, err
+	}
+	if err := s.afterSnapshotChange(ctx, providerID, accountName); err != nil {
+		return result, err
+	}
+	return result, nil
 }
 
 // Delete stops the exact account proxy, removes the named native profiles that
@@ -455,7 +499,16 @@ func (s *Service) saveLockedSource(ctx context.Context, pv provider.Provider, ac
 // Use switches live auth to a saved account (see useLocked). The previous
 // login is checkpointed before anything mutates; any failure restores it.
 func (s *Service) Use(ctx context.Context, providerID, name string, opts UseOptions) (SwitchResult, error) {
-	return useLocked(s, ctx, providerID, name, opts)
+	result, err := useLocked(s, ctx, providerID, name, opts)
+	if err != nil {
+		return result, err
+	}
+	if result.RefreshedAccount != "" {
+		if err := s.afterSnapshotChange(ctx, providerID, result.RefreshedAccount); err != nil {
+			return result, err
+		}
+	}
+	return result, nil
 }
 
 type UseOptions struct {
@@ -871,13 +924,20 @@ func (s *Service) Import(ctx context.Context, request ImportRequest) ([]store.Me
 		Providers:             s.Providers,
 		ResolveIdentityTarget: s.ResolveIdentityTarget,
 	}
-	return transfer.ImportFiles(deps, ctx, request.Paths, transfer.FileImportOptions{
+	metas, err := transfer.ImportFiles(deps, ctx, request.Paths, transfer.FileImportOptions{
 		ProviderID: request.ProviderID,
 		Name:       request.Name,
 		Force:      request.Force,
 		Selection:  request.Selection,
 		Replace:    request.Replace,
 	})
+	if err != nil {
+		return metas, err
+	}
+	if err := s.afterSnapshotChanges(ctx, metas); err != nil {
+		return metas, err
+	}
+	return metas, nil
 }
 
 // InspectBackup prepares the preview used by reviewed desktop imports.

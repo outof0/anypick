@@ -292,6 +292,13 @@ func isolateEnv(t *testing.T) string {
 	t.Setenv("ANYPICK_HOME", filepath.Join(base, "data"))
 	// codexHomePath follows CODEX_HOME and ignores the sandboxed HOME.
 	t.Setenv("CODEX_HOME", "")
+	t.Setenv("ANYPICK_CLAUDE_NO_KEYCHAIN", "1")
+	t.Setenv("ANYPICK_KIRO_NO_KEYCHAIN", "1")
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
+	t.Setenv("XDG_DATA_HOME", filepath.Join(home, ".local", "share"))
+	for _, key := range []string{"CODEX_AUTH_PATH", "GROK_AUTH_PATH", "OPENCODE_AUTH_PATH", "OPENCODE_DATA_DIR", "KIRO_SSO_CACHE_DIR", "ANYPICK_KIRO_SECRET_DB", "ANYPICK_CLAUDE_CREDENTIALS_PATH", "WORKBUDDY_AUTH_PATH", "WORKBUDDY_CONFIG_DIR", "CODEBUDDY_CONFIG_DIR", "GEMINI_CLI_HOME", "GEMINI_CONFIG_DIR", "DSH_HOME", "ANYPICK_ZAI_CREDENTIALS_PATH", "ANYPICK_ZAI_LIVE_PATH"} {
+		t.Setenv(key, "")
+	}
 	if err := os.MkdirAll(filepath.Join(base, "home"), 0o700); err != nil {
 		t.Fatal(err)
 	}

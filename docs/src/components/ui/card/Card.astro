@@ -1,6 +1,5 @@
 ---
 import { Icon } from "astro-icon/components";
-import { cn } from "@/lib/cn";
 import type { HTMLAttributes } from "astro/types";
 
 interface Props extends HTMLAttributes<"article"> {
@@ -8,16 +7,150 @@ interface Props extends HTMLAttributes<"article"> {
   /** Iconify icon name, e.g. `ph:lightning`. */
   icon?: string;
   headingLevel?: 2 | 3;
+  href?: string;
 }
 
-const { title, icon, headingLevel = 3, class: className, ...attrs } = Astro.props;
+const { title, icon, headingLevel = 3, href, class: className, ...attrs } = Astro.props;
 const Heading = headingLevel === 2 ? "h2" : "h3";
 ---
 
-<article class={cn("my-4 rounded-lg bg-card p-5 shadow-sm ring ring-border", className)} {...attrs}>
-  {icon && <Icon name={icon} class="mb-2.5 block w-6 h-6 text-foreground" />}
-  <Heading class="m-0 text-base font-semibold leading-snug text-foreground">{title}</Heading>
-  <div class="mt-1.5 text-sm leading-normal text-muted-foreground">
-    <slot />
-  </div>
+<article class:list={["docs-card", className]} {...attrs}>
+  {href ? (
+    <a class:list={["docs-card-link", icon ? "docs-card-with-icon" : ""]} href={href}>
+      {icon && <span class="docs-card-icon" aria-hidden="true"><Icon name={icon} class="h-5 w-5" /></span>}
+      <div class="docs-card-copy">
+        <div class="docs-card-heading">
+          <Heading>{title}</Heading>
+          <Icon name="ph:arrow-up-right" class="docs-card-arrow" aria-hidden="true" />
+        </div>
+        <div class="docs-card-description"><slot /></div>
+      </div>
+    </a>
+  ) : (
+    <div class="docs-card-content">
+      {icon && <Icon name={icon} class="docs-card-standalone-icon h-5 w-5" aria-hidden="true" />}
+      <Heading>{title}</Heading>
+      <div class="docs-card-description"><slot /></div>
+    </div>
+  )}
 </article>
+
+<style>
+  .docs-card {
+    min-width: 0;
+    overflow: hidden;
+    border: 1px solid var(--nb-border);
+    border-radius: 0.75rem;
+    background: var(--nb-card);
+    box-shadow: var(--nb-shadow-sm);
+    transition:
+      border-color 160ms ease,
+      background-color 160ms ease,
+      box-shadow 180ms ease,
+      transform 180ms ease;
+  }
+
+  .docs-card:hover {
+    border-color: color-mix(in oklch, var(--nb-primary) 38%, var(--nb-border));
+    box-shadow: var(--nb-shadow-lg);
+    transform: translateY(-2px);
+  }
+
+  .docs-card-link,
+  .docs-card-content {
+    min-height: 100%;
+    padding: 1.1rem;
+    color: var(--nb-foreground);
+    text-decoration: none;
+  }
+
+  .docs-card-with-icon,
+  .docs-card-content {
+    display: grid;
+    grid-template-columns: 2.25rem minmax(0, 1fr);
+    align-content: start;
+    gap: 0.8rem;
+  }
+
+  .docs-card-link:focus-visible {
+    outline: 2px solid var(--nb-ring);
+    outline-offset: -3px;
+  }
+
+  .docs-card-icon,
+  .docs-card-standalone-icon {
+    display: grid;
+    width: 2.15rem;
+    height: 2.15rem;
+    place-items: center;
+    border: 1px solid color-mix(in oklch, var(--nb-primary) 18%, var(--nb-border));
+    border-radius: 0.6rem;
+    background: color-mix(in oklch, var(--nb-primary) 8%, var(--nb-card));
+    color: var(--nb-primary);
+  }
+
+  .docs-card-copy {
+    min-width: 0;
+  }
+
+  .docs-card-heading {
+    display: flex;
+    align-items: start;
+    justify-content: space-between;
+    gap: 0.65rem;
+  }
+
+  .docs-card-heading :global(h2),
+  .docs-card-heading :global(h3),
+  .docs-card-content :global(h2),
+  .docs-card-content :global(h3) {
+    margin: 0;
+    color: var(--nb-foreground);
+    font-size: 0.9rem;
+    font-weight: 650;
+    letter-spacing: -0.01em;
+    line-height: 1.4;
+  }
+
+  .docs-card-arrow {
+    width: 0.95rem;
+    height: 0.95rem;
+    flex: 0 0 auto;
+    margin-top: 0.12rem;
+    color: var(--nb-muted-foreground);
+    transition: color 150ms ease, transform 150ms ease;
+  }
+
+  .docs-card-link:hover .docs-card-arrow {
+    color: var(--nb-primary);
+    transform: translate(2px, -2px);
+  }
+
+  .docs-card-description {
+    margin-top: 0.42rem;
+    color: var(--nb-muted-foreground);
+    font-size: 0.78rem;
+    line-height: 1.55;
+  }
+
+  .docs-card-description :global(p) {
+    margin: 0;
+  }
+
+  .docs-card-content :global(h2),
+  .docs-card-content :global(h3),
+  .docs-card-content .docs-card-description {
+    grid-column: 2;
+  }
+
+  .docs-card-standalone-icon {
+    grid-row: 1 / span 2;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .docs-card,
+    .docs-card-arrow {
+      transition: none;
+    }
+  }
+</style>
