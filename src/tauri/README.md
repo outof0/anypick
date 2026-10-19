@@ -9,10 +9,10 @@ signature and is not notarized.
 
 Each Linux/Windows payload is smoke-tested on its own OS (`packaging/smoke/`)
 before it can reach a GitHub Release. The gate extracts each installer, checks
-the bundled Go helper, then drives that payload's desktop executable through
-native WebDriver with an isolated HOME and an empty executable search path
-(ADR 0020 §8). Both drivers are resolved before that restriction. Linux uses
-Xvfb and WebKitGTK; Windows uses WebView2 and its matching Edge driver.
+the bundled Go helper, then launches the packaged desktop executable in an
+isolated home with an empty executable search path (ADR 0020 §8). The Windows
+smoke also confirms the app window and bundled Go sidecar start. Linux uses
+Xvfb and WebKitGTK for native WebDriver coverage.
 
 **This app owns no AnyPick state and never reads credentials.** It launches,
 handshakes with, supervises and shuts down the bundled Go service, then renders
@@ -23,8 +23,10 @@ what that service sends it (ADR 0019 §1):
 
 The transport is a hidden `anypick desktop-service --stdio` process whose stdout
 is protocol-only, behind a version/capability handshake that check every
-mutation (ADR 0019 §3). There is no permanent daemon, no localhost HTTP API, no
-socket, and no gRPC — any of those needs a new accepted ADR.
+mutation (ADR 0019 §3). Release builds have no permanent daemon, localhost HTTP
+service, socket, or gRPC API — any of those needs a new accepted ADR. The
+Windows E2E build enables a loopback WebDriver server only through its explicit
+test feature; release builds reject that feature.
 
 ## What is bundled
 
@@ -203,8 +205,8 @@ through production `AppProtocol`, including Doctor, logs, backup previews,
 mutations, protocol errors, refresh and shutdown. It runs in `cargo test` on
 Linux and Windows. A Go-only cross-process test cannot exercise this boundary.
 
-`scripts/desktop-e2e.mjs` launches the real desktop executable using
-`tauri-driver`, without fixture mode or a JavaScript bridge shim. It checks the
+`scripts/desktop-e2e.mjs` launches the real debug desktop executable, without
+fixture mode or a JavaScript bridge shim. It checks the
 first snapshot, Doctor's displayed terminal report, a new snapshot after
 refresh, every pane, Add Login saving an isolated file-backed Codex account
 through the real UI and strict Go decoder without treating the UI display hint
@@ -212,13 +214,16 @@ as a stored account identity, Activity fetching the stopped fixture proxy's
 logs, and Quick Backup writing the account's backup inside the
 isolated test home. The account and a setting must both survive closing and
 reopening the app. The test auth file has no access token, so it cannot make an
-authenticated provider request. CI runs it on Ubuntu and Windows; release payload tests run it against extracted deb/AppImage/rpm and
-MSI/NSIS executables. Use `xvfb-run -a dbus-run-session -- node
+authenticated provider request. CI runs it on Ubuntu and Windows. Linux uses
+`tauri-driver` and WebKitGTK; Windows uses a loopback WebDriver server embedded
+only in debug builds, so release binaries have no automation endpoint. Run
+`xvfb-run -a dbus-run-session -- node
 src/tauri/ui/scripts/desktop-e2e.mjs /absolute/path/to/anypick` on Linux, or
 `node src/tauri/ui/scripts/desktop-e2e.mjs C:/absolute/path/to/anypick.exe`
-on Windows, from the repository root. Install `tauri-driver` 2.1.0 plus
-`webkit2gtk-driver`/Xvfb on Linux; Windows CI uses
-`packaging/smoke/install-webdriver.ps1` to match the installed WebView2 runtime.
+on Windows, from the repository root. Linux package tests run the native E2E
+against extracted deb/AppImage/rpm payloads. Windows package tests launch the
+extracted MSI/NSIS applications and verify their Go sidecar because the
+production binary intentionally omits the debug-only WebDriver server.
 
 These gates do not perform real browser sign-ins, spend subscription quota, or
 prove every provider's upstream still accepts its credentials. Unit tests,

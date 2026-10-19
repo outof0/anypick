@@ -13,10 +13,13 @@ import { driverEnvironment, resolveExecutable } from './desktop-e2e-environment.
 
 assert(['linux', 'win32'].includes(process.platform), 'native desktop E2E requires Linux or Windows');
 const application = resolve(process.argv[2] ?? `src/tauri/app/target/debug/anypick${process.platform === 'win32' ? '.exe' : ''}`);
-const driverPath = await resolveExecutable(process.platform === 'win32' ? 'tauri-driver.exe' : 'tauri-driver');
-const nativeDriverPath = await resolveExecutable(process.platform === 'win32' ? 'msedgedriver.exe' : 'WebKitWebDriver');
+const embeddedDriver = process.platform === 'win32';
+const driverPath = embeddedDriver ? undefined : await resolveExecutable('tauri-driver');
+const nativeDriverPath = embeddedDriver ? undefined : await resolveExecutable('WebKitWebDriver');
 const home = await mkdtemp(join(tmpdir(), 'anypick-desktop-e2e-'));
 const environment = driverEnvironment(home);
+const port = await freePort();
+if (embeddedDriver) environment.TAURI_WEBDRIVER_PORT = String(port);
 // Root containers need this WebKit setting; it is not needed or injected on
 // normal desktops. All other fixture/test-mode variables stay absent.
 if (process.getuid?.() === 0) environment.WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS = '1';
@@ -43,19 +46,27 @@ async function freePort() {
   return port;
 }
 
-const port = await freePort();
-const nativePort = await freePort();
-const driver = spawn(driverPath, ['--native-driver', nativeDriverPath, '--port', String(port), '--native-port', String(nativePort)], {
-  env: environment, detached: process.platform !== 'win32', stdio: ['ignore', 'pipe', 'pipe'],
-});
 let output = '';
+let driver;
+let applicationProcess;
 let driverError;
-driver.on('error', (error) => { driverError = error; });
-for (const stream of [driver.stdout, driver.stderr]) stream.on('data', (chunk) => { output = (output + chunk).slice(-64 * 1024); });
+let applicationError;
+function captureOutput(child, onError) {
+  child.on('error', onError);
+  for (const stream of [child.stdout, child.stderr]) stream.on('data', (chunk) => { output = (output + chunk).slice(-64 * 1024); });
+}
+if (!embeddedDriver) {
+  const nativePort = await freePort();
+  driver = spawn(driverPath, ['--native-driver', nativeDriverPath, '--port', String(port), '--native-port', String(nativePort)], {
+    env: environment, detached: true, stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  captureOutput(driver, (error) => { driverError = error; });
+}
 let session;
 
 async function request(method, path, body) {
   if (driverError) throw driverError;
+  if (applicationError) throw applicationError;
   const response = await fetch(`http://127.0.0.1:${port}${path}`, {
     method, headers: { 'content-type': 'application/json' },
     body: body === undefined ? undefined : JSON.stringify(body), signal: AbortSignal.timeout(45_000),
@@ -70,7 +81,12 @@ async function wait(label, check) {
   let last;
   while (Date.now() < deadline) {
     if (driverError) throw driverError;
-    if (driver.exitCode !== null) throw new Error(`tauri-driver exited ${driver.exitCode}: ${output}`);
+    if (driver && driver.exitCode !== null) throw new Error(`tauri-driver exited ${driver.exitCode}: ${output}`);
+    if (applicationError) throw applicationError;
+    if (applicationProcess && (applicationProcess.exitCode !== null || applicationProcess.signalCode !== null)) {
+      const result = applicationProcess.signalCode ?? applicationProcess.exitCode;
+      throw new Error(`desktop app exited ${result}: ${output}`);
+    }
     try { const value = await check(); if (value) return value; } catch (error) { last = error; }
     await delay(100);
   }
@@ -107,11 +123,42 @@ async function typeText(css, text) {
 }
 
 async function open() {
-  const value = await request('POST', '/session', { capabilities: { alwaysMatch: { 'tauri:options': { application } } } });
+  if (embeddedDriver && (!applicationProcess || applicationProcess.exitCode !== null || applicationProcess.signalCode !== null)) {
+    applicationError = undefined;
+    applicationProcess = spawn(application, [], { env: environment, stdio: ['ignore', 'pipe', 'pipe'] });
+    captureOutput(applicationProcess, (error) => { applicationError = error; });
+  }
+  await wait('native WebDriver ready', () => request('GET', '/status'));
+  const capabilities = embeddedDriver ? {} : { 'tauri:options': { application } };
+  const value = await request('POST', '/session', { capabilities: { alwaysMatch: capabilities } });
   session = value.sessionId;
   assert(session, 'WebDriver did not create a native app session');
   await wait('first real snapshot rendered', () => present(selector('overview')));
   await execute('if (!window.__TAURI__) throw new Error("native Tauri IPC missing"); return true');
+}
+
+async function waitForExit(child, timeoutMs = 10_000) {
+  const deadline = Date.now() + timeoutMs;
+  while (child.exitCode === null && child.signalCode === null && Date.now() < deadline) await delay(100);
+  return child.exitCode !== null || child.signalCode !== null;
+}
+
+async function stopEmbeddedApplication() {
+  const child = applicationProcess;
+  if (!embeddedDriver || !child) return;
+  if (session && child.exitCode === null && child.signalCode === null) {
+    try {
+      await command('POST', '/execute/async', { script: `
+        const done = arguments[arguments.length - 1];
+        window.__TAURI__.core.invoke('send_command', { command: 'quit' }).then(() => done(true), error => done({error:String(error)}));
+      `, args: [] });
+    } catch { /* The app may already be shutting down. */ }
+  }
+  if (!(await waitForExit(child))) {
+    child.kill();
+    await waitForExit(child, 5_000);
+  }
+  if (applicationProcess === child) applicationProcess = undefined;
 }
 
 async function checkNoServiceError() {
@@ -163,7 +210,7 @@ try {
       await click(quickBackup);
       const notice = await wait('real Quick Backup completed and returned its destination', () => execute(`
         const notice = document.querySelector('[data-testid="notice"]');
-        const text = notice?.textContent?.trim() ?? '';
+        const text = notice?.querySelector('span.flex-1')?.textContent?.trim() ?? '';
         return text.startsWith('Saved 1 account to ') ? text : false;
       `));
       const match = notice.match(/^Saved 1 account to (.+)\. The file contains account credentials\.$/);
@@ -195,8 +242,12 @@ try {
   // optimistic local state as proof that persistence worked.
   await wait('setting persisted in the engine snapshot', async () => (await snapshot()).settings.showQuota === (before !== 'true'));
   await checkNoServiceError();
-  await command('DELETE', '');
-  session = undefined;
+  if (embeddedDriver) {
+    await stopEmbeddedApplication();
+  } else {
+    await command('DELETE', '');
+    session = undefined;
+  }
   await open();
   await click(selector('sidebar-settings'));
   await wait('persisted setting after a real app restart', () => execute(`
@@ -222,12 +273,13 @@ try {
   console.error(output);
   throw error;
 } finally {
-  if (session) { try { await command('DELETE', ''); } catch { /* Already exited. */ } }
-  if (driver.pid) {
+  if (embeddedDriver) await stopEmbeddedApplication();
+  else if (session) { try { await command('DELETE', ''); } catch { /* Already exited. */ } }
+  if (driver?.pid) {
     const exit = once(driver, 'exit').catch(() => {});
-    try { if (process.platform === 'win32') driver.kill(); else process.kill(-driver.pid, 'SIGTERM'); } catch { /* Already exited. */ }
+    try { process.kill(-driver.pid, 'SIGTERM'); } catch { /* Already exited. */ }
     await Promise.race([exit, delay(3000)]);
-    try { if (process.platform === 'win32') driver.kill('SIGKILL'); else process.kill(-driver.pid, 'SIGKILL'); } catch { /* Already exited. */ }
+    try { process.kill(-driver.pid, 'SIGKILL'); } catch { /* Already exited. */ }
   }
   await rm(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
 }
