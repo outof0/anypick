@@ -94,6 +94,13 @@ func TestSingleProxyCountsItsServedRequests(t *testing.T) {
 		t.Fatalf("served request = %d, want 200", resp.StatusCode)
 	}
 	after := observe.Default.Snapshot()[observe.RouteSingle]
+	// Streaming headers can reach the client before the handler's deferred
+	// counter update runs. Wait for that completion before asserting its delta.
+	deadline := time.Now().Add(2 * time.Second)
+	for after.Completed == before.Completed && time.Now().Before(deadline) {
+		time.Sleep(time.Millisecond)
+		after = observe.Default.Snapshot()[observe.RouteSingle]
+	}
 
 	if delta := after.Started - before.Started; delta != 1 {
 		t.Errorf("started delta = %d, want 1: the single-account path is not counted", delta)
