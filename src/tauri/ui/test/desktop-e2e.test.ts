@@ -24,3 +24,20 @@ it('compiles the actual JavaScript sent to native WebDriver', () => {
   visit(source);
   expect(scripts).toBeGreaterThan(0);
 });
+
+it('starts the embedded app before its native WebDriver readiness check', () => {
+  const path = resolve(__dirname, '../scripts/desktop-e2e.mjs');
+  const source = ts.createSourceFile(path, readFileSync(path, 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.JS);
+  const open = source.statements.find((node): node is ts.FunctionDeclaration =>
+    ts.isFunctionDeclaration(node) && node.name?.text === 'open');
+  const entry = source.statements.find(ts.isTryStatement);
+
+  expect(open?.body).toBeDefined();
+  expect(entry?.tryBlock.statements[0]?.getText(source)).toBe('await open();');
+  const startup = open?.body?.statements.findIndex((statement) =>
+    statement.getText(source).includes('applicationProcess = spawn(application')) ?? -1;
+  const readiness = open?.body?.statements.findIndex((statement) =>
+    statement.getText(source).includes('native WebDriver ready')) ?? -1;
+  expect(startup).toBeGreaterThanOrEqual(0);
+  expect(readiness).toBeGreaterThan(startup);
+});

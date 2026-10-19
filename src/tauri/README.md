@@ -270,9 +270,11 @@ front ends look healthy.
 The `tauri` matrix in `.github/workflows/ci.yml` runs on Ubuntu and Windows on
 every push and PR to `main`. Both run the cross-language gates, UI typecheck,
 UI tests/build, Rust check/format/tests/clippy/audit, and native desktop E2E.
-The Linux GUI runs under Xvfb; Windows uses the native WebView2 driver. Release
-jobs repeat the native gate against packaged executables, not only build-tree
-binaries.
+The Linux GUI runs under Xvfb with WebKitGTK; Windows enables an embedded
+loopback WebDriver server only in debug E2E builds. Release binaries reject
+that test feature. Linux release jobs also run native E2E against extracted
+packages; Windows release smoke tests launch each packaged GUI and verify its
+bundled Go sidecar starts.
 
 Out of scope for CI (needs a real desktop and installed clients): running
 against a developer's `~/.anypick`, tray-icon click geometry, and OS

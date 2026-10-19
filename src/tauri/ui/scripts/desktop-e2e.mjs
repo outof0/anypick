@@ -168,7 +168,6 @@ async function checkNoServiceError() {
 }
 
 try {
-  await wait('tauri-driver ready', () => request('GET', '/status'));
   await open();
   const doctor = selector('overview.run-doctor');
   await click(doctor);
