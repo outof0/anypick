@@ -251,8 +251,9 @@ default `all` scope publishes the macOS app, Linux and Windows desktop
 installers, all CLI archives, and the npm launcher. The macOS app uses an
 ad-hoc code signature in CI and is not notarized. `cli-only` skips desktop
 installers. Linux and Windows installer payloads are smoke-tested on their
-own OS (`packaging/smoke/`), including native WebDriver checks against the
-packaged GUI and its bundled service. npm,
+own OS (`packaging/smoke/`). Linux runs native WebDriver E2E against extracted
+packages; Windows launches each packaged GUI and verifies its bundled Go
+sidecar starts. npm,
 Homebrew and Scoop publishing default to enabled and can be disabled in the
 workflow inputs. WinGet manifests are attached for manual submission when
 Windows desktop artifacts are built.
