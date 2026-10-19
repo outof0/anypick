@@ -195,6 +195,7 @@ export type UsageWindow = {
 };
 
 export type UsageSnapshotRow = {
+  providerId?: string;
   client: string;
   account: string;
   windows: UsageWindow[];

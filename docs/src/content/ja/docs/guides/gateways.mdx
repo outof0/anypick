@@ -1,0 +1,86 @@
+---
+title: 'ゲートウェイ'
+description: 'エンドポイント、キー、およびモデル カタログを登録し、任意のクライアントをそれにバインドします。'
+---
+
+ゲートウェイは API プロファイル、つまりエンドポイント、認証情報、およびオプションでモデルのリストです。ログイン フローやローカル プロセスはありません。クライアントはリモート エンドポイントと直接通信します。
+
+## 1 つ追加
+
+```bash
+anypick add gateway openrouter-work \
+  --provider openrouter \
+  --endpoint https://openrouter.ai/api/v1 \
+  --api-key "$OPENROUTER_API_KEY" \
+  --model anthropic/claude-sonnet-4 \
+  --models default=anthropic/claude-sonnet-4 \
+  --models opus=anthropic/claude-opus-4-8
+
+anypick use claude --with openrouter-work
+anypick run claude
+```
+
+|旗 |意味 |
+| --- | --- |
+| `--provider <id>` |エンドポイントが従うカタログ形状 |
+| `--endpoint <url>` |ベース URL |
+| `--api-key <key>` | AnyPick データベースに保存されているキー |
+| `--api-key-env <var>` |キーを保存するのではなく、アクティベーション時に環境変数から読み取ります。
+| `--model <id>` |このゲートウェイのデフォルト モデル |
+| `--models <role=id>` | 1 つのクライアント モデル ロール (`default`、`sonnet`、`opus`、`haiku`、…) をゲートウェイ モデルに固定します。さらに多くの役割がある場合はフラグを繰り返します |
+| `--gateway-id <id>` |エンドポイントごとに複数のゲートウェイをアドレス指定するプロバイダーのゲートウェイ ID |
+
+`--models` はロール マップであり、ID のフリー リストではありません。保存された値は各クライアント独自のロール スロットに書き込まれるため、裸の ID にはアタッチするロールがなく、フラグは拒否されます。役割ごとに 1 回、`role=model-id` を渡します。
+
+カタログプロバイダーには、`anthropic`、`openai`、`openrouter`、`grok-api`、`gemini-api`、`litellm`、 `local`、`custom`、`cloudflare-aigateway` — フルセットは、`src/go/internal/catalog/catalog.go` の `Builtin()` です。
+
+Cloudflare AI Gatewayには、明示的なエンドポイント（ベースURLにはCloudflareアカウントIDが埋め込まれています）とゲートウェイIDが必要です。
+
+```bash
+anypick add gateway cf-prod \
+  --provider cloudflare-aigateway \
+  --endpoint https://api.cloudflare.com/client/v4/accounts/ACCOUNT_ID/ai/v1 \
+  --api-key "$CF_API_TOKEN" \
+  --gateway-id my-gateway
+```
+
+プロバイダーのデフォルト (`default`) を使用するには、`--gateway-id` を省略します。
+
+<Aside type="tip" title="保管したくない鍵">
+`--api-key-env OPENROUTER_API_KEY` は、シークレットではなく変数名を記録します。 AnyPick はバインディングをアクティブ化するときにそれを読み取るため、キーは環境またはシークレット マネージャーに残ります。
+</Aside>
+
+## ゲートウェイまたはプロキシ?
+
+どちらもソースであり、どちらも同じ方法で終了します — `use <client> --with <source>`。それらは背後にあるものが異なります。
+
+| |プロキシ (アカウント) |ゲートウェイ (API プロファイル) |
+| --- | --- | --- |
+|認証 |ネイティブ ログイン スナップショットとローカル プロセス |エンドポイント + AnyPick が保持するキー |
+|セットアップ |プロバイダー CLI を使用してログインし、スナップショットを作成します。エンドポイントとキーを貼り付けます |
+|モデル |実行中のプロキシから検出されました |ゲートウェイのデフォルト、またはバインディングごと |
+|リクエストの宛先 | `127.0.0.1:<port>` → 上流 |エンドポイントへ直行 |
+
+キーを押したままゲートウェイに手を伸ばします。サブスクリプションを保有している場合は、アカウントを取得してください。
+
+## クライアントのピッカー内のモデル
+
+ネイティブ モデル レジストリ (Codex、OpenCode、ZCode、コマンド コード、および DSH) を持つクライアントの場合、AnyPick はソース スコープのカタログを書き込み、クライアントで使用可能な ID が選択されたゲートウェイまたはプロキシと一致するようにします。 `--model` でデフォルトを設定します。これがクライアントが開始するモデルになります。
+
+Claude Code、Gemini CLI、および Kiro は、書き込み可能なモデル レジストリではなく、環境変数またはネイティブ ロール スロットを通じてモデルの選択を公開します。 AnyPick はネイティブのデフォルト/ロール値を設定しますが、それらのプログラムが読み取らないクライアント側のリストを作成することはできません。
+
+アカウント プロキシにはこれは必要ありません。AnyPick は、クライアントをアクティブ化するたびにライブ `/v1/models` カタログを読み取ります。
+
+## ゲートウェイの管理
+
+```bash
+anypick gateway list
+anypick gateway show openrouter-work
+anypick gateway edit openrouter-work -m anthropic/claude-sonnet-4
+anypick gateway edit openrouter-work --endpoint https://…  --api-key "$NEW_KEY"
+anypick gateway remove old-gateway -y
+```
+
+`show` はキーをマスクします。グローバル `--reveal` フラグを渡して出力します。これは、文字通り危険です。
+
+バインディングはスナップショットであるため、ゲートウェイを編集しても、すでにバインドされているクライアントは遡及的に変更されません。 `use` を再実行して、新しいエンドポイントまたはモデルを選択します。

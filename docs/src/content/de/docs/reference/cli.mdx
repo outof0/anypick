@@ -1,0 +1,331 @@
+---
+title: 'CLI-Referenz'
+description: 'Jeder AnyPick-Befehl, jedes globale Flag, jeder Exit-Code und jede Umgebungsvariable.'
+---
+
+Der Befehlsname ist `anypick`. Laden Sie ein Archiv mit Prüfsummenliste von der GitHub-Version herunter oder installieren Sie den Thin NPM-Launcher mit `npm install --global anypick` (Knoten 18+; lädt die passende native CLI beim ersten Start herunter). Führen Sie während der Entwicklung denselben Befehlsbaum aus einer Kasse mit `make run ARGS="…"` aus. zum Beispiel `make run ARGS="list accounts"`.
+
+Die native macOS-Anwendung ist ein separates App-eigenes Ziel. Es startet seinen gebündelten Go-Dienst selbst und benötigt diese CLI nicht als übergeordnetes Element.
+
+## Globale Flags
+
+Gültig für jeden Befehl.
+
+| Flagge | Wirkung |
+| --- | --- |
+| `-V, --version` | Drucken Sie die Version aus und beenden Sie |
+| `--json` | Maschinenlesbare Ausgabe |
+| `-v, --verbose` | Ausführliche Protokollierung |
+| `-q, --quiet` | Minimale Leistung |
+| `--dry-run` | Drucken Sie den Plan aus. schreibe nichts |
+| `--reveal` | Geheimnisse zeigen – gefährlich |
+| `--no-input` | Niemals auffordern, auch nicht auf einem TTY |
+| `-y, --yes` | Zerstörerische Bestätigungen überspringen |
+| `--trace` | Interne Schrittnamen ohne Geheimnisse drucken |
+| `--tui` | Öffnen Sie die Terminal-Benutzeroberfläche für diesen Lauf |
+| `--tray` | Wählen Sie die Oberfläche der Kompatibilitätsleiste für diese Quell-CLI-Ausführung | aus
+
+## Bindungen
+
+```bash
+anypick use <client> --with <source> [--model <id>] [--transport auto|direct|proxy] [--allow-foreign-config]
+anypick use codex --with <source> --profile <name> [--model <id>] [--transport auto|direct|proxy] [--allow-foreign-config]
+anypick run <client> (--with <source>|--profile <name>) [--model <id>] -- <args…>
+anypick codex profile login <name> [--auth-method <id>] [--source <id>]
+anypick codex profile list
+anypick codex profile show <name>
+anypick codex profile remove <name> [--yes]
+anypick current <provider>
+anypick models <client> [--with <source>]
+anypick link <client> [--with <source>] [--model <id>] [--allow-foreign-config]
+anypick unlink [client]
+anypick reset [client]
+```
+
+| Befehl | Beschreibung |
+| --- | --- |
+| `use` | Legen Sie fest, was ein Client standardmäßig verwendet (`--with` ist erforderlich) |
+| `run` | Starten Sie einen Client mit seiner effektiven Bindung |
+| `current` | Effektive Bindungen eines Anbieters anzeigen |
+| `models` | Listen Sie die Modell-IDs auf, die die gebundene Quelle veröffentlicht |
+| `link` / `unlink` | Projektbezogene Bindungen für das aktuelle Verzeichnis; `link` ohne `--with` wendet die gespeicherte globale Spezifikation erneut an |
+| `reset` | Von AnyPick verwaltete Konfiguration für einen Client entfernen |
+
+`--with` akzeptiert ein Konto (`grok/work`), einen Gateway-Namen, einen Pool (`pool:gemini`), den Proxy-Hub (`hub:default`) oder eine Voreinstellung (`@work-stack`). `--transport` pinnen die Routenrichtlinie an, anstatt dem Planer die Auswahl zu überlassen.
+
+#### Client-Konfigurationen, die AnyPick nicht besitzt
+
+AnyPick schreibt die Konfigurationsdateien anderer Tools und weigert sich daher, einen Wert zu ersetzen, von dem es nicht nachweisen kann, dass er es geschrieben hat. Wenn `~/.claude/settings.json` oder eine Codex-Konfiguration bereits auf Ihren eigenen Login oder Endpunkt verweist, schlägt `use` mit `CLIENT_CONFIG_FOREIGN` fehl und benennt die Datei und die Schlüssel, um die es geht – die Konfiguration bleibt byteidentisch.
+
+`--allow-foreign-config` ist die explizite Antwort: Es sichert die aktuelle Datei unter `$ANYPICK_HOME/recovery/clients/<client>/` und ersetzt dann diese Werte. Die Einwilligung erfolgt pro Ausführung und bleibt nie bestehen, und die Desktop-App stellt dieselbe Frage mit der Schaltfläche **Mit AnyPick verwalten** anstelle einer Markierung. Ein Client, den AnyPick bereits verwaltet (ein Loopback-Proxy-Endpunkt oder eine Konfiguration, die den verwalteten Marker von AnyPick trägt), wird ohne Nachfrage aktualisiert.
+
+### Benannte Codex-Profile
+
+`--profile` gibt Codex einen stabilen nativen Profilnamen, während AnyPick die Quelle dahinter speichert. Dies ist nützlich, wenn eine Shell oder ein Skript mehrere gespeicherte Routen benötigt: Jedes Profil hat sein eigenes `CODEX_HOME`, `<name>.config.toml` und `auth.json`. Proxy-gestützte Profile erhalten außerdem eine Umgebungsdatei nur für Besitzer.
+
+Für ein gespeichertes Codex-Konto verwendet `auto` ein natives Profil-Home und kopiert das gespeicherte `auth.json` dieses Kontos; Es berührt nicht die Live-Funktion der Desktop-App `CODEX_HOME`. Um ein Konto und Profil zu erstellen, ohne die Desktop-Anmeldung zu wechseln, verwenden Sie `profile login`:
+
+```bash
+anypick codex profile login work
+anypick use codex --with codex/work --profile work --model gpt-5.6
+anypick use codex --with openrouter-work --profile gateway
+anypick use codex --with hub:default --profile hub-work
+```
+
+`profile login` führt die offizielle Codex-Anmeldung mit `CODEX_HOME=$ANYPICK_HOME/clients/codex/profiles/work/codex-home` aus, sodass der Browser-Flow dort Konto B schreibt. AnyPick speichert dann dieselbe Datei wie den `codex/work`-Snapshot und stellt den aktiven Desktop-Zeiger wieder her. Um stattdessen einen kontogestützten Proxy zu verwenden, aktivieren Sie ihn und heften Sie `--transport proxy` an:
+
+```bash
+anypick proxy enable codex work
+anypick use codex --with codex/work --profile work-proxy --transport proxy
+```
+
+Die Standard-Codex-CLI-Konfiguration akzeptiert dieselben Routen ohne `--profile`:
+
+```bash
+anypick use codex --with codex/work --transport proxy
+anypick use codex --with hub:default
+```
+
+Um ein Profil über einen isolierten Codex-CLI-Prozess auszuführen, verwenden Sie:
+
+```bash
+anypick run codex --profile personal -- exec --help
+anypick codex profile list
+```
+
+Verwenden Sie für einen Rohaufruf den Befehl `launch`, der von `anypick codex profile show <name>` ausgegeben wird. Es legt das profilspezifische `CODEX_HOME` explizit fest; Proxy-gestützte Profile beziehen auch ihre besitzergeschützte Env-Datei. Drucken Sie diese env-Datei nicht aus und schreiben Sie sie nicht fest: Sie enthält die lokalen Proxy-Anmeldeinformationen. Hub-gestützte Profile verfügen über unterschiedliche Routentokens, sodass die Aktivierung eines Profils nicht dazu führt, dass die Standardroute oder ein anderes Profil ungültig wird. Diese Befehle konfigurieren Codex CLI; Codex Desktop behält sein eigenes Anmeldekonto und folgt nicht den CLIs `CODEX_HOME`.
+
+`anypick codex profile remove <name>` löscht die Route und die von AnyPick dafür generierten Dateien (die Profilkonfiguration, ihren Modellkatalog und ihre Env-Datei). Der private `CODEX_HOME` des Profils bleibt erhalten, sodass er bei einer erneuten Anmeldung unter demselben Namen wiederverwendet wird. Das Entfernen des *Kontos*, auf das ein Profil verweist, ist anders: `anypick account remove codex work` entfernt auch die benannten Profile, die an dieses Konto gebunden sind, einschließlich der Anmeldeinformations-Homepage, und benennt sie im Ergebnis. Profile, die auf ein Gateway, einen Hub, einen Pool oder ein anderes Konto verweisen, werden nicht berührt. AnyPick entfernt beim nächsten Start noch übriggebliebene Profile von einem früheren Löschvorgang und `anypick doctor` meldet sie bis dahin.
+
+<Aside type="caution" title="Nicht interaktive Nutzung">
+`use <client>` erfordert `--with`. Ohne sie gibt es nichts, woraus die Quelle abgeleitet werden könnte, daher beendet der Befehl `2`, anstatt zu raten.
+</Aside>
+
+## Inventar
+
+```bash
+anypick list [providers|accounts]   # default: providers
+anypick providers
+anypick clients
+```
+
+Es gibt keinen `ls`-Alias und kein `list gateways|clients|presets`-Formular: Gateways, Voreinstellungen und Plugins haben unten jeweils ihre eigene Befehlsfamilie.
+
+## Quellen hinzufügen
+
+```bash
+anypick add account <provider> --name <name> [--current|--new] [--source <id>] [--force]
+anypick add account <provider> --new --name <name> [--auth-method <id>] [--source <id>]
+anypick add account <provider> --name <name> --credential <kind> --secret [--option profile=<id>] [--region <region>]
+anypick add gateway <name> --provider <id> [--endpoint url]
+    [--api-key [key] | --api-key-env <var> | --secret <key>]
+    [--model <id>] [--models <role=id>]
+```
+
+`--current` erstellt einen Snapshot der Anmeldung, die jetzt aktiv ist. `--new` verwendet eine verfügbare, anbietereigene Browser-Anmeldung und speichert die daraus resultierenden nativen Anmeldeinformationen; andernfalls wird der aktuelle Login gespeichert und die manuelle Fortsetzung gedruckt. Offizielle Methoden werden bevorzugt, während `--auth-method <id>` jede vom Anbieter deklarierte Methode auswählen kann, einschließlich einer Community-Methode. `--source <id>` wählt einen expliziten nativen Store für einen Multi-Source-Anbieter aus. `--credential <kind>` (deckt `--api-key` für kompatible Anbieter ab) plus `--secret`, `--api-key` oder eine bloße `--api-key`-Eingabeaufforderung liefert einen API-Schlüssel-Anmeldedatensatz; `--profile` oder `--option profile=<id>` wählt ein Endpunktprofil aus und `--region` ist die Kiro-API-Schlüssel-Cloud-Region. Lassen Sie den Wert `--secret` weg, um eine maskierte Eingabeaufforderung zu verwenden, oder übergeben Sie ihn über `ANYPICK_SECRET`.
+
+## Konten
+
+```bash
+anypick account list [provider]
+anypick account refresh [provider [name]] [--all]
+anypick account remove <provider> <name> [--yes]
+anypick account export <provider> <name> [--out <file>]   # -o <file>; defaults to ~/.anypick/exports/*.json
+anypick account export [provider] --all [--out <file>] [--overwrite]
+anypick account import <provider> <name> <file.json> [--force]   # or -i <file.json>
+anypick account import <file.json> [<file2.json> …] [--force]
+```
+
+`refresh` übernimmt den aktuellen Live-Login des Anbieters in ein gespeichertes Konto. Ohne Anbieter probiert es jedes gespeicherte Konto aus; Mit einem Anbieter (und optional einem Namen) werden nur diese aktualisiert. Eine Aktualisierung, die einem Konto den Snapshot eines anderen Kontos geben würde, wird abgelehnt – ein Login bleibt ein Konto –, so dass die Aktualisierung eines gesamten Anbieters nicht stillschweigend verschiedene Logins in das aktuelle Live-Konto reduzieren kann. Es gibt keinen `rm`-Alias.
+
+## Gateways
+
+```bash
+anypick gateway add <name> --provider <id> [--endpoint url]
+    [--api-key [key]|--api-key-env <var>|--secret <key>]
+    [--model <id>] [--models <role=id>]
+anypick gateway list
+anypick gateway show <name>
+anypick gateway edit <name> [--endpoint url] [--model id] [-m id] [--api-key key]
+anypick gateway remove <name>
+```
+
+`show` maskiert den API-Schlüssel, es sei denn, Sie übergeben den globalen `--reveal`. `edit` akzeptiert `--api-key` als Ersatz für den gespeicherten Schlüssel und `-m` als Kurzform von `--model`.
+
+## Voreinstellungen
+
+```bash
+anypick preset list
+anypick preset show <name>
+anypick preset remove <name>
+```
+
+Preset-Namen werden hier ohne das `@` geschrieben; Mit dem Präfix `@` verweisen Sie nur darauf in `--with`.
+
+## Proxys
+
+```bash
+anypick proxy enable|disable <provider> <account> [--port N]
+anypick proxy start|stop|status|token <provider> <account>
+anypick proxy config <provider> <account> [--port N]
+anypick proxy restart <provider> <account>
+anypick proxy logs <provider> <account> [--lines N] [--follow]
+```
+
+`--port` auf `enable`/`config` pinnt einen Port; andernfalls wird der erste freie Port verwendet. `token` druckt oder rotiert (`--rotate`) den Authentifizierungstoken/API-Schlüssel für den Proxy. `logs` druckt standardmäßig die letzten 50 Zeilen.
+
+### Pools
+
+```bash
+anypick proxy pool status <provider>
+anypick proxy pool enable <provider> [--strategy failover|round-robin]
+    [--mode single|multi] [--port N] [-p N] [+account|-account ...]
+anypick proxy pool member <provider> <account> <on|off>
+anypick proxy pool start <provider>
+anypick proxy pool stop <provider>
+anypick proxy pool disable <provider>
+```
+
+`enable` fügt `+account` Mitglieder hinzu und pausiert `-account` Mitglieder in einem Anruf; Die Standardstrategie ist `failover`, der Standardmodus `multi`. Mit `round-robin` beginnt jede Anfrage beim nächsten berechtigten Mitglied; mit `failover` wird das Konto, das zuletzt geantwortet hat, weiterhin bedient, bis es abgelehnt wird. In beiden Fällen wird die Anforderung bei einem Kontingentklassenfehler an das nächste Mitglied weitergeleitet.
+
+### Proxy-Hub
+
+```bash
+anypick proxy hub status <name>
+anypick proxy hub enable <name> [--host <host>] [--port N] [-p N]
+    [--strategy failover|round-robin] [--start]
+anypick proxy hub source <name> <provider> <account>
+anypick proxy hub owner <name> <model> <provider>/<account>
+anypick proxy hub preview <name>
+anypick proxy hub start <name>
+anypick proxy hub stop <name>
+```
+
+`source` schaltet um: vorhandene Quellen werden entfernt, fehlende hinzugefügt (ein Kontoname ist erforderlich). `--strategy round-robin` sorgt dafür, dass der Hub jedes Modell auf die aktivierten Konten verteilt, die es bedienen können – die Konten des Anbieters, zu dem das Modell aufgelöst wird –, anstatt es an eines zu heften; Ohne das Flag wird der aktuelle Modus beibehalten. Binden Sie mit `--with hub:<name>`, nachdem mindestens eine Quelle aktiviert ist. `owner` wählt aus, welches Konto gewinnt, wenn zwei Quellen dieselbe Modell-ID bewerben; `preview` aktualisiert Kataloge und druckt Routen und Konflikte.
+
+## Plugins
+
+```bash
+anypick plugin list
+anypick plugin add <dir>
+anypick plugin enable <name>
+anypick plugin disable <name>
+anypick plugin trust <name>
+anypick plugin remove <name>
+```
+
+`add` installiert ein lokales Verzeichnis **deaktiviert**. `enable` ist die Vertrauensentscheidung und die Eingabeaufforderungen; es benötigt das globale `-y`, wenn kein TTY vorhanden ist. `trust` fixiert den Paket-Digest erneut, nachdem sich der Code des Plugins geändert hat. Siehe [Plugins](/de/docs/guides/plugins).
+
+## Quell-CLI-Oberflächen und Kompatibilitäts-Supervisor
+
+```bash
+anypick tui
+anypick tray
+anypick start
+anypick status
+anypick stop
+```
+
+`anypick tui` öffnet immer die [Apps/Terminal-Benutzeroberfläche] (/docs/guides/terminal-ui). Die Befehlsfamilie `tray` wird von der Go-Engine implementiert (der TypeScript-Baum und seine Taskleistenoberfläche sind nicht mehr vorhanden): `anypick tray` druckt den Kompatibilitäts-Snapshot, während `start`, `status` und `stop` steuert den Kompatibilitäts-Supervisor und die ihm gehörenden Proxys.
+
+Diese Befehle definieren nicht den Besitz nativer Apps. Die macOS-App löst `Contents/Helpers/anypick-core` auf und startet sie, behält das Menüleisten-Schnellbedienfeld in derselben Anwendung und stoppt den Helfer beim expliziten Beenden der App. Siehe [macOS-App und Menüleiste](/de/docs/guides/tray).
+
+## Gesundheit
+
+```bash
+anypick doctor [target]
+anypick doctor --fix [--dry-run] [-y]
+```
+
+Unter [Fehlerbehebung](/de/docs/reference/troubleshooting) erfahren Sie, was `--fix` berühren darf.
+
+## Aktualisierungsprüfungen
+
+```bash
+anypick update
+anypick update --json
+```
+
+Diese Beratungsprüfung vergleicht die laufende Version mit der neuesten GitHub-Version. Es gibt die verfügbare Installationsroute aus; Es ändert nichts an der Installation. Die Anleitung verweist auf die Release-Seite, einen verfügbaren Paketmanager oder einen Quell-Checkout:
+
+```bash
+git pull && make build
+```
+
+Bis eine Veröffentlichung veröffentlicht wird, meldet die Prüfung `no published release yet` und verweist auf den Quellworkflow. `--json` gibt die aktuelle und neueste Version zurück:
+
+```bash
+anypick update --json
+```
+
+```json
+{ "current": "1.0.0", "latest": "1.1.0" }
+```
+
+Die Update-Engine verfügt außerdem über explizite Prüf- und Download-Befehle. Der macOS-Bereich **Einstellungen → Updates** verwendet dieselben Befehle:
+
+```bash
+anypick update check --json
+anypick update download --json
+```
+
+`check` meldet den Update-Status und die Installationsaktion für den erkannten Kanal. `download` ruft ein Direktinstallations-Asset in den Benutzercache von AnyPick ab und vergleicht seinen SHA-256 mit der Prüfsummendatei dieser Version. Die installierte App wird nicht ersetzt oder neu gestartet. In den Einstellungen öffnet **Im Finder anzeigen** die heruntergeladene Datei, sodass Sie sie mit den üblichen Schritten für diesen Kanal installieren können. Paketmanager-Installationen zeigen den entsprechenden Upgrade-Befehl an.
+
+Die macOS-App ist nicht notariell beglaubigt; Die Genehmigungsschritte für den ersten Start finden Sie unter [Desktop-Apps](/de/docs/guides/tray).
+
+<Aside type="caution" title="Downloads installieren sich nicht von selbst">
+Bei einer Direktinstallation lädt die Update-Prüfung das Release-Asset herunter und überprüft es. Sie installieren diesen Download immer noch manuell. Verwenden Sie den von AnyPick angezeigten Befehl für paketverwaltete Installationen oder für die Neuinstallation einer lokalen `.deb`- oder `.rpm`-Datei.
+</Aside>
+
+## Shell-Abschluss
+
+```bash
+anypick completion zsh     # also: bash | fish
+```
+
+Fügen Sie es Ihrer Shell-Startdatei hinzu oder werten Sie es direkt aus:
+
+```bash
+source <(anypick completion zsh)
+```
+
+## Exit-Codes
+
+| Code | Bedeutung |
+| --- | --- |
+| `0` | Erfolg |
+| `1` | Betriebsstörung |
+| `2` | Ungültige Verwendung – fehlender Client oder Quelle, leer `use` ohne TTY |
+| `3` | Nicht gefunden |
+| `4` | Authentifizierung erforderlich |
+| `5` | Fähigkeitskonflikt, nicht unterstützter Transport oder keine Bindung |
+| `6` | Gesundheitsversagen |
+| `7` | Fehlende erforderliche Abhängigkeit, z. B. eine externe Proxy-Binärdatei |
+| `8` | Fehlerhafter oder nicht vertrauenswürdiger Importumschlag |
+| `9` | Der Import überschreitet die Größen- oder Dateianzahlbegrenzungen |
+| `130` | Mit SIGINT | storniert
+
+## Umgebungsvariablen
+
+### AnyPick
+
+| Variable | Wirkung |
+| --- | --- |
+| `ANYPICK_HOME` | Datenverzeichnis. Standard `~/.anypick` |
+| `ANYPICK_LANG` | Anzeigesprache (`en`, `zh-CN`, `es`, `fr`, `de`, `ja`, `ko`, `pt-BR` oder `vi`). Standardmäßig wird das Prozessgebietsschema verwendet (`LC_ALL`, `LC_MESSAGES` oder `LANG`; Windows verwendet die bevorzugte UI-Sprache); Nicht unterstützte Gebietsschemata und nicht übersetzte Nachrichten werden auf Englisch zurückgesetzt |
+| `ANYPICK_SECRET` | Anmeldewert für `add account` / `add <provider>`, daher ist er in der Prozessliste nicht sichtbar |
+| `ANYPICK_NO_PLUGINS=1` | Laden von Plugins vollständig überspringen |
+| `NO_COLOR` | Alle Farben löschen; Glyphen tragen immer noch den Status |
+
+### Anbieterüberschreibungen
+
+| Variable | Wirkung |
+| --- | --- |
+| `GEMINI_API_KEY`, `GOOGLE_API_KEY` | Live-Gemini-API-Schlüssel gelesen von `add account gemini --current` |
+| `GEMINI_API_KEY_UPSTREAM` | Überschreiben Sie die Upstream-Basis-URL des Gemini-API-Schlüssels |
+| `GEMINI_CODE_ASSIST_UPSTREAM` | Überschreiben Sie den Gemini Code Assist-Endpunkt |
+| `GEMINI_CLI_HOME`, `GEMINI_CONFIG_DIR` | Auflösung des Gemini-Konfigurationsverzeichnisses (`GEMINI_CLI_HOME` gewinnt, entspricht der CLI) |
+| `CLAUDE_BINARY`, `CODEX_BINARY`, `KIRO_BINARY`, `GROK_BINARY` | Starten Sie eine bestimmte Client-Binärdatei |
+| `KIROLINK_BIN` | Pfad zu einer externen `kirolink`-Binärdatei |
+| `WORKBUDDY_BASE_URL` | Überschreiben Sie die WorkBuddy/CodeBuddy-API-Basis |
+| `CLINE_API_BASE_URL`, `CLINE_WORKOS_CLIENT_ID` | Cline API/WorkOS-Überschreibungen (die Client-ID ist öffentlich; sie überschreibt die integrierte Standardeinstellung) |

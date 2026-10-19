@@ -6,6 +6,193 @@
   color: var(--nb-foreground);
 }
 
+/* A task-oriented entry page with a clear first step and compact guide index. */
+.docs-home {
+  animation: docs-home-arrive 360ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.docs-home-eyebrow,
+.docs-home-kicker {
+  color: var(--nb-primary);
+  font-family: var(--nb-font-mono);
+  font-size: 0.66rem;
+  font-weight: 650;
+  letter-spacing: 0.1em;
+  line-height: 1.5;
+}
+
+.docs-home-eyebrow {
+  margin: 0 0 0.55rem !important;
+}
+
+.docs-home-lede {
+  max-width: 42rem;
+  margin: 0 !important;
+  color: var(--nb-muted-foreground);
+  font-size: 1rem;
+  line-height: 1.75;
+  text-wrap: pretty;
+}
+
+.docs-home-start {
+  display: grid;
+  gap: 1.2rem;
+  margin-top: 1.7rem;
+  border: 1px solid color-mix(in oklch, var(--nb-primary) 23%, var(--nb-border));
+  border-radius: 0.85rem;
+  padding: clamp(1.1rem, 3vw, 1.6rem);
+  background:
+    radial-gradient(ellipse at 100% 0%, color-mix(in oklch, var(--nb-primary) 12%, transparent), transparent 52%),
+    var(--nb-card);
+  box-shadow: var(--nb-shadow);
+}
+
+.docs-home-start-copy {
+  max-width: 37rem;
+}
+
+.docs-home-start h2,
+.docs-home-section-heading h2 {
+  margin: 0.45rem 0 0 !important;
+  color: var(--nb-foreground);
+  font-size: clamp(1.35rem, 3.3vw, 1.8rem);
+  font-weight: 650;
+  letter-spacing: -0.035em;
+  line-height: 1.2;
+  text-wrap: balance;
+}
+
+.docs-home-start-copy > p:last-child {
+  max-width: 35rem;
+  margin: 0.55rem 0 0 !important;
+  color: var(--nb-muted-foreground);
+  font-size: 0.84rem;
+  line-height: 1.65;
+}
+
+.docs-home-start-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+  border-top: 1px solid var(--nb-border);
+  padding-top: 1rem;
+}
+
+.docs-home-start-footer > span {
+  color: var(--nb-muted-foreground);
+  font-size: 0.72rem;
+}
+
+.docs-home-action {
+  display: inline-flex;
+  min-height: 2.45rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  border: 1px solid color-mix(in oklch, var(--nb-primary) 32%, transparent);
+  border-radius: 0.5rem;
+  padding: 0.55rem 0.75rem;
+  background: var(--nb-primary);
+  color: var(--nb-primary-foreground) !important;
+  font-size: 0.76rem;
+  font-weight: 630;
+  text-decoration: none !important;
+  transition: background-color 150ms ease, transform 150ms ease, box-shadow 150ms ease;
+}
+
+.docs-home-action:hover {
+  background: var(--nb-primary-hover);
+  box-shadow: 0 5px 16px color-mix(in oklch, var(--nb-primary) 25%, transparent);
+  transform: translateY(-1px);
+}
+
+.docs-home-action:focus-visible,
+.docs-home-section-heading > a:focus-visible {
+  outline: 2px solid var(--nb-ring);
+  outline-offset: 3px;
+}
+
+.docs-home-section-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 1rem;
+  margin: 2.1rem 0 0.8rem;
+}
+
+.docs-home-section-heading h2 {
+  font-size: 1.25rem;
+}
+
+.docs-home-section-heading > a {
+  flex: 0 0 auto;
+  color: var(--nb-muted-foreground) !important;
+  font-size: 0.73rem;
+  font-weight: 560;
+  text-decoration: none !important;
+  transition: color 150ms ease;
+}
+
+.docs-home-section-heading > a:hover {
+  color: var(--nb-primary) !important;
+}
+
+.docs-home-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem;
+}
+
+.docs-home-footnote {
+  margin: 1.15rem 0 0 !important;
+  border-top: 1px solid var(--nb-border);
+  padding-top: 0.85rem;
+  color: var(--nb-muted-foreground);
+  font-size: 0.75rem;
+  line-height: 1.65;
+}
+
+.docs-home-footnote strong {
+  color: var(--nb-foreground);
+  font-weight: 620;
+}
+
+.docs-home-footnote a {
+  color: var(--nb-primary) !important;
+  text-decoration-color: color-mix(in oklch, var(--nb-primary) 35%, transparent) !important;
+}
+
+.docs-home-footnote a:hover {
+  text-decoration-color: var(--nb-primary) !important;
+}
+
+@keyframes docs-home-arrive {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 40rem) {
+  .docs-home-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .docs-home-section-heading {
+    align-items: start;
+    flex-direction: column;
+    gap: 0.6rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .docs-home,
+  .docs-home-action {
+    animation: none;
+    transition: none;
+  }
+}
+
 /* Vertical rhythm — every direct child gets spacing by default.
    Components can override with their own margin utilities (my-4, mt-6, etc.)
    because :where() keeps specificity at (0,1,0) and utilities come later. */
@@ -201,17 +388,18 @@
 }
 
 .docs-content :where(a:not([class])) {
-  color: var(--nb-foreground);
+  color: var(--nb-primary);
   text-decoration-line: underline;
-  text-decoration-color: var(--nb-border-strong);
+  text-decoration-color: color-mix(in oklch, var(--nb-primary) 42%, var(--nb-border-strong));
   text-underline-offset: 3px;
   text-decoration-thickness: 1px;
-  font-weight: 500;
-  transition: text-decoration-color 0.15s;
+  font-weight: 540;
+  transition: color 0.15s, text-decoration-color 0.15s;
 }
 
 .docs-content :where(a:not([class]):hover) {
-  text-decoration-color: var(--nb-foreground);
+  color: var(--nb-primary-hover);
+  text-decoration-color: currentColor;
 }
 
 /* ---- Long-tail prose vocabulary ----

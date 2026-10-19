@@ -1,0 +1,77 @@
+---
+import { Icon } from "astro-icon/components";
+import { getTranslator, localizedPath, type Locale } from "@/i18n";
+import release from "../data/release.json";
+
+interface Props { locale: Locale }
+const { locale } = Astro.props;
+const t = await getTranslator(locale);
+const asset = (suffix: string) => release.assets.find((file) => file.name.endsWith(suffix));
+const platforms = [
+  { id: "macos", name: "macOS", icon: "ph:apple-logo", detail: t("downloads.mac"), primary: asset("universal.dmg"), format: ".dmg", alternatives: [asset("universal.zip")] },
+  { id: "linux", name: "Linux", icon: "ph:linux-logo", detail: t("downloads.linux"), primary: asset("_amd64.deb"), format: ".deb", alternatives: [asset("_amd64.AppImage"), asset(".x86_64.rpm")] },
+  { id: "windows", name: "Windows", icon: "ph:windows-logo", detail: t("downloads.windows"), primary: asset("x64-setup.exe"), format: ".exe", alternatives: [asset("x64_en-US.msi")] },
+];
+const armAssets = [asset("linux-arm64.tar.gz"), asset("windows-arm64.zip")].filter((file) => !!file);
+const formatFor = (name: string) => name.endsWith("tar.gz") ? ".tar.gz" : `.${name.split(".").pop()}`;
+---
+
+<section class="landing-downloads" id="download" aria-labelledby="download-title" data-downloads>
+  <div class="landing-wrap">
+    <div class="landing-download-heading">
+      <div>
+        <p class="landing-kicker">{t("downloads.kicker")} <span class="landing-version">{release.version}</span></p>
+        <h2 id="download-title">{t("downloads.title")}</h2>
+        <p class="landing-section-lede">{t("downloads.body")}</p>
+      </div>
+      <a class="landing-inline-link" href={localizedPath(locale, "/docs/getting-started/")}>{t("downloads.guide")} →</a>
+    </div>
+    <div class="landing-download-grid">
+      {platforms.map((platform) => (
+        <article class="landing-download-platform" id={`download-${platform.id}`} data-download-platform={platform.id}>
+          <div class="landing-platform-name"><Icon name={platform.icon} aria-hidden="true" /><h3>{platform.name}</h3></div>
+          <p>{platform.detail}</p>
+          {platform.primary ? <>
+            <a class="landing-button landing-button-primary" href={platform.primary.browser_download_url}
+              data-installer={platform.id} data-cta-label={t("downloads.forPlatform", { platform: platform.name })}>
+              {t("downloads.forPlatform", { platform: platform.name })} <Icon name="ph:download-simple" aria-hidden="true" />
+            </a>
+            <p class="landing-download-size">{platform.format} · {(platform.primary.size / 1_000_000).toFixed(1)} MB · {release.version}</p>
+          </> : <p>{t("downloads.unavailable")}</p>}
+          <div class="landing-download-alternatives">
+            {platform.alternatives.some(Boolean) && <span>{t("downloads.formats")}: </span>}
+            {platform.alternatives.filter((file) => !!file).map((file) => (
+              <a href={file.browser_download_url} aria-label={`${platform.name} ${formatFor(file.name)}`}>{formatFor(file.name)}</a>
+            ))}
+          </div>
+        </article>
+      ))}
+    </div>
+    <div class="landing-download-bottom">
+      <p>{t("downloads.firstRun")}</p>
+      <a class="landing-inline-link" href={release.url}>{t("downloads.releases")}</a>
+    </div>
+    <p class="landing-download-arm">{t("downloads.arm")} {armAssets.map((file) => <a href={file.browser_download_url}>{file.name.includes("linux") ? "Linux ARM64" : "Windows ARM64"}</a>)}</p>
+  </div>
+</section>
+
+<script>
+  // Only promote a desktop installer when the OS and supported architecture
+  // are known. Mobile and ARM Linux/Windows keep the explicit platform picker.
+  const agent = navigator.userAgent;
+  const os = /Android|iPhone|iPad|iPod/.test(agent) || (/Macintosh/.test(agent) && navigator.maxTouchPoints > 1)
+    ? null
+    : /Macintosh|Mac OS X/.test(agent) ? "macos"
+    : /aarch64|arm64|Windows.*ARM/i.test(agent) ? null
+    : /Windows/.test(agent) ? "windows"
+    : /Linux.*(?:x86_64|x64|amd64)/i.test(agent) ? "linux" : null;
+  const installer = os ? document.querySelector<HTMLAnchorElement>(`[data-installer="${os}"]`) : null;
+  if (installer) {
+    document.querySelector(`[data-download-platform="${os}"]`)?.classList.add("is-current-platform");
+    for (const link of document.querySelectorAll<HTMLAnchorElement>("[data-download-cta]")) {
+      link.href = installer.href;
+      const label = link.querySelector("[data-download-label]");
+      if (label) label.textContent = installer.dataset.ctaLabel ?? installer.textContent;
+    }
+  }
+</script>

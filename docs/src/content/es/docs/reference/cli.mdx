@@ -1,0 +1,331 @@
+---
+title: 'Referencia CLI'
+description: 'Cada comando AnyPick, indicador global, código de salida y variable de entorno.'
+---
+
+El nombre del comando es `anypick`. Descargue un archivo con suma de verificación de la versión de GitHub o instale el iniciador npm delgado con `npm install --global anypick` (Nodo 18+; descarga la CLI nativa correspondiente en la primera ejecución). Durante el desarrollo, ejecute el mismo árbol de comandos desde una caja con `make run ARGS="…"`; por ejemplo, `make run ARGS="list accounts"`.
+
+La aplicación nativa de macOS es un objetivo independiente que pertenece a la aplicación. Lanza su propio servicio Go incluido y no necesita esta CLI para controlarlo.
+
+## Banderas globales
+
+Válido en cada comando.
+
+| Bandera | Efecto |
+| --- | --- |
+| `-V, --version` | Imprime la versión y sal |
+| `--json` | Salida legible por máquina |
+| `-v, --verbose` | Registro detallado |
+| `-q, --quiet` | Salida mínima |
+| `--dry-run` | Imprima el plan; no escribir nada |
+| `--reveal` | Mostrar secretos — peligrosos |
+| `--no-input` | Nunca avisar, ni siquiera en un TTY |
+| `-y, --yes` | Saltar confirmaciones destructivas |
+| `--trace` | Imprimir nombres de pasos internos, sin secretos |
+| `--tui` | Abra la interfaz de usuario de Terminal para esta ejecución |
+| `--tray` | Seleccione la superficie de la bandeja de compatibilidad para esta ejecución de CLI de origen |
+
+## vínculos
+
+```bash
+anypick use <client> --with <source> [--model <id>] [--transport auto|direct|proxy] [--allow-foreign-config]
+anypick use codex --with <source> --profile <name> [--model <id>] [--transport auto|direct|proxy] [--allow-foreign-config]
+anypick run <client> (--with <source>|--profile <name>) [--model <id>] -- <args…>
+anypick codex profile login <name> [--auth-method <id>] [--source <id>]
+anypick codex profile list
+anypick codex profile show <name>
+anypick codex profile remove <name> [--yes]
+anypick current <provider>
+anypick models <client> [--with <source>]
+anypick link <client> [--with <source>] [--model <id>] [--allow-foreign-config]
+anypick unlink [client]
+anypick reset [client]
+```
+
+| Comando | Descripción |
+| --- | --- |
+| `use` | Establecer lo que usa un cliente de forma predeterminada (se requiere `--with`) |
+| `run` | Lanzar un cliente con su vínculo efectiva |
+| `current` | Mostrar los vínculos efectivos de un proveedor |
+| `models` | Enumere los identificadores de modelo que publica la fuente vinculada |
+| `link` / `unlink` | vínculos con ámbito de proyecto para el directorio actual; `link` sin `--with` vuelve a aplicar la especificación global almacenada |
+| `reset` | Eliminar la configuración administrada por AnyPick para un cliente |
+
+`--with` acepta una cuenta (`grok/work`), un nombre de puerta de enlace, un grupo (`pool:gemini`), el Proxy Hub (`hub:default`) o un preset (`@work-stack`). `--transport` fija la política de ruta en lugar de dejar que el planificador elija.
+
+#### Configuraciones del cliente que AnyPick no posee
+
+AnyPick escribe archivos de configuración de otras herramientas, por lo que se niega a reemplazar un valor que no puede probar que escribió. Si `~/.claude/settings.json` o una configuración de Codex ya apunta a su propio inicio de sesión o punto final, `use` falla con `CLIENT_CONFIG_FOREIGN` y nombra el archivo y las claves en juego; la configuración se deja con bytes idénticos.
+
+`--allow-foreign-config` es la respuesta explícita: realiza una copia de seguridad del archivo actual en `$ANYPICK_HOME/recovery/clients/<client>/` y luego reemplaza esos valores. El consentimiento es por ejecución y nunca persiste, y la aplicación de escritorio hace la misma pregunta con un botón **Administrar con AnyPick** en lugar de una bandera. Un cliente que AnyPick ya administra (un punto final de proxy de bucle invertido o una configuración que lleva el marcador administrado de AnyPick) se actualiza sin preguntar.
+
+### Perfiles del Codex con nombre
+
+`--profile` le da a Codex un nombre de perfil nativo estable mientras AnyPick almacena la fuente detrás de él. Esto es útil cuando un shell o script necesita varias rutas guardadas: cada perfil tiene sus propias `CODEX_HOME`, `<name>.config.toml` y `auth.json`. Los perfiles respaldados por proxy también obtienen un archivo de entorno exclusivo del propietario.
+
+Para una cuenta Codex guardada, `auto` utiliza un perfil nativo de inicio y copia el `auth.json` guardado de esa cuenta; no toca el `CODEX_HOME` activo de la aplicación de escritorio. Para crear una cuenta y un perfil sin cambiar el inicio de sesión del escritorio, use `profile login`:
+
+```bash
+anypick codex profile login work
+anypick use codex --with codex/work --profile work --model gpt-5.6
+anypick use codex --with openrouter-work --profile gateway
+anypick use codex --with hub:default --profile hub-work
+```
+
+`profile login` ejecuta el inicio de sesión oficial del Codex con `CODEX_HOME=$ANYPICK_HOME/clients/codex/profiles/work/codex-home`, por lo que el flujo del navegador escribe la cuenta B allí. AnyPick luego guarda el mismo archivo que la instantánea `codex/work` y restaura el puntero activo del escritorio. Para utilizar un proxy respaldado por cuenta, habilítelo y fije `--transport proxy`:
+
+```bash
+anypick proxy enable codex work
+anypick use codex --with codex/work --profile work-proxy --transport proxy
+```
+
+La configuración predeterminada de Codex CLI acepta las mismas rutas sin `--profile`:
+
+```bash
+anypick use codex --with codex/work --transport proxy
+anypick use codex --with hub:default
+```
+
+Para ejecutar un perfil a través de un proceso CLI de Codex aislado, utilice:
+
+```bash
+anypick run codex --profile personal -- exec --help
+anypick codex profile list
+```
+
+Para una invocación sin formato, utilice el comando `launch` impreso por `anypick codex profile show <name>`. Establece explícitamente el `CODEX_HOME` específico del perfil; Los perfiles respaldados por proxy también obtienen su archivo env exclusivo para propietarios. No imprima ni confirme ese archivo env: contiene la credencial del proxy local. Los perfiles respaldados por Hub tienen tokens de ruta distintos, por lo que la activación de un perfil no invalida la ruta predeterminada ni otro perfil. Estos comandos configuran la CLI del Codex; Codex Desktop mantiene su propia cuenta iniciada y no sigue la CLI `CODEX_HOME`.
+
+`anypick codex profile remove <name>` elimina la ruta y los archivos que AnyPick generó para ella (la configuración del perfil, su catálogo de modelos y su archivo env). El `CODEX_HOME` privado del perfil permanece en su lugar, por lo que al iniciar sesión nuevamente con el mismo nombre se reutiliza. Eliminar la *cuenta* a la que apunta un perfil es diferente: `anypick account remove codex work` también elimina los perfiles nombrados vinculados a esa cuenta, incluido el hogar de credenciales, y los nombra en el resultado. Los perfiles que apuntan a una puerta de enlace, un centro, un grupo o una cuenta diferente no se modifican. AnyPick barre los perfiles sobrantes de una eliminación anterior en el siguiente inicio y `anypick doctor` los informa hasta entonces.
+
+<Aside type="caution" title="Uso no interactivo">
+`use <client>` requiere `--with`. Sin él, no hay nada de dónde derivar la fuente, por lo que el comando sale de `2` en lugar de adivinar.
+</Aside>
+
+## Inventario
+
+```bash
+anypick list [providers|accounts]   # default: providers
+anypick providers
+anypick clients
+```
+
+No existe un alias `ls` ni un formulario `list gateways|clients|presets`: las puertas de enlace, los presets y los complementos tienen cada uno su propia familia de comandos a continuación.
+
+## Agregar fuentes
+
+```bash
+anypick add account <provider> --name <name> [--current|--new] [--source <id>] [--force]
+anypick add account <provider> --new --name <name> [--auth-method <id>] [--source <id>]
+anypick add account <provider> --name <name> --credential <kind> --secret [--option profile=<id>] [--region <region>]
+anypick add gateway <name> --provider <id> [--endpoint url]
+    [--api-key [key] | --api-key-env <var> | --secret <key>]
+    [--model <id>] [--models <role=id>]
+```
+
+`--current` toma una instantánea del inicio de sesión que está activo ahora. `--new` utiliza un inicio de sesión de navegador propiedad del proveedor disponible y guarda su credencial nativa resultante; de lo contrario, guarda el inicio de sesión actual e imprime la continuación del manual. Se prefieren los métodos oficiales, mientras que `--auth-method <id>` puede seleccionar cualquier método que el proveedor declare, incluido un método comunitario. `--source <id>` elige una tienda nativa explícita para un proveedor de múltiples fuentes. `--credential <kind>` (cubre `--api-key` para proveedores compatibles) más `--secret`, `--api-key`, o un mensaje `--api-key` simple proporciona una credencial de clave API; `--profile` o `--option profile=<id>` selecciona un perfil de punto final y `--region` es la región de nube con clave API de Kiro. Omita el valor `--secret` para usar un mensaje enmascarado o páselo a través de `ANYPICK_SECRET`.
+
+## Cuentas
+
+```bash
+anypick account list [provider]
+anypick account refresh [provider [name]] [--all]
+anypick account remove <provider> <name> [--yes]
+anypick account export <provider> <name> [--out <file>]   # -o <file>; defaults to ~/.anypick/exports/*.json
+anypick account export [provider] --all [--out <file>] [--overwrite]
+anypick account import <provider> <name> <file.json> [--force]   # or -i <file.json>
+anypick account import <file.json> [<file2.json> …] [--force]
+```
+
+`refresh` adopta el inicio de sesión en vivo actual del proveedor en una cuenta guardada. Sin ningún proveedor, prueba todas las cuentas guardadas; con un proveedor (y opcionalmente un nombre), actualiza solo esos. Se rechaza una actualización que le daría a una cuenta la instantánea de otra cuenta (un inicio de sesión sigue siendo una cuenta), por lo que actualizar un proveedor completo no puede colapsar silenciosamente distintos inicios de sesión en el actual. No existe ningún alias `rm`.
+
+## puertas de enlace
+
+```bash
+anypick gateway add <name> --provider <id> [--endpoint url]
+    [--api-key [key]|--api-key-env <var>|--secret <key>]
+    [--model <id>] [--models <role=id>]
+anypick gateway list
+anypick gateway show <name>
+anypick gateway edit <name> [--endpoint url] [--model id] [-m id] [--api-key key]
+anypick gateway remove <name>
+```
+
+`show` enmascara la clave API a menos que pase la `--reveal` global. `edit` acepta `--api-key` para reemplazar la clave almacenada y `-m` como la forma abreviada de `--model`.
+
+## Preajustes
+
+```bash
+anypick preset list
+anypick preset show <name>
+anypick preset remove <name>
+```
+
+Los nombres presets se escriben sin `@` aquí; el prefijo `@` es solo la forma en que se hace referencia a uno en `--with`.
+
+## representantes
+
+```bash
+anypick proxy enable|disable <provider> <account> [--port N]
+anypick proxy start|stop|status|token <provider> <account>
+anypick proxy config <provider> <account> [--port N]
+anypick proxy restart <provider> <account>
+anypick proxy logs <provider> <account> [--lines N] [--follow]
+```
+
+`--port` en `enable`/`config` fija un puerto; de lo contrario, se utiliza el primer puerto libre. `token` imprime o rota (`--rotate`) el token de autenticación/clave API para el proxy. `logs` imprime las últimas 50 líneas de forma predeterminada.
+
+### Piscinas
+
+```bash
+anypick proxy pool status <provider>
+anypick proxy pool enable <provider> [--strategy failover|round-robin]
+    [--mode single|multi] [--port N] [-p N] [+account|-account ...]
+anypick proxy pool member <provider> <account> <on|off>
+anypick proxy pool start <provider>
+anypick proxy pool stop <provider>
+anypick proxy pool disable <provider>
+```
+
+`enable` agrega miembros `+account` y pausa los `-account` en una llamada; la estrategia predeterminada es `failover`, el modo predeterminado `multi`. Con `round-robin` cada solicitud comienza en el siguiente miembro elegible; con `failover` la cuenta que respondió por última vez sigue funcionando hasta que es rechazada. De cualquier manera, un error en la clase de cuota mueve la solicitud al siguiente miembro.
+
+### Centro de proxy
+
+```bash
+anypick proxy hub status <name>
+anypick proxy hub enable <name> [--host <host>] [--port N] [-p N]
+    [--strategy failover|round-robin] [--start]
+anypick proxy hub source <name> <provider> <account>
+anypick proxy hub owner <name> <model> <provider>/<account>
+anypick proxy hub preview <name>
+anypick proxy hub start <name>
+anypick proxy hub stop <name>
+```
+
+`source` alterna: se eliminan las fuentes presentes, se agregan las ausentes (se requiere un nombre de cuenta). `--strategy round-robin` hace que el centro distribuya cada modelo entre las cuentas habilitadas que pueden atenderlo (las cuentas del proveedor al que se resuelve el modelo) en lugar de fijarlo a uno; sin la bandera se mantiene el modo actual. Vincule con `--with hub:<name>` después de habilitar al menos una fuente. `owner` elige qué cuenta gana cuando dos fuentes anuncian la misma identificación de modelo; `preview` actualiza catálogos e imprime rutas y conflictos.
+
+## Complementos
+
+```bash
+anypick plugin list
+anypick plugin add <dir>
+anypick plugin enable <name>
+anypick plugin disable <name>
+anypick plugin trust <name>
+anypick plugin remove <name>
+```
+
+`add` instala un directorio local **deshabilitado**. `enable` es la decisión de confianza y las indicaciones; necesita el `-y` global cuando no hay TTY. `trust` vuelve a fijar el resumen del paquete después de que cambia el código del complemento. Consulte [Complementos](/es/docs/guides/plugins).
+
+## Superficies CLI de origen y supervisor de compatibilidad
+
+```bash
+anypick tui
+anypick tray
+anypick start
+anypick status
+anypick stop
+```
+
+`anypick tui` siempre abre la [Aplicaciones / Terminal UI](/es/docs/guides/terminal-ui). La familia de comandos `tray` es implementada por el motor Go (el árbol de TypeScript y su superficie de bandeja ya no existen): `anypick tray` imprime la instantánea de compatibilidad, mientras que `start`, `status` y `stop` controla el supervisor de compatibilidad y los proxies que posee.
+
+Estos comandos no definen la propiedad de la aplicación nativa. La aplicación macOS resuelve e inicia `Contents/Helpers/anypick-core`, mantiene el panel rápido de la barra de menú dentro de la misma aplicación y detiene el asistente al salir de la aplicación explícita. Consulte [aplicación macOS y barra de menú](/es/docs/guides/tray).
+
+## Salud
+
+```bash
+anypick doctor [target]
+anypick doctor --fix [--dry-run] [-y]
+```
+
+Consulte [Solución de problemas](/es/docs/reference/troubleshooting) para saber qué puede tocar `--fix`.
+
+## Comprobaciones de actualización
+
+```bash
+anypick update
+anypick update --json
+```
+
+Esta verificación de asesoramiento compara la versión en ejecución con la última versión de GitHub. Imprime la ruta de instalación disponible; no cambia la instalación. La guía apunta a la página de lanzamiento, un administrador de paquetes disponible o un pago de origen:
+
+```bash
+git pull && make build
+```
+
+Hasta que se publique una versión, la verificación informa `no published release yet` y apunta al flujo de trabajo de origen. `--json` devuelve las versiones actuales y más recientes:
+
+```bash
+anypick update --json
+```
+
+```json
+{ "current": "1.0.0", "latest": "1.1.0" }
+```
+
+El motor de actualización también tiene comandos explícitos de verificación y descarga. El panel macOS **Configuración → Actualizaciones** usa los mismos comandos:
+
+```bash
+anypick update check --json
+anypick update download --json
+```
+
+`check` informa el estado de actualización y la acción de instalación para el canal detectado. `download` recupera un recurso de instalación directa en la caché de usuario de AnyPick y compara su SHA-256 con el archivo de suma de comprobación de esa versión. No reemplaza ni reinicia la aplicación instalada. En Configuración, **Mostrar en Finder** abre el archivo descargado para que puedas instalarlo siguiendo los pasos habituales para ese canal. Las instalaciones del administrador de paquetes muestran el comando de actualización correspondiente.
+
+La aplicación macOS no está certificada ante notario; Los pasos de aprobación del primer lanzamiento se encuentran en [Aplicaciones de escritorio](/es/docs/guides/tray).
+
+<Aside type="caution" title="Las descargas no se instalan solas.">
+Para una instalación directa, la verificación de actualización descarga y verifica el recurso de lanzamiento. Aún instala esa descarga manualmente. Utilice el comando mostrado por AnyPick para instalaciones administradas por paquetes o para reinstalar un archivo local `.deb` o `.rpm`.
+</Aside>
+
+## Finalización del caparazón
+
+```bash
+anypick completion zsh     # also: bash | fish
+```
+
+Agréguelo a su archivo de inicio de shell o evalúelo directamente:
+
+```bash
+source <(anypick completion zsh)
+```
+
+## Códigos de salida
+
+| Código | Significado |
+| --- | --- |
+| `0` | Éxito |
+| `1` | Fallo operativo |
+| `2` | Uso no válido: falta cliente o fuente, `use` desnudo sin TTY |
+| `3` | No encontrado |
+| `4` | Se requiere autenticación |
+| `5` | Conflicto de capacidad, transporte no compatible o sin vínculo |
+| `6` | Fallo de salud |
+| `7` | Falta la dependencia requerida, como un binario proxy externo |
+| `8` | Sobre de importación mal formado o que no es de confianza |
+| `9` | La importación supera los límites de tamaño o número de archivos |
+| `130` | Cancelado con SIGINT |
+
+## Variables de entorno
+
+### Cualquier elección
+
+| Variables | Efecto |
+| --- | --- |
+| `ANYPICK_HOME` | Directorio de datos. Predeterminado `~/.anypick` |
+| `ANYPICK_LANG` | Idioma de visualización (`en`, `zh-CN`, `es`, `fr`, `de`, `ja`, `ko`, `pt-BR` o `vi`). El valor predeterminado es la configuración regional del proceso (`LC_ALL`, `LC_MESSAGES` o `LANG`; Windows usa el idioma de interfaz de usuario preferido); Las configuraciones regionales no admitidas y los mensajes no traducidos vuelven al inglés |
+| `ANYPICK_SECRET` | Valor de credencial para `add account` / `add <provider>`, por lo que no es visible en el listado de procesos |
+| `ANYPICK_NO_PLUGINS=1` | Omitir la carga de complementos por completo |
+| `NO_COLOR` | Deja todo el color; glifos todavía llevan el estado |
+
+### Anulaciones del proveedor
+
+| Variables | Efecto |
+| --- | --- |
+| `GEMINI_API_KEY`, `GOOGLE_API_KEY` | Clave API Live Gemini leída por `add account gemini --current` |
+| `GEMINI_API_KEY_UPSTREAM` | Anule la URL base ascendente de la clave API de Gemini |
+| `GEMINI_CODE_ASSIST_UPSTREAM` | Anular el punto final de Gemini Code Assist |
+| `GEMINI_CLI_HOME`, `GEMINI_CONFIG_DIR` | Resolución del directorio de configuración de Gemini (`GEMINI_CLI_HOME` gana, coincidiendo con la CLI) |
+| `CLAUDE_BINARY`, `CODEX_BINARY`, `KIRO_BINARY`, `GROK_BINARY` | Lanzar un binario de cliente específico |
+| `KIROLINK_BIN` | Ruta a un binario externo `kirolink` |
+| `WORKBUDDY_BASE_URL` | Anular la base API de WorkBuddy/CodeBuddy |
+| `CLINE_API_BASE_URL`, `CLINE_WORKOS_CLIENT_ID` | Anulaciones de Cline API/WorkOS (la identificación del cliente es pública; anula el valor predeterminado integrado) |

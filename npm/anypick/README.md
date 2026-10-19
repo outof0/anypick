@@ -1,23 +1,54 @@
-# AnyPick npm launcher
+# AnyPick
 
-This package is a thin launcher for the released AnyPick Go CLI. It downloads
-the matching, checksum-verified CLI archive on first use and then forwards
-arguments, standard I/O, signals, and the exit status to that binary.
+**Pick any. Code on.**
 
-It does not contain a Node service, a second implementation, or a plugin
-runtime. Native desktop applications remain Node-free.
+AnyPick connects the AI accounts and API keys you already have to the coding
+apps you use, including Claude Code, OpenAI Codex, Gemini CLI, and OpenCode.
+Save your logins, choose a source for each app, and switch accounts from one
+place.
+
+AnyPick writes the app's configuration and runs a local protocol translator
+when needed. Supported connections depend on the app and provider; see the
+[compatibility matrix](https://github.com/outof0/anypick#supported).
+
+## What you can do
+
+- Save multiple AI accounts and API keys and switch between them.
+- Choose a default source for each coding app or a different source per project.
+- Connect supported providers through local proxies when protocols differ.
+- Manage your setup from the command line or interactive terminal UI.
+
+## Install
+
+Requires Node.js 18 or later. Available for macOS (Apple silicon and Intel),
+Linux (x64 and arm64), and Windows (x64 and arm64).
 
 ```bash
 npm install --global anypick
 anypick --help
 ```
 
-The supported npm targets are macOS (Apple silicon and Intel), Linux (x64 and
-arm64), and Windows (x64 and arm64). The downloaded CLI is cached under the
-platform cache directory. Set `ANYPICK_CACHE_DIR` to choose another cache, or
-`ANYPICK_BIN` to run a locally built Go binary.
+## Get started
 
-Releases use npm trusted publishing from `.github/workflows/release.yml`. The
-npm package settings must point at `outof0/anypick`, workflow file
-`.github/workflows/release.yml`, and the `production` environment before the
-workflow's `publish-npm` input is enabled.
+For example, save your current Codex login, select it for Codex, and launch:
+
+```bash
+anypick add account codex --current --name personal
+anypick use codex --with codex/personal
+anypick run codex
+```
+
+Read the [getting started guide](https://anypick.dev/docs/getting-started/)
+for other apps, providers, and project settings.
+
+This package installs the CLI and terminal UI. Desktop apps are available
+separately from [GitHub Releases](https://github.com/outof0/anypick/releases/latest).
+
+## How installation works
+
+On first use, the npm launcher downloads the matching native AnyPick CLI
+archive, verifies its checksum, and caches the binary locally. Later runs use
+that cached binary.
+
+Set `ANYPICK_CACHE_DIR` to choose another cache directory, or `ANYPICK_BIN` to
+use a local AnyPick binary.

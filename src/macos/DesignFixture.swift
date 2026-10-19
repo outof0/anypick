@@ -102,8 +102,9 @@ enum DesignFixture {
         ],
         modelOptions: ["Claude Opus 4.1", "Claude Sonnet 4", "Claude Haiku 4.5"],
         usageWindows: [
-          DesignUsageWindow(label: "Session", remainingPercent: 72),
-          DesignUsageWindow(label: "Weekly", remainingPercent: 41),
+          DesignUsageWindow(label: "5h", remainingPercent: 72, limitWindowSeconds: 18000),
+          DesignUsageWindow(label: "Weekly", remainingPercent: 41, limitWindowSeconds: 604800),
+          DesignUsageWindow(label: "Fable · Weekly", remainingPercent: 58, limitWindowSeconds: 604800),
         ],
         usageRemaining: "72% remaining"
       ),

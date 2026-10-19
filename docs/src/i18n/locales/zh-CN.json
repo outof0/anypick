@@ -22,8 +22,7 @@
     "editThisPage": "编辑此页",
     "siteNavigation": "站点导航",
     "navigation": "导航",
-    "closeSidebar": "关闭侧栏",
-    "englishContent": "此页面内容目前提供英文版本。"
+    "closeSidebar": "关闭侧栏"
   },
   "search": {
     "label": "搜索文档",
@@ -72,5 +71,26 @@
     "tabs": "包管理器",
     "copy": "复制到剪贴板",
     "copied": "已复制到剪贴板"
+  },
+  "docsNav": {
+    "appsTerminalUi": "应用与终端界面",
+    "guides": "指南",
+    "reference": "参考"
+  },
+  "downloads": {
+    "kicker": "下载 AnyPick",
+    "title": "从下一次账号切换开始。",
+    "body": "免费桌面应用。选择平台，安装后添加你已有的账号。",
+    "forPlatform": "下载 {{platform}} 版",
+    "formats": "其他格式",
+    "releases": "所有版本与校验和",
+    "mac": "macOS 14+ · Apple Silicon + Intel",
+    "linux": "Ubuntu / Debian · x86-64",
+    "windows": "Windows 10+ · x64",
+    "arm": "使用 Linux ARM64 或 Windows ARM64？请选择原生 CLI。",
+    "guide": "安装指南",
+    "unavailable": "此版本未提供桌面应用。",
+    "firstRun": "打开应用 → 添加账号 → 选择编程工具。",
+    "allPlatforms": "所有平台与安装方式"
   }
 }

@@ -13,7 +13,9 @@ type CatalogShape<T> = {
   [K in keyof T]: T[K] extends string ? string : CatalogShape<T[K]>;
 };
 
-const zhCN: CatalogShape<typeof en> = zhCNMessages;
+// Simplified Chinese has a dedicated landing page instead of the shared page
+// backed by the `landing` catalog section.
+const zhCN: CatalogShape<Omit<typeof en, "landing">> = zhCNMessages;
 const es: CatalogShape<typeof en> = esMessages;
 const fr: CatalogShape<typeof en> = frMessages;
 const de: CatalogShape<typeof en> = deMessages;
@@ -80,6 +82,16 @@ export function localePrefix(locale: Locale): string {
   return localePaths[locale];
 }
 
+export function docsNavigationMessage(label: string) {
+  switch (label) {
+    case "Home": return "header.docs";
+    case "Apps & Terminal UI": return "docsNav.appsTerminalUi";
+    case "Guides": return "docsNav.guides";
+    case "Reference": return "docsNav.reference";
+    default: return undefined;
+  }
+}
+
 export function localizedPath(locale: Locale, path: string): string {
   const normalized = (path.startsWith("/") ? path : `/${path}`)
     .replace(/^\/+/, "/")
@@ -87,10 +99,7 @@ export function localizedPath(locale: Locale, path: string): string {
   const prefix = localePrefix(locale);
   if (normalized === "/") {
     if (locale === "en") return "/";
-    if (locale === "zh-CN") return prefix;
-    // These locales have translated docs chrome and English article fallback.
-    // Their docs index is the localized entry point until a landing page is translated.
-    return `${prefix}/docs`;
+    return `${prefix}/`;
   }
   return `${prefix}${normalized}`;
 }

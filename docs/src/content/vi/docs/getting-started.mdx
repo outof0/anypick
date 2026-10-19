@@ -1,0 +1,184 @@
+---
+title: 'Bắt đầu'
+description: 'Cài đặt bản phát hành AnyPick, mở Ứng dụng và kết nối Claude hoặc Codex với thông tin đăng nhập bạn đã có.'
+---
+
+AnyPick trả lời một câu hỏi hàng ngày:
+
+> **Hiện tại, Claude Code hoặc Codex nên sử dụng thông tin đăng nhập nào?**
+
+Bạn đã trả tiền cho các nhà cung cấp. Bạn đã sử dụng các công cụ lập trình. AnyPick chụp nhanh những thông tin đăng nhập đó, khởi động proxy cục bộ khi các công cụ sử dụng các giao thức khác nhau và ghi cấu hình client — vì vậy, bạn chọn một lần trong **Ứng dụng** thay vì chỉnh sửa tệp bằng tay.
+
+## Cài đặt một bản phát hành
+
+Cài đặt CLI từ [Bản phát hành GitHub](https://github.com/outof0/anypick/releases/latest) mới nhất bằng trình quản lý gói cho nền tảng của bạn:
+
+```bash
+# macOS
+brew install outof0/tap/anypick
+
+# Linux, or any OS with Node 18+ (downloads the matching native CLI on first run)
+npm install -g anypick
+```
+
+```powershell
+# Windows
+scoop bucket add outof0 https://github.com/outof0/scoop-bucket
+scoop install anypick
+```
+
+Các ứng dụng dành cho máy tính để bàn (`.dmg`, `.deb`, `.rpm`, AppImage, `.msi`, `.exe`) và tarball CLI được liệt kê tổng kiểm tra được đính kèm vào mọi [phát hành](https://github.com/outof0/anypick/releases/latest). Kiểm tra cài đặt bằng `anypick --version`, sau đó chạy `anypick doctor`.
+
+## Phát hành kênh và bản dựng nguồn
+
+<Render file="install-vi" />
+
+## Mở ứng dụng
+
+Mục tiêu macOS gốc tự động mở cửa sổ chính thông thường của nó. Bảng điều khiển nhanh trên thanh menu của nó là một phần của cùng một ứng dụng và vẫn khả dụng khi cửa sổ chính đóng lại.
+
+Đối với quy trình làm việc của thiết bị đầu cuối:
+
+```bash
+anypick tui
+```
+
+Bạn truy cập **Ứng dụng**:
+
+```
+ anypick / apps
+
+  Routes for Claude Code and Codex
+ › Claude        not connected                     ○ not set
+   Codex         not connected                     ○ not set
+ ────────────────────────────────────────────────────────────────────────
+ Connect Claude
+ enter to build a route
+ enter connect app a accounts g gateways p proxies d diagnose
+```
+
+Chỉ **Claude Code**, **Codex**, **OpenCode**, **ZCode**, **`dsh`**, **`commandcode`**, **`pi`** và **`omp`** xuất hiện ở đây — chúng có thể được chỉ vào hầu hết mọi nguồn đã lưu. Các công cụ khác chuyển đổi thông tin đăng nhập của riêng họ trong Tài khoản.
+
+Ba thói quen giúp giao diện người dùng an toàn cho người không chuyên:
+
+- **Dòng bên dưới quy tắc là những gì <kbd>enter</kbd> sẽ làm.** Hãy đọc nó trước.
+- **Phần chân trang là toàn bộ sơ đồ bàn phím.** Không có menu ẩn.
+- **Không có gì được lưu cho đến khi bản xem trước cho biết như vậy.** Bạn luôn có thể quay lại <kbd>esc</kbd>.
+
+Các ví dụ lệnh bên dưới hiển thị ngữ pháp CLI của AnyPick. Cài đặt CLI từ kho lưu trữ được liệt kê tổng kiểm tra trên Bản phát hành GitHub hoặc thông qua trình khởi chạy npm mỏng với `npm install --global anypick` (Nút 18+; tải xuống CLI gốc phù hợp trong lần chạy đầu tiên); bạn cũng có thể chạy các đối số tương tự từ quá trình kiểm tra này với `make run ARGS="…"`; ví dụ: `make run ARGS="list accounts"` (hoặc xây dựng một lần với `make build` và chạy trực tiếp `./src/go/bin/anypick-dev …`).
+
+Hướng dẫn đầy đủ về nguồn → mô hình → xem trước: [Giao diện người dùng thiết bị đầu cuối · Ứng dụng](/vi/docs/guides/terminal-ui).
+
+## Lưu thông tin đăng nhập một lần
+
+AnyPick có thể bắt đầu đăng nhập vào trình duyệt do nhà cung cấp sở hữu; nó không tự triển khai hoặc bắt chước luồng OAuth của nhà cung cấp.
+
+Trong giao diện người dùng: <kbd>a</kbd> **Tài khoản** → <kbd>a</kbd> **thêm**. Hoặc:
+
+<Steps>
+<Step title="Thêm thông tin đăng nhập">
+```bash
+anypick add account codex --new --name personal
+# opens Codex browser Auth and saves the result
+
+# If Codex is already signed in, snapshot it instead:
+anypick add account codex --current --name personal
+```
+</Step>
+<Step title="Xem nó được liệt kê">
+```bash
+anypick list accounts
+```
+</Step>
+</Steps>
+
+Cặp `provider/name` (ví dụ: `codex/personal` hoặc `grok/work`) là **nguồn** bạn sẽ đính kèm vào ứng dụng.
+
+<Aside type="tip" title="Đăng nhập lần thứ hai trên cùng một nhà cung cấp">
+`anypick add account codex --new --name work` lưu trữ thông tin xác thực hiện tại, mở xác thực trình duyệt của nhà cung cấp, lưu kết quả và lưu tài khoản đầu tiên. Auth chính thức được ưu tiên; các phương pháp cộng đồng do nhà cung cấp khai báo vẫn có thể được lựa chọn.
+</Aside>
+
+## Kết nối một ứng dụng (Giao diện người dùng ứng dụng)
+
+Quay lại **Ứng dụng** (nhấn <kbd>esc</kbd> cho đến khi bạn thấy `anypick / apps`):
+
+1. Đánh dấu **Claude** hoặc **Codex**.
+2. Nhấn <kbd>enter</kbd> (**kết nối ứng dụng**).
+3. Chọn nguồn:
+   - **Tài khoản gốc** — cùng nhãn hiệu với ứng dụng (chuyển đổi đơn giản).
+   - **Cổng & proxy** — Grok, OpenRouter, proxy Gemini, nhóm, …
+   - **Cài đặt đã lưu** — preset bạn đã lưu trước đó.
+4. Nếu được hỏi, hãy chọn kiểu máy (Claude có thể đặt mặc định / sonnet / opus / haiku).
+5. Đọc **xem trước** — nội dung sẽ được viết và proxy nào sẽ bắt đầu.
+6. Nhấn <kbd>enter</kbd> để ​​kích hoạt.
+
+Khi bạn quay lại Ứng dụng, hàng sẽ hiển thị **● sẵn sàng** với `source · model`.
+
+Đó là toàn bộ sản phẩm để sử dụng hàng ngày. Mở công cụ lập trình như bình thường.
+
+## Các bước tương tự như lệnh (tùy chọn)
+
+Tập lệnh và CI sử dụng các thao tác giống nhau mà không cần giao diện người dùng:
+
+```bash
+anypick use codex --with codex/personal
+anypick run codex
+```
+
+Ví dụ về nhà cung cấp chéo - Claude trên tài khoản Grok (proxy tự động khởi động):
+
+```bash
+anypick add account grok --current --name work
+anypick use claude --with grok/work
+anypick run claude
+```
+
+Khóa API thay vì đăng nhập — đăng ký **cổng**, sau đó chọn trong Ứng dụng hoặc chuyển đến `--with`:
+
+```bash
+anypick add gateway openrouter-work \
+  --provider openrouter \
+  --endpoint https://openrouter.ai/api/v1 \
+  --api-key "$OPENROUTER_API_KEY" \
+  --model anthropic/claude-sonnet-4
+
+anypick use claude --with openrouter-work
+```
+
+## Sau khi thiết lập: ứng dụng hoặc thiết bị đầu cuối
+
+Trên macOS, [thanh menu và ứng dụng gốc](/vi/docs/guides/tray) là bề mặt hàng ngày đầu tiên của ứng dụng. Sử dụng cửa sổ đầy đủ để quản lý và bảng điều khiển nhanh trên thanh menu cho các hành động về tuyến đường và dịch vụ. Đóng cửa sổ chính để ứng dụng chạy; rõ ràng **Thoát AnyPick** dừng dịch vụ đi kèm và thoát.
+
+Giao diện người dùng đầu cuối vẫn là một bề mặt phát triển nguồn riêng biệt; nó không sở hữu hoặc dừng một ứng dụng gốc được khởi chạy riêng.
+
+<Aside type="note" title="Không có TTY, không có giao diện người dùng">
+Các hoạt động chạy theo đường ống hoặc không tương tác không bao giờ mở Ứng dụng. Bare `anypick` trong tập lệnh in trợ giúp và thoát để không có gì bị treo khi chờ khóa.
+</Aside>
+
+## Nơi mọi thứ sống
+
+| | |
+| --- | --- |
+| Dữ liệu | `~/.anypick/anypick.db` |
+| Ghi đè về nhà | `ANYPICK_HOME=/path` |
+| Hoàn thiện vỏ | `source <(anypick completion zsh)` — cũng như `bash`, `fish` |
+
+## Tiếp theo
+
+<CardGrid>
+  <Card title="Giao diện người dùng ứng dụng &amp; thiết bị đầu cuối" href="/vi/docs/guides/terminal-ui">
+    Trình tạo lộ trình đầy đủ: nhóm nguồn, mô hình, bản xem trước, mọi khóa.
+  </Card>
+  <Card title="ứng dụng macOS và thanh menu" href="/vi/docs/guides/tray">
+    Vòng đời ứng dụng gốc, dịch vụ Go đi kèm và bảng điều khiển nhanh.
+  </Card>
+  <Card title="Khái niệm" href="/vi/docs/concepts">
+    Client, nguồn, binding, cài sẵn — bốn từ đằng sau giao diện người dùng.
+  </Card>
+  <Card title="Tham chiếu CLI" href="/vi/docs/reference/cli">
+    Mọi lệnh, cờ, mã thoát và biến môi trường.
+  </Card>
+  <Card title="Khắc phục sự cố" href="/vi/docs/reference/troubleshooting">
+    `anypick doctor` kiểm tra những gì và từ chối chạm vào những gì.
+  </Card>
+</CardGrid>

@@ -19,9 +19,9 @@ import type { DocsPageProps } from "nimbus-docs/types";
 import { getVersionStatus, getVersionAlternates } from "nimbus-docs";
 import { getTranslator, localeForPath, localizedPath } from "@/i18n";
 
-type Props = DocsPageProps & { audience?: "human"; pagefindLanguage?: string };
+type Props = DocsPageProps & { audience?: "human"; pagefindLanguage?: string; socialTitle?: string };
 
-const { title, description, sidebar, headings, breadcrumbs, prevNext, mode = "doc", banner, head = [], searchable, noindex, markdownUrl, socialImage, lastUpdated, editUrl, draft, audience, collection, entryId, pagefindLanguage } = Astro.props;
+const { title, description, sidebar, headings, breadcrumbs, prevNext, mode = "doc", banner, head = [], searchable, noindex, markdownUrl, socialImage, lastUpdated, editUrl, draft, audience, collection, entryId, pagefindLanguage, socialTitle } = Astro.props;
 const locale = localeForPath(Astro.url.pathname);
 const t = await getTranslator(locale);
 
@@ -77,7 +77,7 @@ const hasContentFooter = Astro.slots.has("content-footer");
 const hasPagination = Astro.slots.has("pagination");
 ---
 
-<BaseLayout title={title} description={description} noindex={noindex || draft} markdownUrl={markdownUrl} socialImage={socialImage} lastUpdated={lastUpdated} head={head} collection={collection} entryId={entryId} pagefindLanguage={pagefindLanguage}>
+<BaseLayout title={title} description={description} noindex={noindex || draft} markdownUrl={markdownUrl} socialImage={socialImage} lastUpdated={lastUpdated} head={head} collection={collection} entryId={entryId} pagefindLanguage={pagefindLanguage} socialTitle={socialTitle}>
   <div class="flex flex-col min-h-screen">
     {hasHeader ? <slot name="header" /> : <Header collection={collection} entryId={entryId} showSidebar={showSidebar} locale={locale} />}
 

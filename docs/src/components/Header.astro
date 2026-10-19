@@ -7,7 +7,7 @@ import { SearchTrigger } from "./ui/search";
 import LanguageSwitcher from "./LanguageSwitcher.astro";
 import { config } from "virtual:nimbus/config";
 import { getSidebarSections } from "nimbus-docs";
-import { getTranslator, localeForPath, localePrefix, localizedPath, type Locale } from "@/i18n";
+import { docsNavigationMessage, getTranslator, localeForPath, localePrefix, localizedPath, type Locale } from "@/i18n";
 
 interface Props {
   /** Astro collection id for the current page, forwarded from DocsLayout. */
@@ -38,22 +38,25 @@ const sourceSlug = prefix && (currentSlug === prefix || currentSlug.startsWith(`
   ? currentSlug.slice(prefix.length) || "/"
   : currentSlug;
 const sourceSections = await getSidebarSections(sourceSlug, { collection });
-const sections = sourceSections.map((section) => ({
-  ...section,
-  href: localizedPath(locale, section.href),
-}));
+const sections = sourceSections.map((section) => {
+  const message = docsNavigationMessage(section.label);
+  return {
+    ...section,
+    label: message ? t(message) : section.label,
+    href: localizedPath(locale, section.href),
+  };
+});
 const showSections = sections.length >= 2;
 
 // The docs live under /docs, so the landing page needs a way in. When the
 // sidebar has enough top-level sections to derive its own nav, that wins.
 const homeHref = localizedPath(locale, "/");
 const docsHref = localizedPath(locale, "/docs");
-const gettingStartedHref = localizedPath(locale, "/docs/getting-started");
 const docsIsActive = currentSlug === docsHref || currentSlug.startsWith(`${docsHref}/`);
 ---
 
 {appearance === "landing" ? (
-  <header class="sticky top-0 z-30 border-b border-white/10 bg-[#0B0F19]/82 backdrop-blur-xl">
+  <header class="landing-header sticky top-0 z-30 border-b border-white/10 bg-[#0B0F19]/82 backdrop-blur-xl">
     <div class="mx-auto flex h-16 w-full max-w-7xl items-center justify-between px-5 sm:px-8">
       <a
         href={homeHref}
@@ -63,10 +66,11 @@ const docsIsActive = currentSlug === docsHref || currentSlug.startsWith(`${docsH
         <img src="/logo-dark.svg" alt={config.title} width="98" height="20" />
       </a>
 
-      <nav aria-label={t("header.primaryNavigation")} class="flex items-center gap-1 sm:gap-2">
+      <nav aria-label={t("header.primaryNavigation")} class="landing-nav flex items-center gap-1 sm:gap-2">
+        {config.search !== false && <SearchTrigger appearance="landing" />}
         <a
           href={docsHref}
-          class="rounded-lg px-3 py-2 text-sm font-medium text-[#98A2B3] no-underline transition-colors hover:bg-white/5 hover:text-[#F8FAFC] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#A78BFA]"
+          class="landing-docs-link rounded-lg px-3 py-2 text-sm font-medium text-[#98A2B3] no-underline transition-colors hover:bg-white/5 hover:text-[#F8FAFC] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#A78BFA]"
         >
           {t("header.docs")}
         </a>
@@ -75,17 +79,17 @@ const docsIsActive = currentSlug === docsHref || currentSlug.startsWith(`${docsH
             href={config.github}
             target="_blank"
             rel="noopener"
-            aria-label="AnyPick on GitHub"
-            class="rounded-lg p-2 text-[#98A2B3] no-underline transition-colors hover:bg-white/5 hover:text-[#F8FAFC] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#A78BFA]"
+            aria-label={t("header.starOnGitHub")}
+            class="landing-github-link rounded-lg p-2 text-[#98A2B3] no-underline transition-colors hover:bg-white/5 hover:text-[#F8FAFC] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#A78BFA]"
           >
             <Icon name="ph:github-logo" class="h-5 w-5" />
           </a>
         )}
         <a
-          href={gettingStartedHref}
-          class="ml-1 rounded-lg bg-[#7C3AED] px-3.5 py-2 text-sm font-semibold text-white no-underline shadow-lg shadow-[#7C3AED]/20 transition-colors hover:bg-[#8B5CF6] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C4B5FD] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0B0F19]"
+          href="#download" data-download-cta
+          class="landing-start-link ml-1 whitespace-nowrap rounded-lg bg-[#7C3AED] px-3.5 py-2 text-sm font-semibold text-white no-underline shadow-lg shadow-[#7C3AED]/20 transition-colors hover:bg-[#8B5CF6] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C4B5FD] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0B0F19]"
         >
-          {t("header.getStarted")}
+          <span data-download-label>{t("downloads.kicker")}</span>
         </a>
         <LanguageSwitcher locale={locale} pathname={currentSlug} label={t("header.language")} appearance="landing" />
       </nav>
@@ -173,3 +177,16 @@ const docsIsActive = currentSlug === docsHref || currentSlug.startsWith(`${docsH
     </div>
   </header>
 )}
+
+<style>
+  @media (max-width: 27rem) {
+    .landing-nav {
+      gap: 0;
+    }
+
+    .landing-docs-link,
+    .landing-github-link {
+      display: none;
+    }
+  }
+</style>

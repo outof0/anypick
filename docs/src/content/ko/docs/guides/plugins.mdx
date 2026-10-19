@@ -1,0 +1,85 @@
+---
+title: '플러그인'
+description: '기본 AnyPick 빌드에서 플러그인 레지스트리가 수행하는 작업(설치, 고정, 활성화)과 플러그인 코드가 실행되지 않는 이유.'
+---
+
+기본 AnyPick 빌드는 플러그인 **레지스트리**를 유지하지만 플러그인 **호스트**는 유지하지 않습니다. 플러그인을 설치하고 전체 패키지 다이제스트에 고정한 다음 이름으로 활성화할 수 있습니다. 코드를 로드하거나 실행하는 것은 없습니다.
+
+<Aside type="caution" title="기본 빌드에서는 플러그인 코드가 실행되지 않습니다.">
+이전 릴리스에서는 타사 플러그인 모듈을 AnyPick 프로세스에 로드했습니다. 네이티브 빌드는 그렇지 않습니다. 플러그인 호스트가 없으므로 활성화된 플러그인은 현재 귀하의 자격 증명에 대한 액세스 권한을 제3자 코드에 부여하지 않습니다. [ADR-0021](https://github.com/outof0/anypick/blob/main/adr/0021-plugin-host-removed-from-native-builds.md)을 참조하세요. 이것을 영구적인 보장이 아닌 현재 상태로 취급하십시오. Go-native 실행자가 도착하면 이 페이지와 `SECURITY.md`가 동일한 커밋에서 변경됩니다.
+</Aside>
+
+## 아직도 작동하는 것
+
+```bash
+anypick plugin add ./acme-provider   # recorded, disabled, digest pinned
+anypick plugin list
+anypick plugin enable acme-provider  # prompts — records the trust decision
+```
+
+`add`는 절대 활성화되지 않습니다. 플러그인은 어느 쪽이든 AnyPick의 레지스트리에 기록됩니다.
+
+```
+  off  acme-provider        1.0.0      82aae3b7898d
+    /Users/you/src/acme-provider
+```
+
+짧은 16진수는 전체 플러그인 패키지(매니페스트 및 디렉터리 아래에 제공된 모든 파일)의 SHA-256 다이제스트입니다. AnyPick은 로드할 때마다 이를 다시 계산하고 비교하므로 승인한 이후 변경된 패키지는 거부됩니다.
+
+```
+  fail acme-provider        1.0.0      82aae3b7898d
+    plugin acme-provider has changed since you trusted it
+    → anypick plugin trust acme-provider
+```
+
+이는 캐시 누락이 아니라 의도적인 마찰입니다. 다이제스트는 귀하가 승인한 것입니다. 차이점을 검토한 후 `anypick plugin trust acme-provider`로 다시 고정하세요.
+
+## 달라진 점
+
+호스트가 없기 때문에 모든 후보는 로드가 아닌 로드 실패를 보고합니다. 이는 의도적인 것입니다. 조용한 빈 목록은 정상적인 플러그인 세트처럼 보일 수 있으므로 `anypick doctor`, `plugin list` 및 데스크톱 앱이 모두 그 이유를 대신 표시합니다.
+
+```bash
+anypick plugin disable acme-provider  # keep it installed, stop considering it
+anypick plugin remove acme-provider   # uninstall
+ANYPICK_NO_PLUGINS=1 anypick doctor   # skip every plugin for one run
+```
+
+## 호환되는 공급자가 내장되어 있습니다.
+
+`bundled:popular-providers` 팩으로 배송되었던 공급자는 이제 Go 엔진에 의해 직접 등록됩니다. 아무것도 설치하지 않으며 즉시 관리 계정으로 사용할 수 있습니다. 아래 표에는 구독 키 공급업체가 나와 있습니다. 전체 내장 세트는 `src/go/internal/provider/compatible.go`의 `BuiltinDefinitions()`입니다.
+
+```bash
+# Omit the --secret value to use the masked prompt.
+anypick add account kimi --credential subscription-key --secret --name personal
+anypick add account minimax --credential api-key --secret --name paygo \
+  --option profile=global
+anypick add account mimo --credential subscription-key --secret --name europe \
+  --option profile=token-plan-ams
+```
+
+| 공급자 | `api-key` | `subscription-key` 프로필 |
+| --- | --- | --- |
+| 키미 | 오픈 플랫폼(`global`, `china`) | 키미코드 회원 |
+| GLM | 빅모델 / Z.AI (`china`, `global`) | GLM 코딩 계획(`china`, `global`) |
+| 미니맥스 | 종량제(`china`, `global`) | 토큰 플랜(`china`, `global`) |
+| 미모 | 종량제(`global`) + api-key를 통한 토큰 플랜(`token-plan-cn`, `token-plan-sgp`, `token-plan-ams`) | 토큰 플랜(`token-plan-cn`, `token-plan-sgp`, `token-plan-ams`) |
+| 딥시크 | 플랫폼 API | — |
+| 퀀 | 모델 스튜디오(`intl`, `china`) | 코딩 계획 / 토큰 계획 |
+| 방주 | Volcengine / BytePlus(`china`, `global`) | 코딩 계획(`china`, `global`) |
+| 토큰허브 | Tencent 종량제 | 텐센트 코딩 계획 |
+| 오픈라우터 | 다중 모델 API | — |
+| 그로크클라우드 | 추론 API | — |
+| 미스트랄 | 라 플레이트폼 API | — |
+| 함께 | 추론 API | — |
+| 불꽃놀이 | 서버리스 API | — |
+| 대뇌 | 추론 API | — |
+| 실리콘플로우 | 추론 API | — |
+| 엔비디아 NIM | 호스팅된 NIM API | — |
+
+구독 키는 API 키와 동일한 인증된 로컬 프록시 및 풀 뒤에 있습니다. 프록시는 실제 클라이언트 `User-Agent`를 유지합니다. 소비자 웹사이트 세션을 가져오거나 다른 코딩 도구인 척하지 않습니다. 공급자가 허용하는 대화형 코딩 시나리오에만 구독을 사용하세요. OpenRouter, GroqCloud 및 Fireworks는 문서화된 기본 응답 엔드포인트를 사용합니다. 다른 OpenAI 호환 프로필은 채팅 완료를 통해 응답을 변환합니다.
+
+엔드포인트 및 제품 선택은 제공업체의 현재 문서를 따릅니다: [Kimi Code](https://www.kimi.com/code/docs/), [GLM Coding Plan](https://docs.bigmodel.cn/cn/coding-plan/tool/others), [MiniMax Token Plan](https://platform.minimax.io/docs/token-plan/quickstart), [MiMo Token Plan](https://mimo.mi.com/docs/en-US/price/tokenplan/subscription), [Qwen 코딩 계획](https://help.aliyun.com/en/model-studio/coding-plan), [BytePlus ModelArk 코딩 계획](https://docs.byteplus.com/api/docs/ModelArk/2188959), [Tencent TokenHub 코딩 계획](https://cloud.tencent.com/document/product/1823/130092), [OpenRouter](https://openrouter.ai/docs/quickstart), [GroqCloud](https://console.groq.com/docs/openai), [미스트랄](https://docs.mistral.ai/api), [함께 AI](https://docs.together.ai/docs/inference/openai-compatibility), [불꽃놀이](https://docs.fireworks.ai/tools-sdks/openai-compatibility), [Cerebras](https://inference-docs.cerebras.ai/resources/openai), [SiliconFlow](https://docs.siliconflow.com/en/userguide/quickstart) 및 [NVIDIA NIM](https://docs.api.nvidia.com/nim/reference/z-ai-glm5.1-infer).
+
+## 오늘 공급자 추가
+
+Go-native 실행자가 존재할 때까지 공급자를 추가한다는 것은 소스에서 AnyPick을 빌드하고 이를 트리에 등록하는 것을 의미합니다. 기여자 가이드에서는 공급자가 다른 공급업체의 모델 ID를 상속하지 못하도록 하는 모델 정책을 포함하여 좋은 공급자가 구현하는 내용을 다룹니다.

@@ -8,13 +8,14 @@ import { getCollectionLlmsUrl, getVersionStatus } from "nimbus-docs";
 import AgentDirective from "@/components/AgentDirective.astro";
 import { SearchDialog } from "@/components/ui/search";
 import NimbusHead from "nimbus-docs/components/NimbusHead.astro";
+import release from "../data/release.json";
 import type { BasePageProps } from "nimbus-docs/types";
-import { getTranslator, localeForPath } from "@/i18n";
+import { getTranslator, localeForPath, localePrefix, localizedPath, supportedLocales } from "@/i18n";
 
 type Props = BasePageProps & {
-  /** Exact title for the landing page, which should not gain Nimbus's site-name suffix. */
+  /** Exact title that opts into the site's custom metadata head. */
   socialTitle?: string;
-  /** Search index used when the page's translated chrome wraps fallback content. */
+  /** Language tag used by Pagefind for this page's content. */
   pagefindLanguage?: string;
   /** Alt text for this page's social image; defaults to the site-wide alt. */
   socialImageAlt?: string;
@@ -37,17 +38,16 @@ const {
 
 const lang = localeForPath(Astro.url.pathname);
 const t = await getTranslator(lang);
-// Per-page agent-index pointer. For pages in non-primary or version
-// collections, this resolves to `/<prefix>/llms.txt` (e.g. `/v0/llms.txt`
-// for a v0 docs page, `/blog/llms.txt` for a blog post). Falls back to
-// the root `/llms.txt` when no collection is provided.
+const socialLocales = { en: "en_US", "zh-CN": "zh_CN", vi: "vi_VN", de: "de_DE", es: "es_ES", fr: "fr_FR", ja: "ja_JP", ko: "ko_KR", "pt-BR": "pt_BR" };
+// Point translated pages at their locale's index; English pages keep Nimbus'
+// collection/version routing.
 // Hidden-version pages don't advertise an agent index (the per-version
 // llms.txt isn't emitted for them); suppress the AgentDirective entirely.
 const versionStatus = collection ? await getVersionStatus(collection) : null;
 const isHiddenVersion = versionStatus?.isHidden === true;
-const llmsIndexPath = collection
-  ? await getCollectionLlmsUrl(collection)
-  : "/llms.txt";
+const llmsIndexPath = lang === "en"
+  ? collection ? await getCollectionLlmsUrl(collection) : "/llms.txt"
+  : `${localePrefix(lang)}/llms.txt`;
 const llmsUrl = Astro.site
   ? new URL(llmsIndexPath, Astro.site).href
   : llmsIndexPath;
@@ -57,17 +57,57 @@ const socialImageUrl = socialImage
     ? new URL(socialImage, Astro.site).href
     : socialImage
   : null;
+const normalizedPath = Astro.url.pathname.replace(/\/$/, "") || "/";
+const isHomePage = normalizedPath === "/" || normalizedPath === localePrefix(lang);
 const socialStructuredData = socialTitle && canonicalUrl
   ? JSON.stringify({
       "@context": "https://schema.org",
-      "@type": "WebSite",
-      name: socialTitle,
+      "@type": isHomePage ? "WebSite" : "WebPage",
+      name: isHomePage ? config.title : socialTitle,
       ...(description ? { description } : {}),
       url: canonicalUrl,
       inLanguage: lang,
       ...(socialImageUrl ? { image: socialImageUrl } : {}),
+      ...(!isHomePage
+        ? {
+            isPartOf: {
+              "@type": "WebSite",
+              name: config.title,
+              url: Astro.site ? new URL("/", Astro.site).href : config.site,
+            },
+            ...(lastUpdated ? { dateModified: lastUpdated.toISOString() } : {}),
+          }
+        : {}),
     })
   : null;
+const softwareApplicationStructuredData = isHomePage && canonicalUrl
+  ? JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      name: "AnyPick",
+      applicationCategory: "DeveloperApplication",
+      url: canonicalUrl,
+      ...(description ? { description } : {}),
+      softwareVersion: release.version.replace(/^v/, ""),
+      downloadUrl: `${canonicalUrl}#download`,
+      releaseNotes: release.url,
+      ...(socialImageUrl ? { image: socialImageUrl } : {}),
+      operatingSystem: ["macOS", "Linux", "Windows"],
+      offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
+      license: "https://github.com/outof0/anypick/blob/main/LICENSE",
+    })
+  : null;
+const localeAlternates = isHomePage && Astro.site
+  ? [
+      ...supportedLocales.map((locale) => ({
+        hreflang: locale,
+        href: new URL(localizedPath(locale, "/"), Astro.site).href,
+      })),
+      { hreflang: "x-default", href: new URL("/", Astro.site).href },
+    ]
+  : [];
+const mergedHead = [...(config.head ?? []), ...pageHead];
+const shikiCssHref = `${import.meta.env.BASE_URL}_nimbus/shiki.css${import.meta.env.DEV ? `?v=${Date.now()}` : ""}`;
 ---
 
 <!doctype html>
@@ -122,25 +162,41 @@ const socialStructuredData = socialTitle && canonicalUrl
         {description && <meta name="description" content={description} />}
         {noindex && <meta name="robots" content="noindex" />}
         <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+        <link rel="stylesheet" href={shikiCssHref} />
         {canonicalUrl && <link rel="canonical" href={canonicalUrl} />}
-        {Astro.site && <link rel="sitemap" href="/sitemap-index.xml" />}
+        {Astro.site && <link rel="sitemap" type="application/xml" href="/sitemap-index.xml" />}
+        {isHomePage && <meta name="theme-color" content="#09090c" />}
+        {localeAlternates.map(({ hreflang, href }) => (
+          <link rel="alternate" hreflang={hreflang} href={href} />
+        ))}
+        {markdownUrl && !isHiddenVersion && <link rel="alternate" type="text/markdown" href={markdownUrl} />}
+        {Astro.site && !isHiddenVersion && (
+          <link rel="alternate" type="text/plain" href={llmsUrl} title="LLM index" />
+        )}
         <meta property="og:title" content={socialTitle} />
-        <meta property="og:type" content="website" />
+        <meta property="og:type" content={isHomePage ? "website" : "article"} />
         <meta property="og:site_name" content={config.title} />
-        <meta property="og:locale" content={lang} />
+        <meta property="og:locale" content={socialLocales[lang]} />
+        {isHomePage && supportedLocales.filter((locale) => locale !== lang).map((locale) => (
+          <meta property="og:locale:alternate" content={socialLocales[locale]} />
+        ))}
         {description && <meta property="og:description" content={description} />}
         {canonicalUrl && <meta property="og:url" content={canonicalUrl} />}
         {socialImageUrl && <meta property="og:image" content={socialImageUrl} />}
         {socialImageUrl && socialImageAlt && <meta property="og:image:alt" content={socialImageAlt} />}
         {socialImageUrl && <meta property="og:image:width" content="1200" />}
         {socialImageUrl && <meta property="og:image:height" content="630" />}
+        {!isHomePage && lastUpdated && <meta property="article:modified_time" content={lastUpdated.toISOString()} />}
         <meta name="twitter:card" content={socialImageUrl ? "summary_large_image" : "summary"} />
         <meta name="twitter:title" content={socialTitle} />
         {description && <meta name="twitter:description" content={description} />}
         {socialImageUrl && <meta name="twitter:image" content={socialImageUrl} />}
         {socialImageUrl && socialImageAlt && <meta name="twitter:image:alt" content={socialImageAlt} />}
-        {socialStructuredData && <script is:inline type="application/ld+json" set:html={socialStructuredData} />}
-        {pageHead.map(({ tag: Tag, attrs = {}, content }) => <Tag {...attrs}>{content}</Tag>)}
+        {socialStructuredData && <script is:inline type="application/ld+json" set:html={socialStructuredData.replace(/</g, "\\u003c")} />}
+        {softwareApplicationStructuredData && <script is:inline type="application/ld+json" set:html={softwareApplicationStructuredData.replace(/</g, "\\u003c")} />}
+        {mergedHead.map(({ tag: Tag, attrs = {}, content }) =>
+          content ? <Tag {...attrs} set:html={content} /> : <Tag {...attrs} />
+        )}
       </>
     ) : (
       <NimbusHead

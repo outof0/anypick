@@ -160,19 +160,28 @@ struct MenuBarAppCard: View {
             .accessibilityIdentifier("tray.app.\(app.id).more")
         }
       }
-      if !compact, model.showUsage, app.usageRemaining != nil {
-        ProgressView(value: usageFraction)
-          .tint(TrayPaint.accent)
-          .controlSize(.mini)
+      if !compact, model.showUsage {
+        ForEach(app.usageWindows) { window in
+          HStack(spacing: 6) {
+            Text(localizedQuotaWindowLabel(window, using: model))
+              .foregroundStyle(.secondary)
+            Spacer(minLength: 4)
+            Text(model.localized("desktop.menu_bar.usage_remaining", replacing: ["amount": "\(window.remainingPercent)%"]))
+              .monospacedDigit()
+            if let reset = localizedQuotaResetFormatted(using: model, resetsAtMs: window.resetsAtMs, limitWindowSeconds: window.limitWindowSeconds) {
+              Text(reset).foregroundStyle(.secondary)
+            }
+          }
+          .font(.caption2)
+          ProgressView(value: Double(window.remainingPercent) / 100)
+            .tint(TrayPaint.accent)
+            .controlSize(.mini)
+        }
       }
     }
   }
 
-  private var usageFraction: Double {
-    guard let usage = app.usageRemaining else { return 0.5 }
-    let number = usage.split(separator: "%").first.flatMap { Double($0) } ?? 50
-    return min(max(number / 100, 0), 1)
-  }
+
 
 }
 

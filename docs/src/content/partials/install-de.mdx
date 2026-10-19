@@ -1,0 +1,39 @@
+<Aside type="caution" title="Release-Kanäle">
+GitHub-Releases sind die kanonische Quelle für CLI-Archive mit Prüfsummenliste für macOS, Linux und Windows sowie die universellen macOS `.dmg`/`.zip`, Linux-Desktop-Installationsprogramme und Windows-Installationsprogramme. Die macOS-App ist nicht notariell beglaubigt; Klicken Sie beim ersten Start mit der rechten Maustaste auf `AnyPick.app` und wählen Sie **Öffnen** oder wählen Sie **Trotzdem öffnen** unter **Systemeinstellungen → Datenschutz und Sicherheit**. Sie können auch `xattr -dr com.apple.quarantine /Applications/AnyPick.app` ausführen. Der Thin NPM-Launcher (`npm install --global anypick`, Knoten 18+) lädt die passende native CLI beim ersten Start herunter und überprüft sie. Ab 1.1.0 ersetzt es das alte JavaScript `anypick@1.0.x` auf npm. Erstellen Sie aus diesem Repository, wenn Sie unveröffentlichte Änderungen testen.
+</Aside>
+
+Installieren Sie die CLI- oder macOS-App mit Homebrew:
+
+```bash
+brew install outof0/tap/anypick
+brew install --cask outof0/tap/anypick
+```
+
+Installieren Sie die Windows-CLI mit Scoop:
+
+```powershell
+scoop bucket add outof0 https://github.com/outof0/scoop-bucket
+scoop install anypick
+```
+
+Für das native macOS-Quellziel (macOS 14+, Xcode und Go erforderlich):
+
+```bash
+open src/macos/AnyPick.xcodeproj
+```
+
+Wählen Sie das gemeinsame **AnyPick**-Schema aus und führen Sie es aus. Der Build bündelt den Go-Dienst innerhalb der App; Swift oder Go werden beim Start der App nicht kompiliert.
+
+Für den aktuellen CLI- und Terminal-UI-Quellworkflow (Go 1.26+ erforderlich):
+
+```bash
+make build
+./src/go/bin/anypick-dev --help
+./src/go/bin/anypick-dev tui
+```
+
+## Headless / Linux-Server
+
+Die CLI ist eine statische Go-Binärdatei: Für nicht interaktive Befehle ist kein GUI-Toolkit und kein TTY erforderlich. Ohne Terminal wird `anypick tui` mit `NO_TTY` beendet; Verwenden Sie `anypick list`, `anypick use`, `anypick status`, `anypick serve` oder andere CLI-Befehle (`start` / `status` / `stop`).
+
+Die Daten werden unter `~/.anypick` gespeichert (mit `ANYPICK_HOME` überschreiben). `anypick serve` hört nur auf `127.0.0.1` zu – erreichen Sie es von einem anderen Host mit einem SSH-Tunnel. Aktualisieren Sie, indem Sie ein neues Release-Archiv herunterladen, `npm install --global anypick@latest` oder `anypick update` (überprüft GitHub-Releases).

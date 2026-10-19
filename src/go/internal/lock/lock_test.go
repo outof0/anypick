@@ -2,6 +2,7 @@ package lock
 
 import (
 	"context"
+	"errors"
 	"path/filepath"
 	"sync"
 	"testing"
@@ -129,5 +130,70 @@ func TestHeldContextNotLeakedToParent(t *testing.T) {
 	})
 	if Holds(ctx, root, "x") {
 		t.Fatal("parent context must not observe the released lock")
+	}
+}
+
+func TestAfterMutationAvoidsProviderProfileLockInversion(t *testing.T) {
+	root := t.TempDir()
+	ctx := context.Background()
+	profileScope, providerScope := "client-profile/codex/work", refs.ProviderScope("codex")
+	profileHeld, providerHeld := make(chan struct{}), make(chan struct{})
+	competitor := make(chan error, 1)
+	go func() {
+		competitor <- WithMutationLocks(ctx, root, []string{profileScope}, func(c context.Context) error {
+			close(profileHeld)
+			<-providerHeld
+			return WithMutationLocks(c, root, []string{providerScope}, func(context.Context) error { return nil }, time.Second)
+		}, time.Second)
+	}()
+	<-profileHeld
+	err := WithMutationLocks(ctx, root, []string{providerScope}, func(c context.Context) error {
+		close(providerHeld)
+		return AfterMutation(c, func(unlocked context.Context) error {
+			return WithMutationLocks(unlocked, root, []string{profileScope, providerScope}, func(context.Context) error { return nil }, time.Second)
+		})
+	}, time.Second)
+	if err != nil {
+		t.Errorf("derived profile update: %v", err)
+	}
+	if err := <-competitor; err != nil {
+		t.Errorf("concurrent profile activation: %v", err)
+	}
+}
+
+func TestAfterMutationNestedCallbacksRunUnlockedAndJoinErrors(t *testing.T) {
+	root := t.TempDir()
+	mutationErr, firstErr, secondErr := errors.New("mutation"), errors.New("first refresh"), errors.New("second refresh")
+	var calls []string
+	err := WithMutationLock(context.Background(), root, "provider/codex", func(c context.Context) error {
+		if err := WithMutationLock(c, root, "provider/codex", func(nested context.Context) error {
+			return AfterMutation(nested, func(unlocked context.Context) error {
+				if len(HeldLocks(unlocked)) != 0 {
+					t.Error("callback retained enclosing locks")
+				}
+				calls = append(calls, "first")
+				return firstErr
+			})
+		}); err != nil {
+			return err
+		}
+		if len(calls) != 0 {
+			t.Error("nested mutation drained the outer callback queue")
+		}
+		if err := AfterMutation(c, func(context.Context) error {
+			calls = append(calls, "second")
+			return secondErr
+		}); err != nil {
+			return err
+		}
+		return mutationErr
+	})
+	for _, want := range []error{mutationErr, firstErr, secondErr} {
+		if !errors.Is(err, want) {
+			t.Errorf("result %v lost error %v", err, want)
+		}
+	}
+	if len(calls) != 2 || calls[0] != "first" || calls[1] != "second" {
+		t.Errorf("callback order = %v", calls)
 	}
 }

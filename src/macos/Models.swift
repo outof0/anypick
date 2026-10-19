@@ -16,6 +16,8 @@ class MacOSDesignModel: ObservableObject {
   @Published var codexProfiles: [DesignCodexProfile] = []
   @Published var codexProfileSources: [DesignCodexProfileSource] = []
   @Published var automaticallyCreateCodexProfiles = AppPreferences.codexAutoProfilesEnabled
+  /// Production quota is keyed by saved account, independently of installed apps.
+  @Published var accountUsage: [String: [DesignUsageWindow]]?
   @Published var accounts: [DesignAccount]
   @Published var proxies: [DesignProxy]
   @Published var activity: [DesignActivity]

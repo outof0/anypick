@@ -146,6 +146,9 @@ describe('accounts and gateways', () => {
       expect.objectContaining({ operation: 'account-detect', providerId: 'claude' }),
       expect.objectContaining({ operation: 'account-login', providerId: 'claude', methodId: 'subscription' }),
     ]);
+    expect(mutatePayloads(bridge)[0]).toEqual(
+      expect.objectContaining({ identity: 'Current Claude login' }),
+    );
     const login = mutatePayloads(bridge)[2];
     await user.click(screen.getByTestId('accounts-cancel-login'));
     expect(bridge.commands().find((entry) => entry.kind === 'cancel')?.payload?.requestId).toBe(login?.requestId);

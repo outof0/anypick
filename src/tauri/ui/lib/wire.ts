@@ -237,9 +237,8 @@ export function decodeFrame(line: string): ServiceFrame | null {
         },
       };
     case 'doctor':
-      // The engine's Doctor report. It is not a `result`: a result answers one
-      // request, while this reports the whole installation and carries no
-      // request id, so there is nothing to settle against.
+      // Doctor reports carry the request id so the UI can release the request
+      // after the host delivers the report.
       return {
         kind,
         report: {

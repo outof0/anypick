@@ -8,6 +8,10 @@ pub const PROTOCOL_VERSION: u32 = 2;
 pub const MESSAGE_VERSION: u32 = 1;
 pub const MAX_FRAME_BYTES: usize = 4 * 1024 * 1024;
 
+#[cfg(test)]
+#[path = "protocol_service_tests.rs"]
+mod service_tests;
+
 const MAX_HANDSHAKE_VERSION_BYTES: usize = 128;
 const MAX_HANDSHAKE_CAPABILITIES: usize = 64;
 const MAX_CAPABILITY_BYTES: usize = 64;
@@ -161,6 +165,7 @@ impl AppProtocol {
                     "result",
                     "logs",
                     "backup-preview",
+                    "doctor",
                     "protocol-error",
                 ];
                 if kind == "host-effect" {
@@ -324,7 +329,7 @@ fn validate_delivered_version(
         "snapshot-event" | "usage-event" | "protocol-error" => {
             ("protocolVersion", PROTOCOL_VERSION)
         }
-        "result" | "logs" | "backup-preview" => ("version", MESSAGE_VERSION),
+        "result" | "logs" | "backup-preview" | "doctor" => ("version", MESSAGE_VERSION),
         _ => return Err(ProtocolError::UnexpectedFrame(kind.into())),
     };
     if payload.get(expected.0).and_then(serde_json::Value::as_u64) != Some(expected.1.into()) {
@@ -633,6 +638,37 @@ mod tests {
             assert_eq!(
                 protocol.consume_line(&encoded(kind, payload)),
                 Err(ProtocolError::InvalidPayload(kind.into()))
+            );
+        }
+    }
+    #[test]
+    fn doctor_report_reaches_ui_and_keeps_service_ready() {
+        let mut protocol = AppProtocol::new("1.0.0", "linux");
+        protocol.consume_line(&hello(2)).unwrap();
+        protocol.consume_line(&ready()).unwrap();
+        let report = encoded(
+            "doctor",
+            serde_json::json!({
+                "version": MESSAGE_VERSION,
+                "requestId": "doctor-1",
+                "status": "ok",
+                "findings": [],
+            }),
+        );
+        assert_eq!(
+            protocol.consume_line(&report).unwrap(),
+            vec![Action::Deliver(report)]
+        );
+        assert!(protocol.is_ready());
+        let snapshot = encoded("snapshot", serde_json::json!({"revision": 2}));
+        assert_eq!(
+            protocol.consume_line(&snapshot).unwrap(),
+            vec![Action::Deliver(snapshot)]
+        );
+        for payload in [serde_json::json!({"version": 2}), serde_json::json!({})] {
+            assert_eq!(
+                protocol.consume_line(&encoded("doctor", payload)),
+                Err(ProtocolError::InvalidPayload("doctor".into()))
             );
         }
     }

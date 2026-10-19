@@ -463,3 +463,236 @@ func TestRehydrateSweepsOrphanedCodexProfiles(t *testing.T) {
 		t.Fatalf("desktop startup deleted history in the credential home: %v", err)
 	}
 }
+
+func TestSnapshotNativeClaudeSupersedesStaleManagedBinding(t *testing.T) {
+	env := newTrayEnv(t)
+	wireActivation(t, env)
+	source := bindWorkbuddyToClaude(t, env)
+	ctx := context.Background()
+	path := writeClaudeSettings(t, env.Home, map[string]string{})
+	auth := filepath.Join(env.Home, ".claude", ".credentials.json")
+	if err := os.WriteFile(auth, []byte(`{"claudeAiOauth":{"accessToken":"test-subscription","subscriptionType":"team"}}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	srv := newWaitedServerOut(t, env.Deps, nil)
+
+	for _, managed := range []bool{false, true, false} {
+		if managed {
+			cad, _ := env.Deps.Clients.Get("claude")
+			if _, err := cad.Apply(&client.ApplyContext{Home: env.Home, AnyPickRoot: env.Root, Endpoint: "http://127.0.0.1:1234", APIKey: "test-proxy"}); err != nil {
+				t.Fatal(err)
+			}
+		} else {
+			writeClaudeSettings(t, env.Home, map[string]string{})
+		}
+		before, _ := os.ReadFile(path)
+		if !managed {
+			if err := srv.rehydrateManagedBindings(ctx); err != nil {
+				t.Fatal(err)
+			}
+			if err := srv.reapplyClientsBoundTo(ctx, source, false); err != nil {
+				t.Fatal(err)
+			}
+		}
+		snap, err := srv.buildSnapshot(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		found := false
+		for _, route := range snap.Routes {
+			if route["clientId"] != "claude" {
+				continue
+			}
+			found = true
+			want := "native"
+			if managed {
+				want = "ready"
+			}
+			if route["status"] != want {
+				t.Fatalf("route = %+v, want %s", route, want)
+			}
+		}
+		if !found {
+			t.Fatal("Claude route missing")
+		}
+		offered := false
+		for _, action := range snap.Actions {
+			if action.ClientID != "claude" || action.SourceID != refs.SerializeRef(source) {
+				continue
+			}
+			offered = true
+			if action.Selected != managed {
+				t.Fatalf("managed=%v: stale selection %+v", managed, action)
+			}
+		}
+		if !offered {
+			t.Fatal("saved source must remain available to select")
+		}
+		for _, config := range snap.ClientModelConfigs {
+			if config["clientId"] == "claude" && !managed && config["sourceLabel"] != nil {
+				t.Fatalf("native route exposes old model source: %+v", config)
+			}
+		}
+		after, _ := os.ReadFile(path)
+		if string(after) != string(before) {
+			t.Fatal("snapshot modified live settings")
+		}
+		binding, err := env.Deps.Bindings.GetGlobalContext(ctx, "claude")
+		if err != nil || binding == nil || binding.Spec.Source != source {
+			t.Fatalf("snapshot changed saved binding: %+v, %v", binding, err)
+		}
+	}
+}
+
+func TestNativeClientsSupersedeStaleCrossProviderBindings(t *testing.T) {
+	for _, clientID := range []string{"codex", "opencode"} {
+		t.Run(clientID, func(t *testing.T) {
+			env := newTrayEnv(t)
+			wireActivation(t, env)
+			source := bindWorkbuddyToClaude(t, env)
+			ctx := context.Background()
+			if err := env.Deps.Bindings.DeleteGlobalContext(ctx, "claude"); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := env.Deps.Bindings.UpsertGlobalContext(ctx, bindings.Global{Client: clientID, Spec: bindings.Spec{Client: clientID, Source: source, Model: bindings.OmittedModel()}}); err != nil {
+				t.Fatal(err)
+			}
+			env.writeCodexLive("native@example.com")
+			authPath := filepath.Join(env.Home, "opencode-auth.json")
+			t.Setenv("OPENCODE_AUTH_PATH", authPath)
+			if err := os.WriteFile(authPath, []byte(`{"opencode":{"type":"api","key":"test-native"}}`), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			srv := newWaitedServerOut(t, env.Deps, nil)
+			cad, _ := env.Deps.Clients.Get(clientID)
+			for _, managed := range []bool{false, true, false} {
+				if managed {
+					if _, err := cad.Apply(&client.ApplyContext{Home: env.Home, AnyPickRoot: env.Root, Endpoint: "http://127.0.0.1:1234", APIKey: "test-proxy", DefaultModel: "test-model", ModelCatalog: []string{"test-model"}, AllowForeignConfig: true}); err != nil {
+						t.Fatal(err)
+					}
+				} else if clientID == "codex" {
+					path := filepath.Join(env.Home, ".codex", "config.toml")
+					if err := os.WriteFile(path, []byte("model_provider = \"openai\"\n"), 0o600); err != nil {
+						t.Fatal(err)
+					}
+				} else {
+					path := filepath.Join(env.Home, ".config", "opencode", "opencode.json")
+					if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+						t.Fatal(err)
+					}
+					if err := os.WriteFile(path, []byte(`{"model":"opencode/native"}`), 0o600); err != nil {
+						t.Fatal(err)
+					}
+				}
+				if !managed {
+					if err := srv.rehydrateManagedBindings(ctx); err != nil {
+						t.Fatal(err)
+					}
+					if err := srv.reapplyClientsBoundTo(ctx, source, false); err != nil {
+						t.Fatal(err)
+					}
+				}
+				snap, err := srv.buildSnapshot(ctx)
+				if err != nil {
+					t.Fatal(err)
+				}
+				found := false
+				for _, route := range snap.Routes {
+					if route["clientId"] != clientID {
+						continue
+					}
+					found = true
+					expected := "native"
+					if managed {
+						expected = "ready"
+					}
+					if route["status"] != expected {
+						t.Fatalf("managed=%v route=%+v, want %s", managed, route, expected)
+					}
+				}
+				if !found {
+					t.Fatal("missing client route")
+				}
+				offered := false
+				for _, action := range snap.Actions {
+					if action.ClientID == clientID && action.SourceID == refs.SerializeRef(source) {
+						offered = true
+						if action.Selected != managed {
+							t.Fatalf("stale selected route: %+v", action)
+						}
+					}
+				}
+				if !offered {
+					t.Fatal("saved source disappeared from picker")
+				}
+				persisted, err := env.Deps.Bindings.GetGlobalContext(ctx, clientID)
+				if err != nil || persisted == nil || persisted.Spec.Source != source {
+					t.Fatalf("snapshot mutated binding: %+v, %v", persisted, err)
+				}
+			}
+		})
+	}
+}
+
+func TestChangedSelectionsDoNotAdvertiseSavedRoutesAsReady(t *testing.T) {
+	for _, clientID := range []string{"pi", "omp", "commandcode", "dsh", "zcode"} {
+		t.Run(clientID, func(t *testing.T) {
+			env := newTrayEnv(t)
+			ctx := context.Background()
+			source := bindWorkbuddyToClaude(t, env)
+			if err := env.Deps.Bindings.DeleteGlobalContext(ctx, "claude"); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := env.Deps.Bindings.UpsertGlobalContext(ctx, bindings.Global{Client: clientID, Spec: bindings.Spec{Client: clientID, Source: source, Model: bindings.OmittedModel()}}); err != nil {
+				t.Fatal(err)
+			}
+			var path, content string
+			switch clientID {
+			case "pi":
+				path = filepath.Join(env.Home, ".pi", "agent", "settings.json")
+				content = `{"defaultProvider":"anthropic","defaultModel":"anthropic/native"}`
+			case "omp":
+				path = filepath.Join(env.Home, ".omp", "agent", "config.yml")
+				content = "defaultProvider: anthropic\n"
+			case "commandcode":
+				path = filepath.Join(env.Home, ".commandcode", "config.json")
+				content = `{"modelProvider":"other","model":"other/test"}`
+			case "dsh":
+				path = client.DshConfigPaths(env.Home)[2]
+				content = `model = "native"`
+			case "zcode":
+				path = client.ZCodeConfigPaths(env.Home)[0]
+				content = `{"provider":{"anypick":{}},"model":{"main":"zai/native"}}`
+			}
+			if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			srv := newWaitedServerOut(t, env.Deps, nil)
+			snap, err := srv.buildSnapshot(ctx)
+			if err != nil {
+				t.Fatal(err)
+			}
+			found := false
+			for _, route := range snap.Routes {
+				if route["clientId"] != clientID {
+					continue
+				}
+				found = true
+				if route["status"] != "attention" || route["attentionReason"] == "" {
+					t.Fatalf("changed live selection was called ready: %+v", route)
+				}
+			}
+			if !found {
+				t.Fatal("no route state for client")
+			}
+			for _, action := range snap.Actions {
+				if action.ClientID == clientID && action.Selected {
+					t.Fatalf("changed live selection still selects saved source: %+v", action)
+				}
+			}
+		})
+	}
+}

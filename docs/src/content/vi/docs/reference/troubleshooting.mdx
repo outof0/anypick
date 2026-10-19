@@ -1,0 +1,137 @@
+---
+title: 'Khắc phục sự cố'
+description: '`anypick doctor` kiểm tra những gì, sửa những gì và không sửa những gì, cùng cách đọc thông báo lỗi.'
+---
+
+## Bắt đầu bằng lệnh `anypick doctor`
+
+```bash
+anypick doctor
+anypick doctor --fix --dry-run
+anypick doctor --fix -y
+```
+
+`doctor` kiểm tra toàn bộ quá trình cài đặt — nó không thu hẹp ở một client hoặc nhà cung cấp. Nó kiểm tra thư mục dữ liệu AnyPick, cơ sở dữ liệu SQLite, các tài khoản và cổng đã lưu, quyền truy cập tệp, bản ghi PID, proxy đang chạy và bất kỳ mục nhập nhật ký hoạt động nào chưa hoàn thành.
+
+## Những gì `--fix` có thể chạm vào
+
+`--fix` hoạt động dựa trên danh sách cho phép cố định gồm sáu hành động. Nó có thể:
+
+- xóa tệp PID cũ
+- dừng proxy mồ côi
+- xóa lớp phủ ứng dụng khách tạm thời do `run` để lại
+- quyền sửa chữa trên đường dẫn do AnyPick sở hữu
+- xây dựng lại bộ đệm dẫn xuất
+- hoàn thành quá trình khôi phục nhật ký bị gián đoạn
+
+Nó sẽ không chuyển đổi tài khoản, cài đặt gói, chạm vào tệp xác thực gốc hoặc thay đổi các binding của bạn. Mọi nội dung nằm ngoài danh sách cho phép đều được báo cáo dưới dạng **chỉ thủ công**, với đề xuất được in bên cạnh — giao diện người dùng cuối hiển thị phần phân chia tương tự.
+
+Hành động lớp phủ tạm thời là hành động cần đọc kỹ. Lớp phủ là một thư mục trong thư mục tạm thời của hệ thống và không có gì trong đó ghi lại quy trình nào sở hữu nó, vì vậy `--fix` đánh giá nó theo độ tuổi và từ chối mọi nội dung được sửa đổi trong một giờ qua. Một phiên `anypick run` dài có thể tồn tại lâu hơn giờ đó và sau đó quá trình sửa chữa sẽ xóa trang chủ bị cô lập của một client đang chạy. Nếu bạn mở `run` trong thời gian dài, hãy bỏ qua hành động này và xóa thư mục theo cách thủ công sau khi phiên đó kết thúc. Mọi hành động khác trong danh sách đều chứng tỏ mục tiêu của nó đã chết trước khi chạm vào nó.
+
+Một tệp khóa cũ được cố tình **không** có trong danh sách. Khóa của AnyPick là các bộ mô tả `flock(2)` mà kernel giải phóng khi quá trình lưu giữ thoát ra, do đó, một sự cố không để lại gì cũ để xóa — và một "sửa chữa" xóa tệp khóa mà một quy trình trực tiếp vẫn giữ sẽ đánh bại điều phối viên giữ cho các thay đổi tài khoản đồng thời không làm hỏng lẫn nhau (ADR 0009). Bản thảo trước đó của trang này hứa hẹn sẽ thực hiện hành động; nó không thể tồn tại.
+
+<Aside type="tip" title="Xem trước trước">
+`anypick doctor --fix --dry-run` in chính xác những hành động trong danh sách cho phép sẽ chạy. Đáng làm một lần để danh sách cho phép không còn trừu tượng nữa.
+</Aside>
+
+## Đọc mã thoát
+
+| Mã | Ý nghĩa | Nguyên nhân thông thường |
+| --- | --- | --- |
+| `1` | Lỗi vận hành | Lỗi thời gian chạy không mong muốn trong một lệnh |
+| `2` | Cách sử dụng không hợp lệ | `use` không có `--with` hoặc `--current` hoặc cờ xấu |
+| `3` | Không tìm thấy | Tài khoản, cổng, preset hoặc tên client không tồn tại |
+| `4` | Yêu cầu xác thực | Khóa đăng nhập hoặc API bị thiếu hoặc hết hạn |
+| `5` | Xung đột năng lực | Nguồn không thể phục vụ ứng dụng khách đó hoặc không tồn tại binding |
+| `6` | Suy giảm sức khỏe | Kiểm tra sức khỏe không thành công |
+| `7` | Thiếu phụ thuộc | Tệp nhị phân proxy bên ngoài, chẳng hạn như `kirolink`, chưa được cài đặt |
+| `8` / `9` | Nhập khẩu bị từ chối | Phong bì xuất không hợp lệ hoặc kho lưu trữ quá lớn |
+| `130` | Đã hủy | Bạn đã nhấn Ctrl-C |
+
+## Các tình huống thường gặp
+
+### Một client khởi chạy nhưng bỏ qua nguồn
+
+Kiểm tra những gì thực sự có hiệu lực - một binding dự án trong thư mục hiện tại sẽ đánh bại mặc định chung của bạn:
+
+```bash
+anypick current claude
+```
+
+Nếu binding dự án cũ giành chiến thắng, `anypick unlink claude` sẽ xóa nó.
+
+### `run` thoát 5 mà không bị binding
+
+Không có binding tạm thời, dự án hoặc toàn cầu nào cho client đó. Đặt một:
+
+```bash
+anypick use claude --with grok/work
+```
+
+### Proxy sẽ không khởi động
+
+Nhìn vào nhật ký, sau đó nhìn vào cổng:
+
+```bash
+anypick proxy status gemini work
+anypick proxy logs gemini work --lines 100
+anypick proxy config gemini work --port 4131     # move it
+```
+
+Cổng đã định cấu hình đã được giữ lại không còn bị lỗi khi khởi động: AnyPick chuyển proxy sang cổng miễn phí, duy trì cổng đó, ghi lại các client bị binding và báo cáo hành động di chuyển dưới dạng cảnh báo. Bạn vẫn có thể dừng proxy còn lại từ phiên trước đó bằng cách đặt tên cho nó: `anypick proxy stop gemini work`. Không có hình thức "dừng lại mọi thứ"; lệnh `anypick proxy` không có đối số sẽ in ra cách sử dụng của nó.
+
+### Proxy của Gemini từ chối một mô hình
+
+Tài khoản Gemini chỉ có OAuth có thể đăng nhập client nhưng không thể thúc đẩy proxy, cần `GEMINI_API_KEY` trong thông tin đăng nhập đã lưu `.env`. Nếu cả hai lần đăng nhập đều tồn tại, hãy lưu nguồn mà proxy sẽ phân phối:
+
+```bash
+anypick add account gemini --current --source gemini-cli --name work
+anypick add account gemini --current --source Antigravity --name work
+```
+
+### Đăng nhập đã lưu và đăng nhập trực tiếp không đồng nhất
+
+Giao diện người dùng đầu cuối đánh dấu `◐ changed` này. Điều đó có nghĩa là CLI của nhà cung cấp đã viết thông tin xác thực mới sau khi AnyPick chụp ảnh nhanh. Áp dụng cái mới:
+
+```bash
+anypick account refresh codex
+```
+
+### Hai tài khoản đã lưu chia sẻ một ảnh chụp nhanh
+
+`anypick doctor` báo cáo `duplicate-snapshot` khi hai tên của cùng một nhà cung cấp có cùng ảnh chụp nhanh thông tin xác thực. Chuyển đổi giữa chúng không thể thay đổi thông tin đăng nhập. AnyPick từ chối tạo các cặp mới và chỉ yêu cầu bạn dọn sạch những cặp đã lưu trước đó:
+
+```bash
+anypick doctor --json                          # exact names, and which to keep
+anypick account remove workbuddy/work
+```
+
+`anypick doctor` cho biết tài khoản cần giữ bằng `keep <provider>/<account>` và in các lệnh xóa. Khi cả hai tên đều đang hoạt động — một tên được chọn và tên còn lại vẫn được một liên kết client tham chiếu — lệnh sẽ yêu cầu liên kết lại các client về cùng một tài khoản thay vì đưa ra lệnh xóa, nhờ đó việc dọn dẹp không làm gián đoạn tuyến.
+
+### Proxy tiếp tục chạy sau khi tôi đóng giao diện người dùng
+
+Việc đóng cửa sổ chính của ứng dụng gốc sẽ không thoát khỏi ứng dụng. Sử dụng **Thoát AnyPick** từ bảng điều khiển nhanh của ứng dụng hoặc thanh menu để dừng dịch vụ Go đi kèm của nó một cách duyên dáng.
+
+Việc đóng TUI nguồn cũng không thay đổi các quy trình tương thích hiện tại. Để ngăn người giám sát tương thích đó khỏi quá trình kiểm tra này:
+
+```bash
+make run ARGS="tray stop"
+```
+
+`make run ARGS="proxy stop"` ngừng chạy trực tiếp proxy tài khoản. TUI chỉ khởi động trình giám sát tương thích khi bạn nhấn rõ ràng <kbd>Shift+D</kbd> hoặc khởi động nó từ màn hình thời gian chạy khay; nó không kiểm soát `AnyPick.app` được khởi chạy riêng.
+
+### Kích hoạt không thành công giữa chừng
+
+Các bước kích hoạt đột biến được ghi lại trong nhật ký hoạt động với các đường dẫn dự phòng, do đó, kích hoạt không thành công sẽ khôi phục trạng thái trước đó — cấu hình client, xác thực gốc và bất kỳ proxy nào mà nó đã khởi động. Nếu quá trình bị hủy trước khi quá trình khôi phục có thể hoàn tất, `anypick doctor --fix` sẽ hoàn thành quá trình đó.
+
+Chuyển đổi tài khoản là cùng một giao dịch: nếu tài khoản mới được chọn không thể áp dụng cho các client bị binding thì con trỏ hoạt động, binding client và proxy của tài khoản trước đó đều được khôi phục và lỗi cho biết như vậy. Bạn sẽ không bao giờ thấy ứng dụng yêu cầu một tài khoản đang hoạt động mới trong khi client vẫn trỏ đến proxy cũ.
+
+## Đào sâu hơn
+
+```bash
+anypick --trace use claude --with grok/work    # name each step, no secrets
+anypick proxy status <provider> <account>      # live listener state
+anypick doctor --json                          # machine-readable findings
+```
+
+`--trace` in kế hoạch kích hoạt từng bước, thường đủ để biết giai đoạn nào không thành công. Kết hợp với `--dry-run` để ​​xem kế hoạch mà không cần chạy nó.

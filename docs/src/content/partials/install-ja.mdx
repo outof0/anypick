@@ -1,0 +1,39 @@
+<Aside type="caution" title="リリースチャンネル">
+GitHub リリースは、macOS、Linux、Windows 用のチェックサムリスト付き CLI アーカイブの正規ソースに加え、ユニバーサル macOS `.dmg`/`.zip`、Linux デスクトップ インストーラー、および Windows インストーラーです。 macOS アプリは公証されていません。初回起動時に、`AnyPick.app` を右クリックして **開く** を選択するか、**システム設定 → プライバシーとセキュリティ** で **とにかく開く** を選択します。 `xattr -dr com.apple.quarantine /Applications/AnyPick.app` を実行することもできます。 Thin npm ランチャー (`npm install --global anypick`、ノード 18+) は、最初の実行時に一致するネイティブ CLI をダウンロードして検証します。 1.1.0 からは、npm 上の古い JavaScript `anypick@1.0.x` を置き換えます。未リリースの変更をテストする場合は、このリポジトリからビルドします。
+</Aside>
+
+Homebrew を使用して CLI または macOS アプリをインストールします。
+
+```bash
+brew install outof0/tap/anypick
+brew install --cask outof0/tap/anypick
+```
+
+Scoop を使用して Windows CLI をインストールします。
+
+```powershell
+scoop bucket add outof0 https://github.com/outof0/scoop-bucket
+scoop install anypick
+```
+
+ネイティブ macOS ソース ターゲットの場合 (macOS 14 以降、Xcode、および Go が必要):
+
+```bash
+open src/macos/AnyPick.xcodeproj
+```
+
+共有 **AnyPick** スキームを選択して実行します。このビルドでは、アプリ内に Go サービスがバンドルされています。アプリの起動時に Swift または Go はコンパイルされません。
+
+現在の CLI およびターミナル UI ソース ワークフローの場合 (Go 1.26 以降が必要):
+
+```bash
+make build
+./src/go/bin/anypick-dev --help
+./src/go/bin/anypick-dev tui
+```
+
+## ヘッドレス / Linux サーバー
+
+CLI は静的な Go バイナリです。非対話型コマンドに GUI ツールキットや TTY は必要ありません。端末がない場合、`anypick tui` は `NO_TTY` で終了します。 `anypick list`、`anypick use`、`anypick status`、`anypick serve`、または他の CLI コマンド (`start` / `status` /) を使用します。 `stop`)。
+
+データは `~/.anypick` の下に存在します (`ANYPICK_HOME` でオーバーライドします)。 `anypick serve` は `127.0.0.1` でのみリッスンします。SSH トンネルを使用して別のホストからアクセスします。新しいリリース アーカイブ、`npm install --global anypick@latest` または `anypick update` (GitHub リリースを確認) をダウンロードして更新します。

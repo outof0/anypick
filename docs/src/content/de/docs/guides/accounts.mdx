@@ -1,0 +1,192 @@
+---
+title: 'Konten'
+description: 'Machen Sie Snapshots von nativen Anbieter-Anmeldungen, sodass mehrere gleichzeitig existieren können und jeder Client sie verwenden kann.'
+---
+
+Ein Konto ist entweder ein Login, das von der eigenen CLI eines Anbieters erstellt wurde, oder ein Anbieterschlüssel, den Sie für seinen lokalen Proxy bereitgestellt haben. AnyPick erstellt Snapshots davon, sodass Sie mehrere behalten, zwischen ihnen wechseln und eines an einen Clients verleihen können, der nie für die Nutzung vorgesehen war.
+
+## Unterstützte Anbieter
+
+| Anbieter | Live-Authentifizierung | Wie andere Clients darauf zugreifen |
+| --- | --- | --- |
+| `claude` | Claude Code Schlüsselanhänger / `~/.claude/.credentials.json` | direkt, nur für Claude Code |
+| `codex` | `~/.codex/auth.json` | direkt, nur für Codex |
+| `grok` | `~/.grok/auth.json` | integrierter Dual-Proxy (OpenAI + Anthropic) |
+| `opencode` | OpenCode-Authentifizierungsspeicher | integrierter Zen/Go-Dual-Proxy |
+| `gemini` | `~/.gemini/` (`.env`, oauth, Konten), Antigravitationsstaat/Schlüsselring | integrierter Dual-Proxy → Gemini API |
+| `kiro` | kiro-cli Secret Store, `~/.aws/sso/cache`, oder ein von Ihnen bereitgestellter API-Schlüssel | extern `kirolink` / `kiro-proxy`, falls installiert |
+| `workbuddy` | WorkBuddy/CodeBuddy-Abonnement (Device-Flow OAuth) | integrierter OpenAI-Proxy, der die oben genannten Clients bedient; `anypick use workbuddy/<name>` schaltet auch die WorkBuddy-App selbst über ihre Sitzungsdatei |
+| `cline` | ClinePass / Cline WorkOS-Anmeldung | integrierter OpenAI-Proxy (noch kein Cline-Client-Adapter) |
+
+`anypick providers` ist das maßgebliche Inventar für den Build auf Ihrer Maschine. Zusätzlich zu den oben genannten nativen Anbietern liefert die Go-Engine direkt die kompatiblen API-Schlüssel- und Abonnementschlüsselanbieter. Sie benötigen kein `popular-providers`-Plugin. Anmeldeinformationsprofile und Beispiele finden Sie unter [Kompatible Anbieter sind integriert](/de/docs/guides/plugins).
+
+<Aside type="caution" title="Kontosicherungen enthalten Anmeldeinformationen">
+Kontosicherungsdateien sind lesbares JSON und werden von AnyPick nicht verschlüsselt. Bewahren Sie sie wie Arbeitszeugnisse auf. Sie decken gespeicherte Konten ab; Gateway-Geheimnisse, Einstellungen und Aktivitätsverlauf sind keine vollständige Anwendungssicherung.
+</Aside>
+
+## Login speichern
+
+AnyPick delegiert die Browser-Anmeldung an anbietereigene Anmeldestarter und liest dann die Anmeldeinformationen, die sie an den normalen Speicherort des Anbieters schreiben. Zwei Möglichkeiten:
+
+<Tabs>
+<TabItem label="Speichern Sie den Live-Login">
+```bash
+claude login
+anypick add account claude --current --name personal
+
+codex login
+anypick add account codex --current --name personal
+```
+Die aktuell aktiven Anmeldeinformationen werden zu einem gespeicherten Snapshot mit dem Namen `codex/personal`.
+</TabItem>
+<TabItem label="Starten Sie eine neue Anmeldung">
+```bash
+anypick add account codex --new --name work
+```
+Wenn ein installierter Anbieter die Browser-Authentifizierung offenlegt, sichert AnyPick die Live-Anmeldeinformationen, öffnet den Browser-Flow des Anbieters, überprüft die neue native Anmeldung und speichert sie unter dem neuen Namen in einem Befehl. Codex, Claude Code, Kiro, Grok und Gemini bieten diesen Weg. Z.ai unterstützt auch das Importieren der verschlüsselten ZCode-Anmeldung auf diesem Mac oder das Starten seines offiziellen Browser-Flows. Der Picker von Gemini verfügt über separate Gemini-CLI- und Antigravity-kompatible Google-Quellen; AnyPick öffnet den Google OAuth-Flow direkt, da `gemini` selbst keinen reinen Anmeldebefehl hat. Wenn kein Browser-Launcher verfügbar ist, greift AnyPick auf das Löschen der Live-Anmeldung zurück und erklärt Ihnen, wie Sie diese nach der Anmeldung mit einem vom Anbieter unterstützten Tool speichern können.
+</TabItem>
+</Tabs>
+
+Offizielle Methoden werden zuerst angezeigt und sind die Standardmethode, da es weniger wahrscheinlich ist, dass sie mit den Anbieterrichtlinien in Konflikt geraten. Sie sind keine Whitelist: Ein vollständiges Anbieter-Plugin kann eine Community-Methode offenlegen, und Sie können sie explizit mit `--auth-method <id>` oder der Methodenauswahl auswählen. Es gelten weiterhin die Bedingungen des Anbieters.
+
+Ein Login wird einmalig gespeichert. Das Speichern von Anmeldeinformationsmaterial, das AnyPick bereits unter einem zweiten Namen gespeichert hat, wird abgelehnt und der Fehler benennt das Konto, das es bereits hat: Verwenden Sie dieses Konto oder entfernen Sie es (`anypick account remove <provider>/<name>`), bevor Sie es unter einem neuen Namen speichern. Zwei Namen für einen Snapshot würden sonst wie zwei Konten aussehen, die nichts geändert haben; `anypick doctor` meldet die vor dieser Regel gespeicherten Paare.
+
+Wenn die Browseranmeldung oder das Speichern des Snapshots fehlschlägt, stellt AnyPick die vorherige native Anmeldung und den Zeiger auf das aktive Konto wieder her. Autorisierungs-URLs, Einmalcodes und Launcher-Ausgaben werden nicht in die Taskleiste oder JSON-Ausgabe kopiert.
+
+Für Zwillinge wählt `--source gemini-cli|antigravity` aus, welche Anmeldung gelesen werden soll, wenn beide vorhanden sind. In der macOS-App importiert **Auf diesem Mac** das Abonnement, das bereits bei Gemini CLI oder Antigravity angemeldet ist. Mit **Neues Konto** können Sie eine der Google-Quellen auswählen und sich als anderes Konto anmelden. Ein fehlgeschlagener oder abgebrochener Flow stellt die vorherige Anmeldung und das aktive Konto wieder her; AnyPick schreibt niemals ein neues Login in die IDE-Datenbank oder den Schlüsselbund von Antigravity.
+
+Gemini-API-Schlüssel (`GEMINI_API_KEY` oder `GOOGLE_API_KEY`) können auch als benannte native Konten gespeichert werden. Dies ist unabhängig von einem Gateway-Profil und funktioniert auch, wenn kein Gemini-CLI- oder Antigravity-Login vorhanden ist:
+
+```bash
+anypick add account gemini --credential api-key --secret --name studio
+```
+
+Das macOS Add Login-Blatt hält alle drei Gemini-Pfade verfügbar: das bereits auf diesem Mac vorhandene Login, ein neues Google-Abonnement-Login und ein separates API-Schlüsselformular. Der API-Schlüsselpfad gehört AnyPick und ersetzt nicht die native Anmeldung.
+
+## Speichern eines Schlüssels anstelle eines Logins
+
+Einige Anbieter akzeptieren einen Schlüssel, den Sie bereits besitzen. Die generische Form ist:
+
+```bash
+anypick add account mimo --credential subscription-key --secret --name work \
+  --option profile=singapore
+```
+
+Lassen Sie den Wert `--secret` weg und AnyPick fordert Sie auf einem Terminal dazu auf, sodass der Schlüssel nie in Ihren Shell-Verlauf gelangt. Jeder `--option key=value` muss ein von diesem Anbieter deklarierter Qualifizierer sein (heute `profile`). Die CLI schlägt bei allem anderen fehl, anstatt es stillschweigend zu löschen.
+
+> **Kiro-API-Schlüssel werden noch nicht akzeptiert.** Der `kiro`-Anbieter erklärt Nein
+> `CredentialDefinitions` (es ist kein `CredentialInputProvider`), also
+> `add account kiro --api-key/--region` schlägt in `SaveInput` mit geschlossen fehl
+> `UNSUPPORTED_CREDENTIAL_INPUT` und ein bloßes `--region` wird abgelehnt
+> `cmd/anypick/main.go` bevor es den Anbieter erreicht. Kiro-Anmeldungen über
+> Browser-Anmeldung (`--new`) und Schnappschüsse des Live-Logins (`--current`)
+> arbeiten wie dokumentiert.
+
+In der [Terminal-Benutzeroberfläche](/de/docs/guides/terminal-ui) wird derselbe Ablauf **Stattdessen einen API-Schlüssel verwenden** auf dem Bildschirm „Konto hinzufügen“ angezeigt, der Anbietern angeboten wird, die typisierte Anmeldeinformationsprodukte deklarieren. Der Schlüssel wird während der Eingabe ausgeblendet und Endpunktprofile werden aus dem Anbietervertrag gerendert.
+
+Ein Schlüssel ist kein Login auf diesem Computer: Er wird nur in AnyPick gespeichert, sodass bei seiner Aktivierung alle nativen Logins auf der Festplatte unberührt bleiben und `account refresh` sie nicht überschreiben.
+
+Von einem Plugin installierte Anbieter können andere Anmeldeinformationsprodukte deklarieren, ohne anbieterspezifische CLI-Flags hinzuzufügen. Die generische Form ist:
+
+```bash
+anypick add account <provider> --credential <kind> --secret --name <name>
+anypick add account mimo --credential subscription-key --secret --name work \
+  --option profile=singapore
+```
+
+Jeder `--option key=value` muss ein von diesem Anbieter deklarierter Qualifizierer sein. Die TUI rendert die gleichen Arten und Endpunktprofile aus dem Anbietervertrag. In der macOS-App zeigen diese Anbieter unter „Anmeldung hinzufügen“ ein API-Schlüsselformular anstelle eines Anmeldeablaufs an.
+
+<Aside type="caution" title="Ein Live-Login nach dem anderen">
+Provider-CLIs behalten normalerweise einen Berechtigungsnachweis in ihrem Standard-Home. Gespeicherte Konten befinden sich im Store von AnyPick und durch die normale Aktivierung wird das ausgewählte Konto im Pfad dieses Anbieters wiederhergestellt. Eine Ausnahme bilden Codex-Namensprofile: Jedes erhält ein isoliertes `CODEX_HOME`, sodass mehrere Codex-CLI-Konten gleichzeitig ausgeführt werden können. Bearbeiten Sie eine verwaltete Authentifizierungsdatei nicht manuell, während ihr Profil aktiv ist.
+</Aside>
+
+## Verwenden eines Kontos
+
+```bash
+anypick use codex --with codex/personal    # same-protocol: direct
+anypick use claude --with grok/work        # cross-protocol: proxy starts on demand
+anypick use commandcode --with workbuddy/work --model deepseek-4.1-flash
+anypick run commandcode --with workbuddy/work --model deepseek-4.1-flash --
+anypick run claude
+```
+
+Codex CLI unterstützt auch benannte Routen. AnyPick gibt jeder benannten Route ihre eigene `CODEX_HOME`, native Profilkonfiguration und `auth.json`, sodass Profile auf verschiedene gespeicherte Konten oder Gateways verweisen können, ohne die globale Codex-Konfiguration oder Anmeldung zu überschreiben:
+
+```bash
+anypick codex profile login personal
+anypick codex profile login work
+anypick use codex --with codex/personal --profile personal
+anypick use codex --with codex/work --profile work
+anypick use codex --with hub:default --profile shared
+anypick codex profile list
+anypick run codex --profile work -- exec --help
+```
+
+`profile login` öffnet die offizielle Codex-Anmeldung im ausgewählten Profil-Home, speichert dann die resultierenden Anmeldeinformationen als `codex/<name>` und materialisiert das Profil. Es ersetzt nicht die Standardeinstellung `~/.codex/auth.json` der Desktop-App. Für ein Konto, das bereits in AnyPick gespeichert ist, kopiert `anypick use ... --profile <name>` seinen Snapshot in die Profil-Startseite. Gateway-gestützte Profile verwenden ihren gespeicherten Endpunkt direkt. Wenn ein Profil einen kontospezifischen AnyPick-Proxy anstelle der nativen Codex-Authentifizierung verwenden soll, aktivieren Sie den Konto-Proxy und übergeben Sie `--transport proxy`. Ein Hub-gestütztes Profil verfügt über ein separates Routentoken, sodass ein anderes Codex-Profil dadurch nicht ungültig wird. Die standardmäßige Codex-CLI-Konfiguration kann auch direkt einen Konto-Proxy oder Hub verwenden:
+
+```bash
+anypick use codex --with codex/work --transport proxy
+anypick use codex --with hub:default
+```
+
+Diese Routen konfigurieren Codex CLI. Codex Desktop behält sein eigenes angemeldetes Konto und folgt nicht den CLIs `CODEX_HOME`.
+
+Wenn der Client und das Konto unterschiedliche Protokolle sprechen, startet AnyPick einen lokalen Übersetzungs-Proxy und verweist den Client darauf. Sie starten den Proxy nicht selbst – Command Code erhält einen OpenAI-kompatiblen `anypick-managed`-Anbieter in `~/.commandcode/providers.json`; Sein pro-Instanz-Proxy-Token wird in `~/.commandcode/auth.json` aufbewahrt. Siehe [Proxies](/de/docs/guides/proxies), wenn Sie möchten.
+
+## Live-Nutzung und Kontingent
+
+Wenn ein Anbieter eine Live-Nutzung meldet, zeigt die macOS-App dies in den Konto- und App-Details an. Antigravity meldet wöchentliche und fünfstündige Zeitfenster, gruppiert nach Modellfamilien, z. B. **Gemini-Modelle** und **Claude- und GPT-Modelle**. AnyPick liest die aktuellen Provider-Anmeldeinformationen für diese Anzeige; Die Anmeldung wird nicht aktualisiert oder geschrieben. Die Nutzung ist nur möglich, wenn das Anbieterkonto auf diesem Mac aktiv ist. Codex Desktop hält seine eigene Anmeldung von der Codex-CLI getrennt, sodass AnyPick keinen Kontingentwert anzeigt, wenn diese Konten nicht übereinstimmen.
+
+## Gespeicherte Konten verwalten
+
+```bash
+anypick account list                   # or: anypick list accounts
+anypick account refresh codex          # refresh the live login
+anypick account refresh codex work     # refresh one saved account
+anypick account refresh codex --all    # refresh every saved account
+anypick account remove codex old -y
+```
+
+`refresh` erneuert vorhandene OAuth-Tokens. Das Konto behält seinen Namen, sodass die Bindungen an diesem Punkt weiterhin funktionieren. nichts muss neu gebunden werden. Es wird mit einem Wert ungleich Null beendet, wenn ein Ziel ausgefallen ist, und gibt aus, welches.
+
+`remove` entfernt außerdem jedes benannte Codex-Profil, dessen Route dieses Konto war (siehe [Benannte Codex-Profile](/de/docs/reference/cli)). Ein Profil besitzt einen privaten `CODEX_HOME`, der den `auth.json` des Kontos enthält. Wenn Sie ihn also zurücklassen, würden Anmeldeinformationen verloren gehen, die in AnyPick nicht mehr erreicht werden können. Die Aufräumarbeiten werden gemeldet, nicht still:
+
+```bash
+anypick account remove codex work -y
+# removed codex/work Removed named profile(s): codex/work.
+```
+
+Profile, die auf eine andere Stelle verweisen – ein Gateway, einen Hub, einen Pool oder ein anderes gespeichertes Konto – bleiben in Ruhe. Durch das Löschen eines Kontos wird niemals ein Profil gelöscht, das eine andere Quelle verwendet. Wenn die Kontozeile bereits verschwunden ist, aber ein Profil immer noch darauf verweist (ein Löschvorgang aus einem älteren AnyPick, ein Absturz zwischen den beiden Schreibvorgängen oder eine Datenbank, die ohne ihre Kontozeilen wiederhergestellt wurde), entfernt AnyPick das Profil beim nächsten Start und sagt dies auf stderr; `anypick doctor` meldet es vorher.
+
+## Exportieren und Importieren
+
+Verschieben Sie ein Konto auf einen anderen Computer:
+
+```bash
+anypick account export codex work -o ./work.json
+anypick account import codex work -i ./work.json
+```
+
+Wenn `--out` weggelassen wird, schreibt der Export eine besitzergeschützte `.json`-Datei unter `~/.anypick/exports/` und gibt ihren genauen Pfad aus. Um mehrere Konten in einem Paket zu verschieben, exportieren Sie alle Konten (oder einen Anbieter) in ein einziges JSON-Backup:
+
+```bash
+anypick account export --all --out ./accounts.json
+anypick account import ./accounts.json
+```
+
+Sie können auch mehrere Einzelkonto-JSON-Dateien in einem Befehl importieren, zum Beispiel `anypick account import ./work.json ./personal.json`. `import` weigert sich, einen vorhandenen Namen zu überschreiben, es sei denn, Sie übergeben `--force`. Eine bereits unter einem anderen Namen gespeicherte Login-Identität bleibt gesperrt, auch mit `--force`; Verwenden Sie diesen vorhandenen Namen, wenn Sie ihn ersetzen. API-Schlüsselanzeigebezeichnungen gelten nicht als Anmeldeidentitäten.
+
+CLI-, TUI- und Desktop-Importe akzeptieren sowohl Einzelkonto-Exporte als auch Kontosicherungen. Die Desktop-Dateiauswahl akzeptiert `.json`- und `.anypick-backup`-Dateien und ermöglicht Ihnen die Überprüfung der Konten vor dem Import.
+
+<Aside type="danger" title="Exporte enthalten Live-Anmeldeinformationen">
+Eine exportierte Datei enthält die echten Token in einfacher Form. Behandeln Sie es wie die Anmeldedaten, die es ist: Übertragen Sie es über einen Kanal, dem Sie vertrauen, und löschen Sie es anschließend.
+</Aside>
+
+## Modellstandards
+
+Wenn eine Bindung einen Konto-Proxy an Claude anfügt, legt AnyPick die Claude-Modellrollen fest:
+
+- `ANTHROPIC_MODEL` – die Standardeinstellung
+- `ANTHROPIC_DEFAULT_SONNET_MODEL`, `…_OPUS_MODEL`, `…_HAIKU_MODEL`
+
+Die Werte stammen aus dem Live-Katalog `/v1/models` des laufenden Proxys, sofern einer verfügbar ist, sodass neu veröffentlichte Modelle ohne AnyPick-Update angezeigt werden. Ändern Sie sie später mit <kbd>m</kbd> auf dem Proxy- oder Gateway-Board, in Apps durch Neuerstellen der Route oder durch erneutes Binden mit einem expliziten `--model`.

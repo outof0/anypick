@@ -583,6 +583,12 @@ func (a *commandCodeAdapter) Inspect() (*InspectResult, error) {
 	default:
 		res.Summary = "config present (no AnyPick provider)"
 	}
+	if config, _, err := readCommandCodeObject(paths[2], "config.json"); err == nil {
+		selected := stringField(config, "modelProvider")
+		model := stringField(config, "model")
+		res.RoutingChanged = (selected != "" && selected != commandCodeManagedProviderID) ||
+			(strings.Contains(model, "/") && !strings.HasPrefix(model, commandCodeManagedProviderID+"/"))
+	}
 	return res, nil
 }
 

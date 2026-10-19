@@ -213,7 +213,7 @@ describe('App shell', () => {
 
   it('replaces quota from a usage frame and ignores an older reading', async () => {
     const { bridge, user } = mount();
-    bridge.push('snapshot', snapshotFixture());
+    bridge.push('snapshot', snapshotFixture({ actions: snapshotFixture().actions.map((action) => ({ ...action, selected: false })) }));
     await user.click(within(screen.getByRole('navigation', { name: 'AnyPick sections' })).getByRole('button', { name: 'Apps' }));
     await user.click(screen.getByTestId('apps-row-claude'));
     expect(await screen.findByTestId('apps-quota-claude-0')).toHaveTextContent('42% remaining');

@@ -290,7 +290,11 @@ func TestProxyStartAllStartsStoppedProxiesAndLeavesRunningOnes(t *testing.T) {
 	if res.Status != "success" {
 		t.Fatalf("start-all: %+v", res)
 	}
-	if strings.Contains(firstFrameLine(out.String()), "apiKey") {
+	resultJSON, err := json.Marshal(res)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(resultJSON), "apiKey") {
 		t.Fatalf("start-all result carries a bearer: %s", firstFrameLine(out.String()))
 	}
 	idleStatus, err := env.Deps.Proxy.StatusContext(ctx, "codex", "idle")

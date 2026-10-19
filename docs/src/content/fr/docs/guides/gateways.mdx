@@ -1,0 +1,86 @@
+---
+title: 'Passerelles'
+description: 'Enregistrez un point de terminaison, une clé et un catalogue de modèles, puis liez-y n''importe quel client.'
+---
+
+Une passerelle est un profil API : un point de terminaison, un identifiant et éventuellement une liste de modèles. Il n'y a pas de flux de connexion ni de processus local : le client communique directement avec le point de terminaison distant.
+
+## Ajoutez-en un
+
+```bash
+anypick add gateway openrouter-work \
+  --provider openrouter \
+  --endpoint https://openrouter.ai/api/v1 \
+  --api-key "$OPENROUTER_API_KEY" \
+  --model anthropic/claude-sonnet-4 \
+  --models default=anthropic/claude-sonnet-4 \
+  --models opus=anthropic/claude-opus-4-8
+
+anypick use claude --with openrouter-work
+anypick run claude
+```
+
+| Drapeau | Signification |
+| --- | --- |
+| `--provider <id>` | Quelle forme de catalogue le point final suit |
+| `--endpoint <url>` | URL de base |
+| `--api-key <key>` | Clé stockée dans la base de données AnyPick |
+| `--api-key-env <var>` | Lire la clé d'une variable d'environnement lors de l'activation au lieu de la stocker |
+| `--model <id>` | Modèle par défaut pour cette passerelle |
+| `--models <role=id>` | Épinglez un rôle de modèle client (`default`, `sonnet`, `opus`, `haiku`, …) à un modèle de passerelle ; répétez le drapeau pour plus de rôles |
+| `--gateway-id <id>` | ID de passerelle pour les fournisseurs traitant plusieurs passerelles par point de terminaison |
+
+`--models` est une carte de rôles, pas une liste libre d'identifiants : la valeur stockée est écrite dans les emplacements de rôle de chaque client, donc un identifiant nu n'a aucun rôle auquel s'attacher et l'indicateur est refusé. Passez `role=model-id`, une fois par rôle.
+
+Les fournisseurs de catalogue incluent `anthropic`, `openai`, `openrouter`, `grok-api`, `gemini-api`, `litellm`, `local`, `custom` et `cloudflare-aigateway` — l'ensemble complet est `Builtin()` dans `src/go/internal/catalog/catalog.go`.
+
+Cloudflare AI Gateway a besoin d'un point de terminaison explicite (l'URL de base intègre l'identifiant du compte Cloudflare) et d'un identifiant de passerelle :
+
+```bash
+anypick add gateway cf-prod \
+  --provider cloudflare-aigateway \
+  --endpoint https://api.cloudflare.com/client/v4/accounts/ACCOUNT_ID/ai/v1 \
+  --api-key "$CF_API_TOKEN" \
+  --gateway-id my-gateway
+```
+
+Omettez `--gateway-id` pour utiliser la valeur par défaut du fournisseur (`default`).
+
+<Aside type="tip" title="Clés que vous préférez ne pas stocker">
+`--api-key-env OPENROUTER_API_KEY` enregistre le nom de la variable, pas le secret. AnyPick le lit lorsqu'il active la liaison, de sorte que la clé reste dans votre environnement ou votre gestionnaire de secrets.
+</Aside>
+
+## Passerelle ou proxy ?
+
+Les deux sont des sources et se terminent tous deux de la même manière : `use <client> --with <source>`. Ils diffèrent par ce qui se cache derrière eux.
+
+| | Proxy (compte) | Passerelle (profil API) |
+| --- | --- | --- |
+| Authentification | Instantané de connexion natif, plus un processus local | Point de terminaison + clé détenue par AnyPick |
+| Configuration | Connectez-vous avec la CLI du fournisseur, puis instantané | Collez un point de terminaison et une clé |
+| Modèles | Découvert à partir du proxy en cours d'exécution | Valeurs par défaut de la passerelle, ou par liaison |
+| Où vont les demandes | `127.0.0.1:<port>` → amont | Directement au point final |
+
+Recherchez une passerelle lorsque vous détenez une clé. Créez un compte lorsque vous détenez un abonnement.
+
+## Modèles dans le sélecteur du client
+
+Pour les clients dotés d'un registre de modèles natif (Codex, OpenCode, ZCode, Command Code et DSH) AnyPick écrit le catalogue de portée source afin que les identifiants disponibles dans le client correspondent à la passerelle ou au proxy sélectionné. Définissez la valeur par défaut avec `--model` ; cela devient le modèle sur lequel le client démarre.
+
+Claude Code, Gemini CLI et Kiro exposent la sélection de modèles via des variables d'environnement ou des emplacements de rôle natifs plutôt qu'un registre de modèles inscriptible. AnyPick configure leurs valeurs natives par défaut/rôle, mais ne peut pas inventer une liste côté client que ces programmes ne lisent pas.
+
+Les proxys de compte n'en ont pas besoin - AnyPick lit leur catalogue en direct `/v1/models` chaque fois qu'il active le client.
+
+## Gestion des passerelles
+
+```bash
+anypick gateway list
+anypick gateway show openrouter-work
+anypick gateway edit openrouter-work -m anthropic/claude-sonnet-4
+anypick gateway edit openrouter-work --endpoint https://…  --api-key "$NEW_KEY"
+anypick gateway remove old-gateway -y
+```
+
+`show` masque la clé. Passez le drapeau global `--reveal` pour l'imprimer, ce qui est exactement aussi dangereux que cela puisse paraître.
+
+Les liaisons sont des instantanés, donc la modification d'une passerelle ne modifie pas rétroactivement un client qui y est déjà lié. Réexécutez `use` pour récupérer le nouveau point de terminaison ou le nouveau modèle.

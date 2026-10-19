@@ -1,0 +1,192 @@
+---
+title: 'Tài khoản'
+description: 'Ảnh chụp nhanh thông tin đăng nhập của nhà cung cấp gốc để một số có thể cùng tồn tại và bất kỳ client nào cũng có thể sử dụng chúng.'
+---
+
+Tài khoản là thông tin đăng nhập do CLI của chính nhà cung cấp tạo hoặc khóa nhà cung cấp mà bạn đã cung cấp cho proxy cục bộ của nhà cung cấp đó. AnyPick chụp ảnh nhanh nó, vì vậy bạn có thể giữ lại một số, chuyển đổi giữa chúng và cho client chưa bao giờ thiết kế để sử dụng nó mượn một cái.
+
+## Nhà cung cấp được hỗ trợ
+
+| Nhà cung cấp | Xác thực trực tiếp | Làm thế nào các client khác tiếp cận được nó |
+| --- | --- | --- |
+| `claude` | Móc khóa Claude Code / `~/.claude/.credentials.json` | trực tiếp, chỉ dành cho Claude Code |
+| `codex` | `~/.codex/auth.json` | trực tiếp, chỉ dành cho Codex |
+| `grok` | `~/.grok/auth.json` | proxy kép tích hợp (OpenAI + Anthropic) |
+| `opencode` | Cửa hàng xác thực OpenCode | proxy kép Zen/Go tích hợp |
+| `gemini` | `~/.gemini/` (`.env`, oauth, tài khoản), trạng thái/khóa phản trọng lực | proxy kép tích hợp → API Gemini |
+| `kiro` | cửa hàng bí mật kiro-cli, `~/.aws/sso/cache` hoặc khóa API bạn cung cấp | bên ngoài `kirolink` / `kiro-proxy`, nếu được cài đặt |
+| `workbuddy` | Đăng ký WorkBuddy / CodeBuddy (OAuth luồng thiết bị) | proxy OpenAI tích hợp, phục vụ các client ở trên; `anypick use workbuddy/<name>` cũng tự chuyển đổi ứng dụng WorkBuddy thông qua tệp phiên của nó |
+| `cline` | Đăng nhập ClinePass / Cline WorkOS | proxy OpenAI tích hợp (chưa có bộ điều hợp client Cline) |
+
+`anypick providers` là khoảng không quảng cáo có thẩm quyền cho bản dựng trên máy của bạn. Ngoài các nhà cung cấp gốc ở trên, công cụ Go còn cung cấp trực tiếp các nhà cung cấp khóa đăng ký và khóa API tương thích; họ không yêu cầu plugin `popular-providers`. Xem [Các nhà cung cấp tương thích được tích hợp sẵn](/vi/docs/guides/plugins) để biết ví dụ và hồ sơ thông tin xác thực.
+
+<Aside type="caution" title="Bản sao lưu tài khoản chứa thông tin xác thực">
+Các tệp sao lưu tài khoản là JSON có thể đọc được và không được AnyPick mã hóa. Lưu trữ chúng như thông tin xác thực đang làm việc. Chúng bao gồm các tài khoản đã lưu; bí mật, tùy chọn và lịch sử hoạt động của cổng không phải là bản sao lưu ứng dụng hoàn chỉnh.
+</Aside>
+
+## Lưu thông tin đăng nhập
+
+AnyPick ủy quyền đăng nhập trình duyệt vào trình khởi chạy đăng nhập do nhà cung cấp sở hữu và sau đó đọc thông tin xác thực mà họ ghi vào vị trí thông thường của nhà cung cấp. Hai cách trong:
+
+<Tabs>
+<TabItem label="Lưu đăng nhập trực tiếp">
+```bash
+claude login
+anypick add account claude --current --name personal
+
+codex login
+anypick add account codex --current --name personal
+```
+Thông tin xác thực hiện đang hoạt động sẽ trở thành ảnh chụp nhanh đã lưu có tên `codex/personal`.
+</TabItem>
+<TabItem label="Bắt đầu đăng nhập mới">
+```bash
+anypick add account codex --new --name work
+```
+Khi nhà cung cấp đã cài đặt hiển thị Xác thực trình duyệt, AnyPick sẽ sao lưu thông tin xác thực trực tiếp, mở luồng trình duyệt của nhà cung cấp, xác minh thông tin đăng nhập gốc mới và lưu nó dưới tên mới trong một lệnh. Codex, Claude Code, Kiro, Grok và Gemini cung cấp con đường này. Z.ai cũng hỗ trợ nhập thông tin đăng nhập ZCode được mã hóa trên máy Mac này hoặc bắt đầu luồng trình duyệt chính thức. Bộ chọn của Gemini có các nguồn Google CLI riêng biệt và tương thích với Antigravity; AnyPick trực tiếp mở luồng Google OAuth vì bản thân `gemini` không có lệnh chỉ đăng nhập. Nếu không có trình khởi chạy trình duyệt nào, AnyPick sẽ quay lại xóa thông tin đăng nhập trực tiếp và cho bạn biết cách lưu thông tin đó sau khi đăng nhập bằng công cụ được nhà cung cấp hỗ trợ.
+</TabItem>
+</Tabs>
+
+Các phương pháp chính thức được hiển thị đầu tiên và là mặc định vì chúng ít có khả năng xung đột với chính sách của nhà cung cấp. Chúng không phải là danh sách trắng: plugin nhà cung cấp đầy đủ có thể hiển thị một phương thức cộng đồng và bạn có thể chọn phương thức đó một cách rõ ràng bằng `--auth-method <id>` hoặc bộ chọn phương thức. Các điều khoản của nhà cung cấp vẫn được áp dụng.
+
+Một lần đăng nhập được lưu một lần. Việc lưu tài liệu thông tin xác thực AnyPick đã giữ dưới tên thứ hai sẽ bị từ chối và lỗi đặt tên cho tài khoản đã có tài khoản đó: sử dụng tài khoản đó hoặc xóa tài khoản đó (`anypick account remove <provider>/<name>`) trước khi lưu dưới tên mới. Hai tên cho một ảnh chụp nhanh sẽ trông giống như hai tài khoản không có gì chuyển đổi; `anypick doctor` báo cáo các cặp đã lưu trước quy tắc này.
+
+Nếu đăng nhập vào trình duyệt hoặc lưu ảnh chụp nhanh không thành công, AnyPick sẽ khôi phục con trỏ tài khoản đang hoạt động và thông tin đăng nhập gốc trước đó. URL ủy quyền, mã một lần và đầu ra của trình khởi chạy không được sao chép vào khay hoặc đầu ra JSON.
+
+Đối với Gemini, `--source gemini-cli|Antigravity` chọn thông tin đăng nhập nào để đọc khi cả hai đều tồn tại. Trong ứng dụng macOS, **Trên máy Mac này** nhập đăng ký đã đăng nhập vào Gemini CLI hoặc Antigravity. **Tài khoản mới** cho phép bạn chọn nguồn Google và đăng nhập bằng tài khoản khác. Luồng không thành công hoặc bị hủy sẽ khôi phục tài khoản đăng nhập và hoạt động trước đó; AnyPick không bao giờ ghi thông tin đăng nhập mới vào cơ sở dữ liệu hoặc chuỗi khóa IDE của Antigravity.
+
+Khóa API Gemini (`GEMINI_API_KEY` hoặc `GOOGLE_API_KEY`) cũng có thể được lưu dưới dạng tài khoản gốc được đặt tên. Điều này tách biệt với cấu hình cổng và hoạt động ngay cả khi không có thông tin đăng nhập Gemini CLI hoặc Antigravity:
+
+```bash
+anypick add account gemini --credential api-key --secret --name studio
+```
+
+Bảng Thêm đăng nhập macOS giữ sẵn cả ba đường dẫn Gemini: thông tin đăng nhập đã có trên máy Mac này, thông tin đăng nhập đăng ký Google mới và biểu mẫu khóa API riêng. Đường dẫn khóa API thuộc quyền sở hữu của AnyPick và không thay thế thông tin đăng nhập gốc.
+
+## Lưu khóa thay vì đăng nhập
+
+Một số nhà cung cấp chấp nhận khóa bạn đã giữ. Dạng chung là:
+
+```bash
+anypick add account mimo --credential subscription-key --secret --name work \
+  --option profile=singapore
+```
+
+Bỏ qua giá trị `--secret` và AnyPick sẽ nhắc giá trị đó trên thiết bị đầu cuối, để khóa không bao giờ đi vào lịch sử shell của bạn. Mọi `--option key=value` phải là bộ định tính được nhà cung cấp đó khai báo (`profile` hôm nay). CLI không đóng được bất kỳ thứ gì khác thay vì âm thầm thả nó.
+
+> **Khóa API Kiro chưa được chấp nhận.** Nhà cung cấp `kiro` tuyên bố không
+> `CredentialDefinitions` (nó không phải là `CredentialInputProvider`), vì vậy
+> `add account kiro --api-key/--region` đóng không thành công trong `SaveInput` với
+> `UNSUPPORTED_CREDENTIAL_INPUT` và `--region` trần trụi bị từ chối tham gia
+> `cmd/anypick/main.go` trước khi đến tay nhà cung cấp. Kiro đăng nhập qua
+> đăng nhập trình duyệt (`--new`) và ảnh chụp nhanh đăng nhập trực tiếp (`--current`)
+> hoạt động như tài liệu.
+
+Trong [giao diện người dùng thiết bị đầu cuối](/vi/docs/guides/terminal-ui), quy trình tương tự là **Sử dụng khóa API** trên màn hình thêm tài khoản, được cung cấp cho các nhà cung cấp khai báo các sản phẩm thông tin xác thực đã nhập. Khóa bị ẩn khi bạn nhập và hồ sơ điểm cuối hiển thị từ hợp đồng nhà cung cấp.
+
+Khóa không phải là thông tin đăng nhập trên máy này: nó chỉ được lưu trữ trong AnyPick, vì vậy việc kích hoạt nó sẽ giữ nguyên mọi thông tin đăng nhập gốc trên đĩa và `account refresh` sẽ không ghi đè lên nó.
+
+Các nhà cung cấp được cài đặt bằng plugin có thể khai báo các sản phẩm thông tin xác thực khác mà không cần thêm cờ CLI dành riêng cho nhà cung cấp. Dạng chung là:
+
+```bash
+anypick add account <provider> --credential <kind> --secret --name <name>
+anypick add account mimo --credential subscription-key --secret --name work \
+  --option profile=singapore
+```
+
+Mọi `--option key=value` phải là bộ định tính được nhà cung cấp đó khai báo. TUI hiển thị các loại và hồ sơ điểm cuối giống nhau từ hợp đồng nhà cung cấp. Trong ứng dụng macOS, các nhà cung cấp này hiển thị biểu mẫu khóa API trong Thêm thông tin đăng nhập thay vì luồng đăng nhập.
+
+<Aside type="caution" title="Một lần đăng nhập trực tiếp tại một thời điểm">
+CLI của nhà cung cấp thường giữ một thông tin xác thực trong trang chủ mặc định của họ. Các tài khoản đã lưu sẽ tồn tại trong cửa hàng của AnyPick và kích hoạt thông thường sẽ khôi phục tài khoản đã chọn vào đường dẫn nhà cung cấp đó. Hồ sơ được đặt tên theo Codex là ngoại lệ: mỗi hồ sơ có một `CODEX_HOME` riêng biệt, vì vậy nhiều tài khoản Codex CLI có thể chạy cùng một lúc. Không chỉnh sửa thủ công tệp xác thực được quản lý trong khi hồ sơ của nó đang hoạt động.
+</Aside>
+
+## Sử dụng tài khoản
+
+```bash
+anypick use codex --with codex/personal    # same-protocol: direct
+anypick use claude --with grok/work        # cross-protocol: proxy starts on demand
+anypick use commandcode --with workbuddy/work --model deepseek-4.1-flash
+anypick run commandcode --with workbuddy/work --model deepseek-4.1-flash --
+anypick run claude
+```
+
+Codex CLI cũng hỗ trợ các tuyến được đặt tên. AnyPick cung cấp cho mỗi tuyến được đặt tên `CODEX_HOME`, cấu hình hồ sơ gốc và `auth.json` riêng, để hồ sơ có thể trỏ đến các tài khoản hoặc cổng đã lưu khác nhau mà không ghi đè cấu hình Codex chung hoặc thông tin đăng nhập:
+
+```bash
+anypick codex profile login personal
+anypick codex profile login work
+anypick use codex --with codex/personal --profile personal
+anypick use codex --with codex/work --profile work
+anypick use codex --with hub:default --profile shared
+anypick codex profile list
+anypick run codex --profile work -- exec --help
+```
+
+`profile login` mở đăng nhập Codex chính thức trong trang chủ hồ sơ đã chọn, sau đó lưu thông tin xác thực thu được dưới dạng `codex/<name>` và hiện thực hóa hồ sơ. Nó không thay thế mặc định của ứng dụng máy tính để bàn `~/.codex/auth.json`. Đối với tài khoản đã được lưu trong AnyPick, `anypick use ... --profile <name>` sao chép ảnh chụp nhanh của tài khoản đó vào trang chủ hồ sơ. Cấu hình được cổng hỗ trợ sử dụng trực tiếp điểm cuối đã lưu của chúng. Nếu hồ sơ nên sử dụng proxy AnyPick dành riêng cho tài khoản thay vì xác thực Codex gốc, hãy bật proxy tài khoản và vượt qua `--transport proxy`. Cấu hình được Hub hỗ trợ có mã thông báo tuyến riêng, do đó, nó không làm mất hiệu lực cấu hình Codex khác. Cấu hình Codex CLI mặc định cũng có thể sử dụng trực tiếp proxy tài khoản hoặc Hub:
+
+```bash
+anypick use codex --with codex/work --transport proxy
+anypick use codex --with hub:default
+```
+
+Các tuyến này cấu hình Codex CLI. Codex Desktop giữ lại tài khoản đăng nhập của riêng mình và không tuân theo `CODEX_HOME` của CLI.
+
+Khi client và tài khoản sử dụng các giao thức khác nhau, AnyPick sẽ khởi động proxy dịch cục bộ và hướng client đến đó. Bạn không tự khởi động proxy — Command Code nhận được nhà cung cấp `anypick-managed` tương thích với OpenAI trong `~/.commandcode/providers.json`; Mã thông báo proxy cho mỗi phiên bản của nó được lưu giữ trong `~/.commandcode/auth.json`. Hãy xem [Proxies](/vi/docs/guides/proxies) nếu bạn muốn.
+
+## Mức sử dụng và hạn ngạch trực tiếp
+
+Khi nhà cung cấp báo cáo mức sử dụng trực tiếp, ứng dụng macOS sẽ hiển thị điều đó trong chi tiết tài khoản và ứng dụng. Báo cáo về phản lực hấp dẫn hàng tuần và khoảng thời gian 5 giờ được nhóm theo dòng mô hình, chẳng hạn như **Mô hình Gemini** và **Mô hình Claude và GPT**. AnyPick đọc thông tin xác thực của nhà cung cấp hiện tại cho màn hình này; nó không làm mới hoặc ghi thông tin đăng nhập. Việc sử dụng chỉ khả dụng khi tài khoản nhà cung cấp đang hoạt động trên máy Mac này. Codex Desktop giữ thông tin đăng nhập riêng tách biệt với Codex CLI, vì vậy AnyPick không hiển thị hạn ngạch đọc khi các tài khoản đó không khớp.
+
+## Quản lý tài khoản đã lưu
+
+```bash
+anypick account list                   # or: anypick list accounts
+anypick account refresh codex          # refresh the live login
+anypick account refresh codex work     # refresh one saved account
+anypick account refresh codex --all    # refresh every saved account
+anypick account remove codex old -y
+```
+
+`refresh` gia hạn mã thông báo OAuth tại chỗ. Tài khoản vẫn giữ nguyên tên của nó, vì vậy các binding trỏ đến tài khoản đó vẫn tiếp tục hoạt động; không có gì cần binding lại. Nó thoát khác 0 nếu bất kỳ mục tiêu nào không thành công và in mục tiêu nào.
+
+`remove` cũng xóa mọi hồ sơ Codex được đặt tên có lộ trình là tài khoản đó (xem [Hồ sơ Codex được đặt tên](/vi/docs/reference/cli)). Một hồ sơ sở hữu `CODEX_HOME` riêng tư nắm giữ `auth.json` của tài khoản, do đó, việc bỏ lại nó sẽ khiến thông tin xác thực không có gì trong AnyPick có thể lấy lại được. Việc dọn dẹp được báo cáo, không im lặng:
+
+```bash
+anypick account remove codex work -y
+# removed codex/work Removed named profile(s): codex/work.
+```
+
+Các cấu hình trỏ đến một nơi khác — cổng, Hub, nhóm hoặc tài khoản đã lưu khác — được giữ nguyên. Việc xóa một tài khoản sẽ không bao giờ xóa hồ sơ sử dụng nguồn khác. Nếu hàng tài khoản đã biến mất nhưng hồ sơ vẫn trỏ đến nó (xóa khỏi AnyPick cũ hơn, sự cố giữa hai lần ghi hoặc cơ sở dữ liệu được khôi phục mà không có hàng tài khoản), AnyPick sẽ xóa hồ sơ vào lần khởi động tiếp theo và thông báo như vậy trên thiết bị lỗi chuẩn; `anypick doctor` báo cáo điều đó trước đó.
+
+## Xuất và nhập
+
+Di chuyển tài khoản sang máy khác:
+
+```bash
+anypick account export codex work -o ./work.json
+anypick account import codex work -i ./work.json
+```
+
+Khi `--out` bị bỏ qua, xuất sẽ ghi tệp `.json` chỉ dành cho chủ sở hữu trong `~/.anypick/exports/` và in đường dẫn chính xác của nó. Để di chuyển nhiều tài khoản trong một gói, hãy xuất tất cả tài khoản (hoặc một nhà cung cấp) sang một bản sao lưu JSON:
+
+```bash
+anypick account export --all --out ./accounts.json
+anypick account import ./accounts.json
+```
+
+Bạn cũng có thể nhập một số tệp JSON của một tài khoản trong một lệnh, ví dụ: `anypick account import ./work.json ./personal.json`. `import` từ chối ghi đè tên hiện có trừ khi bạn vượt qua `--force`. Thông tin nhận dạng đăng nhập đã được lưu dưới một tên khác vẫn bị chặn, bao gồm cả với `--force`; sử dụng tên hiện có khi thay thế nó. Nhãn hiển thị khóa API không được tính là thông tin nhận dạng đăng nhập.
+
+Nhập CLI, TUI và máy tính để bàn chấp nhận cả xuất tài khoản đơn và sao lưu tài khoản. Bộ chọn tệp trên máy tính chấp nhận các tệp `.json` và `.anypick-backup`, đồng thời cho phép bạn xem lại các tài khoản trước khi nhập.
+
+<Aside type="danger" title="Xuất khẩu chứa thông tin xác thực trực tiếp">
+Tệp được xuất chứa mã thông báo thực ở dạng thuần túy. Hãy coi nó giống như thông tin xác thực: chuyển nó qua kênh mà bạn tin cậy và xóa nó sau đó.
+</Aside>
+
+## Mặc định của mô hình
+
+Khi một binding gắn proxy tài khoản với Claude, AnyPick sẽ đặt các vai trò trong mô hình Claude:
+
+- `ANTHROPIC_MODEL` — mặc định
+- `ANTHROPIC_DEFAULT_SONNET_MODEL`, `…_OPUS_MODEL`, `…_HAIKU_MODEL`
+
+Các giá trị đến từ danh mục `/v1/models` trực tiếp của proxy đang chạy khi có sẵn, vì vậy các mẫu mới phát hành sẽ xuất hiện mà không có bản cập nhật AnyPick. Thay đổi chúng sau bằng <kbd>m</kbd> trên bảng Proxy hoặc Cổng, từ Ứng dụng bằng cách xây dựng lại tuyến đường hoặc bằng cách liên kết lại bằng `--model` rõ ràng.

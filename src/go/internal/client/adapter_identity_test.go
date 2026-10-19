@@ -3,7 +3,9 @@ package client
 import (
 	"encoding/json"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -189,7 +191,7 @@ func TestClaudeInspectVariants(t *testing.T) {
 	}
 
 	// Managed block present.
-	managed := `{"env":{"X":"1"},"` + anypickManagedKey + `":true}`
+	managed := `{"env":{"ANTHROPIC_BASE_URL":"http://127.0.0.1:1234"},"` + anypickManagedKey + `":true}`
 	if err := os.WriteFile(settings, []byte(managed), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -234,7 +236,7 @@ func TestSmallJSONHelpers(t *testing.T) {
 
 	files := writeClientEnvFiles(t.TempDir(), "claude",
 		map[string]string{"B_KEY": "v2", "A_KEY": "v1"})
-	if len(files) != 1 {
+	if len(files) != 2 {
 		t.Fatalf("env files: %v", files)
 	}
 	raw, err := os.ReadFile(files[0])
@@ -274,5 +276,169 @@ func TestCodexIdentityAndConfigPathOverride(t *testing.T) {
 	t.Setenv("CODEX_HOME", override)
 	if got := codexConfigPath(home); got != filepath.Join(override, "config.toml") {
 		t.Fatalf("override ignored: %q", got)
+	}
+}
+
+func TestBuiltinNativeInspectionIsExplicit(t *testing.T) {
+	for _, key := range []string{"CODEX_HOME", "WORKBUDDY_CONFIG_DIR", "CODEBUDDY_CONFIG_DIR", "DSH_HOME", "XDG_CONFIG_HOME", "GEMINI_CLI_HOME", "GEMINI_CONFIG_DIR"} {
+		t.Setenv(key, "")
+	}
+	reg := NewRegistry()
+	if err := RegisterBuiltin(reg, t.TempDir(), t.TempDir()); err != nil {
+		t.Fatal(err)
+	}
+	expected := map[string]bool{"claude": true, "codex": true, "gemini": true, "kiro": true, "opencode": true, "workbuddy": true, "zcode": true, "pi": false, "omp": false, "dsh": false, "commandcode": false}
+	for _, id := range reg.IDs() {
+		want, ok := expected[id]
+		if !ok {
+			t.Fatalf("classify native routing for new client %s", id)
+		}
+		adapter, _ := reg.Get(id)
+		state, err := adapter.Inspect()
+		if err != nil || state.Native != want {
+			t.Fatalf("%s native=%+v err=%v, want %v", id, state, err, want)
+		}
+	}
+}
+
+func TestGeneratedShellEnvironmentDoesNotExpandValues(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("requires POSIX shell")
+	}
+	value := "key$(echo unwanted)'with$variables`and&metacharacters"
+	paths := writeClientEnvFiles(t.TempDir(), "fixture", map[string]string{"ANYPICK_TEST_VALUE": value})
+	if len(paths) != 2 {
+		t.Fatalf("missing environment mirrors: %v", paths)
+	}
+	output, err := exec.Command("/bin/sh", "-c", `. "$1"; printf '%s' "$ANYPICK_TEST_VALUE"`, "test", paths[0]).Output()
+	if err != nil || string(output) != value {
+		t.Fatalf("shell round-trip=%q, %v", output, err)
+	}
+}
+
+func TestCodexInspectNativeSelection(t *testing.T) {
+	t.Setenv("CODEX_HOME", "")
+	for _, tc := range []struct {
+		name, config string
+		native       bool
+	}{
+		{"default", `model = "gpt-test"`, true},
+		{"explicit native", `model_provider = "openai"`, true},
+		{"custom", `model_provider = "custom"`, false},
+		{"managed", `model_provider = "anypick"`, false},
+		{"official provider overridden", `[model_providers.openai]
+base_url = "https://custom.invalid"`, false},
+		{"selected external profile", `profile = "external"
+[profiles.external]
+model_provider = "custom"`, false},
+		{"corrupt", `broken = [`, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			home := t.TempDir()
+			path := codexConfigPath(home)
+			if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(path, []byte(tc.config), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			result, err := newCodex(home).Inspect()
+			if err != nil || result.Native != tc.native {
+				t.Fatalf("Inspect=%+v, %v, want native %v", result, err, tc.native)
+			}
+		})
+	}
+}
+
+func TestOpenCodeInspectUsesSelectedModel(t *testing.T) {
+	for _, tc := range []struct {
+		config string
+		native bool
+	}{
+		{`{"model":"opencode/native","provider":{"anypick-managed":{}}}`, true},
+		{`{"model":"anypick-managed/test","provider":{"anypick-managed":{}}}`, false},
+		{`{"provider":{"anypick-managed":{}}}`, false},
+		{`{"model":"custom/test","provider":{"custom":{"options":{"baseURL":"https://custom.invalid"}}}}`, false},
+		{`null`, false},
+	} {
+		home := t.TempDir()
+		path := openCodeEffectiveConfigPath(home)
+		if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte(tc.config), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		result, err := newOpenCode(home).Inspect()
+		if err != nil || result.Native != tc.native {
+			t.Fatalf("Inspect=%+v, %v, want %v", result, err, tc.native)
+		}
+	}
+}
+
+func TestGeneratedPowerShellEnvironmentRoundTrips(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("requires native Windows PowerShell")
+	}
+	root := t.TempDir()
+	value := "key'with$variables`and&metacharacters"
+	paths := writeClientEnvFiles(root, "fixture", map[string]string{"ANYPICK_TEST_VALUE": value})
+	if len(paths) != 2 {
+		t.Fatalf("missing environment mirrors: %v", paths)
+	}
+	script := ". '" + strings.ReplaceAll(paths[1], "'", "''") + "'; [Console]::Write($env:ANYPICK_TEST_VALUE)"
+	output, err := exec.Command("powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script).Output()
+	if err != nil || string(output) != value {
+		t.Fatalf("PowerShell round-trip=%q, %v", output, err)
+	}
+}
+
+func TestEveryClientClassifiesChangedLiveSelection(t *testing.T) {
+	type fixture struct {
+		paths   func(string) []string
+		content string
+		changed bool
+	}
+	cases := map[string]fixture{
+		"claude":      {func(h string) []string { return []string{settingsPath(h)} }, `{"model":"native"}`, true},
+		"codex":       {func(h string) []string { return []string{codexConfigPath(h)} }, `model_provider = "openai"`, true},
+		"gemini":      {func(h string) []string { return []string{geminiSettingsPath(h)} }, `{}`, true},
+		"kiro":        {func(h string) []string { return nil }, ``, false},
+		"opencode":    {func(h string) []string { return []string{openCodeEffectiveConfigPath(h)} }, `{"model":"opencode/native","provider":{"anypick-managed":{}}}`, true},
+		"workbuddy":   {workbuddyModelsPaths, `{"models":[]}`, true},
+		"zcode":       {func(h string) []string { return []string{filepath.Join(h, ".zcode", "cli", "config.json")} }, `{"provider":{"anypick":{}},"model":{"main":"zai/native"}}`, true},
+		"dsh":         {func(h string) []string { return []string{dshSettingsPath(h)} }, `model = "native"`, true},
+		"commandcode": {func(h string) []string { return []string{commandCodeConfigPath(h)} }, `{"modelProvider":"other","model":"other/test"}`, true},
+		"pi":          {func(h string) []string { return []string{piSettingsPath(h)} }, `{"defaultProvider":"anthropic","defaultModel":"anthropic/native"}`, true},
+		"omp":         {func(h string) []string { return []string{ompConfigPath(h)} }, "defaultProvider: 'anthropic'\ndefaultModel: 'anthropic/native'\n", true},
+	}
+	for _, key := range []string{"CODEX_HOME", "DSH_HOME", "CODEBUDDY_CONFIG_DIR", "WORKBUDDY_CONFIG_DIR", "GEMINI_CLI_HOME", "GEMINI_CONFIG_DIR", "XDG_CONFIG_HOME"} {
+		t.Setenv(key, "")
+	}
+	reg := NewRegistry()
+	home := t.TempDir()
+	if err := RegisterBuiltin(reg, home, t.TempDir()); err != nil {
+		t.Fatal(err)
+	}
+	for _, id := range reg.IDs() {
+		t.Run(id, func(t *testing.T) {
+			tc, ok := cases[id]
+			if !ok {
+				t.Fatalf("classify changed routing for %s", id)
+			}
+			for _, path := range tc.paths(home) {
+				if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(path, []byte(tc.content), 0o600); err != nil {
+					t.Fatal(err)
+				}
+			}
+			cad, _ := reg.Get(id)
+			state, err := cad.Inspect()
+			if err != nil || state.RoutingChanged != tc.changed {
+				t.Fatalf("%s Inspect=%+v, %v, want changed=%v", id, state, err, tc.changed)
+			}
+		})
 	}
 }

@@ -283,6 +283,17 @@ describe('service port', () => {
 });
 
 describe('quota windows', () => {
+  it('preserves model names and matches the provider rather than the account label', () => {
+    const windows = [
+      { label: '5h', remainingPercent: 54, limitWindowSeconds: 18000 },
+      { label: 'Weekly', remainingPercent: 34, limitWindowSeconds: 604800 },
+      { label: 'Fable · Weekly', remainingPercent: 58, limitWindowSeconds: 604800 },
+      { label: 'Weekly Limit Remaining', remainingPercent: 73, limitWindowSeconds: 604800 },
+    ];
+    expect(windows.map(quotaWindowLabel)).toEqual(['5h', 'Weekly', 'Fable · Weekly', 'Weekly Limit Remaining']);
+    expect(usageForClient([{ providerId: 'gemini', client: 'Gemini', account: 'claude-work', windows }], 'claude')).toBeNull();
+    expect(usageForClient([{ providerId: 'gemini', client: 'Gemini', account: 'work', windows }], 'gemini')?.windows).toEqual(windows);
+  });
   it('reports the cadence the vendor sent', () => {
     expect(usageForClient([{ client: 'Claude', account: 'Work', windows: [] }], 'claude')?.account).toBe('Work');
     expect(usageForClient([{ client: 'Claude', account: 'Work', windows: [] }], 'codex')).toBeNull();

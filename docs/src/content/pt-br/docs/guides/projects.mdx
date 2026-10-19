@@ -1,0 +1,56 @@
+---
+title: 'Vinculações de projeto'
+description: 'Dê a um repositório sua própria fonte de cliente sem alterar seu padrão global.'
+---
+
+`anypick link` grava uma ligação com escopo definido para o diretório atual. Ele vence o padrão global quando você `run` um cliente dentro desse diretório e fica invisível em qualquer outro lugar.
+
+```bash
+cd ~/src/my-app
+anypick link claude                        # copy the global binding into this project
+anypick link claude --with grok/work       # or bind explicitly
+anypick run claude                         # project binding wins
+anypick unlink claude
+```
+
+`anypick unlink` sem cliente remove todas as ligações de projeto no diretório atual.
+
+## Ordem de resolução
+
+Quando `run` precisa de uma ligação, ele pega a primeira que encontrar:
+
+1. `--with` na linha de comando — apenas nesta inicialização
+2. A ligação do projeto para o diretório atual
+3. A ligação global de `anypick use`
+
+Se não existir, `run` sai de `5` em vez de adivinhar.
+
+`anypick current` mostra a ligação efetiva para cada cliente, para que você possa ver qual camada venceu.
+
+## Uma divisão típica
+
+Um cliente por cliente, sem troca manual:
+
+```bash
+anypick use claude --with grok/work            # your default everywhere
+
+cd ~/src/client-a
+anypick link claude --with openrouter-work     # this repo only
+
+cd ~/src/client-b
+anypick link claude --with gemini/work
+```
+
+<Aside type="note" title="As ligações são por diretório, não por repositório">
+A ligação é codificada para o caminho do diretório em que você executou `link`. Uma árvore de trabalho diferente do mesmo repositório é um projeto diferente no que diz respeito ao AnyPick - o que geralmente é o que você deseja e, ocasionalmente, surpreendente.
+</Aside>
+
+## Limpando
+
+`anypick unlink` remove a ligação, mas deixa a configuração do cliente como a última ativação a deixou. Para remover a configuração que AnyPick escreveu para um cliente:
+
+```bash
+anypick reset claude
+```
+
+`reset` remove apenas a configuração gerenciada pelo AnyPick. Ele nunca toca em arquivos de autenticação nativos ou em suas próprias configurações.

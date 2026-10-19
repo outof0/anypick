@@ -154,12 +154,13 @@ func Run(ctx context.Context, command Command, home string) error {
 	env := os.Environ()
 	filtered := env[:0]
 	for _, entry := range env {
-		if strings.HasPrefix(entry, "HOME=") {
+		if isHomeEnvironment(entry) {
 			continue
 		}
 		filtered = append(filtered, entry)
 	}
 	filtered = append(filtered, "HOME="+home)
+	filtered = append(filtered, platformHomeEnvironment(home)...)
 	for k, v := range command.Env {
 		filtered = append(filtered, k+"="+v)
 	}

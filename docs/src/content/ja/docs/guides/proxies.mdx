@@ -1,0 +1,166 @@
+---
+title: 'プロキシ'
+description: 'AnyPick がプロトコル間を変換する方法、およびローカル プロセスを検査または制御する方法。'
+---
+
+クライアントとアカウントが同じプロトコルを使用しない場合、AnyPick はそれらの間でローカル プロキシを実行します。アクティベーションの一環としてオンデマンドで開始され、スーパーバイザーによって停止されるため、通常の使用では管理する必要はありません。このページのすべては検査とデバッグ用です。
+
+## プロキシの機能
+
+各プロバイダー プロキシは複数のワイヤ形式を受け入れ、プロバイダーの実際の API に転送します。
+
+- **grok** — OpenAI 互換および Anthropic 互換ルート。認証されたアップストリーム `/v1/models` カタログと要求されたモデル ID を変更せずに転送します。
+- **opencode** — Zen および Go カタログ。モデルがサポートする内容に基づいて、メッセージ、チャット完了、応答、Google プロトコルから選択します。
+- **gemini** — キーによる Gemini API、または OAuth によるコード アシスト (最新の `/v1/responses` リクエストおよび現在の Codex CLI リリースが期待する SSE ライフサイクルを含む)
+- **kiro** — 外部の `kirolink` / `kiro-proxy` バイナリがインストールされている場合は、そのバイナリに委任されます
+- **workbuddy** — CodeBuddy サブスクリプションへの OpenAI Chat Completions (および人為的翻訳)。一部の推論モデルはとりとめのないものになる可能性があります (`OK.` / `Let me
+  write.`)。その場合はターンを止めて、`hy3` などのルーター以外のスラッグを選択します。
+- **cline** — Cline ゲートウェイへの OpenAI チャット完了
+- **互換プロバイダー プラグイン** — ベンダーが公開している場合はネイティブの Anthropic メッセージ、それ以外の場合は OpenAI Chat Completions、さらに Codex で使用される Response ライフサイクル。 API とコーディング サブスクリプション キーは同じローカル境界を使用します
+
+モデル検出はライブ アップストリームを優先し、`/models` が欠落しているか利用できない場合にのみプロバイダー所有のフォールバックを使用します。Gemini は API キー アカウントの場合は `models.list` を読み取り、OAuth アカウントの場合はコード アシスト `fetchAvailableModels` を読み取ります。 OpenCode は、ライブ カタログとプロバイダーのメタデータを交差させます。新しいモデルは AnyPick リリースなしで登場します。
+
+推論の意図は翻訳されても残ります。コーデックスと OpenAI `reasoning_effort`、応答 `reasoning.effort`、クロード `output_config.effort`、適応的思考、明示的 `budget_tokens`、および目に見える思考の要約はすべて保存されます。 Google ルートは、同じ意図を Gemini の `thinkingConfig` にマッピングし、思考の要約を最終的な答えから切り離します。ネイティブ Anthropic ルートと OpenAI ルートはパススルーです。
+
+## デフォルトのポート
+
+プロキシは、設定されているプール ポートを使用します。それ以外の場合、プロバイダーが宣言したときにプロバイダーは `DefaultProxyPort` をアドバタイズし、それ以外の場合は共有 `8080` フォールバック (`src/go/internal/activation/planner.go` の `plannedPoolPort`、`defaultPoolPort` の) `src/go/internal/proxy/service_pool.go`)。本日宣言: Ark `4155`、TokenHub `4156`、GroqCloud `4148`、Fireworks `4151`、Cerebras `4152`、NVIDIA NIM `4154` (すべて`src/go/internal/provider/compatible.go`)。ポートが設定されておらず、デフォルトのプロバイダーもないプロキシは、最初の空きポートを使用します。
+
+## 手動ライフサイクル
+
+```bash
+anypick proxy status <provider> <account>
+anypick proxy start <provider> <account>
+anypick proxy stop <provider> <account>
+anypick proxy enable <provider> <account> [--port N]
+anypick proxy disable <provider> <account>
+anypick proxy config <provider> <account> [--port N]
+anypick proxy restart <provider> <account>
+anypick proxy logs <provider> <account> [--lines N] [--follow]
+```
+
+`enable` はプロキシを構成して開始します。 `config` はポートを変更し、プロキシを再起動します。 `restart` は、同じアカウントを停止および開始します。 `status`、`start`、`stop`、および `logs` はそれぞれ、正確な `<provider> <account>` ペアをとります。「すべてのプロキシ」形式はありません。
+
+## Gemini 認証ソース
+
+Gemini は 2 つのサインインを受け入れます。アカウントがどちらを保存するかは、プロキシごとではなく、アカウントが保存されるときに決定されます。
+
+```bash
+anypick add account gemini --current --source gemini-cli --name work
+anypick add account gemini --current --source antigravity --name work
+```
+
+`--source` を省略すると、AnyPick はアプリが残したファイルからそれを推測します (gemini-cli が最初)。プロキシは保存されたスナップショットからサービスを提供するため、ピン留めされたソースを切り替えることは新しいアカウントを保存することを意味し、カタログ エイリアスは 1 つのソース内に留まります。Antigravity ロールアウト ID が誤って Gemini CLI を介して送信されることはありません。
+
+## OpenCode 認証モード
+
+Go エンジンは、実際にログインしている認証情報から、アカウントごとに **1 つ**の OpenCode カタログを解決します。Go サブスクリプション行は `https://opencode.ai/zen/go/v1` をターゲットにし、他の Zen/Go キーは `https://opencode.ai/zen/v1` をターゲットにします。 TypeScript の `--auth-mode auto|public|api` フラグ、モデルごとのカタログ ルーティング、および `OPENCODE_PROXY_UPSTREAM` オーバーライドは移植されません。提供したい資格情報からアカウントを保存します。
+
+キーは次の順序で検索され、最初のヒットが優先されます。
+
+1. ライブ CLI 資格情報ストア (`OPENCODE_DATA_DIR` の下の `opencode.db`)。
+2.  `opencode.db` は、アカウントの `auth.json` の**横**に保存されました。
+保存されたスナップショット内の3. `auth.json`。
+
+ベータ CLI ではログイン時に `auth.json` が書き換えられなくなったため、ライブ ストアが最初にチェックされます。そうしないと、アカウントを切り替える前に保存されたスナップショットが以前のアカウントのキーを提供し続けることになります。
+
+保存されたログインに Zen/Go キーが保持されていないアカウント (OAuth のみの `auth.json`、ChatGPT または Anthropic サインインなど) は、このプロキシを駆動できません。これらのログインは、代わりに `anypick use` によってネイティブ クライアントに適用されます。プロキシは `NO_LIVE_AUTH` で失敗します:
+
+-  `auth.json` がまったく保存されていません: *利用可能な OpenCode 認証はありません。* `opencode auth login` / `anypick add opencode --name <name>` の提案があります。
+- `auth.json` 存在しますが読み取れません: *OpenCode 認証を読み取れません: &lt;path&gt;.*;
+- `auth.json` 読み取り可能ですが、OAuth 行のみを保持します: *OpenCode プロキシには、auth.json または CLI 資格情報ストアの Zen/Go API キーが必要です…*。
+
+## マルチアカウントプール
+
+デフォルトは、アカウントごとに 1 つのプロキシ プロセスです。プールは 1 つのプロバイダーの複数のアカウントを 1 つのポートの背後に配置するため、クライアントは 1 つのエンドポイントを認識し、AnyPick がローテーションを処理します。
+
+```bash
+anypick proxy pool enable gemini -p 4150
+anypick proxy pool member gemini work on
+anypick proxy pool member gemini alt off      # keep it configured but paused
+anypick proxy pool status gemini
+
+anypick use claude --with pool:gemini
+
+anypick proxy pool disable gemini             # back to one process per account
+```
+
+ターミナル UI のプロキシ ボードで、`p` はプールを切り替え、<kbd>space</kbd> はカーソルの下のメンバーを一時停止または再度有効にします。マルチアカウント プール行では、<kbd>f</kbd> により、安全なクォータ主導のフェイルオーバー ガードが切り替わります。
+
+<Aside type="note" title="意図的にオプトインする">
+プールは共有状態です。1 つのポート、複数の資格情報、およびリクエストごとに表示されないローテーションがあります。特にフェイルオーバーを備えた 1 つのエンドポイントが必要な場合を除き、アカウントごとのプロキシを推奨します。
+</Aside>
+
+### フェイルオーバー、ローテーション、およびクォータ ガード
+
+`--strategy failover` (デフォルト) は、最後に応答したアカウントからの配信を継続し、そのアカウントが拒否された場合にのみ続行します。 `--strategy
+round-robin` は代わりに、リングの次のメンバーで各リクエストを開始するため、連続するリクエストはアカウント間で分散されます。
+
+```bash
+anypick proxy pool enable kiro --strategy round-robin
+```
+
+どちらの戦略も *適格* メンバーのみを対象とします。クォータ ガードがクールダウンに設定したアカウントはスキップされ、ローテーションもスキップされます。違いは、フェイルオーバーするかどうかではなく、どこで試行が開始されるかです。クォータ クラス エラーで応答したメンバーでも、リクエストは次のメンバーに渡されます。
+
+**すべて**のメンバーがクールダウンしているとき、プールはサービスを提供し続けます。プールは、ローカルで拒否するのではなく、最も早く回復するアカウントを試行し、ベンダーの応答を呼び出し元に返します。試行は 1 回のみなので、完全にスロットルされたプロバイダーはリング ウォークの影響を受けません。したがって、サブスクリプションが枯渇すると、ベンダーが言ったこと (`429`、`402`、またはリセット時間) が正確に表示され、クライアントはそれに従って行動できます。
+
+```jsonc
+// ~/.anypick/config.json — set false to restore the local refusal
+{
+  "ui": {
+    "quotaGuard": {
+      "enabled": true,
+      "cooldownMinutes": 60,
+      "serveWhenAllCooling": true
+    }
+  }
+}
+```
+
+ガード自体はプールごとに切り替えられます。ターミナル UI のプール行で <kbd>f</kbd>、または上記の設定で `enabled` です。
+
+## プロキシ ハブ (オプトイン)
+
+プールには 1 つのプロバイダーが保持されます。統合された **プロキシ ハブ** は、1 つのローカル エンドポイントの背後にある複数の保存されたアカウントを公開し、モデルごとにルートできる個別のオプトイン サーフェスです。既存のバインディングを書き換えずに有効にし、ソースを追加してからバインドします。
+
+```bash
+anypick proxy hub enable default -p 4140 --start
+anypick proxy hub source default grok work
+anypick proxy hub status default
+anypick use claude --with hub:default
+```
+
+### ローテーション: ハブの 1 つのグローバル モード
+
+ハブ内のすべてのアカウントには独自のオン/オフ スイッチがあり、ハブには、オンに切り替えたアカウントの中からリクエストを選択する方法に関する 1 つのグローバル モードがあります。デフォルト (`failover`) では、各モデルはそれを所有するアカウント、またはモデルを要求するものがない場合は最初のソースに送られます。 **アカウント間でローテーション** では、各モデルが *それを提供できるすべての有効なアカウント* に分散されるため、1 つがすべてのリクエストを受け取るのではなく、3 つの保存された Gemini ログインが作業を共有します。
+
+```bash
+anypick proxy hub enable default --strategy round-robin
+```
+
+「提供可能」はプロバイダー カタログから取得されるため、同じモデル ID をアドバタイズする 2 つのプロバイダー (互換性プロキシとベンダーなど) は両方とも交代で行われます。要求されたモデルを提供できないアカウントは決して選択されません。カタログがモデルについて何も知らない場合、ローテーションはモデルが解決されるプロバイダー内にとどまり、記録されたモデルの所有者がどのプロバイダーが応答するかを決定します。ローテーションは、そのモデルの *どのアカウント* を変更するだけです。
+
+アカウントごとの切り替えはメンバーシップ ルール全体です。オフにされたアカウントは決して候補ではなく、プロバイダーのすべてのアカウントをオフに切り替えると、そのプロバイダーがハブから削除されるだけです。ハブはリクエストごとにソースを解決し、それを拡散するため、このモードはグローバルです (プロバイダーごとに 1 つのスイッチではありません)。
+
+ハブは独自の **クォータ ガード** (同じ `ui.quotaGuard` 設定) も保持します。キーまたはアカウントがクォータを超えているためにベンダーがリクエストを拒否すると、そのアカウントはクールダウンし、リクエストは同じモデルを提供できる次の有効なアカウントに移ります。認証情報 (実際は 500、1 分あたりのレート制限) のせいではないベンダーの拒否は、そのまま渡されます。ハブは、それに別のアカウントのクォータを費やすことはありません。すべての候補者が冷却状態にあるときでも、`serveWhenAllCooling` が false でない限り、最も早く回復して評決を通過する候補者が優先されます。プール プロキシは独自のガードを維持します。これはハブにのみ適用されます。
+
+プロキシ ボードは、構成時にハブを独自の行としてリストします。 <kbd>enter</kbd> または <kbd>m</kbd> は、ハブ エディターを開きます。プロバイダー間で 1 つの共有エンドポイントが特に必要な場合を除き、通常のアカウントごとのプロキシを推奨します。
+
+## プロセスの所有権
+
+ネイティブ macOS アーキテクチャでは、`AnyPick.app` がバンドルされた Go サービスを所有し、Go サービスがローカル プロキシ プロセスを所有します。メイン ウィンドウを閉じてもアプリは実行されたままになります。明示的な app Quit は、ヘルパーとそのサービスを正常に停止します。メニューバー項目は、スタンドアロンのスーパーバイザではなく、同じアプリのビューです。
+
+Go エンジンは同じスーパーバイザを直接所有します (`cmdTray` / `runSuperviseChild` の `src/go/cmd/anypick/lifecycle.go`)。
+
+```bash
+anypick tray          # app surface (same core as `anypick app`)
+anypick tray start
+anypick tray status
+anypick tray stop     # stop that supervisor and the proxies it owns
+```
+
+このリポジトリから、`make run ARGS="…"` を使用してこれらのフォームを実行します。 <kbd>q</kbd> で TUI を閉じると、バックグラウンド スーパーバイザの状態は変更されません。その <kbd>Shift+D</kbd> および <kbd>t</kbd> アクションは、個別に起動されたネイティブ アプリを管理しません。
+
+孤立したものは蓄積されるのではなくクリーンアップされます。起動時に、AnyPick は所有プロセスが終了したリースを解放し、プロキシを停止します。
+
+Linux および Windows Tauri インストーラーは、macOS アプリと同じリリース ワークフローから公開されます。現在のアセットについては、[リリース ページ](https://github.com/outof0/anypick/releases/latest) を参照してください。独立したトレイのみのインストーラーはありません。

@@ -1,0 +1,166 @@
+---
+title: 'Proxies'
+description: 'Como o AnyPick traduz entre protocolos e como inspecionar ou controlar os processos locais.'
+---
+
+Quando um cliente e uma conta não falam o mesmo protocolo, AnyPick executa um proxy local entre eles. Ele inicia sob demanda como parte da ativação e para com o supervisor, portanto, em uso normal, não há nada para gerenciar. Tudo nesta página é para inspeção e depuração.
+
+## O que o proxy faz
+
+Cada proxy do provedor aceita mais de um formato de transferência e encaminha para a API real do provedor:
+
+- **grok** — uma rota compatível com OpenAI e uma rota compatível com Anthropic, encaminhando o catálogo upstream autenticado `/v1/models` e os IDs de modelo solicitados inalterados
+- **opencode** — Catálogos Zen e Go, escolhendo entre mensagens, conclusões de bate-papo, respostas e protocolos do Google com base no que o modelo suporta
+- **gemini** — API Gemini por chave ou Code Assist por OAuth, incluindo a solicitação moderna `/v1/responses` e ciclo de vida SSE que as versões atuais da CLI do Codex esperam
+- **kiro** — delegado a um binário `kirolink` / `kiro-proxy` externo se você tiver um instalado
+- **workbuddy** — Conclusões do OpenAI Chat (e tradução antrópica) para a assinatura do CodeBuddy. Alguns modelos de raciocínio podem divagar (`OK.` / `Let me
+  write.`); pare a curva e escolha um slug que não seja roteador, como `hy3` se isso acontecer.
+- **cline** — Conclusões do OpenAI Chat para o gateway Cline
+- **plug-ins de provedores compatíveis** — mensagens antrópicas nativas quando o fornecedor as expõe, conclusões de bate-papo OpenAI caso contrário, mais o ciclo de vida de respostas usado pelo Codex; As chaves de API e de assinatura de codificação usam o mesmo limite local
+
+A descoberta de modelo prefere o upstream ao vivo e usa um substituto de propriedade do provedor somente quando `/models` está ausente ou indisponível: Gemini lê `models.list` para contas de chave de API e Code Assist `fetchAvailableModels` para contas OAuth; OpenCode cruza os catálogos ativos com metadados do provedor. Novos modelos aparecem sem lançamento do AnyPick.
+
+A intenção de raciocínio sobrevive à tradução. Codex e OpenAI `reasoning_effort`, respostas `reasoning.effort`, Claude `output_config.effort`, pensamento adaptativo, explícito `budget_tokens` e resumos de pensamento visíveis são todos preservados; As rotas do Google mapeiam a mesma intenção no `thinkingConfig` de Gêmeos e mantêm os resumos de pensamentos separados da resposta final. As rotas Native Anthropic e OpenAI são pass-through.
+
+## Portas padrão
+
+Um proxy usa sua porta de pool configurada quando uma está definida; caso contrário, o provedor anuncia `DefaultProxyPort` quando o provedor declara um, caso contrário, o substituto `8080` compartilhado (`plannedPoolPort` em `src/go/internal/activation/planner.go`, `defaultPoolPort` em `src/go/internal/proxy/service_pool.go`). Declarado hoje: Ark `4155`, TokenHub `4156`, GroqCloud `4148`, Fireworks `4151`, Cerebras `4152`, NVIDIA NIM `4154` (tudo em `src/go/internal/provider/compatible.go`). Um proxy que não possui porta configurada e nenhum provedor padrão pega o primeiro livre.
+
+## Ciclo de vida manual
+
+```bash
+anypick proxy status <provider> <account>
+anypick proxy start <provider> <account>
+anypick proxy stop <provider> <account>
+anypick proxy enable <provider> <account> [--port N]
+anypick proxy disable <provider> <account>
+anypick proxy config <provider> <account> [--port N]
+anypick proxy restart <provider> <account>
+anypick proxy logs <provider> <account> [--lines N] [--follow]
+```
+
+`enable` configura um proxy e o inicia; `config` altera a porta e reinicia o proxy; `restart` para e inicia a mesma conta. `status`, `start`, `stop` e `logs` cada um usa o par `<provider> <account>` exato - não existe o formato "todos os proxies".
+
+## Fontes de autenticação Gemini
+
+Gêmeos aceita dois logins. Qual deles uma conta armazena é decidido quando a conta é salva, não por proxy:
+
+```bash
+anypick add account gemini --current --source gemini-cli --name work
+anypick add account gemini --current --source antigravity --name work
+```
+
+Omita `--source` e AnyPick infere isso a partir dos arquivos que os aplicativos deixaram para trás (gemini-cli primeiro). O proxy atende a partir do instantâneo salvo, portanto, mudar a fonte fixada significa salvar uma nova conta, e os aliases de catálogo permanecem dentro de uma fonte – um ID de implementação do Antigravity nunca é enviado por engano por meio da CLI do Gemini.
+
+## Modo de autenticação OpenCode
+
+O mecanismo Go resolve **um** catálogo OpenCode por conta, a partir da credencial que está realmente conectada: uma linha de assinatura Go tem como alvo `https://opencode.ai/zen/go/v1`, quaisquer outros alvos de chave Zen/Go `https://opencode.ai/zen/v1`. O sinalizador TypeScript `--auth-mode auto|public|api`, o roteamento de catálogo por modelo e a substituição `OPENCODE_PROXY_UPSTREAM` não são portados; salve a conta da credencial que você deseja veicular.
+
+A chave é procurada nesta ordem, o primeiro acerto vence:
+
+1. o armazenamento de credenciais CLI ao vivo (`opencode.db` em `OPENCODE_DATA_DIR`);
+2. o `opencode.db` salvo **ao lado** do `auth.json` da conta;
+3. `auth.json` no instantâneo salvo.
+
+A loja ativa é verificada primeiro porque a CLI beta não reescreve mais `auth.json` no login – um instantâneo salvo antes de você trocar de conta, caso contrário, continuaria servindo a chave da conta anterior.
+
+Uma conta cujo login salvo não contém nenhuma chave Zen/Go — um `auth.json` somente OAuth, por exemplo, um login ChatGPT ou Anthropic — não pode controlar esse proxy. Esses logins são aplicados a clientes nativos por `anypick use`; o proxy falha com `NO_LIVE_AUTH`:
+
+- nenhum `auth.json` salvo: *Nenhuma autenticação OpenCode disponível.* com as sugestões `opencode auth login` / `anypick add opencode --name <name>`;
+- `auth.json` presente, mas ilegível: *Autenticação OpenCode ilegível: &lt;path&gt;.*;
+- `auth.json` legível, mas contém apenas linhas OAuth: *O proxy OpenCode precisa de uma chave de API Zen/Go em auth.json ou no armazenamento de credenciais CLI…*.
+
+## Pools de múltiplas contas
+
+O padrão é um processo de proxy por conta. Um pool coloca várias contas de um provedor atrás de uma única porta, para que um cliente veja um endpoint e o AnyPick cuide da rotação.
+
+```bash
+anypick proxy pool enable gemini -p 4150
+anypick proxy pool member gemini work on
+anypick proxy pool member gemini alt off      # keep it configured but paused
+anypick proxy pool status gemini
+
+anypick use claude --with pool:gemini
+
+anypick proxy pool disable gemini             # back to one process per account
+```
+
+Na placa proxy da UI do terminal, `p` alterna o pool e <kbd>space</kbd> pausa ou reativa o membro sob o cursor. Em uma linha de pool de várias contas, <kbd>f</kbd> alterna a proteção de failover controlada por cota segura.
+
+<Aside type="note" title="Ative deliberadamente">
+Um pool é um estado compartilhado: uma porta, várias credenciais e rotação que você não vê por solicitação. Prefira proxies por conta, a menos que você queira especificamente um endpoint com failover.
+</Aside>
+
+### Failover, rotação e proteção de cota
+
+`--strategy failover` (o padrão) continua veiculando a partir da última conta que respondeu e só segue em frente quando essa conta é rejeitada. Em vez disso, `--strategy
+round-robin` inicia cada solicitação no próximo membro do anel, de modo que solicitações sucessivas se espalham pelas contas:
+
+```bash
+anypick proxy pool enable kiro --strategy round-robin
+```
+
+Ambas as estratégias percorrem apenas os membros *elegíveis*: uma conta que o guarda de cota colocou em espera é ignorada e a rotação também a ignora. A diferença é onde uma tentativa começa, e não se ela falha — um membro que responde com um erro de classe de cota ainda passa a solicitação para o próximo.
+
+Quando **cada** membro está esfriando, o pool continua atendendo: ele tenta a conta que se recuperará mais rapidamente e passa a resposta do fornecedor de volta ao chamador, em vez de recusar localmente. Apenas uma tentativa, para que um provedor totalmente acelerado não seja prejudicado por um ring walk. Uma assinatura esgotada, portanto, revela exatamente o que o fornecedor disse (`429`, `402` ou um tempo de redefinição), que é o que um cliente pode agir:
+
+```jsonc
+// ~/.anypick/config.json — set false to restore the local refusal
+{
+  "ui": {
+    "quotaGuard": {
+      "enabled": true,
+      "cooldownMinutes": 60,
+      "serveWhenAllCooling": true
+    }
+  }
+}
+```
+
+A proteção em si é alternada por pool: <kbd>f</kbd> na linha do pool na UI do terminal ou `enabled` na configuração acima.
+
+## Hub proxy (opcional)
+
+Os pools mantêm um provedor. O **Proxy Hub** unificado é uma superfície opcional separada que pode expor várias contas salvas atrás de um endpoint local e rotear por modelo. Habilite-o sem reescrever as ligações existentes, adicione fontes e depois vincule:
+
+```bash
+anypick proxy hub enable default -p 4140 --start
+anypick proxy hub source default grok work
+anypick proxy hub status default
+anypick use claude --with hub:default
+```
+
+### Rotação: um modo global para o hub
+
+Cada conta no hub tem seu próprio botão liga/desliga, e o hub tem um modo global para como as solicitações escolhem entre as contas que você ativou. Por padrão (`failover`) cada modelo vai para a conta que o possui — ou a primeira fonte, quando nada reivindica o modelo. **A rotação entre contas** distribui cada modelo por *todas as contas habilitadas que podem atendê-lo*, de modo que três logins salvos do Gemini compartilham o trabalho em vez de um atender cada solicitação:
+
+```bash
+anypick proxy hub enable default --strategy round-robin
+```
+
+"Pode servir" vem dos catálogos do provedor, portanto, dois provedores que anunciam o mesmo ID de modelo (um proxy de compatibilidade e o fornecedor, por exemplo) se revezam; contas que não podem atender ao modelo solicitado nunca são escolhidas. Quando os catálogos não sabem nada sobre um modelo, a rotação permanece dentro do provedor para o qual o modelo resolve, e o proprietário do modelo registrado ainda decide qual provedor responde - a rotação apenas altera *qual conta* dele faz.
+
+As trocas por conta são toda a regra de adesão: uma conta desativada nunca é candidata, e a desativação de todas as contas de um provedor simplesmente remove esse provedor do hub. O modo é global – não um switch por provedor – porque o hub resolve uma fonte por solicitação e depois a espalha.
+
+O hub também mantém uma **proteção de cota própria** (as mesmas configurações `ui.quotaGuard`): quando um fornecedor recusa uma solicitação porque a chave ou conta está fora da cota, essa conta esfria e a solicitação passa para a próxima conta habilitada que pode servir o mesmo modelo. Uma recusa do fornecedor que não culpe a credencial (500 reais, um limite de taxa por minuto) é entregue a você literalmente - o hub não gasta a cota de outra conta nisso. Quando cada candidato está esfriando, ele ainda serve aquele que se recupera mais rápido e passa seu veredicto, a menos que `serveWhenAllCooling` seja falso. Os proxies do pool mantêm sua própria guarda; este se aplica apenas ao hub.
+
+A placa Proxy lista o Hub como sua própria linha quando configurado; <kbd>enter</kbd> ou <kbd>m</kbd> abre o editor Hub. Prefira proxies comuns por conta, a menos que você precise especificamente de um endpoint compartilhado entre provedores.
+
+## Propriedade do processo
+
+Na arquitetura nativa do macOS, `AnyPick.app` possui seu serviço Go incluído e o serviço Go possui processos de proxy locais. Fechar a janela principal mantém o aplicativo em execução; aplicativo explícito Quit interrompe normalmente o auxiliar e seus serviços. O item da barra de menu é uma visualização do mesmo aplicativo, não um supervisor independente.
+
+O mecanismo Go possui o mesmo supervisor diretamente (`cmdTray` / `runSuperviseChild` em `src/go/cmd/anypick/lifecycle.go`):
+
+```bash
+anypick tray          # app surface (same core as `anypick app`)
+anypick tray start
+anypick tray status
+anypick tray stop     # stop that supervisor and the proxies it owns
+```
+
+Neste repositório, execute esses formulários com `make run ARGS="…"`. Fechar a TUI com <kbd>q</kbd> deixa o estado do supervisor em segundo plano inalterado. Suas ações <kbd>Shift+D</kbd> e <kbd>t</kbd> não gerenciam um aplicativo nativo lançado separadamente.
+
+Os órfãos são eliminados em vez de acumulados: na inicialização, AnyPick libera concessões cujo processo de propriedade foi encerrado e interrompe seus proxies.
+
+Os instaladores Linux e Windows Tauri são publicados no mesmo fluxo de trabalho de lançamento do aplicativo macOS. Consulte [a página de lançamento](https://github.com/outof0/anypick/releases/latest) para os ativos atuais; não há instalador separado apenas para bandeja.

@@ -2948,8 +2948,8 @@
     "description": "Original English text: Last Used"
   },
   "desktop.account_detail.provider_no_quota": {
-    "other": "Nhà cung cấp này không báo hạn mức còn lại.",
-    "description": "Original English text: This provider does not report remaining quota."
+    "other": "Chưa đọc được quota. Kiểm tra tài khoản đang đăng nhập rồi làm mới.",
+    "description": "Original English text: Quota is currently unavailable. Check the live login and refresh."
   },
   "desktop.account_detail.live_quota_active": {
     "other": "Hạn mức trực tiếp chỉ hiển thị cho tài khoản đang dùng trên máy Mac này.",

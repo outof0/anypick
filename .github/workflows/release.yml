@@ -10,11 +10,11 @@ name: Release
 #
 # release-scope=all (the default) publishes the macOS app, Tauri Linux/Windows
 # installers, cross-platform CLI archives, and the npm launcher. The app uses
-# an ad-hoc code signature and is not notarized. Each desktop payload is
-# smoke-tested on its own OS before staging: the Linux deb/
-# AppImage/rpm and the Windows MSI are extracted, and the bundled Go helper must
-# answer with the planned version. The GUI itself is not launched (no display on
-# a hosted runner), so this is an installer-payload gate, not a UI test.
+# an ad-hoc code signature and is not notarized. Before staging, Linux
+# deb/AppImage/rpm and Windows MSI/NSIS payloads are extracted, their Go helper
+# must answer with the planned version, and the packaged desktop app runs the
+# native WebDriver E2E. macOS runs XCUITest plus clean-account artifact and
+# service smoke checks.
 # `cli-only` publishes only the CLI archives.
 on:
   workflow_dispatch:
@@ -273,6 +273,7 @@ jobs:
             libayatana-appindicator3-dev \
             librsvg2-dev \
             patchelf \
+            webkit2gtk-driver xvfb xauth dbus-x11 \
             rpm
 
       - name: Select stable Rust with rustfmt
@@ -337,7 +338,10 @@ jobs:
           mkdir -p "$RUNNER_TEMP/anypick-stage"
           cp "${assets[@]}" "$RUNNER_TEMP/anypick-stage/"
 
-      - name: Smoke-test the staged installer payloads
+      - name: Install native WebDriver
+        run: cargo install tauri-driver --version 2.1.0 --locked
+
+      - name: Smoke-test the staged installer payloads and native app
         run: packaging/smoke/linux-payload.sh "$RUNNER_TEMP/anypick-stage" "${{ needs.plan.outputs.version }}"
 
       - uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
@@ -431,7 +435,11 @@ jobs:
           fi
           cp "${msi_assets[0]}" "$RUNNER_TEMP/anypick-stage/AnyPick-${{ needs.plan.outputs.version }}-windows-x64.msi"
 
-      - name: Smoke-test the staged installer payloads
+      - name: Install native WebDriver
+        shell: pwsh
+        run: packaging/smoke/install-webdriver.ps1
+
+      - name: Smoke-test the staged installer payloads and native app
         shell: pwsh
         run: packaging/smoke/windows-payload.ps1 -Stage "${{ runner.temp }}/anypick-stage" -Version "${{ needs.plan.outputs.version }}"
 

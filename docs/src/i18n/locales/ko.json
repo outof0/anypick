@@ -22,8 +22,7 @@
     "editThisPage": "이 페이지 편집",
     "siteNavigation": "사이트 탐색",
     "navigation": "탐색",
-    "closeSidebar": "사이드바 닫기",
-    "englishContent": "이 페이지의 콘텐츠는 현재 영어로 제공됩니다."
+    "closeSidebar": "사이드바 닫기"
   },
   "search": {
     "label": "문서 검색",
@@ -72,5 +71,158 @@
     "tabs": "패키지 관리자",
     "copy": "클립보드에 복사",
     "copied": "클립보드에 복사됨"
+  },
+  "docsNav": {
+    "appsTerminalUi": "앱 및 터미널 UI",
+    "guides": "가이드",
+    "reference": "참조"
+  },
+  "landing": {
+    "meta": {
+      "title": "하나의 로컬 앱에서 AI 코딩 계정 전환 | AnyPick",
+      "description": "AI 코딩 계정과 API 게이트웨이를 하나의 로컬 앱에서 관리하세요. 전체 앱, 프로젝트별 또는 한 번의 터미널 실행에 맞는 경로를 선택할 수 있습니다.",
+      "socialAlt": "지원되는 코딩 도구, 계정 경로, 로컬 서비스를 보여 주는 AnyPick 개요 화면."
+    },
+    "hero": {
+      "eyebrow": "AI 코딩 도구를 위한 로컬 계정 전환기",
+      "titleStart": "계정을 바꾸고.",
+      "titleEnd": "코딩은 계속하세요.",
+      "lede": "업무용 계정, 개인 계정, 직접 사용하는 API 게이트웨이까지. 설정 파일을 직접 수정하지 않고 하나의 로컬 앱에서 Claude Code, Codex 및 지원 도구가 사용할 계정을 전환하세요.",
+      "primary": "AnyPick 무료로 시작하기",
+      "secondary": "작동 방식 보기",
+      "platforms": "macOS · Linux · Windows",
+      "openSource": "무료 오픈 소스",
+      "noCloud": "AnyPick 클라우드 없음",
+      "overviewAlt": "저장된 계정으로 Claude Code, OpenAI Codex, OpenCode를 사용하는 AnyPick 데스크톱 개요 화면. 로컬 프록시 상태와 최근 전환도 표시됩니다. 데모 데이터입니다.",
+      "trayAlt": "저장된 계정과 Claude Code, OpenAI Codex의 빠른 계정 전환을 보여 주는 AnyPick 메뉴 막대 패널. 데모 데이터입니다.",
+      "caption": "데스크톱 앱 · 데모 계정"
+    },
+    "proof": {
+      "aria": "제품 정보",
+      "clientsTitle": "코딩 클라이언트 11개 지원",
+      "clientsBody": "이미 설치한 도구를 그대로 사용하세요.",
+      "localTitle": "계정은 로컬에 저장됩니다",
+      "localBody": "AnyPick 계정이나 호스팅 릴레이가 필요하지 않습니다.",
+      "licenseTitle": "오픈 소스 · MIT",
+      "licenseBody": "릴리스에는 체크섬과 SBOM이 포함됩니다."
+    },
+    "workflow": {
+      "kicker": "하루의 작업에 맞춘 전환",
+      "title": "업무 계정은 하나. 이 저장소에는 다른 계정.",
+      "body": "업무 로그인과 개인 로그인을 분리하세요. 저장소마다 계정을 지정하거나 한 번의 실행에 API 게이트웨이를 사용하세요. 계정 전환이 적용될 범위도 직접 선택할 수 있습니다.",
+      "projectLink": "프로젝트 연결 방식 알아보기",
+      "routesLabel": "경로 예시",
+      "routeDefault": "앱의 기본 계정",
+      "routeProject": "현재 프로젝트에만",
+      "routeSession": "한 번의 터미널 세션",
+      "stepsLabel": "시작하기",
+      "saveTitle": "로그인 저장",
+      "saveBody": "계정 및 API에서 기존 서비스 로그인이나 API 게이트웨이를 추가하세요.",
+      "toolTitle": "도구 선택",
+      "toolBody": "앱에서 호환되는 저장된 계정을 선택한 다음 변경 계획을 확인하세요.",
+      "applyTitle": "코딩 계속하기",
+      "applyBody": "변경 사항을 적용하고 코딩 도구를 사용하세요. anypick reset으로 저장된 설정을 복원할 수 있습니다."
+    },
+    "safety": {
+      "kicker": "변경 전 확인하고, 필요하면 되돌리세요.",
+      "title": "설정은 계속 사용자가 관리합니다.",
+      "reviewTitle": "적용 전에 확인",
+      "reviewBody": "데스크톱 앱의 경로 계획에서 계정, 모델, 프록시, 클라이언트 설정 변경 단계를 확인할 수 있습니다.",
+      "configTitle": "나머지 설정은 그대로 유지",
+      "configBody": "AnyPick은 직접 관리하는 설정을 추적하며, 자신이 작성하지 않은 설정을 변경하기 전에는 확인을 요청합니다.",
+      "restoreTitle": "원할 때 복원",
+      "restoreBody": "anypick reset으로 앱의 저장된 상태를 복원하세요. 인증 정보는 로컬 AnyPick 데이터 디렉터리에 보관됩니다.",
+      "accountAlt": "저장된 서비스 로그인과 API 게이트웨이를 보여 주는 AnyPick 계정 및 API 화면. 이름과 계정 세부 정보는 데모 데이터입니다."
+    },
+    "compatibility": {
+      "kicker": "호환성",
+      "title": "서비스 제공자 규칙을 지키며 도구를 지원합니다.",
+      "body": "AnyPick은 클라이언트와 계정 양쪽에서 지원하는 경로만 제공합니다. 모든 계정을 서로 바꿔 쓸 수 있다고 가정하지 않습니다.",
+      "clients": "지원되는 코딩 도구",
+      "claudeRule": "Claude 로그인은 Claude Code에서 사용합니다. Gemini CLI와 Kiro는 각 서비스 제공자의 계정을 사용합니다.",
+      "otherRule": "그 밖의 호환 도구는 선택한 외부 계정이나 API 게이트웨이를 사용할 수 있습니다.",
+      "reference": "호환성 참고 문서 보기"
+    },
+    "install": {
+      "kicker": "데스크톱 앱 또는 터미널",
+      "title": "앱으로 시작하거나 터미널에서 계속하세요.",
+      "body": "데스크톱 앱에서 경로 계획을 확인하거나 터미널에서 같은 Go 엔진을 실행하세요. 이 녹화 영상은 샌드박스 데모 계정을 사용하는 CLI입니다.",
+      "demoTitle": "anypick 1.1.0 · 샌드박스 데모",
+      "videoAlt": "CLI 데모: 저장된 계정을 확인하고 OpenRouter 게이트웨이를 추가한 다음 Claude Code를 연결하고 기존 설정을 복원합니다.",
+      "demoCaption": "실제 CLI 출력 · AnyPick 1.1.0 · 샌드박스 계정",
+      "desktop": "데스크톱 앱",
+      "desktopTitle": "계정을 선택하고, 미리 보고, 적용하세요.",
+      "desktopBody": "시각적 인터페이스에서 계정을 관리하고 변경 사항을 확인하세요. macOS, Linux, Windows에서 사용할 수 있습니다.",
+      "download": "데스크톱 앱 다운로드",
+      "downloadNote": "GitHub Releases에서 운영체제에 맞는 설치 파일을 선택하세요.",
+      "cli": "CLI 설치",
+      "method": "설치 방법 선택",
+      "copy": "복사",
+      "copyCommand": "{{name}} 설치 명령 복사",
+      "brewBefore": "데스크톱 앱: brew install --cask outof0/tap/anypick을 실행하거나 ",
+      "brewLink": "GitHub Releases에서 DMG 다운로드",
+      "brewAfter": ".",
+      "linuxBefore": "CLI 패키지나 데스크톱 앱은 여기에서 다운로드할 수도 있습니다: ",
+      "linuxLink": "GitHub Releases",
+      "linuxAfter": " (.deb, .rpm, AppImage, tarball).",
+      "windowsBefore": "데스크톱 앱 설치 파일은 여기에서 받을 수 있습니다: ",
+      "windowsLink": "GitHub Releases",
+      "windowsAfter": ".",
+      "npmHint": "Node 18 이상이 필요합니다. 런처가 일치하는 네이티브 CLI를 다운로드하고 검증합니다.",
+      "firstRun": "설치 후",
+      "guide": "5분 시작 가이드 읽기",
+      "copied": "복사됨",
+      "copyStatus": "설치 명령을 클립보드에 복사했습니다.",
+      "copyFailed": "클립보드에 접근할 수 없습니다.",
+      "picker": "실행해 계정 선택기를 여세요."
+    },
+    "faq": {
+      "kicker": "알아두면 좋은 내용",
+      "title": "계정을 전환하기 전에",
+      "freeQ": "AnyPick은 무료인가요?",
+      "freeA": "네. AnyPick은 MIT 라이선스의 무료 오픈 소스 소프트웨어입니다. 사용자가 보유한 서비스 계정이나 API 키를 사용하며, 해당 서비스의 구독료와 사용료는 별도로 적용됩니다.",
+      "accountsQ": "각 코딩 도구에서 어떤 계정을 사용할 수 있나요?",
+      "accountsA": "사용할 수 있는 경로는 클라이언트와 계정 어댑터에 따라 다릅니다. Claude 로그인은 Claude Code에서 사용하고, Gemini CLI와 Kiro는 각 서비스의 계정을 사용합니다. {{accountsALink}}에서 지원 조합을 확인할 수 있습니다.",
+      "accountsALink": "호환성 참고 문서",
+      "relayQ": "AnyPick 서버를 통해 프롬프트를 보내나요?",
+      "relayA": "아니요. AnyPick에는 호스팅 릴레이가 없습니다. 도구마다 API 프로토콜이 다르면 로컬 Go 서비스가 루프백에서 프로토콜을 변환한 뒤 선택한 서비스 제공자에 요청을 보냅니다.",
+      "credentialsQ": "인증 정보는 어디에 저장되나요?",
+      "credentialsA": "AnyPick은 계정 데이터를 ~/.anypick에 로컬로 저장합니다. 백업은 작동하는 인증 정보를 읽을 수 있는 JSON으로 포함하므로 안전하게 보관하세요.",
+      "macQ": "앱을 열 때 macOS 경고가 표시되는 이유는 무엇인가요?",
+      "macA": "아직 앱 공증을 완료하지 않았습니다. 앱을 오른쪽 클릭하고 열기를 선택하거나 시스템 설정 → 개인정보 보호 및 보안 → 무조건 열기를 사용하세요. CLI도 별도로 설치할 수 있습니다."
+    },
+    "final": {
+      "kicker": "다음 계정 전환을 여기서 시작하세요",
+      "titleStart": "설정 편집은 줄이고.",
+      "titleEnd": "코딩은 더 많이.",
+      "body": "이미 가지고 있는 계정을 사용하세요. 도구 하나와 저장된 로그인 하나로 시작하면 됩니다.",
+      "cta": "AnyPick 무료로 시작하기",
+      "guide": "설정 가이드 읽기",
+      "meta": "MIT 라이선스 · AnyPick 가입 불필요 · 로컬에서 실행"
+    },
+    "footer": {
+      "home": "AnyPick 홈",
+      "navigation": "바닥글",
+      "docs": "문서",
+      "changelog": "변경 내역",
+      "security": "보안",
+      "license": "MIT 라이선스"
+    }
+  },
+  "downloads": {
+    "kicker": "AnyPick 다운로드",
+    "title": "다음 계정 전환을 여기서 시작하세요.",
+    "body": "무료 데스크톱 앱입니다. 플랫폼을 선택하고 설치한 뒤 기존 계정을 추가하세요.",
+    "forPlatform": "{{platform}}용 다운로드",
+    "formats": "다른 형식",
+    "releases": "모든 릴리스 및 체크섬",
+    "mac": "macOS 14+ · Apple Silicon + Intel",
+    "linux": "Ubuntu / Debian · x86-64",
+    "windows": "Windows 10+ · x64",
+    "arm": "Linux ARM64 또는 Windows ARM64는 네이티브 CLI를 사용하세요.",
+    "guide": "설치 가이드",
+    "unavailable": "이 릴리스에는 데스크톱 앱이 없습니다.",
+    "firstRun": "앱 열기 → 계정 추가 → 코딩 도구 선택.",
+    "allPlatforms": "모든 플랫폼 및 설치 방법"
   }
 }

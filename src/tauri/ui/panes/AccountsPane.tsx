@@ -16,7 +16,7 @@ import {
   refreshGateway,
   removeGateway,
 } from '../lib/desktop-actions';
-import { nativeProviderName, usageForClient } from '../lib/model';
+import { nativeProviderName, usageForAccount } from '../lib/model';
 import {
   ALL_PROVIDERS,
   matchesProviderFilter,
@@ -295,10 +295,7 @@ export function AccountsPane({
         <AccountDetailSheet
           account={inspecting}
           usage={
-            // Quota is reported per app, not per account, so the card is found
-            // by whichever client uses this login. A saved account no app uses
-            // has no card, and the sheet says so rather than showing zeros.
-            usageForClient(snapshot.usage, inspecting.providerId)?.windows ?? []
+            'active' in inspecting ? usageForAccount(snapshot.usage, inspecting)?.windows ?? [] : []
           }
           service={service}
           paused={paused}

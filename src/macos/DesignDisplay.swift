@@ -360,6 +360,7 @@ func quotaLimitAdjective(limitWindowSeconds: Int?) -> String? {
 /// detail rows match the vendor UI; Codex Primary/Secondary still collapse.
 func quotaWindowLabel(_ window: DesignUsageWindow) -> String {
   let clean = window.label.trimmingCharacters(in: .whitespacesAndNewlines)
+  if !["", "primary", "secondary", "5h", "weekly", "daily", "monthly", "session", "quota"].contains(clean.lowercased()) { return clean }
   if clean.localizedCaseInsensitiveContains("limit remaining") {
     return clean.isEmpty ? "Quota" : clean
   }
@@ -480,6 +481,7 @@ func localizedQuotaLimitAdjective(
 @MainActor
 func localizedQuotaWindowLabel(_ window: DesignUsageWindow, using model: MacOSDesignModel) -> String {
   let clean = window.label.trimmingCharacters(in: .whitespacesAndNewlines)
+  if !["", "primary", "secondary", "5h", "weekly", "daily", "monthly", "session", "quota"].contains(clean.lowercased()) { return clean }
   if clean.localizedCaseInsensitiveContains("limit remaining") {
     return clean.isEmpty ? model.localized("desktop.quota.quota") : clean
   }

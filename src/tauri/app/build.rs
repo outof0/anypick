@@ -21,6 +21,12 @@ fn prepare_core_sidecar() -> Result<(), String> {
     let destination = manifest_dir
         .join("binaries")
         .join(format!("anypick-core-{target}{extension}"));
+    // Only cfg(test) code consumes this path. Integration tests must launch
+    // the helper this build bundles, rather than a fixture or a PATH binary.
+    println!(
+        "cargo:rustc-env=ANYPICK_TEST_SIDECAR={}",
+        destination.display()
+    );
     fs::create_dir_all(destination.parent().expect("sidecar parent"))
         .map_err(|error| format!("create sidecar directory: {error}"))?;
 

@@ -1,0 +1,116 @@
+---
+title: 'Khái niệm'
+description: 'Client, nguồn, liên kết và preset — mô hình đằng sau mọi lệnh AnyPick.'
+---
+
+Bốn từ mang toàn bộ CLI. Một khi chúng rõ ràng, mọi lệnh đều đọc theo cùng một cách.
+
+| Từ | Ý nghĩa |
+| --- | --- |
+| **Client** | CLI bạn chạy: `claude`, `codex`, `commandcode`, `gemini`, `kiro`, `opencode`, `workbuddy`, `zcode`, `dsh`, `pi`, `omp` |
+| **Nguồn** | Điều gì hỗ trợ nó: một tài khoản (`grok/work`), một cổng (`openrouter-work`), một nhóm (`pool:gemini`), trung tâm chọn tham gia (`hub:default`) hoặc preset (`@work`) |
+| **binding** | Ảnh chụp nhanh cụ thể: client này → nguồn này, cộng với các vai trò mẫu |
+| **preset** | Mẫu được lưu trữ (`@name`) phân giải giống như một nguồn; chưa có lệnh nào tạo ra |
+
+Ngữ pháp không bao giờ thay đổi:
+
+```bash
+anypick use|run <client> --with <source|@preset>
+```
+
+## Client
+
+Client là CLI AnyPick biết cách cấu hình. `anypick clients` liệt kê chúng cùng với nội dung ghi cho mỗi mục:
+
+- `claude` — Claude Code (`ANTHROPIC_*` biến; HOME tạm thời được cô lập trên `run`)
+- `codex` — Codex CLI
+- `gemini` — Gemini CLI (`GEMINI_API_KEY`, `GEMINI_MODEL`)
+- `kiro` — Kiro
+- `opencode` — OpenCode (nhà cung cấp `anypick-managed` trong `opencode.json`)
+- `workbuddy` — Tài khoản đăng ký WorkBuddy AI / CodeBuddy, phục vụ các client ở trên thông qua proxy tích hợp. Bản thân WorkBuddy *app* sử dụng trực tiếp thông tin đăng nhập của chính nó và việc chuyển đổi ứng dụng giữa các tài khoản đã lưu sẽ khôi phục nguyên bản tệp phiên của nó.
+- `zcode` — ZCode (nhà cung cấp `anypick` trong `~/.zcode/cli/config.json` và/hoặc `~/.zcode/v2/config.json`)
+- `dsh` — DeepSeek Harness (CLI lập trình dựa trên Cordis; AnyPick lưu trữ khóa proxy trong `~/.dsh/.env`, trỏ `llm-deepseek.baseURL` vào proxy được quản lý trong `~/.dsh/settings.yaml` và ghim mặc định đã chọn mô hình và danh mục mô hình của nguồn ở đó, vì vậy harness có thể đi upstream)
+- `commandcode` — Command Code (nhà cung cấp BYOK tương thích với OpenAI trong `~/.commandcode/providers.json`, với thông tin xác thực proxy trong `auth.json`)
+- `pi` — Pi (một nhà cung cấp `anypick` trong `~/.pi/agent/models.json` với URL cơ sở proxy, cùng với lựa chọn nhà cung cấp/mô hình mặc định trong `~/.pi/agent/settings.json`; `~/.pi/agent/auth.json` vẫn do Pi quản lý)
+- `omp` — Omp (một nhà cung cấp `anypick` trong `~/.omp/agent/models.yml` với URL cơ sở proxy; mô hình mặc định vẫn là lựa chọn của người dùng trong giao diện người dùng của chính omp và thông tin xác thực `~/.omp/agent/agent.db` không bao giờ được chạm vào)
+
+Mỗi client có một bảng kê khai cách ly mô tả các tệp và biến nào thuộc về nó, điều này làm cho `anypick reset <client>` và quá trình khôi phục trở nên chính xác hơn là nỗ lực tối đa.
+
+<Aside type="caution" title="ZCode: ứng dụng dành cho máy tính để bàn giữ lựa chọn mô hình của riêng mình">
+ZCode lưu trữ mô hình đã chọn bên ngoài `config.json` — ứng dụng dành cho máy tính để bàn đọc mô hình đó từ `~/.zcode/v2/setting.json` mà AnyPick không sở hữu. AnyPick ghi nhà cung cấp `anypick` và đối với cấu hình CLI, trỏ `model.main` vào đó. Trong ứng dụng dành cho máy tính để bàn, nhà cung cấp chỉ *đã đăng ký*: chọn **AnyPick** trong bộ chọn mô hình riêng của ZCode một lần và nó sẽ được định tuyến cho đến khi bạn `anypick reset zcode`.
+</Aside>
+
+<Aside type="note" title="Client nào chéo nhà cung cấp">
+`claude`, `codex`, `opencode`, `zcode`, `dsh`, `commandcode`, `pi` và `omp` có thể được liên kết với một nguồn từ một nhà cung cấp khác — đó là mục đích tồn tại của proxy và ma trận chính xác được thực thi bởi `internal/transport/adapter_matrix_test.go`. `gemini` và `kiro` chỉ chấp nhận thông tin đăng nhập của nhà cung cấp riêng của họ, vì vậy `gemini --with grok/work` bị từ chối thay vì được ủy quyền âm thầm. Ứng dụng `workbuddy` sử dụng trực tiếp thông tin đăng nhập của chính nó; `workbuddy` *tài khoản* vẫn phục vụ các ứng dụng khách ở trên thông qua proxy và việc chuyển đổi ứng dụng giữa các tài khoản đã lưu hoạt động nguyên bản thông qua tệp phiên của nó.
+</Aside>
+
+Danh sách đó là về *binding*. Việc chuyển đổi tài khoản nào đang hoạt động rộng hơn vì AnyPick ghi tệp thông tin xác thực của chính công cụ thay vì nội dung mà chỉ nó hiểu — vì vậy mọi thao tác khác khi đọc tệp đó đều tuân theo. `claude` bao gồm Claude Code CLI và các tiện ích mở rộng IDE của nó, đồng thời thông tin đăng nhập `gemini` có thể là OAuth hoặc Antigravity của Gemini CLI.
+
+<Aside type="caution" title="Ứng dụng máy tính để bàn Codex giữ phiên riêng của nó">
+AnyPick có thể sao lưu và khôi phục `~/.codex/auth.json`, đây là những gì Codex CLI đọc. Ứng dụng dành cho máy tính để bàn theo dõi riêng tài khoản ChatGPT đã đăng nhập của nó, do đó, nó không tuân theo một công tắc nào. AnyPick phát hiện sự bất đồng đó và ngăn chặn việc đọc hạn ngạch thay vì quy việc sử dụng tài khoản này cho tài khoản khác.
+</Aside>
+
+## Nguồn
+
+Nguồn là bất cứ thứ gì có thể trả lời các yêu cầu của mô hình.
+
+**Tài khoản** là thông tin đăng nhập gốc do một số công cụ khác tạo ra — Codex `auth.json`, thông tin xác thực Grok, mã thông báo Gemini OAuth. AnyPick chụp nhanh chúng để một số có thể cùng tồn tại và khôi phục cái bạn đã chọn khi kích hoạt liên kết. Xem [Tài khoản](/vi/docs/guides/accounts).
+
+**Cổng** là các cấu hình API mà bạn tự định cấu hình: điểm cuối, khóa và danh mục mô hình (tùy chọn). Không có gì để đăng nhập. Xem [Cổng](/vi/docs/guides/gateways).
+
+**Nhóm** là một nhóm chọn tham gia gồm nhiều tài khoản của một nhà cung cấp đằng sau một cổng duy nhất để chuyển đổi dự phòng. Xem [Proxy](/vi/docs/guides/proxies).
+
+**Proxy Hub** là một điểm cuối chọn tham gia riêng biệt có thể hiển thị một số tài khoản đã lưu đằng sau một địa chỉ cục bộ và định tuyến theo mô hình (`hub:default`). Xem [Proxy](/vi/docs/guides/proxies).
+
+Chúng có thể hoán đổi cho nhau ở ranh giới `--with`. Một client không biết và cũng không quan tâm nó có loại nào.
+
+## binding
+
+binding là **ảnh chụp nhanh**, không phải là tham chiếu. Khi bạn chạy:
+
+```bash
+anypick use claude --with grok/work
+```
+
+AnyPick phân giải nguồn, chọn giá trị mặc định của mô hình, lập kế hoạch cho các bước kích hoạt và ghi lại kết quả. Các chỉnh sửa sau này đối với tài khoản hoặc preset không âm thầm viết lại binding đó - đó chính là điểm mấu chốt. Những gì chạy ngày hôm qua vẫn chạy ngày hôm nay.
+
+Có ba phạm vi, được chọn theo thứ tự này khi bạn `run`:
+
+1. **tạm thời** — `run --with <source>` chỉ áp dụng cho lần ra mắt đó
+2. **dự án** — `anypick link` ghi một binding trong phạm vi thư mục hiện tại
+3. **Toàn cầu** — `anypick use` ghi mặc định
+
+```
+use   = set the global default (persistent)
+run   = launch with the effective binding (ephemeral; never rewrites defaults)
+link  = set a project-local binding
+```
+
+Kiểm tra xem điều gì đang có hiệu lực với `anypick current`, được thu hẹp tùy ý thành một client.
+
+## preset
+
+preset là mẫu được đặt tên mà bạn có thể sử dụng lại và sửa đổi. Đây là loại nguồn được lưu trữ và CLI có thể kiểm tra và giải quyết một loại:
+
+```bash
+anypick use claude --with @work-stack
+anypick preset list
+anypick preset show work-stack
+anypick preset remove work-stack
+```
+
+Hiện tại không có lệnh nào **tạo** preset. `use … --save <name>` đã được ghi lại ở đây nhưng chưa bao giờ được triển khai, vì vậy không có gì ghi vào bảng `presets` và `preset list` trống khi cài đặt mới. Các binding đã là ảnh chụp nhanh, vì vậy preset là sự thuận tiện cho việc sử dụng lại một thông số kỹ thuật trên các client thay vì là một yêu cầu; cho đến khi đường dẫn sáng tạo được gửi đi, hãy liên kết nguồn trực tiếp với `use <client> --with <source>`.
+
+<Aside type="note" title="Tại sao ảnh chụp nhanh">
+Giải pháp thay thế — các binding theo trực tiếp nguồn của chúng — có nghĩa là một thay đổi ở một nơi sẽ lặng lẽ thay đổi những gì mọi client khởi chạy. Thay vào đó, AnyPick thực hiện việc kích hoạt lại một cách rõ ràng.
+</Aside>
+
+## Kích hoạt
+
+Biến một binding thành một client đang hoạt động là một hoạt động được lên kế hoạch, không phải là một loạt các tác dụng phụ. AnyPick xây dựng danh sách các bước, ghi lại các bước thay đổi trong nhật ký hoạt động với các đường dẫn dự phòng, sau đó thực thi. Nếu một bước không thành công, trạng thái trước đó sẽ được khôi phục — cấu hình client, xác thực gốc và bất kỳ proxy nào mà nó đã khởi động.
+
+`--dry-run` in kế hoạch mà không cần viết. `--trace` đặt tên cho các bước khi chúng chạy mà không cần bí mật.
+
+## Hành vi không tương tác
+
+AnyPick không bao giờ nhắc khi không có TTY và không bao giờ đoán nguồn. `use <client>` yêu cầu `--with`; không có nó, lệnh sẽ thoát `2`. Điều này làm cho nó an toàn trong CI và trong các tập lệnh. `--no-input` từ chối lời nhắc ngay cả trên TTY và `--json` chuyển đầu ra lệnh thành một giá trị JSON trên thiết bị xuất chuẩn.

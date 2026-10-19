@@ -1,0 +1,192 @@
+---
+title: 'アカウント'
+description: 'スナップショット ネイティブ プロバイダー ログインにより、複数が共存でき、どのクライアントでもそれらを使用できます。'
+---
+
+アカウントは、プロバイダー独自の CLI が作成したログイン、またはローカル プロキシに指定したプロバイダー キーのいずれかです。 AnyPick はそのスナップショットを作成するので、複数を保持し、それらを切り替えて、それを使用するように設計されていないクライアントに 1 つを貸すことができます。
+
+## サポートされているプロバイダー
+
+|プロバイダー |ライブ認証 |他のクライアントがそこに到達する方法 |
+| --- | --- | --- |
+| `claude` |クロード コード キーホルダー / `~/.claude/.credentials.json` |直接、クロード コードのみ |
+| `codex` | `~/.codex/auth.json` |直接、Codex のみ |
+| `grok` | `~/.grok/auth.json` |内蔵デュアル プロキシ (OpenAI + Anthropic) |
+| `opencode` | OpenCode 認証ストア |組み込みの Zen/Go デュアル プロキシ |
+| `gemini` | `~/.gemini/` (`.env`、oauth、アカウント)、反重力状態/キーリング |組み込みデュアル プロキシ → Gemini API |
+| `kiro` | kiro-cli シークレット ストア、`~/.aws/sso/cache`、または指定した API キー |外部 `kirolink` / `kiro-proxy` (取り付けられている場合) |
+| `workbuddy` | WorkBuddy / CodeBuddy サブスクリプション (デバイスフロー OAuth) |組み込みの OpenAI プロキシ。上記のクライアントにサービスを提供します。 `anypick use workbuddy/<name>` は、セッション ファイル経由で WorkBuddy アプリ自体も切り替えます。
+| `cline` | ClinePass / Cline WorkOS ログイン |組み込み OpenAI プロキシ (Cline クライアント アダプターはまだありません) |
+
+`anypick providers` は、マシン上のビルドの信頼できるインベントリです。上記のネイティブ プロバイダーに加えて、Go エンジンは互換性のある API キー プロバイダーとサブスクリプション キー プロバイダーを直接出荷します。 `popular-providers` プラグインは必要ありません。資格情報プロファイルと例については、[互換性のあるプロバイダーが組み込まれています](/ja/docs/guides/plugins) を参照してください。
+
+<Aside type="caution" title="アカウントのバックアップには認証情報が含まれています">
+アカウントのバックアップ ファイルは読み取り可能な JSON であり、AnyPick によって暗号化されません。有効な資格情報と同様にそれらを保存します。保存されたアカウントも対象となります。ゲートウェイのシークレット、設定、およびアクティビティ履歴は、アプリケーションの完全なバックアップではありません。
+</Aside>
+
+## ログインの保存
+
+AnyPick は、ブラウザーのサインインをプロバイダー所有のログイン ランチャーに委任し、プロバイダーの通常の場所に書き込まれた資格情報を読み取ります。 2 つの方法:
+
+<Tabs>
+<TabItem label="ライブログインを保存する">
+```bash
+claude login
+anypick add account claude --current --name personal
+
+codex login
+anypick add account codex --current --name personal
+```
+現在有効な認証情報は、`codex/personal` という名前の保存されたスナップショットになります。
+</TabItem>
+<TabItem label="新たにログインを開始する">
+```bash
+anypick add account codex --new --name work
+```
+インストールされたプロバイダーがブラウザー認証を公開すると、AnyPick はライブ認証情報をバックアップし、プロバイダーのブラウザー フローを開き、新しいネイティブ ログインを検証し、1 つのコマンドで新しい名前で保存します。 Codex、Claude Code、Kiro、Grok、および Gemini がこのパスを提供します。 Z.ai は、この Mac への暗号化された ZCode ログインのインポートや、公式ブラウザ フローの開始もサポートしています。 Gemini のピッカーには、別個の Gemini CLI と Antigravity 互換の Google ソースがあります。 `gemini` 自体にはログイン専用コマンドがないため、AnyPick は Google OAuth フローを直接開きます。使用可能なブラウザ ランチャーがない場合、AnyPick はライブ ログインのクリアに戻り、プロバイダーがサポートするツールでサインインした後にライブ ログインを保存する方法を示します。
+</TabItem>
+</Tabs>
+
+公式の方法が最初に示されており、プロバイダーのポリシーと競合する可能性が低いため、これがデフォルトです。これらはホワイトリストではありません。完全なプロバイダー プラグインはコミュニティ メソッドを公開する場合があり、`--auth-method <id>` またはメソッド ピッカーを使用して明示的に選択できます。プロバイダー規約は引き続き適用されます。
+
+ログインは一度保存されます。 AnyPick が既に保持している認証情報を 2 番目の名前で保存すると拒否され、エラーで既にそのアカウントを持っているアカウントが指定されます。そのアカウントを使用するか、新しい名前で保存する前にアカウントを削除 (`anypick account remove <provider>/<name>`) してください。そうしないと、1 つのスナップショットに 2 つの名前が付けられ、何も切り替わらない 2 つのアカウントのように見えます。 `anypick doctor` は、このルールの前に保存されたペアを報告します。
+
+ブラウザーのサインインまたはスナップショットの保存が失敗した場合、AnyPick は以前のネイティブ ログインとアクティブ アカウント ポインターを復元します。認証 URL、ワンタイム コード、ランチャー出力はトレイまたは JSON 出力にコピーされません。
+
+Gemini の場合、両方が存在する場合、`--source gemini-cli|antigravity` はどちらのサインインを読み取るかを選択します。 macOS アプリでは、**この Mac** により、すでに Gemini CLI または Antigravity にログインしているサブスクリプションがインポートされます。 **新しいアカウント** では、Google ソースのいずれかを選択し、別のアカウントとしてサインインできます。失敗したフローまたはキャンセルされたフローは、以前のログインとアクティブなアカウントを復元します。 AnyPick は、Antigravity の IDE データベースやキーチェーンに新しいログインを書き込むことはありません。
+
+Gemini API キー (`GEMINI_API_KEY` または `GOOGLE_API_KEY`) は、名前付きネイティブ アカウントとして保存することもできます。これはゲートウェイ プロファイルとは別のものであり、Gemini CLI または Antigravity ログインが存在しない場合でも機能します。
+
+```bash
+anypick add account gemini --credential api-key --secret --name studio
+```
+
+macOS の [ログインの追加] シートでは、この Mac 上の既存のログイン、新しい Google サブスクリプション ログイン、および別の API キー フォームの 3 つの Gemini パスすべてが利用可能です。 API キーのパスは AnyPick が所有しており、ネイティブ ログインを置き換えるものではありません。
+
+## ログインの代わりにキーを保存する
+
+一部のプロバイダーは、すでに保持しているキーを受け入れます。一般的な形式は次のとおりです。
+
+```bash
+anypick add account mimo --credential subscription-key --secret --name work \
+  --option profile=singapore
+```
+
+`--secret` 値を省略すると、AnyPick が端末上でその値の入力を求めるため、キーがシェル履歴に入力されることはありません。すべての `--option key=value` は、そのプロバイダー (今日では `profile`) によって宣言された修飾子である必要があります。 CLI は、他のものをサイレントに削除するのではなく、フェールクローズします。
+
+> **Kiro API キーはまだ受け入れられていません。** `kiro` プロバイダーは no を宣言しています。
+> `CredentialDefinitions` (`CredentialInputProvider` ではありません)
+> `add account kiro --api-key/--region` は、`SaveInput` でクローズに失敗します
+> `UNSUPPORTED_CREDENTIAL_INPUT`、および裸の `--region` は拒否されます
+プロバイダーに届く前に、> `cmd/anypick/main.go` となります。 Kiro は次の方法でログインします。
+> ブラウザサインイン (`--new`) およびライブログインのスナップショット (`--current`)
+> は文書どおりに機能します。
+
+[ターミナル UI](/ja/docs/guides/terminal-ui) では、アカウントの追加画面で同じフローが **代わりに API キーを使用します**。これは、型付き認証情報製品を宣言するプロバイダー向けに提供されています。キーは入力時に非表示になり、エンドポイント プロファイルはプロバイダー契約からレンダリングされます。
+
+キーはこのマシンのログインではありません。キーは AnyPick にのみ保存されるため、キーをアクティブ化してもディスク上のネイティブ ログインはそのまま残り、`account refresh` によって上書きされることはありません。
+
+プラグインによってインストールされたプロバイダーは、プロバイダー固有の CLI フラグを追加せずに、他の認証情報製品を宣言できます。一般的な形式は次のとおりです。
+
+```bash
+anypick add account <provider> --credential <kind> --secret --name <name>
+anypick add account mimo --credential subscription-key --secret --name work \
+  --option profile=singapore
+```
+
+すべての `--option key=value` は、そのプロバイダーによって宣言された修飾子である必要があります。 TUI は、プロバイダー契約から同じ種類とエンドポイント プロファイルをレンダリングします。 macOS アプリでは、これらのプロバイダーはサインイン フローの代わりにログインの追加に API キー フォームを表示します。
+
+<Aside type="caution" title="一度に 1 つのライブログイン">
+プロバイダー CLI は通常、デフォルト ホームに 1 つの認証情報を保持します。保存されたアカウントは AnyPick のストアに存在し、通常のアクティベーションにより、選択したアカウントがそのプロバイダー パスに復元されます。 Codex の名前付きプロファイルは例外です。各プロファイルは分離された `CODEX_HOME` を取得するため、複数の Codex CLI アカウントを同時に実行できます。プロファイルがアクティブな間は、管理対象認証ファイルを手動で編集しないでください。
+</Aside>
+
+## アカウントの使用
+
+```bash
+anypick use codex --with codex/personal    # same-protocol: direct
+anypick use claude --with grok/work        # cross-protocol: proxy starts on demand
+anypick use commandcode --with workbuddy/work --model deepseek-4.1-flash
+anypick run commandcode --with workbuddy/work --model deepseek-4.1-flash --
+anypick run claude
+```
+
+Codex CLI は名前付きルートもサポートします。 AnyPick は、各名前付きルートに独自の `CODEX_HOME`、ネイティブ プロファイル設定、および `auth.json` を与えるため、グローバル Codex 設定やログインを上書きすることなく、プロファイルは保存されている異なるアカウントやゲートウェイを指すことができます。
+
+```bash
+anypick codex profile login personal
+anypick codex profile login work
+anypick use codex --with codex/personal --profile personal
+anypick use codex --with codex/work --profile work
+anypick use codex --with hub:default --profile shared
+anypick codex profile list
+anypick run codex --profile work -- exec --help
+```
+
+`profile login` は、選択したプロファイル ホームで公式 Codex サインインを開き、結果の資格情報を `codex/<name>` として保存し、プロファイルを具体化します。デスクトップ アプリのデフォルトの `~/.codex/auth.json` を置き換えるものではありません。 AnyPick に既に保存されているアカウントの場合、`anypick use ... --profile <name>` はそのスナップショットをプロファイル ホームにコピーします。ゲートウェイベースのプロファイルは、保存されたエンドポイントを直接使用します。プロファイルでネイティブ Codex 認証の代わりにアカウント固有の AnyPick プロキシを使用する必要がある場合は、アカウント プロキシを有効にして、`--transport proxy` を渡します。 Hub-backed プロファイルには別のルート トークンがあるため、別の Codex プロファイルが無効になることはありません。デフォルトの Codex CLI 設定では、アカウント プロキシまたはハブを直接使用することもできます。
+
+```bash
+anypick use codex --with codex/work --transport proxy
+anypick use codex --with hub:default
+```
+
+これらのルートは Codex CLI を構成します。 Codex Desktop は独自のサインイン アカウントを保持し、CLI の `CODEX_HOME` に従いません。
+
+クライアントとアカウントが異なるプロトコルを使用する場合、AnyPick はローカル変換プロキシを開始し、クライアントにそのプロキシを指定します。自分でプロキシを開始しません。コマンド コードは、`~/.commandcode/providers.json` で OpenAI 互換の `anypick-managed` プロバイダーを受け取ります。インスタンスごとのプロキシ トークンは `~/.commandcode/auth.json` に保持されます。必要に応じて、[プロキシ](/ja/docs/guides/proxies) を参照してください。
+
+## ライブ使用量とクォータ
+
+プロバイダーがライブ使用状況を報告すると、macOS アプリはそれをアカウントとアプリの詳細に表示します。反重力レポートは、**Gemini モデル** や **Claude および GPT モデル** などのモデル ファミリごとにグループ化された毎週および 5 時間のウィンドウをレポートします。 AnyPick は、このディスプレイの現在のプロバイダー資格情報を読み取ります。ログインの更新や書き込みは行われません。使用できるのは、この Mac でプロバイダー アカウントがアクティブな場合のみです。 Codex Desktop は独自のサインインを Codex CLI とは別に保持するため、これらのアカウントが一致しない場合、AnyPick はクォータ読み取り値を表示しません。
+
+## 保存されたアカウントの管理
+
+```bash
+anypick account list                   # or: anypick list accounts
+anypick account refresh codex          # refresh the live login
+anypick account refresh codex work     # refresh one saved account
+anypick account refresh codex --all    # refresh every saved account
+anypick account remove codex old -y
+```
+
+`refresh` は、所定の OAuth トークンを更新します。アカウントはその名前を保持するため、そのアカウントを指すバインディングは機能し続けます。再バインドする必要はありません。いずれかのターゲットが失敗した場合はゼロ以外で終了し、どのターゲットが失敗したかを出力します。
+
+`remove` は、ルートがそのアカウントであるすべての名前付き Codex プロファイルも削除します ([名前付き Codex プロファイル](/ja/docs/reference/cli) を参照)。プロファイルはアカウントの `auth.json` を保持するプライベート `CODEX_HOME` を所有しているため、それを残すと資格情報が取り残され、AnyPick の何も再び到達できなくなります。クリーンアップはサイレントではなく報告されます。
+
+```bash
+anypick account remove codex work -y
+# removed codex/work Removed named profile(s): codex/work.
+```
+
+他の場所 (ゲートウェイ、ハブ、プール、または別の保存されたアカウント) を指すプロファイルはそのまま残されます。 1 つのアカウントを削除しても、別のソースを使用するプロファイルが削除されることはありません。アカウント行がすでに削除されているが、プロファイルがまだそれを指している場合 (古い AnyPick からの削除、2 つの書き込み間のクラッシュ、またはアカウント行なしでデータベースが復元された場合)、AnyPick は次回起動時にプロファイルを削除し、その旨を標準エラー出力に表示します。その前に`anypick doctor`が報告します。
+
+## エクスポートとインポート
+
+アカウントを別のマシンに移動します。
+
+```bash
+anypick account export codex work -o ./work.json
+anypick account import codex work -i ./work.json
+```
+
+`--out` が省略された場合、export は所有者専用の `.json` ファイルを `~/.anypick/exports/` に書き込み、その正確なパスを出力します。複数のアカウントを 1 つのパッケージで移動するには、すべてのアカウント (または 1 つのプロバイダー) を単一の JSON バックアップにエクスポートします。
+
+```bash
+anypick account export --all --out ./accounts.json
+anypick account import ./accounts.json
+```
+
+1 つのコマンドで複数の単一アカウント JSON ファイルをインポートすることもできます (例: `anypick account import ./work.json ./personal.json`)。 `import` は、`--force` を渡さない限り、既存の名前の上書きを拒否します。すでに別の名前で保存されているログイン ID は、`--force` を含めてブロックされたままになります。置き換える場合は、その既存の名前を使用してください。 API キーの表示ラベルはログイン ID としてカウントされません。
+
+CLI、TUI、およびデスクトップのインポートは、単一アカウントのエクスポートとアカウントのバックアップの両方を受け入れます。デスクトップ ファイル ピッカーは、`.json` および `.anypick-backup` ファイルを受け入れ、インポートする前にアカウントを確認できます。
+
+<Aside type="danger" title="エクスポートにはライブ認証情報が含まれます">
+エクスポートされたファイルには、実際のトークンがプレーンな形式で保持されます。それをそのままの資格情報のように扱います。信頼できるチャネル経由で転送し、その後削除します。
+</Aside>
+
+## モデルのデフォルト
+
+バインディングがアカウント プロキシをクロードにアタッチすると、AnyPick はクロード モデルのロールを設定します。
+
+- `ANTHROPIC_MODEL` — デフォルト
+- `ANTHROPIC_DEFAULT_SONNET_MODEL`、`…_OPUS_MODEL`、`…_HAIKU_MODEL`
+
+値は、実行中のプロキシのライブ `/v1/models` カタログが利用可能な場合はそこから取得されるため、新しくリリースされたモデルは AnyPick 更新なしで表示されます。後でプロキシまたはゲートウェイ ボードの <kbd>m</kbd> を使用するか、アプリからルートを再構築するか、明示的な `--model` で再バインドすることで変更します。

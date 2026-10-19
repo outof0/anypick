@@ -1,0 +1,56 @@
+---
+title: 'Vinculaciones de proyecto'
+description: 'Proporcione a un repositorio su propia fuente de cliente sin tocar su valor predeterminado global.'
+---
+
+`anypick link` escribe un vínculo con alcance en el directorio actual. Supera el valor predeterminado global cuando `run` un cliente desde dentro de ese directorio, y es invisible en cualquier otro lugar.
+
+```bash
+cd ~/src/my-app
+anypick link claude                        # copy the global binding into this project
+anypick link claude --with grok/work       # or bind explicitly
+anypick run claude                         # project binding wins
+anypick unlink claude
+```
+
+`anypick unlink` sin cliente elimina todos los vínculos de proyecto en el directorio actual.
+
+## Orden de resolución
+
+Cuando `run` necesita un vínculo, toma el primero que encuentra:
+
+1. `--with` en la línea de comando: solo este lanzamiento
+2. el vínculo del proyecto para el directorio actual
+3. el vínculo global de `anypick use`
+
+Si no existe ninguno, `run` sale de `5` en lugar de adivinar.
+
+`anypick current` muestra el vínculo efectivo para cada cliente, para que pueda ver qué capa ganó.
+
+## Una división típica
+
+Un cliente por cliente, sin cambio manual:
+
+```bash
+anypick use claude --with grok/work            # your default everywhere
+
+cd ~/src/client-a
+anypick link claude --with openrouter-work     # this repo only
+
+cd ~/src/client-b
+anypick link claude --with gemini/work
+```
+
+<Aside type="note" title="los vínculos son por directorio, no por repositorio">
+el vínculo está vinculado a la ruta del directorio en la que ejecutó `link`. Un árbol de trabajo diferente del mismo repositorio es un proyecto diferente en lo que respecta a AnyPick, que generalmente es lo que desea y, en ocasiones, es sorprendente.
+</Aside>
+
+## Limpiando
+
+`anypick unlink` elimina el vínculo pero deja la configuración del cliente como la dejó la última activación. Para eliminar la configuración que AnyPick escribió para un cliente:
+
+```bash
+anypick reset claude
+```
+
+`reset` solo elimina la configuración administrada por AnyPick. Nunca toca los archivos de autenticación nativos ni su propia configuración.

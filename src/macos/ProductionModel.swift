@@ -1621,6 +1621,19 @@ final class ProductionDesignModel: MacOSDesignModel {
     let nextAccounts = (store.accounts.map(designAccount) + store.gateways.map(designGateway))
       .sorted(by: nativeAccountOrder)
     setIfChanged(\.accounts, to: nextAccounts)
+    var nextAccountUsage: [String: [DesignUsageWindow]] = [:]
+    for account in store.accounts where account.active {
+      if let usage = store.usage.first(where: {
+        nativeProviderFamily($0.providerId ?? $0.client) == nativeProviderFamily(account.providerId)
+          && $0.account == account.name
+      }) {
+        nextAccountUsage[account.id] = usage.windows.map {
+          DesignUsageWindow(label: $0.label, remainingPercent: $0.remainingPercent,
+            resetsAtMs: $0.resetsAtMs, limitWindowSeconds: $0.limitWindowSeconds, group: $0.group)
+        }
+      }
+    }
+    setIfChanged(\.accountUsage, to: nextAccountUsage)
     let profileSources = store.codexProfileSources.map {
       DesignCodexProfileSource(
         sourceID: $0.sourceId,

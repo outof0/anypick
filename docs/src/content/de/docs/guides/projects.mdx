@@ -1,0 +1,56 @@
+---
+title: 'Projektbindungen'
+description: 'Geben Sie einem Repository eine eigene Client-Quelle, ohne Ihren globalen Standard zu ändern.'
+---
+
+`anypick link` schreibt eine Bindung, die auf das aktuelle Verzeichnis beschränkt ist. Es übertrifft den globalen Standard, wenn Sie einen Client aus diesem Verzeichnis heraus `run` verwenden, und ist überall sonst unsichtbar.
+
+```bash
+cd ~/src/my-app
+anypick link claude                        # copy the global binding into this project
+anypick link claude --with grok/work       # or bind explicitly
+anypick run claude                         # project binding wins
+anypick unlink claude
+```
+
+`anypick unlink` ohne Client entfernt alle Projektbindungen im aktuellen Verzeichnis.
+
+## Auflösungsreihenfolge
+
+Wenn `run` eine Bindung benötigt, nimmt es die erste, die es findet:
+
+1. `--with` in der Befehlszeile – nur bei diesem Start
+2. Die Projektbindung für das aktuelle Verzeichnis
+3. Die globale Bindung von `anypick use`
+
+Wenn keine vorhanden sind, beendet `run` `5`, anstatt zu raten.
+
+`anypick current` zeigt die effektive Bindung für jeden Client an, sodass Sie sehen können, welcher Layer gewonnen hat.
+
+## Eine typische Trennung
+
+Ein Client pro Client, ohne manuellen Wechsel:
+
+```bash
+anypick use claude --with grok/work            # your default everywhere
+
+cd ~/src/client-a
+anypick link claude --with openrouter-work     # this repo only
+
+cd ~/src/client-b
+anypick link claude --with gemini/work
+```
+
+<Aside type="note" title="Bindungen erfolgen pro Verzeichnis, nicht pro Repo">
+Die Bindung ist an den Verzeichnispfad gebunden, in dem Sie `link` ausgeführt haben. Ein anderer Arbeitsbaum desselben Repositorys ist für AnyPick ein anderes Projekt – was normalerweise das ist, was Sie wollen und manchmal überraschend ist.
+</Aside>
+
+## Aufräumen
+
+`anypick unlink` entfernt die Bindung, belässt aber die Konfiguration des Clients so, wie sie bei der letzten Aktivierung verlassen wurde. So entfernen Sie die Konfiguration, die AnyPick für einen Client geschrieben hat:
+
+```bash
+anypick reset claude
+```
+
+`reset` entfernt nur die von AnyPick verwaltete Konfiguration. Es berührt niemals native Authentifizierungsdateien oder Ihre eigenen Einstellungen.

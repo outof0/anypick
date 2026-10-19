@@ -19,6 +19,7 @@ import (
 	"github.com/outof0/anypick/go/internal/plugins"
 	"github.com/outof0/anypick/go/internal/profile"
 	"github.com/outof0/anypick/go/internal/proxy"
+	"github.com/outof0/anypick/go/internal/transfer"
 )
 
 type lockedOutput struct {
@@ -157,6 +158,7 @@ func TestSnapshotPublishesSavedAccountIdentity(t *testing.T) {
 	save := mutationPayload("save-identity", "account-save", "work")
 	save["providerId"] = "codex"
 	save["label"] = "Work"
+	save["identity"] = "Current Codex login"
 	if result := runCorrectnessMutation(t, srv, &out, save); result.Status != "success" {
 		t.Fatalf("save account = %+v", result)
 	}
@@ -174,6 +176,62 @@ func TestSnapshotPublishesSavedAccountIdentity(t *testing.T) {
 		}
 	}
 	t.Fatal("saved account was not published in the desktop snapshot")
+}
+
+func TestAccountSaveDisplayHintDoesNotMergeUnidentifiedLogins(t *testing.T) {
+	env := newTrayEnv(t)
+	env.writeCodexLive("placeholder@example.com")
+	var out bytes.Buffer
+	srv := newWaitedServerOut(t, env.Deps, &out)
+	ctx := context.Background()
+	selection := []transfer.BackupEntry{{Provider: "codex", Name: "first"}, {Provider: "codex", Name: "second"}}
+	for _, entry := range selection {
+		// Distinct opaque credentials have no account-scoped identity. The UI's
+		// shared display hint must not make their backup identities collide.
+		auth := `{"auth_mode":"chatgpt","tokens":{"id_token":"` + entry.Name + `"}}`
+		if err := os.WriteFile(env.CodexA, []byte(auth), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		save := mutationPayload("save-"+entry.Name, "account-save", entry.Name)
+		save["providerId"] = "codex"
+		save["identity"] = "Current OpenAI Codex login"
+		if result := runCorrectnessMutation(t, srv, &out, save); result.Status != "success" {
+			t.Fatalf("save account = %+v", result)
+		}
+	}
+	path := filepath.Join(t.TempDir(), "unidentified.anypick-backup")
+	if _, err := transfer.ExportSelectedBackup(env.Deps.Store, ctx, selection, path, false); err != nil {
+		t.Fatal(err)
+	}
+	preview, err := transfer.InspectBackup(env.Deps.Store, env.Deps.Providers, path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(preview.Entries) != len(selection) {
+		t.Fatalf("backup entries = %d", len(preview.Entries))
+	}
+	for _, entry := range preview.Entries {
+		if entry.Disposition != transfer.DispositionReplace {
+			t.Fatalf("display hint caused a false identity conflict: %+v", entry)
+		}
+	}
+	if _, err := transfer.RestoreSelectedContext(ctx, env.Deps.Store, env.Deps.Providers, path,
+		selection, transfer.RestoreOptions{Replace: selection}); err != nil {
+		t.Fatal(err)
+	}
+	for _, entry := range selection {
+		account, err := env.Deps.Store.Get(ctx, entry.Provider, entry.Name)
+		if err != nil || account == nil {
+			t.Fatalf("restored account %s: %v", entry.Name, err)
+		}
+		if account.Meta.Identity != "" {
+			t.Fatalf("display hint became identity: %q", account.Meta.Identity)
+		}
+		raw, err := os.ReadFile(filepath.Join(account.SnapshotDir, "auth.json"))
+		if err != nil || !strings.Contains(string(raw), `"id_token":"`+entry.Name+`"`) {
+			t.Fatalf("restore mixed up account %s: %v", entry.Name, err)
+		}
+	}
 }
 
 func TestDesktopAccountSaveUsesExplicitCredentialAndOverwrite(t *testing.T) {

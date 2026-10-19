@@ -22,8 +22,7 @@
     "editThisPage": "Chỉnh sửa trang này",
     "siteNavigation": "Điều hướng trang",
     "navigation": "Điều hướng",
-    "closeSidebar": "Đóng thanh bên",
-    "englishContent": "Nội dung trang này hiện được cung cấp bằng tiếng Anh."
+    "closeSidebar": "Đóng thanh bên"
   },
   "search": {
     "label": "Tìm trong tài liệu",
@@ -72,5 +71,158 @@
     "tabs": "Trình quản lý gói",
     "copy": "Sao chép vào bộ nhớ tạm",
     "copied": "Đã sao chép vào bộ nhớ tạm"
+  },
+  "docsNav": {
+    "appsTerminalUi": "Ứng dụng và giao diện dòng lệnh",
+    "guides": "Hướng dẫn",
+    "reference": "Tham khảo"
+  },
+  "landing": {
+    "meta": {
+      "title": "Chuyển tài khoản AI coding trong một ứng dụng cục bộ | AnyPick",
+      "description": "Quản lý tài khoản AI coding và API gateway trong một ứng dụng cục bộ. Chọn tuyến tương thích cho toàn ứng dụng, từng dự án hoặc một phiên terminal.",
+      "socialAlt": "Màn hình Tổng quan AnyPick hiển thị các công cụ AI coding được hỗ trợ, tuyến tài khoản và dịch vụ cục bộ."
+    },
+    "hero": {
+      "eyebrow": "Chuyển tài khoản AI coding, ngay trên máy bạn",
+      "titleStart": "Đổi tài khoản.",
+      "titleEnd": "Tiếp tục lập trình.",
+      "lede": "Tài khoản công việc, tài khoản cá nhân hay API gateway của riêng bạn. Chọn tài khoản cho Claude Code, Codex và các công cụ được hỗ trợ — không cần sửa file cấu hình thủ công.",
+      "primary": "Bắt đầu miễn phí",
+      "secondary": "Xem cách hoạt động",
+      "platforms": "macOS · Linux · Windows",
+      "openSource": "Miễn phí và mã nguồn mở",
+      "noCloud": "Không cần cloud của AnyPick",
+      "overviewAlt": "Màn hình Tổng quan AnyPick với Claude Code, OpenAI Codex và OpenCode đang dùng tài khoản đã lưu; kèm trạng thái proxy cục bộ và các lần chuyển gần đây. Dữ liệu minh họa.",
+      "trayAlt": "Bảng menu AnyPick hiển thị tài khoản đã lưu và cách chuyển nhanh cho Claude Code và OpenAI Codex. Dữ liệu minh họa.",
+      "caption": "Ứng dụng desktop · tài khoản minh họa"
+    },
+    "proof": {
+      "aria": "Thông tin sản phẩm",
+      "clientsTitle": "Hỗ trợ 11 công cụ AI coding",
+      "clientsBody": "Tiếp tục dùng những công cụ bạn đã cài.",
+      "localTitle": "Thông tin tài khoản được lưu trên máy bạn",
+      "localBody": "Không cần tài khoản AnyPick hay máy chủ chuyển tiếp.",
+      "licenseTitle": "Mã nguồn mở · MIT",
+      "licenseBody": "Bản phát hành có checksum và SBOM."
+    },
+    "workflow": {
+      "kicker": "Phù hợp với công việc hằng ngày",
+      "title": "Một tài khoản cho công việc, một tài khoản cho repo này.",
+      "body": "Tách riêng tài khoản công việc và cá nhân. Dùng tài khoản khác cho từng repo. Thử API gateway trong một lần chạy. Chọn phạm vi áp dụng cho mỗi lần chuyển.",
+      "projectLink": "Tìm hiểu cách gắn tài khoản theo dự án",
+      "routesLabel": "Ví dụ tuyến tài khoản",
+      "routeDefault": "Mặc định cho ứng dụng",
+      "routeProject": "Chỉ áp dụng cho dự án này",
+      "routeSession": "Chỉ trong một phiên terminal",
+      "stepsLabel": "Các bước bắt đầu",
+      "saveTitle": "Lưu tài khoản đăng nhập",
+      "saveBody": "Thêm tài khoản nhà cung cấp hiện có hoặc API gateway trong mục Tài khoản & API.",
+      "toolTitle": "Chọn công cụ",
+      "toolBody": "Chọn tài khoản đã lưu tương thích trong mục Ứng dụng, rồi xem lại bản xem trước thay đổi.",
+      "applyTitle": "Quay lại công việc",
+      "applyBody": "Áp dụng rồi quay lại code. Chạy anypick reset để khôi phục cấu hình đã lưu."
+    },
+    "safety": {
+      "kicker": "Thay đổi an toàn, hoàn tác dễ dàng",
+      "title": "Cấu hình vẫn thuộc về bạn.",
+      "reviewTitle": "Xem lại trước khi áp dụng",
+      "reviewBody": "Ứng dụng desktop hiển thị trước toàn bộ thay đổi — tài khoản, model, proxy, cấu hình client — trong một bản xem trước.",
+      "configTitle": "Giữ nguyên phần cấu hình còn lại",
+      "configBody": "AnyPick chỉ theo dõi những cài đặt do chính nó quản lý, và hỏi trước khi đụng vào phần còn lại.",
+      "restoreTitle": "Khôi phục khi cần",
+      "restoreBody": "Dùng anypick reset để khôi phục trạng thái đã lưu của ứng dụng. Thông tin đăng nhập nằm trong thư mục dữ liệu AnyPick trên máy bạn.",
+      "accountAlt": "Mục Tài khoản & API của AnyPick liệt kê tài khoản nhà cung cấp đã lưu và một API gateway. Tên và chi tiết tài khoản là dữ liệu minh họa."
+    },
+    "compatibility": {
+      "kicker": "Khả năng tương thích",
+      "title": "Hỗ trợ đúng công cụ, theo quy tắc của nhà cung cấp.",
+      "body": "AnyPick chỉ cung cấp tuyến được hỗ trợ ở cả hai đầu kết nối. Không phải tài khoản nào cũng dùng chéo cho nhau được.",
+      "clients": "Công cụ AI coding được hỗ trợ",
+      "claudeRule": "Tài khoản Claude chỉ dùng trong Claude Code. Gemini CLI và Kiro dùng tài khoản của nhà cung cấp tương ứng.",
+      "otherRule": "Các công cụ tương thích khác có thể dùng tài khoản từ nhà cung cấp khác hoặc API gateway, tùy theo adapter.",
+      "reference": "Xem bảng tương thích"
+    },
+    "install": {
+      "kicker": "Ứng dụng desktop hoặc terminal",
+      "title": "Bắt đầu bằng ứng dụng hoặc tiếp tục với terminal.",
+      "body": "Dùng ứng dụng desktop để xem lại kế hoạch tuyến, hoặc chạy CLI trong terminal. Video này minh họa CLI với tài khoản demo trong sandbox.",
+      "demoTitle": "anypick 1.1.0 · demo sandbox",
+      "videoAlt": "Demo CLI: liệt kê tài khoản đã lưu, thêm OpenRouter gateway, định tuyến Claude Code qua gateway rồi khôi phục cấu hình ban đầu.",
+      "demoCaption": "Đầu ra CLI thực tế · AnyPick 1.1.0 · tài khoản sandbox",
+      "desktop": "Ứng dụng desktop",
+      "desktopTitle": "Chọn tài khoản. Xem trước. Áp dụng.",
+      "desktopBody": "Quản lý tài khoản và xem lại thay đổi trong giao diện trực quan. Có cho macOS, Linux và Windows.",
+      "download": "Tải ứng dụng desktop",
+      "downloadNote": "Chọn bộ cài cho hệ điều hành trên GitHub Releases.",
+      "cli": "Cài đặt CLI",
+      "method": "Chọn cách cài đặt",
+      "copy": "Sao chép",
+      "copyCommand": "Sao chép lệnh cài {{name}}",
+      "brewBefore": "Ứng dụng desktop: chạy brew install --cask outof0/tap/anypick hoặc tải ",
+      "brewLink": "file DMG từ GitHub Releases",
+      "brewAfter": ".",
+      "linuxBefore": "Hoặc tải gói CLI hay ứng dụng desktop từ ",
+      "linuxLink": "GitHub Releases",
+      "linuxAfter": " (.deb, .rpm, AppImage, tarball).",
+      "windowsBefore": "Bộ cài ứng dụng desktop có trên ",
+      "windowsLink": "GitHub Releases",
+      "windowsAfter": ".",
+      "npmHint": "Cần Node 18 trở lên. Launcher sẽ tải và xác minh CLI native phù hợp.",
+      "firstRun": "Sau khi cài đặt, chạy",
+      "guide": "Đọc hướng dẫn trong 5 phút",
+      "copied": "Đã sao chép",
+      "copyStatus": "Đã sao chép lệnh cài đặt vào bộ nhớ tạm.",
+      "copyFailed": "Không thể truy cập bộ nhớ tạm.",
+      "picker": "để mở trình chọn tài khoản."
+    },
+    "faq": {
+      "kicker": "Một vài thông tin thực tế",
+      "title": "Trước khi chuyển tài khoản.",
+      "freeQ": "AnyPick có miễn phí không?",
+      "freeA": "Có. AnyPick miễn phí và mã nguồn mở theo giấy phép MIT. Bạn dùng tài khoản hoặc API key của nhà cung cấp; phí thuê bao và sử dụng của họ vẫn áp dụng.",
+      "accountsQ": "Mỗi công cụ AI coding dùng được những tài khoản nào?",
+      "accountsA": "Tuyến khả dụng phụ thuộc vào client và adapter tài khoản. Đăng nhập Claude chỉ dùng trong Claude Code; Gemini CLI và Kiro dùng tài khoản nhà cung cấp tương ứng. {{accountsALink}} liệt kê các tổ hợp được hỗ trợ.",
+      "accountsALink": "Bảng tương thích",
+      "relayQ": "AnyPick có gửi prompt qua máy chủ của mình không?",
+      "relayA": "Không. AnyPick không có máy chủ chuyển tiếp. Khi hai công cụ dùng giao thức API khác nhau, Go service cục bộ chạy bộ chuyển đổi trên loopback rồi gửi yêu cầu tới nhà cung cấp bạn chọn.",
+      "credentialsQ": "Thông tin đăng nhập được lưu ở đâu?",
+      "credentialsA": "AnyPick lưu dữ liệu tài khoản cục bộ trong ~/.anypick. Dữ liệu được lưu dưới dạng JSON đọc được và chứa thông tin đăng nhập đang hoạt động; hãy giữ chúng riêng tư.",
+      "macQ": "Vì sao macOS cảnh báo khi mở ứng dụng?",
+      "macA": "Ứng dụng chưa được notarize. Nhấp chuột phải rồi chọn Open, hoặc vào System Settings → Privacy & Security → Open Anyway. CLI có thể cài riêng."
+    },
+    "final": {
+      "kicker": "Sẵn sàng chuyển tài khoản?",
+      "titleStart": "Bớt sửa cấu hình.",
+      "titleEnd": "Tập trung lập trình.",
+      "body": "Dùng tài khoản bạn đã có. Bắt đầu với một công cụ và một tài khoản đã lưu.",
+      "cta": "Bắt đầu miễn phí",
+      "guide": "Đọc hướng dẫn thiết lập",
+      "meta": "Giấy phép MIT · Không cần đăng ký AnyPick · Chạy cục bộ"
+    },
+    "footer": {
+      "home": "Trang chủ AnyPick",
+      "navigation": "Chân trang",
+      "docs": "Tài liệu",
+      "changelog": "Nhật ký thay đổi",
+      "security": "Bảo mật",
+      "license": "Giấy phép MIT"
+    }
+  },
+  "downloads": {
+    "kicker": "Tải AnyPick",
+    "title": "Bắt đầu lần chuyển tài khoản tiếp theo.",
+    "body": "Ứng dụng desktop miễn phí. Chọn hệ điều hành, cài đặt rồi thêm tài khoản bạn đang dùng.",
+    "forPlatform": "Tải cho {{platform}}",
+    "formats": "Định dạng khác",
+    "releases": "Tất cả phiên bản & mã kiểm tra",
+    "mac": "macOS 14+ · Apple Silicon + Intel",
+    "linux": "Ubuntu / Debian · x86-64",
+    "windows": "Windows 10+ · x64",
+    "arm": "Linux ARM64 hoặc Windows ARM64? Dùng CLI native.",
+    "guide": "Hướng dẫn cài đặt",
+    "unavailable": "Phiên bản này chưa có ứng dụng desktop.",
+    "firstRun": "Mở ứng dụng → thêm tài khoản → chọn công cụ lập trình.",
+    "allPlatforms": "Tất cả nền tảng & cách cài đặt"
   }
 }

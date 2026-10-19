@@ -1,0 +1,123 @@
+---
+title: 'Desktop-Apps'
+description: 'Die AnyPick-Desktop-App auf macOS, Linux und Windows, wie sie den gebündelten Go-Dienst besitzt und das macOS-Menüleisten-Schnellbedienfeld.'
+---
+
+AnyPick liefert zwei native Frontends über eine Go-Engine (ADR 0020):
+
+| Plattform | Frontend | Quelle |
+| --- | --- | --- |
+| macOS | SwiftUI-App mit einem Menüleisten-Schnellbedienfeld | `src/macos/` |
+| Linux, Windows | Tauri 2-App | `src/tauri/` |
+
+Beides sind Frontends, keine Motoren. Weder liest Anmeldeinformationen noch besitzt er den AnyPick-Status: Jeder startet den gebündelten Go-Dienst, tauscht mit ihm einen Handshake aus, überwacht ihn und fährt ihn herunter, und rendert dann, was dieser Dienst ihm sendet (ADR 0019 §1).
+
+<Aside type="caution" title="Vom Release-Kanal installieren">
+GitHub-Versionen enthalten die macOS-Installationsprogramme `.dmg`/`.zip`, Linux- und Windows-Installationsprogramme sowie CLI-Archive. Die macOS-App ist nicht notariell beglaubigt. Klicken Sie beim ersten Start mit der rechten Maustaste auf `AnyPick.app` und wählen Sie **Öffnen** oder gehen Sie zu **Systemeinstellungen → Datenschutz und Sicherheit → Trotzdem öffnen**. Sie können auch `xattr -dr com.apple.quarantine /Applications/AnyPick.app` ausführen.
+</Aside>
+
+## Die App besitzt ihren Dienst
+
+Der Lebenszyklus ist App-First:
+
+```text
+AnyPick.app  (or the Tauri app)
+├── main window
+├── macOS only: menu-bar quick panel
+└── bundled Go service, spawned as:
+    anypick desktop-service --stdio
+```
+
+Beim Start löst die App ihre gebündelte ausführbare Go-Datei relativ zu ihrem eigenen Paket auf und startet sie als untergeordnetes Element. Ein Versions- und Funktions-Handshake wird abgeschlossen, bevor Mutationen aktiviert werden. Frames sind begrenzt und stdout ist nur protokollorientiert.
+
+Die App findet den Dienst auf `PATH` **nicht**, stellt keine Verbindung zu einem permanenten Daemon her und führt keinen Knotenprozess aus. Es gibt keine Localhost-HTTP-API, keinen Socket und kein gRPC – alles davon benötigt einen neuen akzeptierten ADR.
+
+Für unerwartete Exits wird eine Richtlinie für begrenzte Neustarts verwendet. Ein inkompatibler oder wiederholt fehlschlagender Helfer versetzt die Benutzeroberfläche in einen verschlechterten Zustand, anstatt stillschweigend zu einer anderen Engine zu wechseln.
+
+## macOS
+
+Durch das Schließen des Hauptfensters bleiben die App und ihre lokalen Dienste weiterhin aktiv – das Menüleistenelement bleibt verfügbar. Wählen Sie **AnyPick beenden** oder die Schaltfläche **Beenden** im Schnellbedienfeld, um den gebündelten Dienst ordnungsgemäß zu beenden und die App zu beenden.
+
+Unter Linux und Windows gibt es kein Menüleistenelement. Wenn Sie also das Fenster schließen, wird die App und damit auch der Sidecar beendet.
+
+### Hauptfenster
+
+Die macOS-App öffnet ein Verwaltungsfenster im Stil der Systemeinstellungen mit diesen Zielen in der Seitenleiste:
+
+| Ziel | Zweck |
+| --- | --- |
+| **Übersicht** | Einrichtungsfortschritt, Installationsdiagnose, Aufmerksamkeit und Servicezusammenfassung |
+| **Apps** | Aktuelle Clientsrouten und Quellenauswahl |
+| **Konten und APIs** | Gespeicherte native Anmeldungen und API-Gateways |
+| **Proxy-Hub** | Einheitlicher lokaler Endpunkt, Quellen, Modelle und Lebenszyklus |
+| **Proxys** | Übersetzer pro Konto und ihr Lebenszyklus |
+| **Aktivität** | Aktuelle Ereignisse und begrenzte Live-Protokolle |
+| **Backups** | Gespeicherte Konten exportieren, prüfen, importieren und wiederherstellen |
+
+App-weite Optionen befinden sich in **Einstellungen** (<kbd>⌘,</kbd>), einem normalen Ziel in der Hauptseitenleiste. Der gruppierte Bereich enthält Start- und Nutzungseinstellungen. Es überprüft auch GitHub-Versionen in **Updates**. Direktinstallations-Downloads werden gespeichert und anhand der Release-Prüfsumme überprüft und dann im Finder zur manuellen Installation geöffnet. Paketmanager-Installationen zeigen ihren Upgrade-Befehl an. Die Einstellungen verfügen auch über eine Aktion, mit der die Checkliste „Erste Schritte“ erneut angezeigt werden kann. Installationsdiagnosen sind in der Übersicht verfügbar.
+
+Unter **Konten und APIs → Anmeldung hinzufügen** kann ein Anbieter eine anbietereigene Browser-Anmeldung offenlegen. AnyPick startet diese Methode und überprüft und speichert dann die resultierenden nativen Anmeldeinformationen des Anbieters. Es imitiert nicht die OAuth-Seiten des Anbieters und fragt nicht nach dem Kontopasswort.
+
+### Schnellanzeige in der Menüleiste
+
+Das Menüleistenelement ist ein kompaktes Bedienfeld derselben laufenden App, keine zweite App. Es ist **nur macOS**. Es kann:
+
+- Bereitschafts-/Aufmerksamkeitsstatus anzeigen und gespeicherte Konten oder Ziele durchsuchen;
+- aktive App-Routen und unterstützte Nutzungsinformationen anzeigen;
+- wechseln Sie eine unterstützte App zu einer anderen kompatiblen Quelle;
+- Erweitern Sie die Proxy-Hub- und Proxy-Zeilen pro Konto für Start, Stopp und Neustart.
+- öffnen Sie das vollständige AnyPick-Fenster oder beenden Sie die Anwendung.
+
+Die detaillierte Konfiguration bleibt im Hauptfenster. Das Menüleistensymbol zeigt möglicherweise eine Aufmerksamkeitsmarkierung an, wenn eine Route oder ein Dienst überprüft werden muss. Der Status „Erst ausgeführt“ und „Heruntergestuft“ verwenden dieselbe Produktionsansichtshierarchie wie der Status „Bereit“.
+
+### Bei der Anmeldung starten
+
+Der native Einstellungsschalter verwendet macOS `SMAppService`. Wenn macOS eine manuelle Genehmigung erfordert, leitet AnyPick Sie zu **Systemeinstellungen → Allgemein → Anmeldeelemente** weiter. Es wird kein benutzerdefinierter LaunchAgent über die Benutzeroberfläche installiert.
+
+## Von der Quelle ausführen
+
+**macOS** – erfordert macOS 14+, Xcode und einen Go-Launcher, der die durch `src/go/go.mod` angeheftete Toolchain auswählen kann:
+
+```bash
+open src/macos/AnyPick.xcodeproj
+```
+
+Wählen Sie das gemeinsame **AnyPick**-Schema aus und führen Sie es aus. In einer Build-Phase wird die ausführbare Go-Datei unter `AnyPick.app/Contents/Helpers/anypick-core` installiert. Um stattdessen über die Befehlszeile zu erstellen, verwenden Sie `make build-macos`; `make test-macos` führt die Komponententests und den Bundled-Helper-Vertrag aus und `make verify-macos` stellt zusätzlich sicher, dass das Bundle keine Knotenlaufzeit enthält.
+
+**Linux und Windows** – aus dem Repository-Stammverzeichnis:
+
+```bash
+make run-tauri     # run against the real Go service
+make build-tauri   # package for this platform
+```
+
+### Vorschau des UI-Status ohne Live-Konto
+
+Legen Sie diese im Xcode-Schema fest (**Produkt → Schema → Schema bearbeiten → Ausführen → Argumente → Umgebungsvariablen**) und dann Ausführen. Sie steuern ein speicherinternes Gerät, sodass weder ein Konto noch Anmeldeinformationen erforderlich sind:
+
+| Variable | Werte |
+| --- | --- |
+| `ANYPICK_MACOS_FIXTURE` | `ready`, `loading`, `empty`, `error` |
+| `ANYPICK_MACOS_DESTINATION` | `overview`, `apps`, `accounts`, `proxyHub`, `proxies`, `activity`, `backups` |
+| `ANYPICK_MACOS_FLOW` | `add-account`, `add-gateway`, `tray`, `tray-attention`, `tray-use-with`, `tray-switching`, `tray-recovery` und andere |
+| `ANYPICK_MACOS_APPEARANCE` | `system`, `light`, `dark` |
+| `ANYPICK_MACOS_RENDER_PATH` | ein Pfad – rendert das Fenster in ein PNG und beendet |
+
+Zeigen Sie eine Vorschau des Geräts an und nicht einen Screenshot einer vorherigen Sitzung: Ein Screenshot friert das Design in dem Moment ein, in dem es aufgenommen wurde, das Gerät jedoch nicht.
+
+## Terminal-Benutzeroberfläche
+
+Die Terminal-Benutzeroberfläche ist eine separate Oberfläche und nicht Teil der App. Erstellen Sie die CLI und führen Sie sie aus:
+
+```bash
+make build          # -> src/go/bin/anypick-dev
+./src/go/bin/anypick-dev tui
+```
+
+oder `make run ARGS="tui"`. Die TUI kommuniziert mit demselben Go-Dienst, startet, überwacht oder beendet jedoch keine separat geöffnete Desktop-App; Durch das Schließen der TUI wird die App nicht beendet, und durch das Beenden der App wird die TUI nicht geschlossen.
+
+## Sicherheitsgrenze
+
+Anmeldeinformationen und pro-Instanz-Proxy-Inhaber-Token bleiben im Go-Dienst. Desktop-Snapshots enthalten anzeigesichere Status- und undurchsichtige Aktionskennungen, keine unformatierten gespeicherten Anmeldeinformationen. Die stdio-Verbindung des Helfers ist privat für die eigene App und keine dokumentierte Integrations-API.
+
+Siehe [Apps & Terminal-Benutzeroberfläche](/de/docs/guides/terminal-ui) für den Terminal-Workflow und [Proxies](/de/docs/guides/proxies) für Proxy- und Hub-Verhalten.

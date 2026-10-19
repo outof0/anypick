@@ -113,13 +113,35 @@ func (b *snapshotBuilder) clientModelConfigs(ctx context.Context, appIDs []strin
 	}
 }
 
-// bindingFor reads one client's global binding, tolerating a nil Bindings
-// dependency (legacy compositions) the same way routes() does.
+// bindingFor resolves the display binding without mutating saved intent. An
+// external switch back to native auth leaves the old managed binding in the
+// database, but that route must remain a choice rather than a selected source.
 func (b *snapshotBuilder) bindingFor(ctx context.Context, clientID string) (*bindings.Global, error) {
 	if b.srv.Deps.Bindings == nil {
 		return nil, nil
 	}
-	return b.srv.Deps.Bindings.GetGlobalContext(ctx, clientID)
+	binding, err := b.srv.Deps.Bindings.GetGlobalContext(ctx, clientID)
+	if err != nil || binding == nil {
+		return binding, err
+	}
+	if b.srv.Deps.Clients != nil {
+		if cad, err := b.srv.Deps.Clients.Get(clientID); err == nil {
+			if state, err := cad.Inspect(); err == nil && state != nil && state.RoutingChanged {
+				if !state.Native || binding.Spec.Source.Kind != refs.KindAccount ||
+					b.routeKindForSource(ctx, clientID, binding.Spec.Source) != "direct-account" {
+					return nil, nil
+				}
+			}
+		}
+	}
+	if binding.Spec.Source.Kind == refs.KindAccount &&
+		b.routeKindForSource(ctx, clientID, binding.Spec.Source) == "direct-account" {
+		return binding, nil
+	}
+	if b.srv.clientUsesNativeLogin(clientID) {
+		return nil, nil
+	}
+	return binding, nil
 }
 
 // modelOptionsFor resolves the model ids a connection can serve: configured

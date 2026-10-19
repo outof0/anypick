@@ -96,6 +96,7 @@ func (a *kiroAdapter) RestoreNative() error {
 func (a *kiroAdapter) Inspect() (*InspectResult, error) {
 	return &InspectResult{
 		Present: true,
+		Native:  true,
 		Summary: "Kiro runtime uses anypick env files (account auth separate)",
 	}, nil
 }

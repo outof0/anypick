@@ -455,16 +455,39 @@ var _ NativeRestorer = (*opencodeAdapter)(nil)
 func (a *opencodeAdapter) Inspect() (*InspectResult, error) {
 	configPath := openCodeEffectiveConfigPath(a.home)
 	if _, err := os.Stat(configPath); err != nil {
-		return &InspectResult{Present: false}, nil
+		if os.IsNotExist(err) {
+			return &InspectResult{Native: true}, nil
+		}
+		return nil, err
 	}
 	res := &InspectResult{Present: true}
 	doc, err := readOpenCodeConfig(configPath)
-	if err != nil {
+	if err != nil || doc == nil {
 		res.Issues = []string{"OpenCode config unreadable"}
 		return res, nil
 	}
 	providers, perr := openCodeProviders(doc)
 	if perr == nil {
+		selected := stringField(doc, "model")
+		selectedProvider := strings.SplitN(selected, "/", 2)[0]
+		res.Native = selectedProvider != opencodeManagedProviderID
+		if selected == "" {
+			_, managed := providers[opencodeManagedProviderID]
+			res.Native = !managed
+		}
+		_, hasManaged := providers[opencodeManagedProviderID]
+		res.RoutingChanged = !hasManaged || (selected != "" && selectedProvider != opencodeManagedProviderID)
+		if rawProvider, ok := providers[selectedProvider]; ok {
+			var custom struct {
+				Options struct {
+					BaseURL string          `json:"baseURL"`
+					APIKey  json.RawMessage `json:"apiKey"`
+				} `json:"options"`
+			}
+			if json.Unmarshal(rawProvider, &custom) != nil || custom.Options.BaseURL != "" || len(custom.Options.APIKey) > 0 {
+				res.Native = false
+			}
+		}
 		if _, managed := providers[opencodeManagedProviderID]; managed {
 			res.Summary = "AnyPick provider configured"
 		} else {

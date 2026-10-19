@@ -199,6 +199,10 @@ export function AccountDetailSheet({
             </RowActions>
           </Row>
         </Group>
+      ) : row.kind === 'account' ? (
+        <Group title={t('remaining_quota')} testId="accounts-inspector.usage.unavailable">
+          <Row><RowText detail={t('provider_no_quota')} /></Row>
+        </Group>
       ) : null}
 
       {confirming ? (

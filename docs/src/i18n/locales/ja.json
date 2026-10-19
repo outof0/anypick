@@ -22,8 +22,7 @@
     "editThisPage": "このページを編集",
     "siteNavigation": "サイトナビゲーション",
     "navigation": "ナビゲーション",
-    "closeSidebar": "サイドバーを閉じる",
-    "englishContent": "このページの内容は現在英語で提供されています。"
+    "closeSidebar": "サイドバーを閉じる"
   },
   "search": {
     "label": "ドキュメントを検索",
@@ -72,5 +71,158 @@
     "tabs": "パッケージマネージャー",
     "copy": "クリップボードにコピー",
     "copied": "クリップボードにコピーしました"
+  },
+  "docsNav": {
+    "appsTerminalUi": "アプリとターミナル UI",
+    "guides": "ガイド",
+    "reference": "リファレンス"
+  },
+  "landing": {
+    "meta": {
+      "title": "AI コーディングアカウントをローカルアプリで切り替え | AnyPick",
+      "description": "AI コーディングアカウントと API ゲートウェイをローカルアプリで管理。アプリ全体、プロジェクト単位、または 1 回のターミナルセッションで互換性のある接続先を選べます。",
+      "socialAlt": "対応するコーディングツール、アカウント接続、ローカルサービスを表示する AnyPick の概要。"
+    },
+    "hero": {
+      "eyebrow": "AI コーディングツール向けのローカルアカウント切り替えアプリ",
+      "titleStart": "アカウントを切り替えて、",
+      "titleEnd": "そのまま開発。",
+      "lede": "仕事用、個人用、自分の API ゲートウェイ。設定ファイルを手作業で編集せず、ローカルアプリから Claude Code、Codex などの対応ツールが使うアカウントを選べます。",
+      "primary": "AnyPick を無料で使う",
+      "secondary": "使い方を見る",
+      "platforms": "macOS · Linux · Windows",
+      "openSource": "無料・オープンソース",
+      "noCloud": "AnyPick のクラウド不要",
+      "overviewAlt": "保存済みアカウントを使う Claude Code、OpenAI Codex、OpenCode と、ローカルプロキシの状態や最近の切り替えを表示する AnyPick の概要画面。デモデータです。",
+      "trayAlt": "Claude Code と OpenAI Codex の保存済みアカウントをすばやく切り替えられる AnyPick のメニューバーパネル。デモデータです。",
+      "caption": "デスクトップアプリ · デモアカウント"
+    },
+    "proof": {
+      "aria": "製品情報",
+      "clientsTitle": "11 種類のコーディングツールに対応",
+      "clientsBody": "すでにインストール済みのツールをそのまま使えます。",
+      "localTitle": "アカウントはローカルに保存",
+      "localBody": "AnyPick のアカウントやホスト型リレーは不要です。",
+      "licenseTitle": "オープンソース · MIT",
+      "licenseBody": "リリースにはチェックサムと SBOM が含まれます。"
+    },
+    "workflow": {
+      "kicker": "日々の開発に合わせて",
+      "title": "仕事用アカウントと、このリポジトリ用のアカウント。",
+      "body": "仕事用と個人用のログインを分け、リポジトリごとに別のアカウントを設定。API ゲートウェイを 1 回だけ試すこともできます。切り替えの適用範囲を選べます。",
+      "projectLink": "プロジェクトごとの割り当てについて",
+      "routesLabel": "接続例",
+      "routeDefault": "アプリの既定値",
+      "routeProject": "このプロジェクトのみ",
+      "routeSession": "1 回のターミナルセッション",
+      "stepsLabel": "はじめ方",
+      "saveTitle": "ログインを保存",
+      "saveBody": "「アカウントと API」で既存のプロバイダーログインまたは API ゲートウェイを追加します。",
+      "toolTitle": "ツールを選択",
+      "toolBody": "「アプリ」で互換性のある保存済みソースを選び、変更内容を確認します。",
+      "applyTitle": "開発を続ける",
+      "applyBody": "変更を適用してツールを使います。anypick reset で保存済み設定に戻せます。"
+    },
+    "safety": {
+      "kicker": "安全に変更、簡単に元へ戻す",
+      "title": "設定の管理権はあなたにあります。",
+      "reviewTitle": "適用前に確認",
+      "reviewBody": "デスクトップアプリはアカウント、モデル、プロキシ、クライアント設定の変更を接続プランに表示します。",
+      "configTitle": "他の設定はそのまま保持",
+      "configBody": "AnyPick が管理する設定を記録し、自分が書き込んでいない設定を引き継ぐ前に確認します。",
+      "restoreTitle": "必要なときに復元",
+      "restoreBody": "anypick reset でアプリの保存済み状態を復元できます。認証情報はローカルの AnyPick データディレクトリに保存されます。",
+      "accountAlt": "保存済みのプロバイダーログインと API ゲートウェイを一覧表示する AnyPick の「アカウントと API」画面。名前と詳細はデモデータです。"
+    },
+    "compatibility": {
+      "kicker": "互換性",
+      "title": "プロバイダーのルールを守ってツールに接続。",
+      "body": "AnyPick は接続する両側が対応している組み合わせだけを提示します。すべてのアカウントを互換として扱うことはありません。",
+      "clients": "対応するコーディングツール",
+      "claudeRule": "Claude のログインは Claude Code で使用します。Gemini CLI と Kiro はそれぞれのプロバイダーアカウントを使用します。",
+      "otherRule": "その他の対応ツールでは、一部の外部アカウントや API ゲートウェイを使えます。",
+      "reference": "互換性リファレンスを見る"
+    },
+    "install": {
+      "kicker": "デスクトップアプリまたはターミナル",
+      "title": "アプリから始めるか、ターミナルを使い続ける。",
+      "body": "デスクトップアプリで接続プランを確認するか、同じ Go エンジンをターミナルから実行できます。この動画では隔離されたデモアカウントを使った CLI を紹介します。",
+      "demoTitle": "anypick 1.1.0 · sandbox デモ",
+      "videoAlt": "CLI デモ: 保存済みアカウントを一覧表示し、OpenRouter ゲートウェイを追加して Claude Code を接続し、元の設定に戻します。",
+      "demoCaption": "実際の CLI 出力 · AnyPick 1.1.0 · sandbox アカウント",
+      "desktop": "デスクトップアプリ",
+      "desktopTitle": "アカウントを選択。確認。適用。",
+      "desktopBody": "アカウントを管理し、画面上で変更内容を確認できます。macOS、Linux、Windows に対応。",
+      "download": "デスクトップアプリをダウンロード",
+      "downloadNote": "GitHub Releases から OS に合ったインストーラーを選んでください。",
+      "cli": "CLI をインストール",
+      "method": "インストール方法を選択",
+      "copy": "コピー",
+      "copyCommand": "{{name}} のインストールコマンドをコピー",
+      "brewBefore": "デスクトップアプリ: brew install --cask outof0/tap/anypick を実行するか、GitHub Releases から ",
+      "brewLink": "DMG をダウンロード",
+      "brewAfter": "してください。",
+      "linuxBefore": "CLI パッケージまたはデスクトップアプリは ",
+      "linuxLink": "GitHub Releases",
+      "linuxAfter": " からもダウンロードできます（.deb、.rpm、AppImage、tarball）。",
+      "windowsBefore": "デスクトップアプリのインストーラーは ",
+      "windowsLink": "GitHub Releases",
+      "windowsAfter": " にあります。",
+      "npmHint": "Node 18 以降が必要です。ランチャーが対応するネイティブ CLI をダウンロードして検証します。",
+      "firstRun": "インストール後、次を実行してください:",
+      "guide": "5 分で読めるガイド",
+      "copied": "コピーしました",
+      "copyStatus": "インストールコマンドをクリップボードにコピーしました。",
+      "copyFailed": "クリップボードにアクセスできません。",
+      "picker": "アカウント選択画面を開きます。"
+    },
+    "faq": {
+      "kicker": "知っておきたいこと",
+      "title": "切り替える前に。",
+      "freeQ": "AnyPick は無料ですか？",
+      "freeA": "はい。AnyPick は MIT ライセンスの無料オープンソースです。各プロバイダーのアカウントや API キーを使うため、サブスクリプション料や利用料は引き続き発生します。",
+      "accountsQ": "各コーディングツールで使えるアカウントは？",
+      "accountsA": "使える接続先はクライアントとアカウントアダプターによって異なります。Claude ログインは Claude Code で、Gemini CLI と Kiro は各プロバイダーのアカウントを使います。対応組み合わせは{{accountsALink}}をご覧ください。",
+      "accountsALink": "互換性リファレンス",
+      "relayQ": "プロンプトは AnyPick のサーバーを経由しますか？",
+      "relayA": "いいえ。AnyPick にホスト型リレーはありません。異なる API プロトコルを使うツール間で変換が必要な場合、ローカル Go サービスが loopback 上で変換し、選択したプロバイダーにリクエストを送ります。",
+      "credentialsQ": "認証情報はどこに保存されますか？",
+      "credentialsA": "アカウント情報は ~/.anypick にローカル保存されます。バックアップは有効な認証情報を含む読み取り可能な JSON です。安全に保管してください。",
+      "macQ": "アプリを開くと macOS が警告するのはなぜですか？",
+      "macA": "アプリはまだ notarization を受けていません。右クリックして Open を選ぶか、System Settings → Privacy & Security → Open Anyway に進んでください。CLI は別途インストールできます。"
+    },
+    "final": {
+      "kicker": "次のアカウント切り替えはここから",
+      "titleStart": "設定編集を減らして、",
+      "titleEnd": "開発をもっと。",
+      "body": "すでに持っているアカウントを使いましょう。まずは 1 つのツールと保存済みログインから。",
+      "cta": "AnyPick を無料で使う",
+      "guide": "セットアップガイドを見る",
+      "meta": "MIT ライセンス · AnyPick の登録不要 · ローカルで実行"
+    },
+    "footer": {
+      "home": "AnyPick ホーム",
+      "navigation": "フッター",
+      "docs": "ドキュメント",
+      "changelog": "変更履歴",
+      "security": "セキュリティ",
+      "license": "MIT ライセンス"
+    }
+  },
+  "downloads": {
+    "kicker": "AnyPick をダウンロード",
+    "title": "次のアカウント切り替えをここから。",
+    "body": "無料のデスクトップアプリ。OS を選んでインストールし、お使いのアカウントを追加します。",
+    "forPlatform": "{{platform}} 版をダウンロード",
+    "formats": "その他の形式",
+    "releases": "全リリースとチェックサム",
+    "mac": "macOS 14+ · Apple Silicon + Intel",
+    "linux": "Ubuntu / Debian · x86-64",
+    "windows": "Windows 10+ · x64",
+    "arm": "Linux ARM64 または Windows ARM64 はネイティブ CLI をご利用ください。",
+    "guide": "セットアップガイド",
+    "unavailable": "このリリースにはデスクトップアプリが含まれていません。",
+    "firstRun": "アプリを開く → アカウントを追加 → コーディングツールを選択。",
+    "allPlatforms": "すべての OS とインストール方法"
   }
 }

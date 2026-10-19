@@ -1,0 +1,86 @@
+---
+title: 'Gateways'
+description: 'Registrieren Sie einen Endpunkt, einen Schlüssel und einen Modellkatalog und binden Sie dann jeden Client daran.'
+---
+
+Ein Gateway ist ein API-Profil: ein Endpunkt, eine Anmeldeinformation und optional eine Liste von Modellen. Es gibt keinen Anmeldefluss und keinen lokalen Prozess – der Client kommuniziert direkt mit dem Remote-Endpunkt.
+
+## Fügen Sie eins hinzu
+
+```bash
+anypick add gateway openrouter-work \
+  --provider openrouter \
+  --endpoint https://openrouter.ai/api/v1 \
+  --api-key "$OPENROUTER_API_KEY" \
+  --model anthropic/claude-sonnet-4 \
+  --models default=anthropic/claude-sonnet-4 \
+  --models opus=anthropic/claude-opus-4-8
+
+anypick use claude --with openrouter-work
+anypick run claude
+```
+
+| Flagge | Bedeutung |
+| --- | --- |
+| `--provider <id>` | Welcher Katalogform folgt der Endpunkt |
+| `--endpoint <url>` | Basis-URL |
+| `--api-key <key>` | In der AnyPick-Datenbank gespeicherter Schlüssel |
+| `--api-key-env <var>` | Lesen Sie den Schlüssel bei der Aktivierung aus einer Umgebungsvariablen, anstatt ihn zu speichern |
+| `--model <id>` | Standardmodell für dieses Gateway |
+| `--models <role=id>` | Eine Client-Modellrolle (`default`, `sonnet`, `opus`, `haiku`, …) an ein Gateway-Modell anheften; Wiederholen Sie die Markierung für weitere Rollen |
+| `--gateway-id <id>` | Gateway-ID für Anbieter, die mehrere Gateways pro Endpunkt ansprechen |
+
+`--models` ist eine Rollenzuordnung, keine freie Liste von IDs: Der gespeicherte Wert wird in die eigenen Rollenslots jedes Clients geschrieben, sodass eine bloße ID keine Rolle zum Anhängen hat und das Flag abgelehnt wird. Bestehen Sie `role=model-id` einmal pro Rolle.
+
+Zu den Kataloganbietern gehören `anthropic`, `openai`, `openrouter`, `grok-api`, `gemini-api`, `litellm`, `local`, `custom` und `cloudflare-aigateway` – der vollständige Satz ist `Builtin()` in `src/go/internal/catalog/catalog.go`.
+
+Cloudflare AI Gateway benötigt einen expliziten Endpunkt (in die Basis-URL ist die Cloudflare-Konto-ID eingebettet) und eine Gateway-ID:
+
+```bash
+anypick add gateway cf-prod \
+  --provider cloudflare-aigateway \
+  --endpoint https://api.cloudflare.com/client/v4/accounts/ACCOUNT_ID/ai/v1 \
+  --api-key "$CF_API_TOKEN" \
+  --gateway-id my-gateway
+```
+
+Lassen Sie `--gateway-id` weg, um den Anbieterstandard zu verwenden (`default`).
+
+<Aside type="tip" title="Schlüssel, die Sie lieber nicht aufbewahren möchten">
+`--api-key-env OPENROUTER_API_KEY` zeichnet den Variablennamen auf, nicht das Geheimnis. AnyPick liest ihn, wenn es die Bindung aktiviert, sodass der Schlüssel in Ihrer Umgebung oder Ihrem Secret Manager verbleibt.
+</Aside>
+
+## Gateway oder Proxy?
+
+Beide sind Quellen und beide enden auf die gleiche Weise – `use <client> --with <source>`. Sie unterscheiden sich darin, was hinter ihnen steht.
+
+| | Proxy (Konto) | Gateway (API-Profil) |
+| --- | --- | --- |
+| Authentifizierung | Nativer Login-Snapshot sowie ein lokaler Prozess | Endpunkt + Schlüssel im Besitz von AnyPick |
+| Einrichtung | Melden Sie sich mit der Anbieter-CLI an und erstellen Sie dann einen Snapshot | Fügen Sie einen Endpunkt und einen Schlüssel | ein
+| Modelle | Vom laufenden Proxy erkannt | Gateway-Standardwerte oder pro Bindung |
+| Wohin Anfragen gehen | `127.0.0.1:<port>` → Upstream | Direkt zum Endpunkt |
+
+Greifen Sie nach einem Tor, wenn Sie einen Schlüssel in der Hand halten. Wenn Sie ein Abonnement besitzen, greifen Sie zu einem Konto.
+
+## Modelle in der Auswahl des Clients
+
+Für Clients mit einer nativen Modellregistrierung – Codex, OpenCode, ZCode, Command Code und DSH – schreibt AnyPick den quellbezogenen Katalog, sodass die im Client verfügbaren IDs mit dem ausgewählten Gateway oder Proxy übereinstimmen. Legen Sie die Standardeinstellung mit `--model` fest. Es wird zum Modell, mit dem der Client beginnt.
+
+Claude Code, Gemini CLI und Kiro ermöglichen die Modellauswahl über Umgebungsvariablen oder native Rollenslots und nicht über eine beschreibbare Modellregistrierung. AnyPick konfiguriert seine nativen Standard-/Rollenwerte, kann jedoch keine clientseitige Liste erstellen, die diese Programme nicht lesen.
+
+Konto-Proxys benötigen dies nicht – AnyPick liest ihren Live-Katalog `/v1/models`, wann immer es den Client aktiviert.
+
+## Gateways verwalten
+
+```bash
+anypick gateway list
+anypick gateway show openrouter-work
+anypick gateway edit openrouter-work -m anthropic/claude-sonnet-4
+anypick gateway edit openrouter-work --endpoint https://…  --api-key "$NEW_KEY"
+anypick gateway remove old-gateway -y
+```
+
+`show` maskiert den Schlüssel. Übergeben Sie das globale Flag `--reveal`, um es zu drucken, was genau so gefährlich ist, wie es klingt.
+
+Bei Bindungen handelt es sich um Snapshots. Das Bearbeiten eines Gateways führt also nicht zu einer rückwirkenden Änderung eines Clients, der bereits daran gebunden ist. Führen Sie `use` erneut aus, um den neuen Endpunkt oder das neue Modell zu übernehmen.

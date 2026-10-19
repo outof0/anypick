@@ -1,0 +1,184 @@
+---
+title: 'はじめる'
+description: 'AnyPick リリースをインストールし、アプリを開き、Claude または Codex をすでに持っているログインに接続します。'
+---
+
+AnyPick は、日常の 1 つの質問に答えます。
+
+> **クロード コードまたはコーデックスは現在どちらのログインを使用する必要がありますか?**
+
+プロバイダーの料金はすでに支払っています。すでにコーディング ツールを使用しています。 AnyPick はこれらのログインのスナップショットを作成し、ツールが異なるプロトコルを使用する場合にローカル トランスレーターを起動し、クライアント構成を書き込むため、手動でファイルを編集する代わりに、**アプリ**で一度選択するだけで済みます。
+
+## リリースをインストールする
+
+プラットフォームのパッケージ マネージャーを使用して、最新の [GitHub リリース](https://github.com/outof0/anypick/releases/latest) から CLI をインストールします。
+
+```bash
+# macOS
+brew install outof0/tap/anypick
+
+# Linux, or any OS with Node 18+ (downloads the matching native CLI on first run)
+npm install -g anypick
+```
+
+```powershell
+# Windows
+scoop bucket add outof0 https://github.com/outof0/scoop-bucket
+scoop install anypick
+```
+
+デスクトップ アプリ (`.dmg`、`.deb`、`.rpm`、AppImage、`.msi`、`.exe`) およびチェックサムリストされた CLI tarball は、すべてのファイルに添付されます。 [リリース](https://github.com/outof0/anypick/releases/latest)。 `anypick --version` でインストールを確認し、`anypick doctor` を実行します。
+
+## チャネルとソース ビルドをリリースする
+
+<Render file="install-ja" />
+
+## アプリを開く
+
+ネイティブ macOS ターゲットは、通常のメイン ウィンドウを自動的に開きます。メニュー バーのクイック パネルは同じアプリの一部であり、メイン ウィンドウが閉じているときも使用できます。
+
+端末ワークフローの場合:
+
+```bash
+anypick tui
+```
+
+**アプリ**にアクセスします:
+
+```
+ anypick / apps
+
+  Routes for Claude Code and Codex
+ › Claude        not connected                     ○ not set
+   Codex         not connected                     ○ not set
+ ────────────────────────────────────────────────────────────────────────
+ Connect Claude
+ enter to build a route
+ enter connect app a accounts g gateways p proxies d diagnose
+```
+
+ここには **Claude Code**、**Codex**、**OpenCode**、**ZCode**、**`dsh`**、**`commandcode`**、**`pi`**、**`omp`** のみがここに表示されます。これらは、ほぼすべての保存されたソースを指すことができます。他のツールは、アカウントの下で独自のログインを切り替えます。
+
+専門家以外にとって UI を安全にする 3 つの習慣:
+
+- **ルールの下の行は、<kbd>enter</kbd> が行うことです。** 最初に読んでください。
+- **フッターはキーマップ全体です。** 隠しメニューはありません。
+- **プレビューでその旨が表示されるまで、何も保存されません。** いつでも <kbd>esc</kbd> に戻ることができます。
+
+以下のコマンド例は、AnyPick の CLI 文法を示しています。 GitHub リリースのチェックサムリスト付きアーカイブから CLI をインストールするか、`npm install --global anypick` を使用してシン npm ランチャーを介して CLI をインストールします (ノード 18 以降、初回実行時に一致するネイティブ CLI をダウンロードします)。 `make run ARGS="…"` を使用して、このチェックアウトから同じ引数を実行することもできます。たとえば、`make run ARGS="list accounts"` (または、`make build` で一度ビルドし、`./src/go/bin/anypick-dev …` を直接実行します)。
+
+ソース→モデル→プレビューの完全なウォークスルー: [ターミナル UI · アプリ](/ja/docs/guides/terminal-ui)。
+
+## ログインを一度保存します
+
+AnyPick は、プロバイダー所有のブラウザー サインインを開始できます。プロバイダーの OAuth フロー自体を実装または模倣するものではありません。
+
+UI で: <kbd>a</kbd> **アカウント** → <kbd>a</kbd> **追加**。または:
+
+<Steps>
+<Step title="ログインを追加する">
+```bash
+anypick add account codex --new --name personal
+# opens Codex browser Auth and saves the result
+
+# If Codex is already signed in, snapshot it instead:
+anypick add account codex --current --name personal
+```
+</Step>
+<Step title="リストされているのを見てください">
+```bash
+anypick list accounts
+```
+</Step>
+</Steps>
+
+ペア `provider/name` (例: `codex/personal` または `grok/work`) は、アプリにアタッチする **ソース** です。
+
+<Aside type="tip" title="同じプロバイダーでの 2 回目のログイン">
+`anypick add account codex --new --name work` は、現在の認証情報を隠し、プロバイダーのブラウザ認証を開き、結果を保存し、最初のアカウントを保存したままにします。公式認証が優先されます。プロバイダーが宣言したコミュニティ メソッドは引き続き選択可能です。
+</Aside>
+
+## アプリを接続する (アプリ UI)
+
+**アプリ**に戻ります (`anypick / apps` が表示されるまで <kbd>esc</kbd> を押します):
+
+1.  **クロード** または **コーデックス** をハイライト表示します。
+2. <kbd>enter</kbd> (**アプリに接続**) を押します。
+3. ソースを選択してください:
+   - **ネイティブ アカウント** — アプリと同じブランド (単純な切り替え)。
+   - **ゲートウェイとプロキシ** — Grok、OpenRouter、Gemini プロキシ、プールなど
+   - **保存された設定** — 以前に保存したプリセット。
+4. 求められたら、モデルを選択してください (クロードはデフォルト/ソネット/作品/俳句を設定できます)。
+5. **プレビュー**を読んでください — 何が書き込まれ、どのプロキシが開始されるか。
+6. <kbd>enter</kbd>を押して有効にします。
+
+[アプリ] に戻ると、行には **● 準備完了** と `source · model` が表示されます。
+
+これが日常使用に適した製品のすべてです。通常どおりコーディング ツールを開きます。
+
+## コマンドと同じ手順 (オプション)
+
+スクリプトと CI は、UI を使用せずに同じ操作を使用します。
+
+```bash
+anypick use codex --with codex/personal
+anypick run codex
+```
+
+クロスプロバイダーの例 — Grok アカウントのクロード (プロキシは自動的に開始します):
+
+```bash
+anypick add account grok --current --name work
+anypick use claude --with grok/work
+anypick run claude
+```
+
+ログインの代わりに API キー — **ゲートウェイ**を登録し、それをアプリで選択するか、`--with` に渡します。
+
+```bash
+anypick add gateway openrouter-work \
+  --provider openrouter \
+  --endpoint https://openrouter.ai/api/v1 \
+  --api-key "$OPENROUTER_API_KEY" \
+  --model anthropic/claude-sonnet-4
+
+anypick use claude --with openrouter-work
+```
+
+## セットアップ後: アプリまたは端末
+
+macOS では、[ネイティブ アプリとメニュー バー](/ja/docs/guides/tray) がアプリの最初の日常表示面です。管理にはフル ウィンドウを使用し、ルートとサービス アクションにはメニュー バーのクイック パネルを使用します。メイン ウィンドウを閉じると、アプリは実行されたままになります。明示的な **Quit AnyPick** は、バンドルされたサービスを停止して終了します。
+
+ターミナル UI は、独立したソース開発画面のままです。個別に起動されたネイティブ アプリを所有したり停止したりすることはありません。
+
+<Aside type="note" title="TTY も UI もありません">
+パイプされた実行または非対話型の実行では、アプリが開かれることはありません。スクリプト内の裸の `anypick` はヘルプを出力して終了するため、キーを待って何もハングしません。
+</Aside>
+
+## 物が生きている場所
+
+| | |
+| --- | --- |
+|データ | `~/.anypick/anypick.db` |
+|ホームを上書きする | `ANYPICK_HOME=/path` |
+|シェルの完成 | `source <(anypick completion zsh)` — `bash`、`fish` |
+
+## 次へ
+
+<CardGrid>
+  <Card title="アプリとターミナル UI" href="/ja/docs/guides/terminal-ui">
+    完全なルート ビルダー: ソース グループ、モデル、プレビュー、すべてのキー。
+  </Card>
+  <Card title="macOS アプリとメニュー バー" href="/ja/docs/guides/tray">
+    ネイティブ アプリのライフサイクル、バンドルされた Go サービス、クイック パネル。
+  </Card>
+  <Card title="コンセプト" href="/ja/docs/concepts">
+    クライアント、ソース、バインディング、プリセット — UI の背後にある 4 つの単語。
+  </Card>
+  <Card title="CLI リファレンス" href="/ja/docs/reference/cli">
+    すべてのコマンド、フラグ、終了コード、および環境変数。
+  </Card>
+  <Card title="トラブルシューティング" href="/ja/docs/reference/troubleshooting">
+    `anypick doctor` が何をチェックするのか、そして何をタッチすることを拒否するのか。
+  </Card>
+</CardGrid>

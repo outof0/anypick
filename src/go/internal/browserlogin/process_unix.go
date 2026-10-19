@@ -4,8 +4,12 @@ package browserlogin
 
 import (
 	"os/exec"
+	"strings"
 	"syscall"
 )
+
+func isHomeEnvironment(entry string) bool     { return strings.HasPrefix(entry, "HOME=") }
+func platformHomeEnvironment(string) []string { return nil }
 
 type unixChildController struct {
 	child *exec.Cmd

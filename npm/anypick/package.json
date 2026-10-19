@@ -1,7 +1,7 @@
 {
   "name": "anypick",
-  "version": "1.1.1",
-  "description": "Thin npm launcher for the AnyPick Go CLI.",
+  "version": "1.1.2",
+  "description": "Connect your existing AI accounts and API keys to the coding apps you use.",
   "license": "MIT",
   "repository": {
     "type": "git",

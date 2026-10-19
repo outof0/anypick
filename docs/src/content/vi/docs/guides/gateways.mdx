@@ -1,0 +1,86 @@
+---
+title: 'Cổng'
+description: 'Đăng ký điểm cuối, khóa và danh mục mô hình, sau đó liên kết bất kỳ client nào với nó.'
+---
+
+Cổng là một cấu hình API: điểm cuối, thông tin xác thực và danh sách mô hình tùy chọn. Không có luồng đăng nhập và không có quy trình cục bộ - client sẽ nói chuyện trực tiếp với điểm cuối từ xa.
+
+## Thêm một
+
+```bash
+anypick add gateway openrouter-work \
+  --provider openrouter \
+  --endpoint https://openrouter.ai/api/v1 \
+  --api-key "$OPENROUTER_API_KEY" \
+  --model anthropic/claude-sonnet-4 \
+  --models default=anthropic/claude-sonnet-4 \
+  --models opus=anthropic/claude-opus-4-8
+
+anypick use claude --with openrouter-work
+anypick run claude
+```
+
+| Cờ | Ý nghĩa |
+| --- | --- |
+| `--provider <id>` | Danh mục nào định hình điểm cuối |
+| `--endpoint <url>` | URL cơ sở |
+| `--api-key <key>` | Khóa được lưu trữ trong cơ sở dữ liệu AnyPick |
+| `--api-key-env <var>` | Đọc khóa từ biến môi trường khi kích hoạt thay vì lưu trữ nó |
+| `--model <id>` | Mô hình mặc định cho cổng này |
+| `--models <role=id>` | Ghim một vai trò của mô hình client (`default`, `sonnet`, `opus`, `haiku`, …) vào mô hình cổng; lặp lại cờ để có thêm vai trò |
+| `--gateway-id <id>` | Id cổng cho các nhà cung cấp giải quyết một số cổng trên mỗi điểm cuối |
+
+`--models` là bản đồ vai trò, không phải danh sách id miễn phí: giá trị được lưu trữ được ghi vào các vị trí vai trò riêng của mỗi client, do đó, id trần không có vai trò nào để gắn vào và cờ bị từ chối. Vượt qua `role=model-id`, một lần cho mỗi vai trò.
+
+Các nhà cung cấp danh mục bao gồm `anthropic`, `openai`, `openrouter`, `grok-api`, `gemini-api`, `litellm`, `local`, `custom` và `cloudflare-aigateway` — bộ đầy đủ là `Builtin()` trong `src/go/internal/catalog/catalog.go`.
+
+Cổng AI của Cloudflare cần có điểm cuối rõ ràng (URL cơ sở nhúng id tài khoản Cloudflare) và id cổng:
+
+```bash
+anypick add gateway cf-prod \
+  --provider cloudflare-aigateway \
+  --endpoint https://api.cloudflare.com/client/v4/accounts/ACCOUNT_ID/ai/v1 \
+  --api-key "$CF_API_TOKEN" \
+  --gateway-id my-gateway
+```
+
+Bỏ qua `--gateway-id` để ​​sử dụng giá trị mặc định của nhà cung cấp (`default`).
+
+<Aside type="tip" title="Chìa khóa bạn không muốn lưu trữ">
+`--api-key-env OPENROUTER_API_KEY` ghi lại tên biến chứ không phải bí mật. AnyPick sẽ đọc nó khi kích hoạt liên kết, vì vậy khóa vẫn nằm trong môi trường hoặc trình quản lý bí mật của bạn.
+</Aside>
+
+## Cổng hoặc proxy?
+
+Cả hai đều là nguồn và đều có kết thúc giống nhau - `use <client> --with <source>`. Họ khác nhau ở những gì đằng sau họ.
+
+| | Proxy (tài khoản) | Cổng (hồ sơ API) |
+| --- | --- | --- |
+| Xác thực | Ảnh chụp nhanh đăng nhập gốc, cộng với quy trình cục bộ | Điểm cuối + khóa do AnyPick nắm giữ |
+| Thiết lập | Đăng nhập bằng CLI của nhà cung cấp, sau đó chụp nhanh | Dán điểm cuối và khóa |
+| Người mẫu | Được phát hiện từ proxy đang chạy | Mặc định cổng hoặc mỗi binding |
+| Yêu cầu đi đâu | `127.0.0.1:<port>` → thượng nguồn | Đi thẳng đến điểm cuối |
+
+Tiếp cận cổng khi bạn giữ chìa khóa. Tiếp cận tài khoản khi bạn đăng ký.
+
+## Model trong bộ chọn của client
+
+Đối với các client có sổ đăng ký mô hình gốc — Codex, OpenCode, ZCode, Command Code và DSH — AnyPick ghi danh mục trong phạm vi nguồn để các id có sẵn trong client khớp với cổng hoặc proxy đã chọn. Đặt mặc định bằng `--model`; nó trở thành mô hình mà client bắt đầu sử dụng.
+
+Claude Code, Gemini CLI và Kiro hiển thị lựa chọn mô hình thông qua các biến môi trường hoặc các vị trí vai trò gốc thay vì sổ đăng ký mô hình có thể ghi. AnyPick định cấu hình các giá trị vai trò/mặc định gốc của chúng nhưng không thể tạo danh sách phía client mà các chương trình đó không đọc.
+
+Proxy tài khoản không cần điều này — AnyPick đọc danh mục `/v1/models` trực tiếp của họ bất cứ khi nào nó kích hoạt ứng dụng khách.
+
+## Quản lý cổng
+
+```bash
+anypick gateway list
+anypick gateway show openrouter-work
+anypick gateway edit openrouter-work -m anthropic/claude-sonnet-4
+anypick gateway edit openrouter-work --endpoint https://…  --api-key "$NEW_KEY"
+anypick gateway remove old-gateway -y
+```
+
+`show` che dấu khóa. Vượt qua cờ `--reveal` toàn cầu để in nó, điều này thực sự nguy hiểm như người ta tưởng.
+
+Các binding là ảnh chụp nhanh, vì vậy việc chỉnh sửa một cổng không thay đổi một ứng dụng khách đã được liên kết với nó. Chạy lại `use` để ​​chọn điểm cuối hoặc mô hình mới.

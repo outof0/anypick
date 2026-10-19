@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 // suppressUsageRow withholds a live-usage readout when the active account is
@@ -55,5 +56,23 @@ func TestSuppressUsageRowKnownMismatch(t *testing.T) {
 	// No active account: nothing to misattribute, fail open.
 	if suppressUsageRow(ctx, srv, "codex", "") {
 		t.Fatal("empty active must not suppress")
+	}
+}
+
+func TestUsageSuppressionDoesNotWaitForProviderMutation(t *testing.T) {
+	env := newTrayEnv(t)
+	saveGrokAccountAndClearLive(t, env)
+	if err := env.Deps.Store.SetActiveContext(context.Background(), "grok", "work"); err != nil {
+		t.Fatal(err)
+	}
+	release := holdProviderScope(t, env.Deps.Root, "grok")
+	defer release()
+	srv := New(env.Deps, strings.NewReader(""), &strings.Builder{})
+	done := make(chan bool, 1)
+	go func() { done <- suppressUsageRow(context.Background(), srv, "grok", "work") }()
+	select {
+	case <-done:
+	case <-time.After(displayReadBudget):
+		t.Fatal("quota display waited on provider mutation")
 	}
 }

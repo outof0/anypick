@@ -589,6 +589,9 @@ func (s *Server) rehydrateManagedBindings(ctx context.Context) error {
 		if binding == nil {
 			continue
 		}
+		if s.clientUsesNativeLogin(clientID) {
+			continue
+		}
 		source := binding.Spec.Source
 		switch source.Kind {
 		case refs.KindAccount:
@@ -1365,6 +1368,9 @@ func (s *Server) reapplyClientsBoundTo(ctx context.Context, source refs.Ref, all
 		if refs.SerializeRef(b.Spec.Source) != want {
 			continue
 		}
+		if !allowForeign && s.managedSource(ctx, clientID, source) && s.clientUsesNativeLogin(clientID) {
+			continue
+		}
 		var records []string
 		if canUndo {
 			records, err = s.Deps.Activation.Runtime.PrepareClientConfigRecovery(
@@ -1385,6 +1391,61 @@ func (s *Server) reapplyClientsBoundTo(ctx context.Context, source refs.Ref, all
 		recovery = append(recovery, records)
 	}
 	return nil
+}
+
+// A subscription sign-in can survive an external switch away from AnyPick's
+// proxy. Startup and proxy maintenance must not resurrect the saved route over
+// that native login; choosing the route explicitly still uses activation.
+func (s *Server) clientUsesNativeLogin(clientID string) bool {
+	if s.Deps.Clients == nil || s.Deps.Providers == nil {
+		return false
+	}
+	cad, err := s.Deps.Clients.Get(clientID)
+	if err != nil {
+		return false
+	}
+	inspected, err := cad.Inspect()
+	if err != nil || inspected == nil || !inspected.Native {
+		return false
+	}
+	if pv := s.nativeProvider(clientID); pv != nil {
+		live, err := pv.DetectLive()
+		return err == nil && live.Present
+	}
+	return false
+}
+
+func (s *Server) nativeProvider(clientID string) provider.Provider {
+	if s.Deps.Providers == nil {
+		return nil
+	}
+	for _, id := range s.Deps.Providers.IDs() {
+		pv, err := s.Deps.Providers.Get(id)
+		if err == nil && nativeClientIDOf(pv, id) == clientID {
+			return pv
+		}
+	}
+	return nil
+}
+
+func (s *Server) managedSource(ctx context.Context, clientID string, source refs.Ref) bool {
+	if source.Kind != refs.KindAccount {
+		return true
+	}
+	if s.Deps.Providers == nil {
+		return false
+	}
+	pv, err := s.Deps.Providers.Get(source.Provider)
+	if err != nil {
+		return false
+	}
+	enabled := false
+	if s.Deps.Accounts != nil {
+		if account, err := s.Deps.Accounts.CachedAccount(ctx, source.Provider, source.Name); err == nil && account != nil {
+			enabled = account.Proxy.Enabled
+		}
+	}
+	return routeKindForAccount(pv, clientID, source.Name, enabled) == "managed-account"
 }
 
 // finishReapply puts client configs taken before this reapply back. A restore

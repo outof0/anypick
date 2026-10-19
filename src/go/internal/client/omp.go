@@ -493,5 +493,39 @@ func (a *ompAdapter) Inspect() (*InspectResult, error) {
 		res.Summary = "agent dir present"
 	}
 	res.ConfigPaths = OmpConfigPaths(a.home)
+	if raw, err := os.ReadFile(ompConfigPath(a.home)); err == nil {
+		selected := ompSelectionScalar(string(raw), "defaultProvider")
+		model := ompSelectionScalar(string(raw), "defaultModel")
+		res.RoutingChanged = (selected != "" && selected != ompManagedProviderID) ||
+			(strings.Contains(model, "/") && !strings.HasPrefix(model, ompManagedProviderID+"/"))
+	}
 	return res, nil
+}
+
+// Only simple top-level selection scalars are evidence. Complex YAML values
+// remain unknown rather than being guessed from a marker or provider entry.
+func ompSelectionScalar(content, key string) string {
+	for _, line := range strings.Split(content, "\n") {
+		if !ompIsTopLevelKey(line, key) {
+			continue
+		}
+		_, value, _ := strings.Cut(line, ":")
+		value, _, _ = strings.Cut(strings.TrimSpace(value), " #")
+		value = strings.TrimSpace(value)
+		if len(value) >= 2 && strings.HasPrefix(value, "'") && strings.HasSuffix(value, "'") {
+			return strings.ReplaceAll(value[1:len(value)-1], "''", "'")
+		}
+		if strings.HasPrefix(value, `"`) && strings.HasSuffix(value, `"`) {
+			var decoded string
+			if json.Unmarshal([]byte(value), &decoded) == nil {
+				return decoded
+			}
+			return ""
+		}
+		if strings.ContainsAny(value, " \t{}[]&*!|>\"'") {
+			return ""
+		}
+		return value
+	}
+	return ""
 }

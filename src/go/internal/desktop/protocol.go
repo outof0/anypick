@@ -96,8 +96,8 @@ type cancelPayload struct {
 	RequestID string `json:"requestId"`
 }
 
-// Mutate is the mutation command: unknown fields are dropped, so
-// new operations surface as unsupported instead of crashing the supervisor.
+// Mutate carries a desktop mutation command. DecodeLine strictly rejects
+// unknown fields so a mismatched host payload cannot silently lose data.
 type Mutate struct {
 	Version      int    `json:"version"`
 	RequestID    string `json:"requestId"`
@@ -116,6 +116,9 @@ type Mutate struct {
 	Language     string `json:"language,omitempty"`
 	Name         string `json:"name"`
 	Path         string `json:"path"`
+	// Older hosts send a display hint as identity on account-save. Accept it for
+	// compatibility, but only the provider snapshot may supply stored identity.
+	Identity string `json:"identity,omitempty"`
 	// account-save-input carries the credential product the user picked in
 	// the native Add Account sheet. The secret itself travels in APIKey —
 	// the same field gateway-create already uses for profile secrets — so

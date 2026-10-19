@@ -1,41 +1,77 @@
 ---
-import { getDocsPageProps, getDocsStaticPaths, getSidebar, getPrevNext, getBreadcrumbs, getEditUrl, getLastUpdated, getTOC } from "nimbus-docs";
+import { getCollection, render } from "astro:content";
+import { config } from "virtual:nimbus/config";
+import { getSidebar, getPrevNext, getBreadcrumbs, getLastUpdated, getTOC } from "nimbus-docs";
 import type { Breadcrumb, PrevNext, SidebarItem } from "nimbus-docs/types";
 import DocsLayout from "../../layouts/DocsLayout.astro";
 import { components } from "../../components";
-import { getTranslator, localePrefix, localizedPath, type Locale } from "@/i18n";
+import { docsNavigationMessage, getTranslator, localePrefix, localizedPath, type Locale } from "@/i18n";
 
 export const prerender = true;
 
-export async function getStaticPaths(context: Parameters<typeof getDocsStaticPaths>[0]) {
-  const fallbackLocales: Locale[] = ["es", "fr", "de", "ja", "ko", "pt-BR", "vi"];
-  const paths = await getDocsStaticPaths(context);
-  return fallbackLocales.flatMap((locale) => paths.map(({ params, props }) => ({
-    params: {
-      locale: localePrefix(locale).replace(/^\//, ""),
-      slug: params.slug?.replace(/\/index$/, "") ?? "docs",
-    },
-    props: { ...props, locale },
-  })));
+export async function getStaticPaths() {
+  const localeCollections = [
+    { locale: "es", collection: "_docsEs" },
+    { locale: "fr", collection: "_docsFr" },
+    { locale: "de", collection: "_docsDe" },
+    { locale: "ja", collection: "_docsJa" },
+    { locale: "ko", collection: "_docsKo" },
+    { locale: "pt-BR", collection: "_docsPtBr" },
+    { locale: "vi", collection: "_docsVi" },
+  ] as const;
+  const localizedPaths = await Promise.all(localeCollections.map(async ({ locale, collection }) => {
+    const entries = await getCollection(collection);
+    return entries.map((entry) => ({
+      params: {
+        locale: localePrefix(locale).replace(/^\//, ""),
+        slug: entry.id.replace(/\/index$/, ""),
+      },
+      props: { entry, locale },
+    }));
+  }));
+  return localizedPaths.flat();
 }
 
 const locale = Astro.props.locale as Locale;
-const { entry, Content, headings } = await getDocsPageProps(Astro);
+const { entry } = Astro.props;
+const { Content, headings } = await render(entry);
+const localeEntries = await getCollection(entry.collection);
+const localizedTitles = new Map(
+  localeEntries.map((localizedEntry) => [
+    localizedEntry.id.replace(/\/index$/, ""),
+    localizedEntry.data.title,
+  ]),
+);
 const currentSlug = Astro.url.pathname.replace(/\/$/, "") || "/";
 const prefix = localePrefix(locale);
 const sourceSlug = currentSlug.slice(prefix.length) || "/";
+const t = await getTranslator(locale);
+
+function localizedTitleForHref(href?: string) {
+  if (!href) return undefined;
+  const sourcePath = href
+    .replace(new RegExp(`^${prefix}(?=/|$)`), "")
+    .replace(/^\/+|\/+$/g, "")
+    .replace(/\/index$/, "");
+  return localizedTitles.get(sourcePath);
+}
 
 function localizeSidebar(items: SidebarItem[]): SidebarItem[] {
   return items.map((item) => {
+    const message = docsNavigationMessage(item.label);
+    const label = message
+      ? t(message)
+      : localizedTitleForHref(item.type === "group" ? item.indexHref : item.href) ?? item.label;
     if (item.type === "external") return item;
     if (item.type === "group") {
       return {
         ...item,
+        label,
         indexHref: item.indexHref ? localizedPath(locale, item.indexHref) : undefined,
         children: localizeSidebar(item.children),
       };
     }
-    return { ...item, href: localizedPath(locale, item.href) };
+    return { ...item, label, href: localizedPath(locale, item.href) };
   });
 }
 
@@ -46,22 +82,37 @@ const rawPrevNext = await getPrevNext(sourceSlug, {
   overrides: { prev: entry.data.prev, next: entry.data.next },
 });
 const prevNext: PrevNext = {
-  prev: rawPrevNext.prev && { ...rawPrevNext.prev, href: localizedPath(locale, rawPrevNext.prev.href) },
-  next: rawPrevNext.next && { ...rawPrevNext.next, href: localizedPath(locale, rawPrevNext.next.href) },
+  prev: rawPrevNext.prev && {
+    ...rawPrevNext.prev,
+    label: localizedTitleForHref(rawPrevNext.prev.href) ?? rawPrevNext.prev.label,
+    href: localizedPath(locale, rawPrevNext.prev.href),
+  },
+  next: rawPrevNext.next && {
+    ...rawPrevNext.next,
+    label: localizedTitleForHref(rawPrevNext.next.href) ?? rawPrevNext.next.label,
+    href: localizedPath(locale, rawPrevNext.next.href),
+  },
 };
 const rawBreadcrumbs = await getBreadcrumbs(sourceSlug, { collection: entry.collection });
 const breadcrumbs: Breadcrumb[] = rawBreadcrumbs.map((crumb) => ({
   ...crumb,
+  label: docsNavigationMessage(crumb.label)
+    ? t(docsNavigationMessage(crumb.label)!)
+    : localizedTitleForHref(crumb.href) ?? (crumb.href ? crumb.label : entry.data.title),
   href: crumb.href ? localizedPath(locale, crumb.href) : undefined,
 }));
-const editUrl = await getEditUrl(entry);
 const lastUpdated = entry.data.lastUpdated ?? await getLastUpdated(entry);
 const tocConfig = entry.data.tableOfContents;
 const toc = tocConfig !== false ? getTOC(headings, tocConfig) : false;
-const markdownPath = `/${entry.id}/index.md`;
+const markdownPath = `${prefix}/${entry.id}/index.md`;
 const markdownUrl = Astro.site ? new URL(markdownPath, Astro.site).href : markdownPath;
 const socialImage = entry.data.socialImage ?? `/og/${entry.id}.png`;
-const t = await getTranslator(locale);
+const pagefindLanguage = locale === "pt-BR" ? "pt" : locale.toLowerCase();
+const socialTitle = locale === "en"
+  ? undefined
+  : entry.data.title === config.title || entry.data.title.startsWith(`${config.title} `)
+    ? entry.data.title
+    : `${entry.data.title} | ${config.title}`;
 ---
 
 <DocsLayout
@@ -74,22 +125,18 @@ const t = await getTranslator(locale);
   mode={entry.data.mode}
   banner={entry.data.banner}
   head={entry.data.head}
-  searchable={false}
-  noindex={true}
+  searchable={true}
+  noindex={false}
   markdownUrl={markdownUrl}
   socialImage={socialImage}
   lastUpdated={lastUpdated}
-  editUrl={editUrl}
+  editUrl={undefined}
   draft={entry.data.draft}
   audience={entry.data.audience}
   collection={entry.collection}
   entryId={entry.id}
-  pagefindLanguage="en"
+  pagefindLanguage={pagefindLanguage}
+  socialTitle={socialTitle}
 >
-  <p class="mb-5 rounded-md border border-border bg-muted px-3 py-2 text-sm text-muted-foreground" role="note">
-    {t("docs.englishContent")}
-  </p>
-  <div lang="en">
-    <Content components={components} />
-  </div>
+  <Content components={components} />
 </DocsLayout>

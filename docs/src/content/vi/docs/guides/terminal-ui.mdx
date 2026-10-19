@@ -1,0 +1,227 @@
+---
+title: 'Giao diện người dùng ứng dụng & thiết bị đầu cuối'
+description: 'Cách Ứng dụng định tuyến Claude Code, Codex, ZCode, dsh, commandcode, pi và omp — chọn nguồn, đặt mô hình, xem trước, sau đó kích hoạt.'
+sidebar:
+  label: Apps & Terminal UI
+---
+
+Chạy `anypick` (hoặc `anypick tui`). Bạn truy cập **Ứng dụng**. Màn hình đó là sản phẩm: nó trả lời một câu hỏi cho mỗi công cụ lập trình —
+
+> **Bây giờ nên sử dụng Claude Code / Codex / ZCode / dsh / commandcode / pi / omp gì?**
+
+Mọi thứ khác (tài khoản, cổng, proxy) đều tồn tại để cung cấp câu trả lời đó.
+
+```bash
+anypick
+```
+
+## Tổng quan về ứng dụng
+
+```
+ anypick / apps
+
+  Routes for Claude Code and Codex
+ › Claude        grok/work · grok-code-fast-1       ● ready
+   Codex         not connected                     ○ not set
+ ──────────────────────────────────────────
+ Claude uses grok/work
+ model grok-code-fast-1 · enter to preview a different route
+ enter change route a accounts g gateways p proxies d diagnose
+```
+
+Đọc từ trên xuống dưới:
+
+1. **Mỗi hàng là một ứng dụng** — Claude Code, Codex, ZCode, DeepSeek Harness (`dsh`), Command Code (`commandcode`), Pi (`pi`) hoặc Omp (`omp`). Gemini, Kiro và WorkBuddy *không* ở đây; họ chỉ chuyển đổi thông tin đăng nhập của riêng mình trong Tài khoản.
+2. **Cột giữa** là người cấp quyền cho nó (tài khoản, cổng, …) và AnyPick đã đặt mô hình nào.
+3. **Trạng thái** ở bên phải là tiếng Anh đơn giản: sẵn sàng, gốc, chưa thiết lập hoặc chú ý.
+4. **Hai dòng bên dưới đường nét đứt** luôn cho biết <kbd>enter</kbd> sẽ làm gì *trước khi* bạn nhấn vào đó.
+5. **Phần chân trang** là sơ đồ bàn phím đầy đủ cho màn hình này. Nếu một khóa không được liệt kê, nó sẽ không có tác dụng gì ở đây.
+
+### Ý nghĩa của từng trạng thái
+
+| Bạn thấy đấy | Ý nghĩa | Phải làm gì |
+| --- | --- | --- |
+| **sẵn sàng** | AnyPick đã định tuyến ứng dụng này | <kbd>enter</kbd> nếu bạn muốn nguồn hoặc kiểu máy khác |
+| **bản địa** | Tính năng đăng nhập của ứng dụng hoạt động nhưng AnyPick chưa quản lý tuyến đường | Tùy chọn — chỉ nhấn <kbd>enter</kbd> nếu bạn muốn AnyPick tiếp quản |
+| **chưa được đặt** | Chưa có lộ trình | <kbd>enter</kbd> → **kết nối ứng dụng** |
+| **chú ý** | Có điều gì đó cần khắc phục (thiếu key, kiểm tra không thành công,…) | chẩn đoán <kbd>enter</kbd> hoặc <kbd>d</kbd> |
+
+## Xây dựng tuyến đường (luồng chính)
+
+Bạn không bao giờ chỉnh sửa tập tin cấu hình bằng tay. Nhấn <kbd>enter</kbd> trên một ứng dụng và xem qua bốn màn hình ngắn. **Không có gì được viết cho đến khi có xác nhận cuối cùng.**
+
+### 1. Trang chủ — chọn ứng dụng
+
+Di chuyển bằng <kbd>↑</kbd> <kbd>↓</kbd> (hoặc <kbd>j</kbd> <kbd>k</kbd>). Đánh dấu một ứng dụng — Claude Code, Codex, ZCode, `dsh`, `commandcode`, `pi` hoặc `omp`. Nhấn <kbd>enter</kbd>.
+
+- Footer cho biết **kết nối ứng dụng** khi hàng trống hoặc chỉ có hàng gốc.
+- Footer nói **thay đổi lộ trình** khi nó đã sẵn sàng.
+
+### 2. Nguồn - ai sẽ cấp quyền cho nó?
+
+```
+ anypick / apps / Claude / source
+
+  Native accounts
+ › Anthropic · work@example.com        current live login
+   Anthropic · personal
+
+  Gateways & proxies
+   openrouter-work                     gateway · default model set
+   grok/work                           account proxy
+
+  Saved setups
+   @work-stack                         preset
+ ──────────────────────────────────────────
+ Route Claude through grok/work
+ account proxy · model routing is configured next
+ enter choose route a accounts g gateways esc back
+```
+
+Ba nhóm, bằng ngôn ngữ đơn giản:
+
+| Nhóm | Chọn cái này khi… |
+| --- | --- |
+| **Tài khoản gốc** | Bạn muốn Claude, Codex hoặc Z.ai đăng nhập vào nhà cung cấp *riêng* của mình. AnyPick chuyển thông tin xác thực đã lưu; ứng dụng giữ bộ chọn mô hình của riêng mình. Tài khoản ZCode có thể được phát hiện từ thông tin đăng nhập cục bộ được mã hóa hoặc được thêm thông qua luồng trình duyệt của Z.ai. |
+| **Cổng và proxy** | Bạn muốn một nhà cung cấp khác, điểm cuối khóa API, nhóm nhiều tài khoản hoặc Proxy Hub. AnyPick sẽ đặt mô hình tiếp theo. |
+| **Cài đặt đã lưu** | preset (`@name`) đã có trong bảng `presets`. Chưa có lệnh nào tạo nên nhóm này trống khi cài đặt mới. |
+
+Chỉ **cặp an toàn** mới xuất hiện. Bạn sẽ không thấy "Claude → thứ không tương thích ngẫu nhiên" - danh sách trống nghĩa là lưu một tài khoản (<kbd>a</kbd>) hoặc thêm một cổng (<kbd>g</kbd>) trước.
+
+Hàng gốc → kết quả là **Chuyển đổi …**; các hàng khác → **Tuyến … qua …**.
+
+### 3. Mô hình — chỉ khi cần thiết
+
+Đã bỏ qua đối với các chuyển đổi gốc của cùng một nhà cung cấp.
+
+Mặt khác:
+
+```
+ anypick / apps / Claude / models
+
+ › default     grok-code-fast-1
+   sonnet      (same as default)
+   opus        (same as default)
+   haiku       (same as default)
+ ──────────────────────────────────────────
+ …
+ enter edit model · a preview route
+```
+
+- **Codex** — một mô hình mặc định.
+- **Claude** — vai trò mặc định cộng với các vai trò sonnet / opus / haiku tùy chọn (dành cho các công cụ gọi những tên đó).
+
+Chỉnh sửa một dòng bằng <kbd>enter</kbd>, nhập hoặc chọn một đề xuất, sau đó <kbd>a</kbd> (hoặc phím xác nhận được hiển thị) để mở bản xem trước.
+
+### 4. Xem trước — đọc, sau đó kích hoạt
+
+```
+ anypick / apps / Claude / preview
+
+ Activate this route for Claude?
+
+ · bind Claude → grok/work
+ · set model grok-code-fast-1
+ · start local proxy if needed
+ · write client config
+
+ enter activate route   esc back
+```
+
+Đây chính là kế hoạch mà CLI sẽ thực hiện. Nếu một bước sau đó không thành công, AnyPick sẽ khôi phục những gì nó đã thay đổi. Nhấn <kbd>enter</kbd> để ​​áp dụng, <kbd>esc</kbd> để ​​quay lại và thay đổi nguồn hoặc kiểu máy.
+
+Sau khi kích hoạt thành công, bạn quay lại Ứng dụng với **● sẵn sàng** và nguồn · mô hình mới trên hàng.
+
+## Một ví dụ cụ thể
+
+Mục tiêu: **Claude Code nên sử dụng thông tin đăng nhập công việc Grok của bạn.**
+
+1. Đăng nhập bằng công cụ của Grok một lần (AnyPick không bao giờ đăng nhập hộ bạn).
+2. Trong AnyPick: <kbd>a</kbd> → Tài khoản → lưu thông tin đăng nhập đó dưới dạng `work` (hoặc `anypick add account grok --current --name work`).
+3. Quay lại Ứng dụng, đánh dấu **Claude**, <kbd>enter</kbd>.
+4. Trong **Cổng & proxy**, chọn **grok/work**.
+5. Đặt kiểu mặc định nếu được yêu cầu.
+6. Đọc bản xem trước → <kbd>enter</kbd>.
+
+Claude hiện đã được định tuyến. Mở Claude Code như bạn thường làm; AnyPick đã viết những gì nó cần. Đường dẫn tương tự hoạt động cho Codex, các cổng như OpenRouter, nhóm hoặc preset.
+
+## Phím trên ứng dụng
+
+| Chìa khóa | Hành động |
+| --- | --- |
+| <kbd>enter</kbd> | Kết nối hoặc thay đổi lộ trình (nguồn → mô hình → xem trước) |
+| <kbd>a</kbd> / <kbd>tab</kbd> | Tài khoản |
+| <kbd>g</kbd> | Cổng |
+| <kbd>p</kbd> | Proxy |
+| <kbd>d</kbd> | Chẩn đoán |
+| <kbd>h</kbd> / <kbd>?</kbd> | Trợ giúp cho màn hình này |
+| <kbd>q</kbd> | Đóng giao diện người dùng thiết bị đầu cuối (các quy trình tương thích hiện tại không thay đổi) |
+
+## Các bảng khác (diễn viên phụ)
+
+Chu kỳ <kbd>tab</kbd> **Ứng dụng → Tài khoản → Cổng → Proxy → Ứng dụng**. <kbd>esc</kbd> trên bảng phụ sẽ quay lại Ứng dụng.
+
+| Ban | Bạn sử dụng nó để… |
+| --- | --- |
+| **Tài khoản** | Lưu, chuyển đổi, làm mới, nhập/xuất, xóa thông tin đăng nhập |
+| **Cổng** | Lưu trữ hồ sơ điểm cuối + khóa API; liên kết chúng với các ứng dụng như proxy |
+| **Ủy quyền** | Bắt đầu/dừng các proxy cục bộ, nhóm, Proxy Hub |
+
+Những bảng đó không bao giờ thay thế Ứng dụng cho "Claude sử dụng cái gì?" — họ có sẵn các kệ mà Ứng dụng chọn từ đó.
+
+### Khóa tài khoản
+
+| Chìa khóa | Hành động |
+| --- | --- |
+| <kbd>enter</kbd> | Chuyển đổi, xem hoạt động hoặc lưu thông tin đăng nhập hiện tại |
+| <kbd>v</kbd> | Chi tiết và cách sử dụng |
+| <kbd>a</kbd> | Thêm thông tin đăng nhập |
+| <kbd>i</kbd> / <kbd>e</kbd> | Xuất nhập khẩu |
+| <kbd>r</kbd> | Làm mới |
+| <kbd>s</kbd> | Lưu thông tin đăng nhập trực tiếp đã thay đổi qua ảnh chụp nhanh của nó |
+| <kbd>d</kbd> | Xóa |
+| <kbd>f</kbd> | Lọc theo nhà cung cấp |
+
+Khi bạn nhấn <kbd>i</kbd>, lời nhắc nhập liệt kê các phong bì `.json` và các tệp sao lưu AnyPick từ thư mục hiện tại và `~/.anypick/exports/`. Sử dụng <kbd>↑</kbd>/<kbd>↓</kbd> để ​​chọn một hoặc <kbd>tab</kbd> để ​​hoàn thành. Khi lời nhắc được mở từ danh sách tài khoản của nhà cung cấp, bản sao lưu nhiều tài khoản chỉ nhập tài khoản của nhà cung cấp đó.
+
+### Phím cổng
+
+| Chìa khóa | Hành động |
+| --- | --- |
+| <kbd>enter</kbd> | Quản lý ứng dụng nào sử dụng cổng này |
+| <kbd>m</kbd> | Chỉnh sửa mô hình mặc định |
+| <kbd>e</kbd> | Chỉnh sửa điểm cuối |
+| <kbd>a</kbd> / <kbd>d</kbd> | Thêm/xóa |
+| <kbd>f</kbd> | Lọc theo nhà cung cấp |
+
+### Khóa proxy
+
+| Chìa khóa | Hành động |
+| --- | --- |
+| <kbd>enter</kbd> | Bắt đầu, quản lý ứng dụng hoặc lưu thông tin đăng nhập chưa được lưu |
+| <kbd>m</kbd> | Quản lý ứng dụng, sau đó chỉnh sửa mô hình |
+| <kbd>s</kbd> / <kbd>r</kbd> | Dừng / khởi động lại |
+| <kbd>d</kbd> | Vô hiệu hóa tự động khởi động |
+| <kbd>l</kbd> | Nhật ký |
+| <kbd>p</kbd> | Bật/tắt nhóm nhiều tài khoản |
+| <kbd>space</kbd> | Tạm dừng hoặc kích hoạt thành viên nhóm |
+| <kbd>f</kbd> | Bảo vệ chuyển đổi dự phòng trên hồ bơi |
+
+## Biểu tượng trạng thái
+
+| Glyph | Trên ứng dụng | Ở nơi khác |
+| --- | --- | --- |
+| `●` | sẵn sàng | sống/sử dụng |
+| `○` | chưa được đặt / dừng | đã lưu / dừng |
+| `◐` | chú ý | đã thay đổi (đăng nhập trực tiếp ≠ ảnh chụp nhanh) |
+| `×` | thất bại | không thành công/không có sẵn |
+
+Với `NO_COLOR=1` các hình dạng vẫn mang ý nghĩa; thiết bị đầu cuối đơn giản quay trở lại `*`, `o`, `!`, `x`.
+
+## Đóng giao diện người dùng
+
+- <kbd>q</kbd> — rời khỏi giao diện người dùng thiết bị đầu cuối; quy trình tương thích hiện tại không thay đổi.
+
+Các phím tắt này không sở hữu hoặc chấm dứt `AnyPick.app` được khởi chạy từ Xcode. Ứng dụng gốc sở hữu trình trợ giúp Go đi kèm và được kiểm soát thông qua hành vi khởi chạy, cửa sổ và Thoát ứng dụng thông thường. Xem [thanh menu và ứng dụng macOS](/vi/docs/guides/tray).
+
+Việc xây dựng tuyến đường tương tự tồn tại dưới dạng lệnh (`anypick use claude --with grok/work`) cho tập lệnh; giao diện người dùng không phải là chế độ yếu hơn. Xem [Bắt đầu](/vi/docs/getting-started) để biết cài đặt và lưu lần đầu, và [Proxies](/vi/docs/guides/proxies) để biết nhóm và trung tâm.

@@ -2,6 +2,8 @@ package desktop
 
 import (
 	"io"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -9,6 +11,30 @@ import (
 	"github.com/outof0/anypick/go/internal/client"
 	"github.com/outof0/anypick/go/internal/refs"
 )
+
+func TestDesktopFixtureProtectsAmbientClientEnvironment(t *testing.T) {
+	ambient := t.TempDir()
+	path := filepath.Join(ambient, "clients", "claude", "env.sh")
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte("protected ambient environment"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("ANYPICK_HOME", ambient)
+	env := newTrayEnv(t)
+	cad, err := env.Deps.Clients.Get("claude")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := cad.(client.NativeRestorer).RestoreNative(); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(path)
+	if err != nil || string(raw) != "protected ambient environment" {
+		t.Fatalf("fixture touched an ambient client environment: %q, %v", raw, err)
+	}
+}
 
 // newWaitedServer builds a server for a test that dispatches through handle,
 // handleSafely or another handler method, and registers the Wait that

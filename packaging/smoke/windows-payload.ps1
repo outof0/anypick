@@ -1,8 +1,7 @@
 # Target-OS payload smoke for the staged Windows installers. The MSI is
 # administratively extracted (no system install), the bundled Go helper is
-# located and run, and the NSIS installer must be present. The GUI itself is
-# not launched: this is the installer-payload gate that release-scope=all
-# publishes behind.
+# located and run. Both MSI and NSIS payloads must also run the native GUI,
+# production Rust host and Go sidecar under WebDriver, in an isolated profile.
 #
 # usage: windows-payload.ps1 -Stage STAGE_DIR -Version VERSION
 
@@ -25,16 +24,22 @@ function Invoke-HelperSmoke {
   New-Item -ItemType Directory -Path $smokeHome -Force | Out-Null
   # os.UserHomeDir reads USERPROFILE on Windows; HOME alone would leave the
   # helper pointed at the runner's real profile.
-  $env:USERPROFILE = $smokeHome
-  $env:HOME = $smokeHome
-  $env:ANYPICK_HOME = Join-Path $smokeHome '.anypick'
-  $out = ("$(& $Helper --version)").Trim()
-  if ($out -ne "anypick-go $Version") {
-    throw "$Label helper reports '$out', want 'anypick-go $Version'"
+  $previous = @{}
+  foreach ($key in @('USERPROFILE', 'HOME', 'ANYPICK_HOME')) { $previous[$key] = [Environment]::GetEnvironmentVariable($key, 'Process') }
+  try {
+    $env:USERPROFILE = $smokeHome
+    $env:HOME = $smokeHome
+    $env:ANYPICK_HOME = Join-Path $smokeHome '.anypick'
+    $out = ("$(& $Helper --version)").Trim()
+    if ($out -ne "anypick-go $Version") {
+      throw "$Label helper reports '$out', want 'anypick-go $Version'"
+    }
+    & $Helper providers | Out-Null
+    if ($LASTEXITCODE -ne 0) { throw "$Label helper providers exited $LASTEXITCODE" }
+    Write-Host "smoke ok: $Label helper ($out)"
+  } finally {
+    foreach ($key in $previous.Keys) { [Environment]::SetEnvironmentVariable($key, $previous[$key], 'Process') }
   }
-  & $Helper providers | Out-Null
-  if ($LASTEXITCODE -ne 0) { throw "$Label helper providers exited $LASTEXITCODE" }
-  Write-Host "smoke ok: $Label helper ($out)"
 }
 
 $msi = Get-ChildItem -Path $Stage -Filter *.msi | Select-Object -First 1
@@ -69,3 +74,17 @@ $nsis = Get-ChildItem -Path $Stage -Filter *.exe |
   Where-Object { $_.Name -notlike 'anypick-core*' } | Select-Object -First 1
 if ($null -eq $nsis) { throw 'no NSIS installer staged for the Windows payload smoke' }
 Write-Host "smoke ok: NSIS installer present ($($nsis.Name))"
+$nsisExtract = Join-Path $work 'nsis'
+& 7z x -y "-o$nsisExtract" $nsis.FullName | Out-Null
+if ($LASTEXITCODE -ne 0) { throw 'NSIS payload extraction failed' }
+$nsisHelper = Get-ChildItem -Path $nsisExtract -Recurse -Filter 'anypick-core.exe' -File | Select-Object -First 1
+if ($null -eq $nsisHelper) { throw 'NSIS payload has no anypick-core.exe' }
+Invoke-HelperSmoke -Helper $nsisHelper.FullName -Label 'nsis'
+
+foreach ($payload in @($extract, $nsisExtract)) {
+  $app = Get-ChildItem -Path $payload -Recurse -Filter 'anypick.exe' -File | Select-Object -First 1
+  if ($null -eq $app) { throw "No desktop executable in $payload" }
+  $e2e = Join-Path $env:GITHUB_WORKSPACE 'src/tauri/ui/scripts/desktop-e2e.mjs'
+  & node $e2e $app.FullName
+  if ($LASTEXITCODE -ne 0) { throw "Native desktop E2E failed for $payload" }
+}

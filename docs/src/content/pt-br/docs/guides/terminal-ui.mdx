@@ -1,0 +1,227 @@
+---
+title: 'Interface de aplicativos e terminais'
+description: 'Como o Apps roteia Claude Code, Codex, ZCode, dsh, commandcode, pi e omp — escolha uma fonte, defina modelos, visualize e ative.'
+sidebar:
+  label: Apps & Terminal UI
+---
+
+Execute `anypick` (ou `anypick tui`). Você acessa **Apps**. Essa tela é o produto: ela responde a uma pergunta para cada ferramenta de codificação —
+
+> **O que Claude Code / Codex / ZCode / dsh / commandcode / pi / omp deve usar agora?**
+
+Todo o resto (contas, gateways, proxies) existe para alimentar essa resposta.
+
+```bash
+anypick
+```
+
+## Visão geral dos aplicativos
+
+```
+ anypick / apps
+
+  Routes for Claude Code and Codex
+ › Claude        grok/work · grok-code-fast-1       ● ready
+   Codex         not connected                     ○ not set
+ ──────────────────────────────────────────
+ Claude uses grok/work
+ model grok-code-fast-1 · enter to preview a different route
+ enter change route a accounts g gateways p proxies d diagnose
+```
+
+Leia de cima a baixo:
+
+1. **Cada linha é um aplicativo** — Claude Code, Codex, ZCode, DeepSeek Harness (`dsh`), Código de Comando (`commandcode`), Pi (`pi`) ou Omp (`omp`). Gemini, Kiro e WorkBuddy *não* estão aqui; eles apenas trocam seu próprio login em Contas.
+2. **A coluna do meio** é quem o alimenta (conta, gateway,…) e qual modelo o AnyPick definiu.
+3. **O status** à direita é em inglês simples: pronto, nativo, não definido ou atenção.
+4. **As duas linhas sob a regra tracejada** sempre dizem o que <kbd>enter</kbd> fará *antes* de você pressioná-lo.
+5. **O rodapé** é o mapa de teclado completo desta tela. Se uma chave não estiver listada, nada será feito aqui.
+
+### O que cada status significa
+
+| Você vê | Significado | O que fazer |
+| --- | --- | --- |
+| **pronto** | AnyPick já roteia este aplicativo | <kbd>enter</kbd> se desejar uma fonte ou modelo diferente |
+| **nativo** | O login do próprio app funciona, mas o AnyPick ainda não está gerenciando a rota | Opcional - pressione apenas <kbd>enter</kbd> se quiser que AnyPick assuma |
+| **não definido** | Nenhuma rota ainda | <kbd>enter</kbd> → **conectar aplicativo** |
+| **atenção** | Algo precisa de uma correção (chave faltando, falha na verificação,…) | <kbd>enter</kbd> ou <kbd>d</kbd> diagnosticar |
+
+## Construa uma rota (o fluxo principal)
+
+Você nunca edita arquivos de configuração manualmente. Pressione <kbd>enter</kbd> em um aplicativo e percorra quatro telas curtas. **Nada está escrito até a última confirmação.**
+
+### 1. Página inicial — escolha o aplicativo
+
+Mova-se com <kbd>↑</kbd> <kbd>↓</kbd> (ou <kbd>j</kbd> <kbd>k</kbd>). Destaque um aplicativo - Claude Code, Codex, ZCode, `dsh`, `commandcode`, `pi` ou `omp`. Pressione <kbd>enter</kbd>.
+
+- O rodapé diz **conectar aplicativo** quando a linha está vazia ou é apenas nativa.
+- O rodapé diz **alterar rota** quando já estiver pronto.
+
+### 2. Fonte – quem deve alimentá-la?
+
+```
+ anypick / apps / Claude / source
+
+  Native accounts
+ › Anthropic · work@example.com        current live login
+   Anthropic · personal
+
+  Gateways & proxies
+   openrouter-work                     gateway · default model set
+   grok/work                           account proxy
+
+  Saved setups
+   @work-stack                         preset
+ ──────────────────────────────────────────
+ Route Claude through grok/work
+ account proxy · model routing is configured next
+ enter choose route a accounts g gateways esc back
+```
+
+Três grupos, em linguagem simples:
+
+| Grupo | Escolha isto quando… |
+| --- | --- |
+| **Contas nativas** | Você deseja Claude, Codex ou Z.ai em seu próprio login de provedor. AnyPick alterna a credencial salva; o aplicativo mantém seu próprio seletor de modelos. As contas ZCode podem ser detectadas a partir do login local criptografado ou adicionadas por meio do fluxo do navegador Z.ai. |
+| **Gateways e proxies** | Você deseja outro provedor, um endpoint de chave de API, um pool de várias contas ou o Proxy Hub. AnyPick definirá os modelos a seguir. |
+| **Configurações salvas** | Uma predefinição (`@name`) já na tabela `presets`. Nenhum comando cria um ainda, então este grupo fica vazio em uma nova instalação. |
+
+Somente **emparelhamentos seguros** aparecem. Você não verá "Claude → coisa incompatível aleatória" - lista vazia significa salvar uma conta (<kbd>a</kbd>) ou adicionar um gateway (<kbd>g</kbd>) primeiro.
+
+Linha nativa → o resultado é **Switch…**; outras linhas → **Rota… através de…**.
+
+### 3. Modelos — somente quando necessário
+
+Ignorado para switches nativos do mesmo provedor.
+
+Caso contrário:
+
+```
+ anypick / apps / Claude / models
+
+ › default     grok-code-fast-1
+   sonnet      (same as default)
+   opus        (same as default)
+   haiku       (same as default)
+ ──────────────────────────────────────────
+ …
+ enter edit model · a preview route
+```
+
+- **Codex** — um modelo padrão.
+- **Claude** — padrão mais papéis opcionais de soneto/opus/haiku (para ferramentas que chamam esses nomes).
+
+Edite uma linha com <kbd>enter</kbd>, digite ou escolha uma sugestão e, em seguida, <kbd>a</kbd> (ou a tecla de confirmação mostrada) para abrir a visualização.
+
+### 4. Pré-visualização – leia e ative
+
+```
+ anypick / apps / Claude / preview
+
+ Activate this route for Claude?
+
+ · bind Claude → grok/work
+ · set model grok-code-fast-1
+ · start local proxy if needed
+ · write client config
+
+ enter activate route   esc back
+```
+
+Este é o mesmo plano que a CLI executaria. Se uma etapa falhar posteriormente, o AnyPick reverte o que já foi alterado. Pressione <kbd>enter</kbd> para aplicar, <kbd>esc</kbd> para voltar e alterar a fonte ou os modelos.
+
+Após uma ativação bem-sucedida, você retorna aos Aplicativos com **● pronto** e o novo modelo de origem · na linha.
+
+## Um exemplo concreto
+
+Objetivo: **Claude Code deve usar seu login de trabalho do Grok.**
+
+1. Faça login com a ferramenta Grok uma vez (AnyPick nunca faz login para você).
+2. Em AnyPick: <kbd>a</kbd> → Contas → salve esse login como `work` (ou `anypick add account grok --current --name work`).
+3. De volta aos Aplicativos, destaque **Claude**, <kbd>enter</kbd>.
+4. Em **Gateways e proxies**, escolha **grok/work**.
+5. Defina o modelo padrão se solicitado.
+6. Leia a prévia → <kbd>enter</kbd>.
+
+Claude agora está derrotado. Abra o Claude Code como costuma fazer; AnyPick já escreveu o que precisa. O mesmo caminho funciona para Codex, gateways como OpenRouter, pools ou uma predefinição.
+
+## Chaves em aplicativos
+
+| Chave | Ação |
+| --- | --- |
+| <kbd>enter</kbd> | Conectar ou alterar rota (fonte → modelos → visualização) |
+| <kbd>a</kbd> / <kbd>tab</kbd> | Contas |
+| <kbd>g</kbd> | Gateways |
+| <kbd>p</kbd> | Proxies |
+| <kbd>d</kbd> | Diagnosticar |
+| <kbd>h</kbd> / <kbd>?</kbd> | Ajuda para esta tela |
+| <kbd>q</kbd> | Feche a UI do terminal (os processos de compatibilidade existentes permanecem inalterados) |
+
+## Outras placas (elenco de apoio)
+
+<kbd>tab</kbd> ciclos **Aplicativos → Contas → Gateways → Proxy → Aplicativos**. <kbd>esc</kbd> em uma placa secundária retorna para Apps.
+
+| Conselho | Você usa isso para… |
+| --- | --- |
+| **Contas** | Salvar, alternar, atualizar, importar/exportar, excluir logins |
+| **Gateways** | Armazene perfis de endpoint e chave de API e vincule-os a aplicativos como proxy |
+| **Procuração** | Iniciar/parar tradutores locais, pools, Proxy Hub |
+
+Esses fóruns nunca substituem os aplicativos para "o que Claude usa?" - eles estocam as prateleiras que o Apps escolhe.
+
+### Chaves de contas
+
+| Chave | Ação |
+| --- | --- |
+| <kbd>enter</kbd> | Alternar, visualizar ativo ou salvar login atual |
+| <kbd>v</kbd> | Detalhes e uso |
+| <kbd>a</kbd> | Adicionar um login |
+| <kbd>i</kbd> / <kbd>e</kbd> | Importação/exportação |
+| <kbd>r</kbd> | Atualizar |
+| <kbd>s</kbd> | Salvar um login ativo alterado em seu instantâneo |
+| <kbd>d</kbd> | Excluir |
+| <kbd>f</kbd> | Filtrar por provedor |
+
+Quando você pressiona <kbd>i</kbd>, o prompt de importação lista envelopes `.json` e arquivos de backup AnyPick da pasta atual e `~/.anypick/exports/`. Use <kbd>↑</kbd>/<kbd>↓</kbd> para escolher um ou <kbd>tab</kbd> para completá-lo. Quando o prompt é aberto na lista de contas de um provedor, um backup de várias contas importa apenas as contas desse provedor.
+
+### Chaves de gateway
+
+| Chave | Ação |
+| --- | --- |
+| <kbd>enter</kbd> | Gerenciar quais aplicativos usam este gateway |
+| <kbd>m</kbd> | Editar modelos padrão |
+| <kbd>e</kbd> | Editar ponto final |
+| <kbd>a</kbd> / <kbd>d</kbd> | Adicionar/excluir |
+| <kbd>f</kbd> | Filtrar por provedor |
+
+### Chaves proxy
+
+| Chave | Ação |
+| --- | --- |
+| <kbd>enter</kbd> | Inicie, gerencie aplicativos ou salve um login não salvo |
+| <kbd>m</kbd> | Gerencie aplicativos e edite modelos |
+| <kbd>s</kbd> / <kbd>r</kbd> | Parar/reiniciar |
+| <kbd>d</kbd> | Desativar inicialização automática |
+| <kbd>l</kbd> | Registros |
+| <kbd>p</kbd> | Ativar/desativar pool de múltiplas contas |
+| <kbd>space</kbd> | Pausar ou ativar um membro do pool |
+| <kbd>f</kbd> | Proteção contra failover em um pool |
+
+## Glifos de status
+
+| Glifo | Em aplicativos | Em outro lugar |
+| --- | --- | --- |
+| `●` | pronto | viver / usar |
+| `○` | não definido/parado | salvo/parado |
+| `◐` | atenção | alterado (login ao vivo ≠ instantâneo) |
+| `×` | falhou | falhou/indisponível |
+
+Com `NO_COLOR=1` as formas ainda carregam significado; terminais simples voltam para `*`, `o`, `!`, `x`.
+
+## Fechando a IU
+
+- <kbd>q</kbd> — saia da IU do terminal; os processos de compatibilidade existentes permanecem inalterados.
+
+Esses atalhos não possuem nem encerram um `AnyPick.app` iniciado no Xcode. O aplicativo nativo possui seu auxiliar Go incluído e é controlado por meio da inicialização normal do aplicativo, da janela e do comportamento de Sair. Consulte [aplicativo macOS e barra de menu](/pt-br/docs/guides/tray).
+
+A mesma construção de rota existe como comandos (`anypick use claude --with grok/work`) para scripts; a UI não é um modo mais fraco. Consulte [Introdução](/pt-br/docs/getting-started) para instalar e salvar primeiro, e [Proxies](/pt-br/docs/guides/proxies) para pools e hub.
