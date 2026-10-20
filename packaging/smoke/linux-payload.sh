@@ -38,11 +38,30 @@ smoke_helper() {
 }
 
 smoke_desktop() {
-  local root="$1" app
-  app="$(find "$root" -type f -name anypick -print -quit)"
+  local root="$1" app="${2:-}"
+  if [[ -z "$app" ]]; then
+    app="$(find "$root" -type f -name anypick -print -quit)"
+  fi
   [[ -n "$app" ]] || { echo "::error::payload has no AnyPick desktop executable" >&2; return 1; }
   chmod +x "$app"
   xvfb-run -a dbus-run-session -- node "${GITHUB_WORKSPACE:-$PWD}/src/tauri/ui/scripts/desktop-e2e.mjs" "$app"
+}
+
+appimage_desktop_launcher() {
+  local image="$1" launcher_dir="$work/appimage-launcher-$(basename "$1")" launcher
+  launcher="$launcher_dir/anypick-appimage-launcher"
+  mkdir -p "$launcher_dir"
+  ln -s "$(cd "$(dirname "$image")" && pwd)/$(basename "$image")" "$launcher_dir/AnyPick.AppImage"
+  cat > "$launcher" <<'LAUNCHER'
+#!/bin/sh
+set -eu
+export APPIMAGE_EXTRACT_AND_RUN=1
+launcher_dir=${0%/*}
+# Keep the runtime option for AppImages created before env support was added.
+exec "$launcher_dir/AnyPick.AppImage" --appimage-extract-and-run "$@"
+LAUNCHER
+  chmod +x "$launcher"
+  printf '%s\n' "$launcher"
 }
 
 scan_node_free() {
@@ -73,7 +92,8 @@ for image in "$stage"/*.AppImage; do
   ( cd "$work" && "$image" --appimage-extract >/dev/null )
   helper="$(find "$work/squashfs-root" -type f -name 'anypick-core' -print -quit)"
   smoke_helper "$helper" "AppImage"
-  smoke_desktop "$work/squashfs-root"
+  launcher="$(appimage_desktop_launcher "$image")"
+  smoke_desktop "$work/squashfs-root" "$launcher"
   scan_node_free "$work/squashfs-root"
   smoked=1
 done
