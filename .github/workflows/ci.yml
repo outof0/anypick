@@ -383,6 +383,7 @@ jobs:
       - name: Check the release payload smoke scripts
         run: |
           bash -n packaging/smoke/linux-payload.sh packaging/smoke/linux-cli-headless.sh
+          bash packaging/smoke/linux-payload_test.sh
           node --check src/tauri/ui/scripts/desktop-e2e.mjs
           # shellcheck disable=SC2016 # $null is PowerShell, not shell; the quotes are deliberate.
           pwsh -NoProfile -Command 'foreach ($path in @("packaging/smoke/windows-payload.ps1")) { $errors = $null; [void][System.Management.Automation.Language.Parser]::ParseFile($path, [ref]$null, [ref]$errors); if ($errors.Count) { throw ($errors | Out-String) } }'
