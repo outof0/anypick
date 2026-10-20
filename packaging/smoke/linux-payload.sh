@@ -55,6 +55,8 @@ appimage_desktop_launcher() {
   cat > "$launcher" <<'LAUNCHER'
 #!/bin/sh
 set -eu
+PATH=/usr/bin:/bin
+export PATH
 export APPIMAGE_EXTRACT_AND_RUN=1
 launcher_dir=${0%/*}
 # Keep the runtime option for AppImages created before env support was added.
