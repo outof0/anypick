@@ -9,13 +9,13 @@ signature and is not notarized.
 
 Each Linux/Windows payload is smoke-tested on its own OS (`packaging/smoke/`)
 before it can reach a GitHub Release. The gate checks the bundled Go helper and
-launches the packaged desktop app in an isolated HOME with an empty executable
-search path (ADR 0020 §8). Linux extracts deb/rpm payloads for the helper and
-desktop checks; for AppImage it checks the extracted payload but launches the
-original image through its AppImage runtime so runtime-provided WebKit helper
-paths remain available. The Windows smoke also confirms the app window and
-bundled Go sidecar start. Linux uses Xvfb and WebKitGTK for native WebDriver
-coverage.
+launches the packaged desktop app in an isolated HOME. Linux deb/rpm and
+Windows use an empty executable search path (ADR 0020 §8). The AppImage smoke
+gives its generated AppRun only `/usr/bin:/bin` so its `bash` interpreter can
+resolve, then launches the original image through its runtime so
+runtime-provided WebKit helper paths remain available. The Windows smoke also
+confirms the app window and bundled Go sidecar start. Linux uses Xvfb and
+WebKitGTK for native WebDriver coverage.
 
 **This app owns no AnyPick state and never reads credentials.** It launches,
 handshakes with, supervises and shuts down the bundled Go service, then renders

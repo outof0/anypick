@@ -9,6 +9,8 @@ bin="$root/bin"
 workspace="$root/workspace"
 runner_temp="$root/runner"
 mkdir -p "$stage" "$bin" "$workspace/src/tauri/ui/scripts" "$runner_temp"
+empty_path="$root/empty-path"
+mkdir -p "$empty_path"
 : > "$stage/anypick.deb"
 : > "$stage/anypick.AppImage"
 : > "$workspace/src/tauri/ui/scripts/desktop-e2e.mjs"
@@ -27,6 +29,10 @@ fi
 HELPER
 cat > "$destination/usr/bin/anypick" <<'APP'
 #!/bin/sh
+[ "${PATH-}" = "$SMOKE_EMPTY_PATH" ] || {
+  echo "deb desktop smoke did not preserve the empty PATH" >&2
+  exit 95
+}
 exit 0
 APP
 chmod +x "$destination/usr/bin/anypick-core" "$destination/usr/bin/anypick"
@@ -58,10 +64,10 @@ set -eu
 application=$2
 case "$application" in
   */anypick-appimage-launcher)
-    "$application"
+    PATH="$SMOKE_EMPTY_PATH" "$application"
     ;;
   */deb/usr/bin/anypick)
-    "$application"
+    PATH="$SMOKE_EMPTY_PATH" "$application"
     ;;
   */squashfs-root/usr/bin/anypick)
     echo "AppImage E2E bypassed its runtime launcher" >&2
@@ -101,12 +107,17 @@ if [ "${1-}" != --appimage-extract-and-run ]; then
   echo "AppImage runtime compatibility argument was not passed" >&2
   exit 96
 fi
+if [ "${PATH-}" != /usr/bin:/bin ]; then
+  echo "AppImage runtime did not receive the minimal host PATH" >&2
+  exit 95
+fi
 printf 'launched\n' >> "$APPIMAGE_TEST_MARKER"
 APPIMAGE
 chmod +x "$stage/anypick.AppImage"
 chmod +x "$bin/dpkg-deb" "$bin/xvfb-run" "$bin/dbus-run-session" "$bin/node"
 
 export PATH="$bin:$PATH"
+export SMOKE_EMPTY_PATH="$empty_path"
 export GITHUB_WORKSPACE="$workspace"
 export RUNNER_TEMP="$runner_temp"
 export APPIMAGE_TEST_MARKER="$root/appimage-launches"
