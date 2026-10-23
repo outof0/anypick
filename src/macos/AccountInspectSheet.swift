@@ -74,12 +74,8 @@ struct AccountInspectSheet: View {
               Section {
                 ForEach(group.windows) { window in
                   Group {
-                    if group.title != nil {
-                      DesignQuotaView(model: model, window: window, showsLimitCard: true)
-                    } else {
-                      LabeledContent(localizedQuotaWindowLabel(window, using: model)) {
-                        DesignQuotaView(model: model, window: window, isCompact: false, showsLabel: false)
-                      }
+                    LabeledContent(localizedQuotaWindowLabel(window, using: model)) {
+                      DesignQuotaView(model: model, window: window, isCompact: false, showsLabel: false)
                     }
                   }
                   .accessibilityIdentifier("account.usage.\(window.id)")

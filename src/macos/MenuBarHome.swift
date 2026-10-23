@@ -56,6 +56,7 @@ struct MenuBarAppCard: View {
     .padding(compact ? 9 : 10)
     .frame(maxWidth: .infinity, alignment: .leading)
     .frame(minHeight: compact ? 76 : 96, alignment: .top)
+    .fixedSize(horizontal: false, vertical: true)
     .background(
       TrayPaint.cardFill,
       in: RoundedRectangle(cornerRadius: compact ? 10 : 11, style: .continuous)
@@ -153,35 +154,49 @@ struct MenuBarAppCard: View {
         }
         Spacer(minLength: 4)
         if more > 0 {
-          Button(model.localized(compact ? "desktop.menu_bar.switch" : "desktop.menu_bar.all_accounts"), action: onSwitch)
-            .buttonStyle(.borderless)
-            .font(TrayFont.detailStrong)
-            .foregroundStyle(TrayPaint.accent)
-            .accessibilityIdentifier("tray.app.\(app.id).more")
+          Button(
+            model.localized(compact ? "desktop.menu_bar.switch" : "desktop.menu_bar.all_accounts"),
+            action: onSwitch
+          )
+          .buttonStyle(.borderless)
+          .font(TrayFont.detailStrong)
+          .foregroundStyle(TrayPaint.accent)
+          .accessibilityIdentifier("tray.app.\(app.id).more")
         }
       }
       if !compact, model.showUsage {
         ForEach(app.usageWindows) { window in
-          HStack(spacing: 6) {
-            Text(localizedQuotaWindowLabel(window, using: model))
-              .foregroundStyle(.secondary)
-            Spacer(minLength: 4)
-            Text(model.localized("desktop.menu_bar.usage_remaining", replacing: ["amount": "\(window.remainingPercent)%"]))
+          VStack(alignment: .leading, spacing: 3) {
+            HStack(spacing: 6) {
+              Text(localizedQuotaWindowLabel(window, using: model))
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .truncationMode(.tail)
+              Spacer(minLength: 4)
+              Text(
+                model.localized(
+                  "desktop.menu_bar.usage_remaining",
+                  replacing: ["amount": "\(window.remainingPercent)%"])
+              )
               .monospacedDigit()
-            if let reset = localizedQuotaResetFormatted(using: model, resetsAtMs: window.resetsAtMs, limitWindowSeconds: window.limitWindowSeconds) {
-              Text(reset).foregroundStyle(.secondary)
+              if let reset = localizedQuotaResetFormatted(
+                using: model, resetsAtMs: window.resetsAtMs,
+                limitWindowSeconds: window.limitWindowSeconds)
+              {
+                Text(reset).foregroundStyle(.secondary)
+              }
             }
+            .font(.caption2)
+            ProgressView(value: Double(max(0, min(100, window.remainingPercent))), total: 100)
+              .progressViewStyle(.linear)
+              .tint(TrayPaint.accent)
+              .controlSize(.mini)
           }
-          .font(.caption2)
-          ProgressView(value: Double(window.remainingPercent) / 100)
-            .tint(TrayPaint.accent)
-            .controlSize(.mini)
+          .fixedSize(horizontal: false, vertical: true)
         }
       }
     }
   }
-
-
 
 }
 

@@ -39,7 +39,8 @@ struct DesignStatusLabel: View {
       Text(status.localizedLabel(using: model))
         .foregroundStyle(.secondary)
     }
-    .accessibilityLabel("\(model.localized("desktop.common.status")): \(status.localizedLabel(using: model))")
+    .accessibilityLabel(
+      "\(model.localized("desktop.common.status")): \(status.localizedLabel(using: model))")
   }
 
   @ViewBuilder
@@ -79,18 +80,12 @@ struct DesignQuotaView: View {
   let window: DesignUsageWindow
   var isCompact: Bool = false
   var showsLabel: Bool = true
-  /// Antigravity-style limit row: title, "fully refresh in …" caption, % + ring.
-  var showsLimitCard: Bool = false
 
   private var remainingPercent: Int { max(0, min(100, window.remainingPercent)) }
   private var label: String { localizedQuotaWindowLabel(window, using: model) }
 
   var body: some View {
-    if showsLimitCard {
-      limitCard
-    } else {
-      compactRow
-    }
+    compactRow
   }
 
   private var compactRow: some View {
@@ -123,53 +118,13 @@ struct DesignQuotaView: View {
       .frame(width: 72, alignment: .trailing)
     }
     .accessibilityElement(children: .combine)
-    .accessibilityLabel(model.localized("desktop.quota.remaining_accessibility", replacing: [
-      "label": label,
-      "percent": String(remainingPercent),
-    ]))
-  }
-
-  private var limitCard: some View {
-    HStack(alignment: .center, spacing: 12) {
-      VStack(alignment: .leading, spacing: 4) {
-        Text(label)
-          .font(.body.weight(.medium))
-          .fixedSize(horizontal: false, vertical: true)
-        if let refresh = localizedQuotaFullyRefreshFormatted(resetsAtMs: window.resetsAtMs, using: model) {
-          Text(limitCaption(refresh: refresh))
-            .font(.subheadline)
-            .foregroundStyle(.secondary)
-            .fixedSize(horizontal: false, vertical: true)
-        }
-      }
-      Spacer(minLength: 8)
-      Text("\(remainingPercent)%")
-        .font(.title3.monospacedDigit())
-        .foregroundStyle(.primary)
-      Gauge(value: Double(remainingPercent), in: 0...100) {
-        EmptyView()
-      }
-      .gaugeStyle(.accessoryCircularCapacity)
-      .tint(attentionTint ?? Color.accentColor)
-      .frame(width: 36, height: 36)
-      .accessibilityHidden(true)
-    }
-    .accessibilityElement(children: .combine)
-    .accessibilityLabel(model.localized("desktop.quota.remaining_accessibility", replacing: [
-      "label": label,
-      "percent": String(remainingPercent),
-    ]))
-  }
-
-  private func limitCaption(refresh: String) -> String {
-    let period = localizedQuotaLimitAdjective(limitWindowSeconds: window.limitWindowSeconds, using: model)
-    if let period {
-      if remainingPercent >= 100 {
-        return model.localized("desktop.quota.limit_unused", replacing: ["period": period, "refresh": refresh])
-      }
-      return model.localized("desktop.quota.limit_used", replacing: ["period": period, "refresh": refresh])
-    }
-    return model.localized("desktop.quota.refresh_without_period", replacing: ["refresh": refresh])
+    .accessibilityLabel(
+      model.localized(
+        "desktop.quota.remaining_accessibility",
+        replacing: [
+          "label": label,
+          "percent": String(remainingPercent),
+        ]))
   }
 
   private var attentionTint: Color? {

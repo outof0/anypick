@@ -276,6 +276,44 @@ final class PaneRenderTests: XCTestCase {
   }
 
   @MainActor
+  func testUpdateCheckKeepsSectionHeightAcrossCheckingAndResult() {
+    let model = MacOSDesignModel.fromEnvironment(["ANYPICK_MACOS_FIXTURE": "ready"])
+    func height(_ fixture: String?) -> CGFloat {
+      var environment: [String: String] = [:]
+      if let fixture { environment["ANYPICK_MACOS_UPDATE_FIXTURE"] = fixture }
+      let updates = UpdatesModel(environment: environment)
+      let host = NSHostingView(rootView: Form {
+        SettingsUpdatesPane(updates: updates, model: model)
+      }.formStyle(.grouped).frame(width: 650).fixedSize(horizontal: false, vertical: true))
+      return host.fittingSize.height
+    }
+    let idle = height(nil)
+    XCTAssertGreaterThan(idle, 40)
+    XCTAssertEqual(idle, height("checking"), accuracy: 0.5)
+    XCTAssertEqual(idle, height("upToDate"), accuracy: 0.5)
+  }
+
+  @MainActor
+  func testTrayQuotaCardRefusesHeightCompression() {
+    let model = MacOSDesignModel.fromEnvironment(["ANYPICK_MACOS_FIXTURE": "ready"])
+    var app = model.apps.first { $0.id == "gemini" }!
+    let window = app.usageWindows[0]
+    app.usageWindows = (0..<8).map { index in
+      var value = window
+      value.label = "Long provider quota window \(index)"
+      return value
+    }
+    let measured = LayoutMeasurement()
+    let host = NSHostingView(rootView: CompressedMeasurementLayout(measured: measured) {
+      MenuBarAppCard(model: model, app: app, onSwitch: {})
+    })
+    _ = host.fittingSize
+    XCTAssertGreaterThan(measured.size.height, 250,
+      "Quota rows must reserve their height even when the panel proposes only 80pt")
+    XCTAssertLessThanOrEqual(measured.size.width, 320.5)
+  }
+
+  @MainActor
   func testTrayPanelRendersEverySceneWithoutTrapping() {
     // The Quick Panel is plain native rows now; a body trap there only
     // surfaces when the panel actually renders, so build each scene
@@ -288,5 +326,23 @@ final class PaneRenderTests: XCTestCase {
     }
     let empty = MacOSDesignModel.fromEnvironment(["ANYPICK_MACOS_FIXTURE": "empty"])
     render(MenuBarMenu(model: empty))
+  }
+}
+
+private final class LayoutMeasurement {
+  var size = CGSize.zero
+}
+
+private struct CompressedMeasurementLayout: Layout {
+  let measured: LayoutMeasurement
+
+  func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+    let size = subviews[0].sizeThatFits(ProposedViewSize(width: 320, height: 80))
+    measured.size = size
+    return size
+  }
+
+  func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+    subviews[0].place(at: bounds.origin, proposal: ProposedViewSize(width: 320, height: 80))
   }
 }

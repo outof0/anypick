@@ -215,12 +215,8 @@ struct AccountDetailView: View {
 
   private func usageRow(_ window: DesignUsageWindow, grouped: Bool) -> some View {
     Group {
-      if grouped {
-        DesignQuotaView(model: model, window: window, showsLimitCard: true)
-      } else {
-        LabeledContent(localizedQuotaWindowLabel(window, using: model)) {
-          DesignQuotaView(model: model, window: window, isCompact: false, showsLabel: false)
-        }
+      LabeledContent(localizedQuotaWindowLabel(window, using: model)) {
+        DesignQuotaView(model: model, window: window, isCompact: false, showsLabel: false)
       }
     }
     .accessibilityIdentifier("accounts.inspector.usage.\(window.id)")

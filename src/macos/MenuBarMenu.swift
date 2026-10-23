@@ -161,7 +161,15 @@ struct MenuBarMenu: View {
           onDismiss: { dismissAttentionNotice(item) }
         )
       }
-      readyHome
+      ScrollView {
+        VStack(alignment: .leading, spacing: 7) {
+          readyHome
+        }
+        .fixedSize(horizontal: false, vertical: true)
+      }
+      .scrollBounceBehavior(.basedOnSize)
+      .frame(maxHeight: 560)
+      .fixedSize(horizontal: false, vertical: true)
       trayFooterHairline
       homeFooter()
     }
