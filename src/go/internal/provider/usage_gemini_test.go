@@ -406,8 +406,8 @@ func TestGeminiLiveUsagePrefersQuotaSummary(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LiveUsage: %v", err)
 	}
-	if usage == nil || len(usage.Windows) != 3 {
-		t.Fatalf("windows = %+v", usage)
+	if usage == nil || len(usage.Windows) != 2 {
+		t.Fatalf("aggregate summary must not acquire per-model rows: %+v", usage)
 	}
 	if server.summaryCalls != 1 || server.quotaCalls != 0 {
 		t.Fatalf("summary=%d quota=%d, want summary only", server.summaryCalls, server.quotaCalls)
@@ -415,8 +415,56 @@ func TestGeminiLiveUsagePrefersQuotaSummary(t *testing.T) {
 	if usage.Windows[0].Group != "Gemini Models" || usage.Windows[0].RemainingPercent != 95 {
 		t.Fatalf("summary window = %+v", usage.Windows[0])
 	}
-	if usage.Windows[2].Label != "Gemini Pro" || usage.Windows[2].RemainingPercent != 62 {
-		t.Fatalf("model quota missing: %+v", usage.Windows)
+	if usage.Windows[1].Label != "Five Hour Limit Remaining" {
+		t.Fatalf("summary cadence lost: %+v", usage.Windows)
+	}
+}
+
+func TestGeminiLiveUsageUsesModelsWhenGoogleSummaryIsMissing(t *testing.T) {
+	t.Setenv("GEMINI_CONFIG_DIR", "")
+	t.Setenv("GEMINI_CLI_HOME", "")
+	t.Setenv("ANTIGRAVITY_USER_DATA_DIR", "")
+	home := t.TempDir()
+	writeAntigravityState(t, home, antigravityTokenSentinel,
+		antigravityTokenInfo("anti-access", "Bearer", "1//anti", time.Now().Add(time.Hour)))
+
+	server := &codeAssistQuotaServer{
+		project: "projects/9",
+		models:  map[string]interface{}{"gemini-pro": map[string]interface{}{"displayName": "Gemini Pro", "modelProvider": "MODEL_PROVIDER_GOOGLE", "quotaInfo": map[string]interface{}{"remainingFraction": 0.62, "resetTime": "2026-10-17T00:00:00Z"}}},
+		summaryGroups: []map[string]interface{}{
+			{
+				"displayName": "Claude and GPT models",
+				"buckets": []map[string]interface{}{
+					{"bucketId": "gemini-weekly", "displayName": "Weekly Limit Remaining",
+						"window": "weekly", "remainingFraction": 0.95,
+						"resetTime": "2026-10-16T09:00:00Z"},
+					{"bucketId": "gemini-5h", "displayName": "Five Hour Limit Remaining",
+						"window": "5h", "remainingFraction": 1},
+				},
+			},
+		},
+		// Would produce a different shape if the client wrongly fell back.
+		buckets: []map[string]interface{}{
+			{"modelId": "models/gemini-3-pro", "remainingFraction": 0.1},
+		},
+	}
+	server.start(t)
+
+	usage, err := newGemini(home).LiveUsage(context.Background())
+	if err != nil {
+		t.Fatalf("LiveUsage: %v", err)
+	}
+	if usage == nil || len(usage.Windows) != 3 {
+		t.Fatalf("missing Google summary needs independent model readings: %+v", usage)
+	}
+	if server.summaryCalls != 1 || server.quotaCalls != 0 {
+		t.Fatalf("summary=%d quota=%d, want summary only", server.summaryCalls, server.quotaCalls)
+	}
+	if usage.Windows[0].Group != "Claude and GPT models" || usage.Windows[0].RemainingPercent != 95 {
+		t.Fatalf("summary window = %+v", usage.Windows[0])
+	}
+	if usage.Windows[2].Label != "Gemini Pro" || usage.Windows[2].RemainingPercent != 62 || usage.Windows[2].LimitWindowSeconds != nil {
+		t.Fatalf("per-model fallback must preserve the reported reading without inventing a cadence: %+v", usage.Windows)
 	}
 }
 

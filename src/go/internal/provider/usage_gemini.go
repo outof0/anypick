@@ -111,9 +111,17 @@ func fetchGeminiCodeAssistUsage(ctx context.Context, base, token, ideType, userA
 	)
 	if summaryErr == nil {
 		if usage, perr := parseGeminiQuotaSummary(summaryRaw); perr == nil && usage != nil {
-			// The native IDE's summary currently covers the shared Claude/GPT
-			// windows. Google model quotas live on its model catalogue instead.
-			if ideType == "ANTIGRAVITY" {
+			// Some IDE responses omit Google's aggregate limits. Keep model
+			// readings only as a fallback; they are not additional limits when
+			// the summary already supplies the Gemini group.
+			hasGeminiSummary := false
+			for _, window := range usage.Windows {
+				if strings.EqualFold(strings.TrimSpace(window.Group), "Gemini models") {
+					hasGeminiSummary = true
+					break
+				}
+			}
+			if ideType == "ANTIGRAVITY" && !hasGeminiSummary {
 				modelRaw, merr := geminiCodeAssistPost(ctx, base+"/v1internal:fetchAvailableModels", token, userAgent, payload)
 				if merr == nil {
 					usage.Windows = append(usage.Windows, parseGeminiModelQuota(modelRaw)...)

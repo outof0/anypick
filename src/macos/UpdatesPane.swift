@@ -219,7 +219,15 @@ struct SettingsUpdatesPane: View {
     let p = updates.presentation
     Section {
       LabeledContent(model.localized("desktop.settings.current_version")) {
-        Text(status?.current ?? updates.currentVersion).textSelection(.enabled)
+        HStack {
+          Text(status?.current ?? updates.currentVersion).textSelection(.enabled)
+          Button(
+            model.localized("desktop.settings.check_for_updates"), action: updates.checkForUpdates
+          )
+          .disabled(updates.isRunning)
+          .fixedSize()
+          .accessibilityIdentifier("settings.updates.check")
+        }
       }
       .accessibilityIdentifier("settings.updates.current")
 
@@ -228,9 +236,12 @@ struct SettingsUpdatesPane: View {
           .accessibilityIdentifier("settings.updates.latest")
       }
 
-      if let message = (status?.kind == "bridgeFailure"
-        ? model.localized("desktop.updates.bridge_failed")
-        : status?.message), !message.isEmpty {
+      if status?.kind != "checking", status?.kind != "upToDate",
+        let message =
+          (status?.kind == "bridgeFailure"
+            ? model.localized("desktop.updates.bridge_failed")
+            : status?.message), !message.isEmpty
+      {
         Label {
           Text(message).fixedSize(horizontal: false, vertical: true)
         } icon: {
@@ -243,7 +254,19 @@ struct SettingsUpdatesPane: View {
         Text(hint).foregroundStyle(.secondary)
       }
 
-      if p.showsProgress {
+      HStack {
+        if status?.kind == "checking" {
+          ProgressView().controlSize(.small)
+          Text(status?.message ?? "").foregroundStyle(.secondary)
+        } else {
+          Text(status?.kind == "upToDate" ? (status?.message ?? "") : " ")
+            .foregroundStyle(.secondary)
+        }
+        Spacer()
+      }
+      .frame(minHeight: 20)
+
+      if p.showsProgress && status?.kind != "checking" {
         Group {
           if p.isIndeterminate {
             ProgressView().controlSize(.small)
@@ -267,34 +290,37 @@ struct SettingsUpdatesPane: View {
               model.localized(updates.copied ? "desktop.updates.copied" : "desktop.common.copy"),
               action: updates.copyCommand
             )
-              .accessibilityIdentifier("settings.updates.copy-command")
+            .accessibilityIdentifier("settings.updates.copy-command")
           }
         }
       }
 
-      HStack {
-        Spacer()
-        if p.showsViewOnGitHub {
-          Button(model.localized("desktop.updates.view_on_github"), action: updates.openRelease)
-            .accessibilityIdentifier("settings.updates.view-on-github")
-        }
-        if p.showsRevealDownload {
-          Button(model.localized("desktop.updates.show_in_finder"), action: updates.revealDownload)
+      if p.showsViewOnGitHub || p.showsRevealDownload || p.showsRetry || p.showsDownloadUpdate {
+        HStack {
+          Spacer()
+          if p.showsViewOnGitHub {
+            Button(model.localized("desktop.updates.view_on_github"), action: updates.openRelease)
+              .accessibilityIdentifier("settings.updates.view-on-github")
+          }
+          if p.showsRevealDownload {
+            Button(
+              model.localized("desktop.updates.show_in_finder"), action: updates.revealDownload
+            )
             .accessibilityIdentifier("settings.updates.reveal")
-        }
-        if p.showsRetry {
-          Button(model.localized("desktop.common.try_again"), action: updates.retry)
-            .disabled(updates.isRunning)
-            .accessibilityIdentifier("settings.updates.retry")
-        }
-        Button(model.localized("desktop.settings.check_for_updates"), action: updates.checkForUpdates)
-          .disabled(updates.isRunning)
-          .accessibilityIdentifier("settings.updates.check")
-        if p.showsDownloadUpdate {
-          Button(model.localized("desktop.updates.download_update"), action: updates.downloadUpdate)
+          }
+          if p.showsRetry {
+            Button(model.localized("desktop.common.try_again"), action: updates.retry)
+              .disabled(updates.isRunning)
+              .accessibilityIdentifier("settings.updates.retry")
+          }
+          if p.showsDownloadUpdate {
+            Button(
+              model.localized("desktop.updates.download_update"), action: updates.downloadUpdate
+            )
             .buttonStyle(.borderedProminent)
             .disabled(updates.isRunning)
             .accessibilityIdentifier("settings.updates.download")
+          }
         }
       }
     } header: {
@@ -314,7 +340,9 @@ struct SettingsUpdatesPane: View {
         .frame(maxHeight: 220)
         .accessibilityIdentifier("settings.updates.changelog")
       } header: {
-        Text(model.localized("desktop.updates.whats_new", replacing: ["version": status?.latest ?? ""]))
+        Text(
+          model.localized("desktop.updates.whats_new", replacing: ["version": status?.latest ?? ""])
+        )
       }
     }
   }
