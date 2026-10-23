@@ -3410,6 +3410,30 @@ final class FooterV5Tests: XCTestCase {
 }
 
 final class UpdatesPaneTests: XCTestCase {
+  func testHelperExitPreservesTerminalErrorsAndRejectsIncompleteResults() {
+    for kind in ["offline", "rateLimited", "badChecksum", "hostBlocked", "notWritable", "storageUnavailable"] {
+      let status = fixture(kind)
+      XCTAssertEqual(UpdateCoreBridge.finalStatus(status, exitStatus: 1, current: "1.1.0"), status)
+    }
+    for kind in ["checking", "downloading", "verifying"] {
+      for code: Int32 in [0, 1] {
+        XCTAssertEqual(
+          UpdateCoreBridge.finalStatus(fixture(kind), exitStatus: code, current: "1.1.0"),
+          .bridgeFailure(current: "1.1.0"))
+      }
+    }
+    for kind in ["upToDate", "availableDirect", "availablePackageManager", "ready"] {
+      let status = fixture(kind)
+      XCTAssertEqual(UpdateCoreBridge.finalStatus(status, exitStatus: 0, current: "1.1.0"), status)
+      XCTAssertEqual(
+        UpdateCoreBridge.finalStatus(status, exitStatus: 1, current: "1.1.0"),
+        .bridgeFailure(current: "1.1.0"))
+    }
+    XCTAssertEqual(
+      UpdateCoreBridge.finalStatus(nil, exitStatus: 0, current: "1.1.0"),
+      .bridgeFailure(current: "1.1.0"))
+  }
+
   private func fixture(_ kind: String) -> UpdateStatusDTO {
     guard let status = UpdateStatusFixtures.status(kind) else {
       XCTFail("missing fixture \(kind)")

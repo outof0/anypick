@@ -6,6 +6,10 @@ Conventional Commits by `changelogithub`, are on
 
 This project follows [Semantic Versioning](https://semver.org/).
 
+## 1.1.3
+
+Report update failures with the correct CLI exit status while preserving specific recovery actions in macOS Settings, and wait for the Windows app window before starting desktop end-to-end checks.
+
 ## 1.1.2
 
 Fix isolated client logins and Codex profile synchronization, restore desktop Doctor and account actions, improve quota reporting, and gate desktop releases on native end-to-end checks. Refresh the product description and localized documentation.

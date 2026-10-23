@@ -10,6 +10,7 @@ import { dirname, join, resolve, sep } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 
 import { driverEnvironment, resolveExecutable } from './desktop-e2e-environment.mjs';
+import { createNativeSession } from './desktop-e2e-session.mjs';
 
 assert(['linux', 'win32'].includes(process.platform), 'native desktop E2E requires Linux or Windows');
 const application = resolve(process.argv[2] ?? `src/tauri/app/target/debug/anypick${process.platform === 'win32' ? '.exe' : ''}`);
@@ -128,9 +129,8 @@ async function open() {
     applicationProcess = spawn(application, [], { env: environment, stdio: ['ignore', 'pipe', 'pipe'] });
     captureOutput(applicationProcess, (error) => { applicationError = error; });
   }
-  await wait('native WebDriver ready', () => request('GET', '/status'));
   const capabilities = embeddedDriver ? {} : { 'tauri:options': { application } };
-  const value = await request('POST', '/session', { capabilities: { alwaysMatch: capabilities } });
+  const value = await createNativeSession(request, wait, capabilities);
   session = value.sessionId;
   assert(session, 'WebDriver did not create a native app session');
   await wait('first real snapshot rendered', () => present(selector('overview')));
