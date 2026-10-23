@@ -363,6 +363,10 @@ not replace or restart the installed app. In Settings, **Show in Finder** opens
 the downloaded file so you can install it using the usual steps for that
 channel. Package-manager installs show the corresponding upgrade command.
 
+Both commands exit with status `1` when the check or download fails, while
+`--json` still emits the final error state for callers to inspect. Successful
+checks and completed downloads exit with status `0`.
+
 The macOS app is not notarized; first-launch approval steps are in
 [Desktop apps](/docs/guides/tray).
 

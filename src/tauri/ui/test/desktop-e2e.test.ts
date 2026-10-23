@@ -37,7 +37,7 @@ it('starts the embedded app before its native WebDriver readiness check', () => 
   const startup = open?.body?.statements.findIndex((statement) =>
     statement.getText(source).includes('applicationProcess = spawn(application')) ?? -1;
   const readiness = open?.body?.statements.findIndex((statement) =>
-    statement.getText(source).includes('native WebDriver ready')) ?? -1;
+    statement.getText(source).includes('await createNativeSession(')) ?? -1;
   expect(startup).toBeGreaterThanOrEqual(0);
   expect(readiness).toBeGreaterThan(startup);
 });

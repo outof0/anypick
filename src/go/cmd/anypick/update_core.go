@@ -85,5 +85,13 @@ func cmdUpdateCore(ctx context.Context, verb string, args []string) int {
 			cliPrintlnRaw(final.FilePath)
 		}
 	}
-	return int(anyerr.Success)
+	switch update.StateKind(final.Kind) {
+	case update.StateUpToDate, update.StateAvailableDirect, update.StateAvailablePackageManager, update.StateReady, update.StateIdle:
+		return int(anyerr.Success)
+	default:
+		if ctx.Err() == context.Canceled {
+			return int(anyerr.Cancelled)
+		}
+		return int(anyerr.Operational)
+	}
 }

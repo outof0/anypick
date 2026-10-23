@@ -107,6 +107,20 @@ struct UpdatePanePresentation: Equatable {
 }
 
 enum UpdateCoreBridge {
+  static func finalStatus(_ last: UpdateStatusDTO?, exitStatus: Int32, current: String) -> UpdateStatusDTO {
+    guard let last else { return .bridgeFailure(current: current) }
+    switch last.kind {
+    case "offline", "rateLimited", "githubDown", "badChecksum", "hostBlocked", "notWritable", "storageUnavailable", "installFailed":
+      // The helper reports operational failures through both NDJSON and its
+      // exit status. Keep the specific explanation and recovery action.
+      return last
+    case "upToDate", "availableDirect", "availablePackageManager", "ready", "idle":
+      return exitStatus == 0 ? last : .bridgeFailure(current: current)
+    default:
+      return .bridgeFailure(current: current)
+    }
+  }
+
   /// Runs `anypick-core update <verb> --json --current <version>` and reports
   /// each decoded line. Returns the last line (the final state).
   static func run(
@@ -128,12 +142,7 @@ enum UpdateCoreBridge {
         await onStatus(status)
       }
       process.waitUntilExit()
-      // A non-zero exit (or no final state) must not leave the pane stuck on
-      // an intermediate "downloading" line — surface bridgeFailure instead.
-      if process.terminationStatus != 0 || last == nil {
-        return .bridgeFailure(current: current)
-      }
-      return last!
+      return finalStatus(last, exitStatus: process.terminationStatus, current: current)
     } catch {
       return .bridgeFailure(current: current)
     }
