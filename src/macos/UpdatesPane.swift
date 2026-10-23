@@ -265,7 +265,6 @@ struct SettingsUpdatesPane: View {
         Spacer()
       }
       .frame(minHeight: 20)
-      .accessibilityIdentifier("settings.updates.check-status")
 
       if p.showsProgress && status?.kind != "checking" {
         Group {
