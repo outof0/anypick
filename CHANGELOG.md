@@ -8,7 +8,7 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## 1.1.3
 
-Report update failures with the correct CLI exit status while preserving specific recovery actions in macOS Settings, and wait for the Windows app window before starting desktop end-to-end checks.
+Preserve client routes removed or changed outside AnyPick during startup and proxy maintenance. Report update failures with the correct CLI exit status while preserving specific recovery actions in macOS Settings, and wait for the Windows app window before starting desktop end-to-end checks.
 
 ## 1.1.2
 

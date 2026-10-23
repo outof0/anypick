@@ -589,7 +589,7 @@ func (s *Server) rehydrateManagedBindings(ctx context.Context) error {
 		if binding == nil {
 			continue
 		}
-		if s.clientUsesNativeLogin(clientID) {
+		if !s.canAutomaticallyReapply(clientID) {
 			continue
 		}
 		source := binding.Spec.Source
@@ -1368,7 +1368,7 @@ func (s *Server) reapplyClientsBoundTo(ctx context.Context, source refs.Ref, all
 		if refs.SerializeRef(b.Spec.Source) != want {
 			continue
 		}
-		if !allowForeign && s.managedSource(ctx, clientID, source) && s.clientUsesNativeLogin(clientID) {
+		if !allowForeign && s.managedSource(ctx, clientID, source) && !s.canAutomaticallyReapply(clientID) {
 			continue
 		}
 		var records []string
@@ -1391,6 +1391,21 @@ func (s *Server) reapplyClientsBoundTo(ctx context.Context, source refs.Ref, all
 		recovery = append(recovery, records)
 	}
 	return nil
+}
+
+// A saved binding is history, not consent to recreate deleted settings. Native
+// config must survive maintenance even when credential detection is unavailable
+// (for example, a locked macOS Keychain).
+func (s *Server) canAutomaticallyReapply(clientID string) bool {
+	if s.Deps.Clients == nil {
+		return false
+	}
+	cad, err := s.Deps.Clients.Get(clientID)
+	if err != nil {
+		return false
+	}
+	inspected, err := cad.Inspect()
+	return err == nil && inspected != nil && !inspected.Native && !inspected.RoutingChanged
 }
 
 // A subscription sign-in can survive an external switch away from AnyPick's

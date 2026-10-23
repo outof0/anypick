@@ -7,6 +7,7 @@ package desktop
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -671,6 +672,20 @@ func TestChangedSelectionsDoNotAdvertiseSavedRoutesAsReady(t *testing.T) {
 				t.Fatal(err)
 			}
 			srv := newWaitedServerOut(t, env.Deps, nil)
+			before, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := srv.rehydrateManagedBindings(ctx); err != nil {
+				t.Fatal(err)
+			}
+			if err := srv.reapplyClientsBoundTo(ctx, source, false); err != nil {
+				t.Fatal(err)
+			}
+			after, err := os.ReadFile(path)
+			if err != nil || string(after) != string(before) {
+				t.Fatalf("maintenance changed external selection: %v", err)
+			}
 			snap, err := srv.buildSnapshot(ctx)
 			if err != nil {
 				t.Fatal(err)
@@ -694,5 +709,59 @@ func TestChangedSelectionsDoNotAdvertiseSavedRoutesAsReady(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// Deleting routing settings withdraws the live route even if native credentials
+// cannot be detected. Neither startup nor proxy maintenance may resurrect it.
+func TestAutomaticReapplyPreservesRemovedClaudeRouteWithoutCredentials(t *testing.T) {
+	for _, hub := range []bool{false, true} {
+		for _, removed := range []bool{false, true} {
+			t.Run(fmt.Sprintf("hub=%v/removed=%v", hub, removed), func(t *testing.T) {
+				env := newTrayEnv(t)
+				wireActivation(t, env)
+				ctx := context.Background()
+				source := bindWorkbuddyToClaude(t, env)
+				if hub {
+					source = refs.ProxyHubRef("missing-hub")
+					b, err := env.Deps.Bindings.GetGlobalContext(ctx, "claude")
+					if err != nil {
+						t.Fatal(err)
+					}
+					b.Spec.Source = source
+					if _, err := env.Deps.Bindings.UpsertGlobalContext(ctx, *b); err != nil {
+						t.Fatal(err)
+					}
+				}
+				path := writeClaudeSettings(t, env.Home, map[string]string{})
+				before, err := os.ReadFile(path)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if removed {
+					if err := os.Remove(path); err != nil {
+						t.Fatal(err)
+					}
+				}
+				srv := New(env.Deps, strings.NewReader(""), &strings.Builder{})
+				if err := srv.rehydrateManagedBindings(ctx); err != nil {
+					t.Fatal(err)
+				}
+				if err := srv.reapplyClientsBoundTo(ctx, source, false); err != nil {
+					t.Fatal(err)
+				}
+				after, err := os.ReadFile(path)
+				if removed {
+					if !os.IsNotExist(err) {
+						t.Fatalf("deleted settings recreated: %v", err)
+					}
+				} else if err != nil || string(after) != string(before) {
+					t.Fatalf("native settings changed: %v", err)
+				}
+				if got := srv.clientConfigConditions(); len(got) != 0 {
+					t.Fatalf("skipped route raised conditions: %+v", got)
+				}
+			})
+		}
 	}
 }
