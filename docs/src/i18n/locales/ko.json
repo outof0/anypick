@@ -143,6 +143,23 @@
       "otherRule": "그 밖의 호환 도구는 선택한 외부 계정이나 API 게이트웨이를 사용할 수 있습니다.",
       "reference": "호환성 참고 문서 보기"
     },
+    "more": {
+      "kicker": "전환 그 이상",
+      "title": "할당량이 소진되면 다음 계정이 응답합니다.",
+      "body": "공급자 간 경로를 가능하게 하는 로컬 프록시는 전환 이상의 일을 합니다. 필요한 기능만 켜세요. 모든 것은 여전히 이 컴퓨터에서 실행됩니다.",
+      "hubTitle": "계정 간 대체",
+      "hubBody": "풀과 Proxy Hub는 공급자가 할당량 때문에 거절한 요청을 다음 계정으로 넘깁니다. 모델 대체 체인을 combo로 이름 붙이거나, 할당량이 가장 먼저 초기화되는 계정부터 각 요청을 시작할 수 있습니다.",
+      "hubLink": "프록시와 Proxy Hub",
+      "localTitle": "내 컴퓨터의 모델 사용",
+      "localBody": "Ollama나 LM Studio를 키 없이 계정으로 저장하세요. Claude Code, Codex, pi, omp가 AnyPick의 로컬 프록시를 통해 사용합니다.",
+      "localLink": "로컬 모델 서버 추가",
+      "usageTitle": "사용량 확인",
+      "usageBody": "anypick usage는 프록시가 처리한 토큰을 모델, 계정, 날짜별로 합산하고 날짜가 표시된 API 정가로 비용을 추정합니다. 개수만 저장하며 프롬프트나 키는 저장하지 않습니다.",
+      "usageLink": "사용량과 비용",
+      "automationTitle": "스크립트로 사용",
+      "automationBody": "모든 명령이 --json을 지원하고, anypick serve는 상태 표시줄과 대시보드를 위해 전용 토큰이 있는 루프백 API를 실행합니다. API는 프록시 키를 반환하지 않습니다.",
+      "automationLink": "관리 API"
+    },
     "install": {
       "kicker": "데스크톱 앱 또는 터미널",
       "title": "앱으로 시작하거나 터미널에서 계속하세요.",

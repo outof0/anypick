@@ -100,7 +100,29 @@ round-robin` startet stattdessen jede Anfrage beim nächsten Mitglied des Rings,
 anypick proxy pool enable kiro --strategy round-robin
 ```
 
-Beide Strategien führen nur die *berechtigten* Mitglieder durch: Ein Konto, das der Quotenwächter auf die Abklingzeit gesetzt hat, wird übersprungen, und die Rotation überspringt es ebenfalls. Der Unterschied besteht darin, wo ein Versuch beginnt, und nicht darin, ob er fehlschlägt – ein Mitglied, das mit einem Kontingentklassenfehler antwortet, übergibt die Anfrage trotzdem an das nächste.
+`--strategy soonest-reset` beginnt jede Anfrage bei dem Konto, dessen ungenutztes
+Kontingent sich am frühesten zurücksetzt. Kontingent, das beim Zurücksetzen noch
+übrig ist, verfällt; dieses Konto sollte also zuerst verbraucht werden:
+
+```bash
+anypick proxy pool enable codex --strategy soonest-reset
+```
+
+Der Pool liest alle fünf Minuten die Kontingentfenster jedes Mitglieds aus
+dessen gespeichertem Login und legt sie in einem Cache neben den Laufzeitdateien
+des Pools ab. Anfragen lesen nur diesen Cache; sie warten nie auf eine
+Nutzungsabfrage. Codex- und Claude-Konten melden ihre Fenster. Ein Konto ohne
+Messwert, mit einem Messwert älter als dreißig Minuten oder mit abgelaufenem
+gespeichertem Login kommt nach den Konten mit Messwert; ein Pool, über den
+nichts bekannt ist, verhält sich also wie `failover`. Der Proxy Hub akzeptiert
+dieselbe Strategie, mit `anypick proxy hub enable <name> --strategy soonest-reset`
+oder über die Strategieauswahl des Hubs in den Apps.
+
+Jede Strategie durchläuft nur die *berechtigten* Mitglieder: Ein Konto, das der
+Kontingentwächter in die Abkühlphase versetzt hat, wird übersprungen. Der
+Unterschied liegt darin, wo ein Versuch beginnt, nicht darin, ob ein Failover
+stattfindet – ein Mitglied, das mit einem Kontingentfehler antwortet, gibt die
+Anfrage trotzdem an das nächste weiter.
 
 Wenn **jedes** Mitglied sich abkühlt, bedient der Pool weiter: Er versucht das Konto, das am schnellsten wiederhergestellt werden kann, und gibt die Antwort des Anbieters an den Anrufer zurück, anstatt sie lokal abzulehnen. Nur ein Versuch, damit ein voll gedrosselter Anbieter nicht von einem Ringwalk erschlagen wird. Ein erschöpftes Abonnement zeigt daher genau das an, was der Anbieter gesagt hat (`429`, `402` oder eine Reset-Zeit), worauf ein Client reagieren kann:
 
@@ -145,6 +167,37 @@ Das Wechseln pro Konto ist die gesamte Mitgliedschaftsregel: Ein ausgeschaltetes
 Der Hub verfügt außerdem über einen **eigenen Kontingentschutz** (dieselben `ui.quotaGuard`-Einstellungen): Wenn ein Anbieter eine Anfrage ablehnt, weil der Schlüssel oder das Konto kein Kontingent mehr hat, wird dieses Konto abgekühlt und die Anfrage wird an das nächste aktivierte Konto weitergeleitet, das dasselbe Modell bedienen kann. Eine Anbieterverweigerung, die nicht die Anmeldedaten in Frage stellt (echte 500, eine Ratenbegrenzung pro Minute), wird Ihnen wörtlich ausgehändigt – der Hub gibt nicht das Kontingent eines anderen Kontos dafür aus. Wenn sich jeder Kandidat abkühlt, bedient sich immer noch derjenige, der sich am schnellsten erholt und sein Urteil durchsetzt, es sei denn, `serveWhenAllCooling` ist falsch. Pool-Proxys behalten ihre eigene Wache; Dies gilt nur für den Hub.
 
 Das Proxy-Board listet den Hub bei der Konfiguration als eigene Zeile auf; <kbd>enter</kbd> oder <kbd>m</kbd> öffnet den Hub-Editor. Bevorzugen Sie gewöhnliche Pro-Konto-Proxys, es sei denn, Sie benötigen ausdrücklich einen gemeinsamen Endpunkt für alle Anbieter.
+
+### Combos: Modell-IDs, die der Hub definiert
+
+Ein Combo ist ein selbst gewählter Name für eine geordnete Ausweichkette. Jeder
+Schritt ist eine Quelle, die bereits im Hub ist, und das Modell, das an sie
+gesendet wird:
+
+```bash
+anypick proxy hub combo add default smart \
+  claude/work=claude-opus-4 claude/work=claude-sonnet-4 zai/plan=glm-4.6
+anypick proxy hub combo list default
+anypick proxy hub combo remove default smart
+```
+
+Ein Client, der beim Hub das Modell `smart` anfragt, erhält den ersten Schritt.
+Wird dieser Schritt wegen des Kontingents abgelehnt, geht die Anfrage an den
+nächsten Schritt, gesendet unter dessen eigener Modell-ID. Jede andere Antwort,
+auch eine abgelehnte Anfrage, ist die Antwort an den Client. Ein Schritt kann
+eine Pool-Quelle sein (`codex/pool:codex=gpt-5`), und ein Pool ohne Kontingent
+gibt die Anfrage weiter wie ein Konto.
+
+Ein Combo-Name ist eine Modell-ID, die dem Hub gehört; wählen Sie also einen
+Namen, den kein Anbieter verwendet. Der Hub lehnt einen Namen ab, der bereits
+ein angepinntes Modell ist. Das Speichern oder Entfernen eines Combos startet
+einen laufenden Hub neu, damit er die Änderung ausliefert.
+
+Der Hub beantwortet `GET /v1/models` selbst: seine angepinnten Modelle, jedes
+Modell, das nur einer seiner Anbieter veröffentlicht, und seine Combos. Ein
+Modell, das zwei Anbieter veröffentlichen, bleibt aus der Liste, bis Sie mit
+`anypick proxy hub owner` seinen Eigentümer wählen. An den Hub gebundene Apps
+bieten die Combos in ihrer Modellauswahl an.
 
 ## Prozessverantwortung
 

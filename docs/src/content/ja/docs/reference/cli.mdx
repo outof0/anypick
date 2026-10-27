@@ -174,11 +174,13 @@ anypick proxy logs <provider> <account> [--lines N] [--follow]
 
 `enable`/`config` の `--port` はポートを固定します。それ以外の場合は、最初の空きポートが使用されます。 `token` は、プロキシの認証トークン/API キーを印刷または回転 (`--rotate`) します。 `logs` はデフォルトで最後の 50 行を印刷します。
 
+実行中のプロキシでローテーションすると、AnyPick は新しいキーが受け入れられ、以前のキーが拒否されることを確認してから、そのアカウントにバインドされたすべてのクライアント（プールのプライマリーアカウントの場合はプールのクライアントも）を更新します。設定を AnyPick のルートから外したクライアントは、`--allow-foreign-config` を付けない限り変更されません。確認に失敗しても、新しいキーは理由とともに表示されます。実行中のプールの最初のメンバーをローテーションしても、プールは動き続けます。
+
 ### プール
 
 ```bash
 anypick proxy pool status <provider>
-anypick proxy pool enable <provider> [--strategy failover|round-robin]
+anypick proxy pool enable <provider> [--strategy failover|round-robin|soonest-reset]
     [--mode single|multi] [--port N] [-p N] [+account|-account ...]
 anypick proxy pool member <provider> <account> <on|off>
 anypick proxy pool start <provider>
@@ -193,15 +195,20 @@ anypick proxy pool disable <provider>
 ```bash
 anypick proxy hub status <name>
 anypick proxy hub enable <name> [--host <host>] [--port N] [-p N]
-    [--strategy failover|round-robin] [--start]
+    [--strategy failover|round-robin|soonest-reset] [--start]
 anypick proxy hub source <name> <provider> <account>
 anypick proxy hub owner <name> <model> <provider>/<account>
 anypick proxy hub preview <name>
 anypick proxy hub start <name>
 anypick proxy hub stop <name>
+anypick proxy hub combo add <name> <combo> <provider/account=model>...
+anypick proxy hub combo list <name>
+anypick proxy hub combo remove <name> <combo>
 ```
 
 `source` 切り替え: 現在のソースが削除され、存在しないソースが追加されます (アカウント名が必要です)。 `--strategy round-robin` により、ハブは各モデルを 1 つに固定するのではなく、モデルを提供できる有効なアカウント (モデルが解決されるプロバイダーのアカウント) 全体に分散します。フラグがない場合は、現在のモードが維持されます。少なくとも 1 つのソースを有効にした後、`--with hub:<name>` でバインドします。 `owner` は、2 つのソースが同じモデル ID をアドバタイズする場合にどちらのアカウントが勝つかを選択します。 `preview` はカタログを更新し、ルートと競合を出力します。
+
+`combo` は、ハブがモデル ID として提供する名前付きのフォールバックチェーンを管理します。[プロキシ](/ja/docs/guides/proxies) を参照してください。
 
 ## プラグイン
 
@@ -229,6 +236,14 @@ anypick stop
 `anypick tui`は常に[アプリ/ターミナルUI](/ja/docs/guides/terminal-ui)を開きます。 `tray` コマンド ファミリーは Go エンジンによって実装されます (TypeScript ツリーとそのトレイ サーフェスはもう存在しません)。 `anypick tray` は互換性スナップショットを印刷し、`start`、`status`、および`stop` は、互換性スーパーバイザーとそれが所有するプロキシを制御します。
 
 これらのコマンドは、ネイティブ アプリの所有権を定義しません。 macOS アプリは、`Contents/Helpers/anypick-core` を解決して開始し、メニュー バーのクイック パネルを同じアプリケーション内に保持し、明示的なアプリの終了でヘルパーを停止します。 [macOS アプリとメニュー バー](/ja/docs/guides/tray) を参照してください。
+
+## 使用履歴
+
+```bash
+anypick usage [--since 7d|24h|2026-10-01] [--by model|account|provider|day] [--json]
+```
+
+実行中のプロキシ、プール、Proxy Hub が処理したトークンを、API 定価での費用見積もりとともに表示します。`--since` の既定は `7d` で、履歴は 90 日間保持されます。 `--by` の既定は `model` です。何が記録されるか、見積もりの算出方法、価格の追加方法は [使用量とコスト](/ja/docs/guides/usage) にあります。
 
 ## 健康
 

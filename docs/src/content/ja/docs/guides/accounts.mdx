@@ -96,6 +96,26 @@ anypick add account mimo --credential subscription-key --secret --name work \
 
 すべての `--option key=value` は、そのプロバイダーによって宣言された修飾子である必要があります。 TUI は、プロバイダー契約から同じ種類とエンドポイント プロファイルをレンダリングします。 macOS アプリでは、これらのプロバイダーはサインイン フローの代わりにログインの追加に API キー フォームを表示します。
 
+### ローカルモデルサーバー
+
+Ollama と LM Studio は自分のマシン上でモデルを提供するため、キーは不要です。サーバーをアカウントとして保存します。
+
+```bash
+anypick add account ollama --credential server --name local
+anypick add account lmstudio --credential server --name local
+```
+
+これはこのコンピューターの既定のアドレスを指します。Ollama は `http://127.0.0.1:11434/v1`、LM Studio は `http://127.0.0.1:1234/v1` です。別の場所にあるサーバーには、その URL をプロファイルとして渡します。
+
+```bash
+anypick add account ollama --credential server --name lan \
+  --option profile=http://192.168.1.20:11434
+```
+
+パスのない URL には `/v1` が付きます。LM Studio の API キーを有効にしている場合は `--secret` を追加します。AnyPick がキーを送るのは HTTPS 経由か、このコンピューター上のサーバーだけです。そのため、ネットワーク上の別の場所にある平文 HTTP サーバー用のキーは拒否されます。
+
+Claude Code、Codex、pi、omp は AnyPick のプロキシ経由でこのアカウントを使います。プロキシは Claude Code のリクエストを、サーバーの OpenAI 互換 API へ変換します。アプリでは、これらのプロバイダーは「ログインを追加」でキー欄を任意として表示します。
+
 <Aside type="caution" title="一度に 1 つのライブログイン">
 プロバイダー CLI は通常、デフォルト ホームに 1 つの認証情報を保持します。保存されたアカウントは AnyPick のストアに存在し、通常のアクティベーションにより、選択したアカウントがそのプロバイダー パスに復元されます。 Codex の名前付きプロファイルは例外です。各プロファイルは分離された `CODEX_HOME` を取得するため、複数の Codex CLI アカウントを同時に実行できます。プロファイルがアクティブな間は、管理対象認証ファイルを手動で編集しないでください。
 </Aside>

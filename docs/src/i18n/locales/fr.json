@@ -143,6 +143,23 @@
       "otherRule": "Les autres outils compatibles peuvent utiliser certains comptes externes ou des passerelles API.",
       "reference": "Consulter la référence de compatibilité"
     },
+    "more": {
+      "kicker": "Au-delà du changement de compte",
+      "title": "Quand le quota est épuisé, le compte suivant prend le relais.",
+      "body": "Les proxies locaux qui rendent possibles les routes entre fournisseurs font plus que changer de compte. Activez ce dont vous avez besoin ; tout reste sur cet ordinateur.",
+      "hubTitle": "Basculer d'un compte à l'autre",
+      "hubBody": "Les pools et le Proxy Hub transmettent une requête au compte suivant quand un fournisseur la refuse pour cause de quota. Nommez une chaîne de modèles de secours sous forme de combo, ou commencez chaque requête par le compte dont le quota se réinitialise le plus tôt.",
+      "hubLink": "Proxies et Proxy Hub",
+      "localTitle": "Utiliser des modèles sur votre machine",
+      "localBody": "Enregistrez Ollama ou LM Studio comme compte, sans clé. Claude Code, Codex, pi et omp y accèdent via le proxy local d'AnyPick.",
+      "localLink": "Ajouter un serveur de modèles local",
+      "usageTitle": "Voir ce que vous avez consommé",
+      "usageBody": "anypick usage additionne les tokens servis par vos proxies, par modèle, compte ou jour, avec une estimation aux prix catalogue de l'API, datés. Seuls les compteurs sont conservés, jamais les prompts ni les clés.",
+      "usageLink": "Utilisation et coût",
+      "automationTitle": "L'automatiser",
+      "automationBody": "Chaque commande parle --json, et anypick serve lance une API en boucle locale avec son propre jeton pour les barres d'état et les tableaux de bord. L'API ne renvoie jamais de clé de proxy.",
+      "automationLink": "API de gestion"
+    },
     "install": {
       "kicker": "App de bureau ou terminal",
       "title": "Commencez avec l’app ou restez dans le terminal.",

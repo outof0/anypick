@@ -100,7 +100,28 @@ round-robin` en cambio, inicia cada solicitud en el siguiente miembro del anillo
 anypick proxy pool enable kiro --strategy round-robin
 ```
 
-Ambas estrategias solo acompañan a los miembros *elegibles*: una cuenta que el guardia de cuotas ha puesto en tiempo de reutilización se omite, y la rotación también la omite. La diferencia es dónde comienza un intento, no si falla: un miembro que responde con un error de clase de cuota aún entrega la solicitud al siguiente.
+`--strategy soonest-reset` empieza cada solicitud por la cuenta cuya cuota sin
+usar se restablece antes. La cuota que queda en una ventana cuando se
+restablece se pierde, así que esa es la cuenta que conviene gastar primero:
+
+```bash
+anypick proxy pool enable codex --strategy soonest-reset
+```
+
+El pool lee cada cinco minutos las ventanas de cuota de cada miembro desde su
+inicio de sesión guardado y las guarda en una caché junto a los archivos de
+ejecución del pool. Las solicitudes solo leen esa caché; nunca esperan a una
+consulta de uso. Las cuentas de Codex y Claude informan de sus ventanas. Una
+cuenta sin lectura, con una lectura de más de treinta minutos o cuyo inicio de
+sesión guardado ha caducado va después de las cuentas que sí la tienen, así que
+un pool del que no se sabe nada se comporta como `failover`. El Proxy Hub acepta
+la misma estrategia, con `anypick proxy hub enable <name> --strategy soonest-reset`
+o con el selector de estrategia del hub en las aplicaciones.
+
+Todas las estrategias recorren solo los miembros *elegibles*: se omite una
+cuenta que el guardián de cuota ha puesto en enfriamiento. La diferencia está en
+dónde empieza un intento, no en si hay conmutación por error: un miembro que
+responde con un error de cuota sigue pasando la solicitud al siguiente.
 
 Cuando **todos** los miembros se están enfriando, el grupo sigue funcionando: intenta la cuenta que se recuperará más pronto y pasa la respuesta del proveedor a la persona que llama, en lugar de rechazarla localmente. Solo un intento, para que un proveedor totalmente limitado no se vea afectado por una caminata circular. Por lo tanto, una suscripción agotada muestra exactamente lo que dijo el proveedor (`429`, `402` o un tiempo de reinicio), que es sobre lo que un cliente puede actuar:
 
@@ -145,6 +166,36 @@ Los cambios por cuenta son toda la regla de membresía: una cuenta desactivada n
 El centro también mantiene una **protección de cuota propia** (la misma configuración `ui.quotaGuard`): cuando un proveedor rechaza una solicitud porque la clave o cuenta está fuera de cuota, esa cuenta se enfría y la solicitud pasa a la siguiente cuenta habilitada que puede servir el mismo modelo. Se le entrega textualmente un rechazo del proveedor que no culpa a la credencial (500 reales, un límite de tarifa por minuto): el centro no gasta la cuota de otra cuenta en ella. Cuando cada candidato se está enfriando, todavía atiende al que se recupera más rápido y transmite su veredicto, a menos que `serveWhenAllCooling` sea falso. Los representantes del pool mantienen su propia guardia; este se aplica solo al centro.
 
 La placa Proxy enumera el Hub como su propia fila cuando se configura; <kbd>enter</kbd> o <kbd>m</kbd> abre el editor Hub. Prefiera proxies ordinarios por cuenta a menos que necesite específicamente un punto final compartido entre proveedores.
+
+### Combos: ids de modelo que define el hub
+
+Un combo es un nombre que eliges para una cadena de respaldo ordenada. Cada paso
+es una fuente que ya está en el hub y el modelo que se le envía:
+
+```bash
+anypick proxy hub combo add default smart \
+  claude/work=claude-opus-4 claude/work=claude-sonnet-4 zai/plan=glm-4.6
+anypick proxy hub combo list default
+anypick proxy hub combo remove default smart
+```
+
+Un cliente que pide al hub el modelo `smart` recibe el primer paso. Cuando ese
+paso se rechaza por cuota, la solicitud pasa al siguiente, enviada con el id de
+modelo de ese paso. Cualquier otra respuesta, incluida una solicitud rechazada,
+es la respuesta para el cliente. Un paso puede ser una fuente de pool
+(`codex/pool:codex=gpt-5`), y un pool sin cuota pasa la solicitud igual que una
+cuenta.
+
+El nombre de un combo es un id de modelo propiedad del hub, así que elige uno
+que no use ningún proveedor; el hub rechaza un nombre que ya es un modelo
+fijado. Guardar o eliminar un combo reinicia un hub en ejecución para que sirva
+el cambio.
+
+El hub responde él mismo a `GET /v1/models`: sus modelos fijados, cada modelo
+que publica solo uno de sus proveedores y sus combos. Un modelo que publican dos
+proveedores queda fuera de la lista hasta que eliges su propietario con
+`anypick proxy hub owner`. Las aplicaciones vinculadas al hub ofrecen los combos
+en su selector de modelos.
 
 ## Propiedad del proceso
 

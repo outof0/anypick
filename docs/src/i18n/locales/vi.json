@@ -143,6 +143,23 @@
       "otherRule": "Các công cụ tương thích khác có thể dùng tài khoản từ nhà cung cấp khác hoặc API gateway, tùy theo adapter.",
       "reference": "Xem bảng tương thích"
     },
+    "more": {
+      "kicker": "Không chỉ là chuyển đổi",
+      "title": "Khi hết hạn mức, tài khoản tiếp theo sẽ trả lời.",
+      "body": "Các proxy cục bộ giúp định tuyến giữa các nhà cung cấp còn làm được nhiều hơn việc chuyển đổi. Bật những gì bạn cần; mọi thứ vẫn chạy trên máy này.",
+      "hubTitle": "Tự chuyển sang tài khoản khác",
+      "hubBody": "Pool và Proxy Hub chuyển yêu cầu sang tài khoản tiếp theo khi nhà cung cấp từ chối vì hết hạn mức. Đặt tên cho một chuỗi mô hình dự phòng thành combo, hoặc bắt đầu mỗi yêu cầu từ tài khoản có hạn mức được đặt lại sớm nhất.",
+      "hubLink": "Proxy và Proxy Hub",
+      "localTitle": "Dùng mô hình trên máy của bạn",
+      "localBody": "Lưu Ollama hoặc LM Studio làm tài khoản, không cần khóa. Claude Code, Codex, pi và omp dùng nó qua proxy cục bộ của AnyPick.",
+      "localLink": "Thêm máy chủ mô hình cục bộ",
+      "usageTitle": "Xem bạn đã dùng bao nhiêu",
+      "usageBody": "anypick usage cộng số token mà các proxy đã phục vụ, theo mô hình, tài khoản hoặc ngày, kèm ước tính theo bảng giá API có ghi ngày. Chỉ lưu số đếm, không bao giờ lưu prompt hay khóa.",
+      "usageLink": "Mức dùng và chi phí",
+      "automationTitle": "Tự động hóa",
+      "automationBody": "Mọi lệnh đều hỗ trợ --json, và anypick serve chạy một API loopback có token riêng cho thanh trạng thái và bảng điều khiển. API không bao giờ trả về khóa proxy.",
+      "automationLink": "API quản lý"
+    },
     "install": {
       "kicker": "Ứng dụng desktop hoặc terminal",
       "title": "Bắt đầu bằng ứng dụng hoặc tiếp tục với terminal.",

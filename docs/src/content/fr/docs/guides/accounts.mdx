@@ -96,6 +96,35 @@ anypick add account mimo --credential subscription-key --secret --name work \
 
 Chaque `--option key=value` doit être un qualificatif déclaré par ce fournisseur. La TUI restitue les mêmes types et profils de point de terminaison que ceux du contrat du fournisseur. Dans l'application macOS, ces fournisseurs affichent un formulaire de clé API dans Ajouter une connexion au lieu d'un flux de connexion.
 
+### Serveurs de modèles locaux
+
+Ollama et LM Studio servent des modèles depuis votre propre machine ; ils n'ont
+donc pas besoin de clé. Enregistrez le serveur comme compte :
+
+```bash
+anypick add account ollama --credential server --name local
+anypick add account lmstudio --credential server --name local
+```
+
+Cela pointe vers l'adresse par défaut de cet ordinateur :
+`http://127.0.0.1:11434/v1` pour Ollama et `http://127.0.0.1:1234/v1` pour LM
+Studio. Pour un serveur ailleurs, passez son URL comme profil :
+
+```bash
+anypick add account ollama --credential server --name lan \
+  --option profile=http://192.168.1.20:11434
+```
+
+Une URL sans chemin reçoit `/v1`. Si vous avez activé la clé d'API de LM Studio,
+ajoutez `--secret`. AnyPick n'envoie une clé qu'en HTTPS ou à un serveur situé
+sur cet ordinateur ; une clé destinée à un serveur HTTP non chiffré ailleurs sur
+le réseau est donc refusée.
+
+Claude Code, Codex, pi et omp utilisent le compte via le proxy d'AnyPick, qui
+traduit les requêtes de Claude Code vers l'API compatible OpenAI du serveur.
+Dans les applications, ces fournisseurs affichent le champ de clé comme
+facultatif dans « Ajouter une connexion ».
+
 <Aside type="caution" title="Une connexion en direct à la fois">
 Les CLI du fournisseur conservent normalement un identifiant dans leur domicile par défaut. Les comptes enregistrés vivent dans le magasin d'AnyPick et l'activation ordinaire restaure celui sélectionné dans ce chemin de fournisseur. Les profils nommés Codex sont l'exception : chacun obtient un `CODEX_HOME` isolé, de sorte que plusieurs comptes Codex CLI peuvent s'exécuter en même temps. Ne modifiez pas manuellement un fichier d'authentification géré lorsque son profil est actif.
 </Aside>

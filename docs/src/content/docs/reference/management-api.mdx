@@ -49,7 +49,7 @@ as `Authorization: Bearer <token>`.
 | `GET /v1/proxies` | Each enabled or running account proxy: `provider`, `account`, `enabled`, `running`, `endpoint` |
 | `GET /v1/hubs` | Each Proxy Hub: `name`, `enabled`, `port`, `strategy`, `sources` |
 | `GET /v1/agents` | Which apps are bound to which source |
-| `GET /v1/usage/history` | Served token usage and its estimate, as `anypick usage --json` prints it. Query `since` (`7d`, `24h` or a date, default `7d`) and `by` (`model`, `account`, `provider` or `day`, default `model`). See [Usage history](/docs/reference/cli#usage-history). |
+| `GET /v1/usage/history` | Served token usage and its estimate, as `anypick usage --json` prints it. Query `since` (`7d`, `24h` or a date, default `7d`) and `by` (`model`, `account`, `provider` or `day`, default `model`). See [Usage and cost](/docs/guides/usage). |
 
 Every response carries `apiVersion`. No response contains a key: not an
 account's credential, not a proxy or hub key, and not the management token.

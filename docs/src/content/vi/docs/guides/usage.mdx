@@ -1,0 +1,82 @@
+---
+title: 'Mức dùng và chi phí'
+description: 'Xem các proxy, pool và Proxy Hub cục bộ đã phục vụ bao nhiêu token, theo mô hình, tài khoản, nhà cung cấp hoặc ngày, kèm ước tính chi phí có ghi ngày.'
+---
+
+Mọi yêu cầu mà proxy, pool hoặc Proxy Hub đang chạy phục vụ đều được đếm. Nhà
+cung cấp báo đã dùng bao nhiêu token, và AnyPick giữ những con số đó trên máy
+này trong 90 ngày. `anypick usage` cộng chúng lại và gắn một giá ước tính.
+
+Chỉ lưu lượng đi qua AnyPick mới được đếm. Client dùng đăng nhập riêng và nói
+chuyện trực tiếp với nhà cung cấp thì không được thấy.
+
+## Xem mức dùng
+
+```bash
+anypick usage                     # 7 ngày gần nhất, theo mô hình
+anypick usage --by account        # tài khoản đã lưu nào phục vụ gì
+anypick usage --by day --since 30d
+anypick usage --json              # cho script
+```
+
+`--since` nhận số ngày (`7d`), khoảng thời gian (`24h`) hoặc một ngày theo giờ
+địa phương (`2026-10-01`). `--by` nhóm theo `model`, `account`, `provider` hoặc
+`day`.
+
+Kết quả từ một sandbox có một tài khoản LM Studio:
+
+```text
+Usage since 2026-10-20 21:41, by account
+                                      requests        input       output       cached     est. USD
+lmstudio/stub                                2            6            8            0       0.0000
+total                                        2            6            8            0       0.0000
+
+Estimated at API list prices as of 2026-10-06; not a bill. Subscription logins are not charged per token.
+```
+
+## Những gì được ghi lại
+
+Với mỗi phản hồi thành công: thời điểm phục vụ, nhà cung cấp và tài khoản đã
+phục vụ, mô hình, và số token đầu vào, đầu ra, bộ nhớ đệm mà nhà cung cấp báo.
+Nội dung yêu cầu và phản hồi, header và khóa không bao giờ được lưu. Yêu cầu bị
+từ chối mà pool hoặc hub đã chuyển sang tài khoản khác thì không được đếm; tài
+khoản cuối cùng trả lời mới được đếm.
+
+Một số phản hồi không có số đếm. Trường hợp thường gặp là stream kiểu OpenAI gửi
+mà không có `stream_options.include_usage`. Yêu cầu như vậy vẫn được đếm, và
+phần tổng hợp cho biết có bao nhiêu yêu cầu không có số token.
+
+## Ước tính
+
+Cột chi phí là **ước tính theo bảng giá API**, kèm ngày lấy giá. Đây không phải
+hóa đơn:
+
+- Đăng nhập theo gói thuê bao (Claude Pro, ChatGPT) không tính tiền theo token.
+  Với loại này, con số là chi phí nếu cùng lưu lượng đó đi qua API.
+- Bảng giá đi kèm chỉ có giá của chính Anthropic. Mô hình không có trong bảng sẽ
+  bị loại khỏi ước tính, và kết quả cho biết có bao nhiêu yêu cầu như vậy. Dấu
+  `+` sau một chi phí nghĩa là một số yêu cầu trong dòng đó đã bị loại.
+- Token bộ nhớ đệm không có giá riêng được tính theo giá đầu vào, nên ước tính
+  cho chúng thường cao hơn thực tế.
+
+Để thêm hoặc sửa giá, tạo `pricing.json` trong thư mục dữ liệu của AnyPick (mặc
+định `~/.anypick`), đơn vị là đô la Mỹ cho mỗi triệu token:
+
+```json
+{
+  "models": {
+    "glm-4.7": { "input": 0.6, "output": 2.2 },
+    "claude-opus-5-5": { "input": 4, "output": 20, "cacheRead": 0.2 }
+  }
+}
+```
+
+Id mô hình khớp chính xác, hoặc khớp như một tiền tố theo sau là `-` hoặc `@`
+sau khi bỏ tiền tố `vendor/` nếu có, nên `claude-opus-5-20260101` được tính giá
+như `claude-opus-5`. Phần tổng hợp liệt kê các mô hình lấy giá từ tệp của bạn.
+
+## Từ một chương trình khác
+
+[API quản lý](/vi/docs/reference/management-api) cung cấp cùng phần tổng hợp tại
+`GET /v1/usage/history`, với cùng các tùy chọn `since` và `by`. Ứng dụng máy
+tính chưa hiển thị lịch sử mức dùng.

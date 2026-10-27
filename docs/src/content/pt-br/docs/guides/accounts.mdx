@@ -96,6 +96,35 @@ anypick add account mimo --credential subscription-key --secret --name work \
 
 Cada `--option key=value` deve ser um qualificador declarado por esse provedor. A TUI renderiza os mesmos tipos e perfis de endpoint do contrato do provedor. No aplicativo macOS, esses provedores mostram um formulário de chave de API em Adicionar Login em vez de um fluxo de login.
 
+### Servidores de modelos locais
+
+O Ollama e o LM Studio servem modelos a partir da sua própria máquina, então não
+precisam de chave. Salve o servidor como uma conta:
+
+```bash
+anypick add account ollama --credential server --name local
+anypick add account lmstudio --credential server --name local
+```
+
+Isso aponta para o endereço padrão deste computador:
+`http://127.0.0.1:11434/v1` para o Ollama e `http://127.0.0.1:1234/v1` para o LM
+Studio. Para um servidor em outro lugar, passe a URL dele como perfil:
+
+```bash
+anypick add account ollama --credential server --name lan \
+  --option profile=http://192.168.1.20:11434
+```
+
+Uma URL sem caminho recebe `/v1`. Se você ativou a chave de API do LM Studio,
+adicione `--secret`. O AnyPick só envia uma chave por HTTPS ou para um servidor
+neste computador, então uma chave para um servidor HTTP sem criptografia em
+outro lugar da rede é recusada.
+
+Claude Code, Codex, pi e omp usam a conta pelo proxy do AnyPick, que traduz as
+solicitações do Claude Code para a API compatível com OpenAI do servidor. Nos
+aplicativos, esses provedores mostram o campo de chave como opcional em
+"Adicionar login".
+
 <Aside type="caution" title="Um login ao vivo por vez">
 As CLIs do provedor normalmente mantêm uma credencial em seu local padrão. As contas salvas ficam na loja do AnyPick e a ativação normal restaura a conta selecionada nesse caminho do provedor. Os perfis nomeados do Codex são a exceção: cada um recebe um `CODEX_HOME` isolado, para que várias contas CLI do Codex possam ser executadas ao mesmo tempo. Não edite manualmente um arquivo de autenticação gerenciado enquanto seu perfil estiver ativo.
 </Aside>

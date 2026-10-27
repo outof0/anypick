@@ -31,6 +31,7 @@ const nimbusConfig = defineNimbusConfig({
           "docs/guides/accounts",
           "docs/guides/gateways",
           "docs/guides/proxies",
+          "docs/guides/usage",
           "docs/guides/projects",
           "docs/guides/plugins",
         ],

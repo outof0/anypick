@@ -143,6 +143,23 @@
       "otherRule": "Andere kompatible Tools können ausgewählte externe Konten oder API-Gateways verwenden.",
       "reference": "Kompatibilitätsreferenz ansehen"
     },
+    "more": {
+      "kicker": "Mehr als Umschalten",
+      "title": "Ist das Kontingent aufgebraucht, antwortet das nächste Konto.",
+      "body": "Die lokalen Proxys, die anbieterübergreifende Routen ermöglichen, können mehr als umschalten. Aktivieren Sie, was Sie brauchen – alles läuft weiterhin auf diesem Computer.",
+      "hubTitle": "Zwischen Konten ausweichen",
+      "hubBody": "Pools und der Proxy Hub geben eine Anfrage an das nächste Konto weiter, wenn ein Anbieter sie wegen des Kontingents ablehnt. Legen Sie eine Ausweichkette von Modellen als Combo an, oder beginnen Sie jede Anfrage bei dem Konto, dessen Kontingent sich am frühesten zurücksetzt.",
+      "hubLink": "Proxys und der Proxy Hub",
+      "localTitle": "Modelle auf dem eigenen Rechner nutzen",
+      "localBody": "Speichern Sie Ollama oder LM Studio als Konto, ganz ohne Schlüssel. Claude Code, Codex, pi und omp erreichen es über den lokalen Proxy von AnyPick.",
+      "localLink": "Lokalen Modellserver hinzufügen",
+      "usageTitle": "Sehen, was Sie verbraucht haben",
+      "usageBody": "anypick usage summiert die Tokens, die Ihre Proxys ausgeliefert haben, nach Modell, Konto oder Tag – mit einer Schätzung zu datierten API-Listenpreisen. Gespeichert werden nur Zählwerte, nie Prompts oder Schlüssel.",
+      "usageLink": "Nutzung und Kosten",
+      "automationTitle": "Automatisieren",
+      "automationBody": "Jeder Befehl spricht --json, und anypick serve startet eine Loopback-API mit eigenem Token für Statuszeilen und Dashboards. Die API gibt nie einen Proxy-Schlüssel zurück.",
+      "automationLink": "Management-API"
+    },
     "install": {
       "kicker": "Desktop-App oder Terminal",
       "title": "Starte mit der App oder bleib im Terminal.",

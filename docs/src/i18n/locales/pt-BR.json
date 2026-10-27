@@ -143,6 +143,23 @@
       "otherRule": "Outras ferramentas compatíveis podem usar algumas contas externas ou gateways de API.",
       "reference": "Veja a referência de compatibilidade"
     },
+    "more": {
+      "kicker": "Além de alternar",
+      "title": "Quando a cota acaba, a próxima conta responde.",
+      "body": "Os proxies locais que tornam possíveis as rotas entre provedores fazem mais do que alternar. Ative o que precisar; tudo continua rodando neste computador.",
+      "hubTitle": "Alternância automática entre contas",
+      "hubBody": "Pools e o Proxy Hub passam uma solicitação para a próxima conta quando um provedor a recusa por cota. Dê nome a uma cadeia de modelos de reserva como combo, ou comece cada solicitação pela conta cuja cota reinicia primeiro.",
+      "hubLink": "Proxies e o Proxy Hub",
+      "localTitle": "Use modelos na sua própria máquina",
+      "localBody": "Salve o Ollama ou o LM Studio como conta, sem chave. Claude Code, Codex, pi e omp o acessam pelo proxy local do AnyPick.",
+      "localLink": "Adicionar um servidor de modelos local",
+      "usageTitle": "Veja o que você usou",
+      "usageBody": "anypick usage soma os tokens que seus proxies serviram, por modelo, conta ou dia, com uma estimativa a preços de tabela da API datados. Guarda contagens, nunca prompts nem chaves.",
+      "usageLink": "Uso e custo",
+      "automationTitle": "Automatize",
+      "automationBody": "Todo comando fala --json, e anypick serve executa uma API de loopback com token próprio para barras de status e painéis. A API nunca retorna uma chave de proxy.",
+      "automationLink": "API de gerenciamento"
+    },
     "install": {
       "kicker": "App para desktop ou terminal",
       "title": "Comece pelo app ou continue no terminal.",

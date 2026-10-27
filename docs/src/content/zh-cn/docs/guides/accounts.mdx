@@ -94,6 +94,26 @@ anypick add account mimo --credential subscription-key --secret --name work \
 
 `--option key=value` 必须由服务商声明。TUI 会根据同一服务商契约显示凭据类型和端点配置；macOS 应用的 Add Login 会为这些服务商显示 API-key 表单，而非登录流程。
 
+### 本地模型服务器
+
+Ollama 和 LM Studio 在你自己的机器上提供模型，因此不需要密钥。把服务器保存为账户：
+
+```bash
+anypick add account ollama --credential server --name local
+anypick add account lmstudio --credential server --name local
+```
+
+这会指向本机的默认地址：Ollama 是 `http://127.0.0.1:11434/v1`，LM Studio 是 `http://127.0.0.1:1234/v1`。如果服务器在别处，把它的 URL 作为 profile 传入：
+
+```bash
+anypick add account ollama --credential server --name lan \
+  --option profile=http://192.168.1.20:11434
+```
+
+没有路径的 URL 会补上 `/v1`。如果你开启了 LM Studio 的 API 密钥，请加上 `--secret`。AnyPick 只通过 HTTPS 或向本机上的服务器发送密钥，因此发给网络中其他位置的明文 HTTP 服务器的密钥会被拒绝。
+
+Claude Code、Codex、pi 和 omp 通过 AnyPick 的代理使用该账户，代理会把 Claude Code 的请求转换为服务器的 OpenAI 兼容 API。在应用中，这些提供商在“添加登录” 里把密钥字段显示为可选。
+
 <Aside type="caution" title="一个服务商路径通常只有一个当前登录">
 服务商 CLI 通常在默认目录中只保留一个凭据。已保存账户在 AnyPick 数据库中；普通启用操作会把所选账户恢复到服务商路径。Codex 命名配置是例外：每个配置都有独立的 `CODEX_HOME`，可以同时运行多个 Codex CLI 账户。配置启用期间，不要手动编辑受管理的授权文件。
 </Aside>

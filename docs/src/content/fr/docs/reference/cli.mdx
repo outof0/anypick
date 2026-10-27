@@ -174,11 +174,19 @@ anypick proxy logs <provider> <account> [--lines N] [--follow]
 
 `--port` sur `enable`/`config` épingle un port ; sinon, le premier port libre est utilisé. `token` imprime ou fait pivoter (`--rotate`) le jeton d'authentification/la clé API du proxy. `logs` imprime les 50 dernières lignes par défaut.
 
+Après une rotation sur un proxy en cours d'exécution, AnyPick vérifie que la
+nouvelle clé est acceptée et que l'ancienne est refusée, puis met à jour chaque
+client lié à ce compte (et, pour le compte principal d'un pool, les clients du
+pool). Un client dont vous avez sorti les réglages de la route d'AnyPick n'est
+pas modifié, sauf si vous ajoutez `--allow-foreign-config`. Si la vérification
+échoue, la nouvelle clé est tout de même affichée, avec la raison. Faire tourner
+la clé du premier membre d'un pool en cours d'exécution laisse le pool tourner.
+
 ### Piscines
 
 ```bash
 anypick proxy pool status <provider>
-anypick proxy pool enable <provider> [--strategy failover|round-robin]
+anypick proxy pool enable <provider> [--strategy failover|round-robin|soonest-reset]
     [--mode single|multi] [--port N] [-p N] [+account|-account ...]
 anypick proxy pool member <provider> <account> <on|off>
 anypick proxy pool start <provider>
@@ -193,15 +201,21 @@ anypick proxy pool disable <provider>
 ```bash
 anypick proxy hub status <name>
 anypick proxy hub enable <name> [--host <host>] [--port N] [-p N]
-    [--strategy failover|round-robin] [--start]
+    [--strategy failover|round-robin|soonest-reset] [--start]
 anypick proxy hub source <name> <provider> <account>
 anypick proxy hub owner <name> <model> <provider>/<account>
 anypick proxy hub preview <name>
 anypick proxy hub start <name>
 anypick proxy hub stop <name>
+anypick proxy hub combo add <name> <combo> <provider/account=model>...
+anypick proxy hub combo list <name>
+anypick proxy hub combo remove <name> <combo>
 ```
 
 `source` bascule : les sources présentes sont supprimées, les sources absentes ajoutées (un nom de compte est requis). `--strategy round-robin` permet au hub de répartir chaque modèle sur les comptes activés qui peuvent le servir (les comptes du fournisseur auquel le modèle est résolu) au lieu de l'épingler à un seul ; sans le drapeau, le mode actuel est conservé. Liez-vous avec `--with hub:<name>` après qu'au moins une source soit activée. `owner` sélectionne quel compte gagne lorsque deux sources annoncent le même identifiant de modèle ; `preview` actualise les catalogues et imprime les itinéraires ainsi que les conflits.
+
+`combo` gère des chaînes de secours nommées que le hub sert comme identifiants
+de modèle ; voir [Proxies](/fr/docs/guides/proxies).
 
 ## Plugins
 
@@ -229,6 +243,18 @@ anypick stop
 `anypick tui` ouvre toujours [Applications / Interface utilisateur du terminal] (/docs/guides/terminal-ui). La famille de commandes `tray` est implémentée par le moteur Go (l'arborescence TypeScript et sa surface de barre d'état n'existent plus) : `anypick tray` imprime l'instantané de compatibilité, tandis que `start`, `status` et `stop` contrôle le superviseur de compatibilité et les proxys qu'il possède.
 
 Ces commandes ne définissent pas la propriété de l'application native. L'application macOS résout et démarre `Contents/Helpers/anypick-core`, conserve le panneau rapide de la barre de menus dans la même application et arrête l'assistant lors de la fermeture explicite de l'application. Voir [application macOS et barre de menus](/fr/docs/guides/tray).
+
+## Historique d'utilisation
+
+```bash
+anypick usage [--since 7d|24h|2026-10-01] [--by model|account|provider|day] [--json]
+```
+
+Affiche les tokens servis par les proxies, pools et Proxy Hubs en cours
+d'exécution, avec une estimation du coût aux prix catalogue de l'API. `--since`
+vaut `7d` par défaut ; l'historique est conservé 90 jours. `--by` vaut `model`
+par défaut. Ce qui est enregistré, comment l'estimation est faite et comment
+ajouter des prix sont décrits dans [Utilisation et coût](/fr/docs/guides/usage).
 
 ## Santé
 
