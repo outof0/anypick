@@ -3,6 +3,7 @@ package ownership
 import (
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 // Regression: Stop must actually reap the child it owns. Ownership
@@ -50,7 +51,19 @@ func TestStopRefusesRecycledPidWithMatchingArgv(t *testing.T) {
 			t.Errorf("restore helper ownership record: %v", err)
 			return
 		}
-		_ = Stop(pidPath, StopOptions{})
+		// A refusal here is a different failure from a slow teardown: name it,
+		// so the next CI failure says which one it was.
+		if !Stop(pidPath, StopOptions{}) {
+			t.Error("Stop refused the restored, owned record")
+		}
+		// On Windows, Stop decides "gone" from the job object's active-process
+		// count, while Alive asks whether the process handle is signalled. On
+		// a loaded runner the two briefly disagree, so asking Alive once, at
+		// once, failed for a helper that was already terminated.
+		deadline := time.Now().Add(5 * time.Second)
+		for rec.Alive() && time.Now().Before(deadline) {
+			time.Sleep(25 * time.Millisecond)
+		}
 		if rec.Alive() {
 			t.Error("could not stop the owned helper after restoring its record")
 		}
