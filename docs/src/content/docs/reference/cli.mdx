@@ -328,36 +328,9 @@ anypick usage [--since 7d|24h|2026-10-01] [--by model|account|provider|day] [--j
 ```
 
 Shows the tokens that running proxies, pools and Proxy Hubs served, with a
-cost estimate. `--since` defaults to `7d`; history is kept for 90 days.
-`--by` defaults to `model`.
-
-What is recorded, per successful response: time, provider, account, model,
-and the input, output and cache token counts the vendor reported. Request and
-response content, headers and keys are never stored. A response that reports
-no counts (an OpenAI-style stream sent without `stream_options.include_usage`)
-is counted as a request with unreported usage.
-
-The cost is an **estimate at API list prices**, with the date those prices
-were read. Requests served by a subscription login (Claude Pro, ChatGPT) are
-not billed per token; for them the figure is what the same traffic would cost
-on the API. The bundled table lists Anthropic's first-party prices only. A
-model it does not list is left out of the estimate, and the output says how
-many requests that was. To add or correct a price, create `pricing.json` in
-the AnyPick data directory (`~/.anypick` by default), in USD per million
-tokens:
-
-```json
-{
-  "models": {
-    "glm-4.7": { "input": 0.6, "output": 2.2 },
-    "claude-opus-5-5": { "input": 4, "output": 20, "cacheRead": 0.2 }
-  }
-}
-```
-
-A model id matches exactly or as a prefix followed by `-` or `@`, after any
-`vendor/` prefix, so `claude-opus-5-20260101` is priced as `claude-opus-5`.
-Cache tokens without a listed cache price are charged at the input price.
+cost estimate at API list prices. `--since` defaults to `7d`; history is kept
+for 90 days. `--by` defaults to `model`. What is recorded, how the estimate is
+made and how to add prices are in [Usage and cost](/docs/guides/usage).
 
 ## Health
 

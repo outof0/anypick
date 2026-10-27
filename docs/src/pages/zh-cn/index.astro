@@ -24,6 +24,13 @@ const clients = [
   "Omp", "Command Code", "DeepSeek Harness", "WorkBuddy AI", "ZCode",
 ];
 
+const features = [
+  { title: "在账户之间回退", body: "当供应商因配额拒绝请求时，池和 Proxy Hub 会把请求交给下一个账户。你可以把一串回退模型命名为 combo，或让每个请求从配额最早重置的账户开始。", link: "代理与 Proxy Hub", href: "/zh-cn/docs/guides/proxies/" },
+  { title: "使用本机上的模型", body: "把 Ollama 或 LM Studio 保存为账户，无需密钥。Claude Code、Codex、pi 和 omp 通过 AnyPick 的本地代理使用它。", link: "添加本地模型服务器", href: "/zh-cn/docs/guides/accounts/" },
+  { title: "查看用量", body: "anypick usage 按模型、账户或日期汇总代理处理的 token，并按标注日期的 API 标价估算费用。只保存计数，从不保存提示词或密钥。", link: "用量与费用", href: "/zh-cn/docs/guides/usage/" },
+  { title: "用脚本控制", body: "每条命令都支持 --json，anypick serve 会为状态栏和仪表盘运行一个带独立令牌的本地回环 API。该 API 从不返回代理密钥。", link: "管理 API", href: "/zh-cn/docs/reference/management-api/" },
+];
+
 const safetySteps = [
   { title: "应用前先检查", body: "桌面应用会显示账号、模型、代理和客户端配置的变更计划。" },
   { title: "保留其他设置", body: "AnyPick 会追踪自己管理的设置；接管未由它写入的配置前会先询问。" },
@@ -205,6 +212,25 @@ const faqs = [
               <strong>Claude 登录仅用于 Claude Code；Gemini CLI 和 Kiro 使用各自服务商的账号。</strong>其他兼容工具可使用部分外部账号或 API 网关。<a class="landing-inline-link" href="/zh-cn/docs/reference/cli/">查看兼容性参考</a>。
             </p>
           </div>
+        </div>
+      </section>
+
+      <section class="landing-section" id="beyond-switching">
+        <div class="landing-wrap landing-compatibility-grid">
+          <div>
+            <p class="landing-kicker">不止切换</p>
+            <h2>配额用尽时，由下一个账户接手。</h2>
+            <p class="landing-section-lede">让跨提供商路由成为可能的本地代理，能做的不止切换。按需开启，一切仍在这台电脑上运行。</p>
+          </div>
+          <ul class="landing-feature-list">
+            {features.map((feature) => (
+              <li>
+                <h3>{feature.title}</h3>
+                <p>{feature.body}</p>
+                <a class="landing-inline-link" href={feature.href}>{feature.link} <Icon name="ph:arrow-right" class="inline h-3.5 w-3.5" aria-hidden="true" /></a>
+              </li>
+            ))}
+          </ul>
         </div>
       </section>
 

@@ -1,0 +1,72 @@
+---
+title: '管理 API'
+description: '托盘应用、状态栏和仪表盘用来读取 AnyPick 状态、切换账户或启动和停止代理的本地回环 HTTP API。'
+---
+
+`anypick serve` 在 `127.0.0.1` 上为基于 AnyPick 构建的工具运行一个带版本的 HTTP API。桌面应用不使用它，而是直接与引擎通信。设计记录在 ADR-0034 中。
+
+## 启动
+
+```bash
+anypick serve --detach
+anypick serve --stop
+```
+
+`--detach` 在后台运行服务器并打印其地址。不加该选项时，服务器在前台运行，直到你按下 Ctrl-C。`--port` 固定端口；否则会自动选择一个端口，并记录在数据目录（`~/.anypick` 或 `ANYPICK_HOME`）的 `serve.pid` 中。
+
+## 令牌
+
+除 `/health` 外，每个路由都需要 bearer 令牌：
+
+```bash
+anypick serve token
+anypick serve token --rotate
+```
+
+令牌保存在数据目录的 `serve.token` 中，只有你能读取。轮换立即生效，无需重启服务器。以 `Authorization: Bearer <token>` 发送。
+
+## 服务器拒绝的请求
+
+- `Host` 不是其监听的回环地址和端口的请求。
+- 带有 `Origin` 请求头的任何请求，这样网页无法调用它。
+- `Content-Type` 不是 `application/json` 的 `POST`。
+- 缺少或错误的令牌，返回 `401`。空的令牌文件不接受任何令牌。
+
+## 读取状态
+
+| 路由 | 返回 |
+| --- | --- |
+| `GET /health` | `ok`、`pid`、`instanceId`、`apiVersion`。无需令牌。 |
+| `GET /v1/status` | `accounts`、`proxies` 和 `hubs` 一起返回 |
+| `GET /v1/accounts` | 每个已保存账户：`provider`、`name`、`label`、`identity`、`active`、`proxyEnabled` |
+| `GET /v1/proxies` | 每个已启用或运行中的账户代理：`provider`、`account`、`enabled`、`running`、`endpoint` |
+| `GET /v1/hubs` | 每个 Proxy Hub：`name`、`enabled`、`port`、`strategy`、`sources` |
+| `GET /v1/agents` | 哪些应用绑定到哪个来源 |
+| `GET /v1/usage/history` | 已处理的 token 用量及其估算，与 `anypick usage --json` 的输出相同。查询参数 `since`（`7d`、`24h` 或日期，默认 `7d`）和 `by`（`model`、`account`、`provider` 或 `day`，默认 `model`）。参见[用量与费用](/zh-cn/docs/guides/usage)。 |
+
+每个响应都带有 `apiVersion`。没有任何响应包含密钥：不含账户的凭据，不含代理或 hub 密钥，也不含管理令牌。看起来像凭据的 identity 会被省略而不是显示。要获取代理的密钥，请使用 `anypick proxy token`。
+
+## 操作
+
+| 路由 | 作用 |
+| --- | --- |
+| `POST /v1/accounts/{provider}/{name}/activate` | 切换提供商的当前账户，并更新绑定到它的每个应用 |
+| `POST /v1/proxies/{provider}/{name}/start` | 启动该账户的代理并返回其 `endpoint` |
+| `POST /v1/proxies/{provider}/{name}/stop` | 停止代理 |
+| `POST /v1/hubs/{name}/start` | 启动 Proxy Hub，或报告它已在运行 |
+| `POST /v1/hubs/{name}/stop` | 停止 hub |
+
+`activate` 接受可选的请求体 `{"allowForeignConfig": true}`，它等同于 `anypick use --allow-foreign-config` 的同意。其他操作不接受请求体，未知字段会被拒绝。
+
+失败时返回 `"ok": false`、`code`、`message`，如果有的话还会返回 `suggestions`。错误的请求返回 `400`，不存在的账户返回 `404`，AnyPick 的其他拒绝返回 `409`：启动不存在或未启用的 hub 会返回 `409` 和 `HUB_DISABLED`。
+
+```bash
+token=$(anypick serve token)
+curl -s http://127.0.0.1:PORT/v1/accounts -H "Authorization: Bearer $token"
+curl -s -X POST http://127.0.0.1:PORT/v1/accounts/claude/work/activate \
+  -H "Authorization: Bearer $token" -H "Content-Type: application/json"
+```
+
+## 兼容性
+
+字段会不经通知地新增。在 `/v1` 中，字段绝不会被删除或更改；那需要新版本。

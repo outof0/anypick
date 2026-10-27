@@ -1,0 +1,93 @@
+---
+title: 'Management-API'
+description: 'Die Loopback-HTTP-API, mit der Tray-Apps, Statuszeilen und Dashboards den Zustand von AnyPick lesen und Konten umschalten oder Proxys starten und stoppen.'
+---
+
+`anypick serve` betreibt eine versionierte HTTP-API auf `127.0.0.1` für
+Werkzeuge, die auf AnyPick aufbauen. Die Desktop-Apps nutzen sie nicht; sie
+sprechen direkt mit der Engine. Die Entscheidung ist in ADR-0034 festgehalten.
+
+## Starten
+
+```bash
+anypick serve --detach
+anypick serve --stop
+```
+
+`--detach` startet den Server im Hintergrund und gibt seine Adresse aus. Ohne
+die Option läuft der Server im Vordergrund, bis Sie Strg-C drücken. `--port`
+legt einen Port fest; sonst wird einer gewählt und in `serve.pid` im
+Datenverzeichnis (`~/.anypick` oder `ANYPICK_HOME`) festgehalten.
+
+## Das Token
+
+Jede Route außer `/health` braucht ein Bearer-Token:
+
+```bash
+anypick serve token
+anypick serve token --rotate
+```
+
+Das Token liegt in `serve.token` im Datenverzeichnis und ist nur für Sie
+lesbar. Eine Rotation wirkt sofort, ohne Neustart des Servers. Senden Sie es als
+`Authorization: Bearer <token>`.
+
+## Was der Server ablehnt
+
+- Eine Anfrage, deren `Host` nicht die Loopback-Adresse und der Port ist, auf
+  denen er lauscht.
+- Jede Anfrage mit einem `Origin`-Header, damit eine Webseite ihn nicht
+  aufrufen kann.
+- Ein `POST`, dessen `Content-Type` nicht `application/json` ist.
+- Ein fehlendes oder falsches Token, mit `401`. Eine leere Token-Datei
+  akzeptiert nichts.
+
+## Zustand lesen
+
+| Route | Liefert |
+| --- | --- |
+| `GET /health` | `ok`, `pid`, `instanceId`, `apiVersion`. Kein Token nötig. |
+| `GET /v1/status` | `accounts`, `proxies` und `hubs` zusammen |
+| `GET /v1/accounts` | Jedes gespeicherte Konto: `provider`, `name`, `label`, `identity`, `active`, `proxyEnabled` |
+| `GET /v1/proxies` | Jeder aktivierte oder laufende Konto-Proxy: `provider`, `account`, `enabled`, `running`, `endpoint` |
+| `GET /v1/hubs` | Jeder Proxy Hub: `name`, `enabled`, `port`, `strategy`, `sources` |
+| `GET /v1/agents` | Welche Apps an welche Quelle gebunden sind |
+| `GET /v1/usage/history` | Ausgelieferte Token-Nutzung und ihre Schätzung, wie `anypick usage --json` sie ausgibt. Abfrageparameter `since` (`7d`, `24h` oder ein Datum, Standard `7d`) und `by` (`model`, `account`, `provider` oder `day`, Standard `model`). Siehe [Nutzung und Kosten](/de/docs/guides/usage). |
+
+Jede Antwort enthält `apiVersion`. Keine Antwort enthält einen Schlüssel: weder
+die Anmeldeinformation eines Kontos noch einen Proxy- oder Hub-Schlüssel noch
+das Management-Token. Eine Identität, die wie eine Anmeldeinformation aussieht,
+wird weggelassen statt angezeigt. Den Schlüssel eines Proxys erhalten Sie mit
+`anypick proxy token`.
+
+## Aktionen
+
+| Route | Bewirkt |
+| --- | --- |
+| `POST /v1/accounts/{provider}/{name}/activate` | Schaltet das Live-Konto des Anbieters um und aktualisiert jede daran gebundene App |
+| `POST /v1/proxies/{provider}/{name}/start` | Startet den Proxy des Kontos und liefert seinen `endpoint` |
+| `POST /v1/proxies/{provider}/{name}/stop` | Stoppt ihn |
+| `POST /v1/hubs/{name}/start` | Startet den Proxy Hub oder meldet, dass er bereits läuft |
+| `POST /v1/hubs/{name}/stop` | Stoppt ihn |
+
+`activate` nimmt einen optionalen Body `{"allowForeignConfig": true}` an, der
+dieselbe Zustimmung ist wie `anypick use --allow-foreign-config`. Andere
+Aktionen nehmen keinen Body, und ein unbekanntes Feld wird abgelehnt.
+
+Ein Fehler antwortet mit `"ok": false`, einem `code`, einer `message` und, falls
+vorhanden, `suggestions`. Eine ungültige Anfrage ist `400`, ein fehlendes Konto
+`404`, und jede andere Ablehnung durch AnyPick `409`: Das Starten eines Hubs,
+der nicht existiert oder nicht aktiviert ist, antwortet mit `409` und
+`HUB_DISABLED`.
+
+```bash
+token=$(anypick serve token)
+curl -s http://127.0.0.1:PORT/v1/accounts -H "Authorization: Bearer $token"
+curl -s -X POST http://127.0.0.1:PORT/v1/accounts/claude/work/activate \
+  -H "Authorization: Bearer $token" -H "Content-Type: application/json"
+```
+
+## Kompatibilität
+
+Felder kommen ohne Ankündigung hinzu. Innerhalb von `/v1` wird ein Feld nie
+entfernt oder geändert; dafür braucht es eine neue Version.

@@ -1,91 +1,91 @@
 {
-  "version": "v1.1.1",
-  "url": "https://github.com/outof0/anypick/releases/tag/v1.1.1",
+  "version": "v1.1.5",
+  "url": "https://github.com/outof0/anypick/releases/tag/v1.1.5",
   "assets": [
     {
-      "name": "AnyPick-1.1.1-1.x86_64.rpm",
-      "size": 13413387,
-      "browser_download_url": "https://github.com/outof0/anypick/releases/download/v1.1.1/AnyPick-1.1.1-1.x86_64.rpm"
+      "name": "AnyPick-1.1.5-1.x86_64.rpm",
+      "size": 13533601,
+      "browser_download_url": "https://github.com/outof0/anypick/releases/download/v1.1.5/AnyPick-1.1.5-1.x86_64.rpm"
     },
     {
-      "name": "anypick-1.1.1-darwin-amd64.tar.gz",
-      "size": 8641426,
-      "browser_download_url": "https://github.com/outof0/anypick/releases/download/v1.1.1/anypick-1.1.1-darwin-amd64.tar.gz"
+      "name": "anypick-1.1.5-darwin-amd64.tar.gz",
+      "size": 8756760,
+      "browser_download_url": "https://github.com/outof0/anypick/releases/download/v1.1.5/anypick-1.1.5-darwin-amd64.tar.gz"
     },
     {
-      "name": "anypick-1.1.1-darwin-arm64.tar.gz",
-      "size": 8166572,
-      "browser_download_url": "https://github.com/outof0/anypick/releases/download/v1.1.1/anypick-1.1.1-darwin-arm64.tar.gz"
+      "name": "anypick-1.1.5-darwin-arm64.tar.gz",
+      "size": 8273390,
+      "browser_download_url": "https://github.com/outof0/anypick/releases/download/v1.1.5/anypick-1.1.5-darwin-arm64.tar.gz"
     },
     {
-      "name": "anypick-1.1.1-linux-amd64.tar.gz",
-      "size": 8537930,
-      "browser_download_url": "https://github.com/outof0/anypick/releases/download/v1.1.1/anypick-1.1.1-linux-amd64.tar.gz"
+      "name": "anypick-1.1.5-linux-amd64.tar.gz",
+      "size": 8654683,
+      "browser_download_url": "https://github.com/outof0/anypick/releases/download/v1.1.5/anypick-1.1.5-linux-amd64.tar.gz"
     },
     {
-      "name": "anypick-1.1.1-linux-arm64.tar.gz",
-      "size": 7891987,
-      "browser_download_url": "https://github.com/outof0/anypick/releases/download/v1.1.1/anypick-1.1.1-linux-arm64.tar.gz"
+      "name": "anypick-1.1.5-linux-arm64.tar.gz",
+      "size": 8000443,
+      "browser_download_url": "https://github.com/outof0/anypick/releases/download/v1.1.5/anypick-1.1.5-linux-arm64.tar.gz"
     },
     {
-      "name": "anypick-1.1.1-windows-amd64.zip",
-      "size": 8700687,
-      "browser_download_url": "https://github.com/outof0/anypick/releases/download/v1.1.1/anypick-1.1.1-windows-amd64.zip"
+      "name": "anypick-1.1.5-windows-amd64.zip",
+      "size": 8822095,
+      "browser_download_url": "https://github.com/outof0/anypick/releases/download/v1.1.5/anypick-1.1.5-windows-amd64.zip"
     },
     {
-      "name": "anypick-1.1.1-windows-arm64.zip",
-      "size": 7957610,
-      "browser_download_url": "https://github.com/outof0/anypick/releases/download/v1.1.1/anypick-1.1.1-windows-arm64.zip"
+      "name": "anypick-1.1.5-windows-arm64.zip",
+      "size": 8065600,
+      "browser_download_url": "https://github.com/outof0/anypick/releases/download/v1.1.5/anypick-1.1.5-windows-arm64.zip"
     },
     {
-      "name": "AnyPick-1.1.1-windows-x64.msi",
-      "size": 13123584,
-      "browser_download_url": "https://github.com/outof0/anypick/releases/download/v1.1.1/AnyPick-1.1.1-windows-x64.msi"
+      "name": "AnyPick-1.1.5-windows-x64.msi",
+      "size": 13254656,
+      "browser_download_url": "https://github.com/outof0/anypick/releases/download/v1.1.5/AnyPick-1.1.5-windows-x64.msi"
     },
     {
       "name": "AnyPick-macos-universal.dmg",
-      "size": 27605515,
-      "browser_download_url": "https://github.com/outof0/anypick/releases/download/v1.1.1/AnyPick-macos-universal.dmg"
+      "size": 27919587,
+      "browser_download_url": "https://github.com/outof0/anypick/releases/download/v1.1.5/AnyPick-macos-universal.dmg"
     },
     {
       "name": "AnyPick-macos-universal.zip",
-      "size": 23331320,
-      "browser_download_url": "https://github.com/outof0/anypick/releases/download/v1.1.1/AnyPick-macos-universal.zip"
+      "size": 23548070,
+      "browser_download_url": "https://github.com/outof0/anypick/releases/download/v1.1.5/AnyPick-macos-universal.zip"
     },
     {
       "name": "AnyPick-package-manager-manifests.zip",
-      "size": 2017,
-      "browser_download_url": "https://github.com/outof0/anypick/releases/download/v1.1.1/AnyPick-package-manager-manifests.zip"
+      "size": 2023,
+      "browser_download_url": "https://github.com/outof0/anypick/releases/download/v1.1.5/AnyPick-package-manager-manifests.zip"
     },
     {
       "name": "anypick-sbom.spdx.json",
       "size": 7030,
-      "browser_download_url": "https://github.com/outof0/anypick/releases/download/v1.1.1/anypick-sbom.spdx.json"
+      "browser_download_url": "https://github.com/outof0/anypick/releases/download/v1.1.5/anypick-sbom.spdx.json"
     },
     {
-      "name": "AnyPick_1.1.1_amd64.AppImage",
-      "size": 87992824,
-      "browser_download_url": "https://github.com/outof0/anypick/releases/download/v1.1.1/AnyPick_1.1.1_amd64.AppImage"
+      "name": "AnyPick_1.1.5_amd64.AppImage",
+      "size": 88095224,
+      "browser_download_url": "https://github.com/outof0/anypick/releases/download/v1.1.5/AnyPick_1.1.5_amd64.AppImage"
     },
     {
-      "name": "AnyPick_1.1.1_amd64.deb",
-      "size": 13413062,
-      "browser_download_url": "https://github.com/outof0/anypick/releases/download/v1.1.1/AnyPick_1.1.1_amd64.deb"
+      "name": "AnyPick_1.1.5_amd64.deb",
+      "size": 13532912,
+      "browser_download_url": "https://github.com/outof0/anypick/releases/download/v1.1.5/AnyPick_1.1.5_amd64.deb"
     },
     {
-      "name": "AnyPick_1.1.1_x64-setup.exe",
-      "size": 9672053,
-      "browser_download_url": "https://github.com/outof0/anypick/releases/download/v1.1.1/AnyPick_1.1.1_x64-setup.exe"
+      "name": "AnyPick_1.1.5_x64-setup.exe",
+      "size": 9752901,
+      "browser_download_url": "https://github.com/outof0/anypick/releases/download/v1.1.5/AnyPick_1.1.5_x64-setup.exe"
     },
     {
-      "name": "AnyPick_1.1.1_x64_en-US.msi",
-      "size": 13123584,
-      "browser_download_url": "https://github.com/outof0/anypick/releases/download/v1.1.1/AnyPick_1.1.1_x64_en-US.msi"
+      "name": "AnyPick_1.1.5_x64_en-US.msi",
+      "size": 13254656,
+      "browser_download_url": "https://github.com/outof0/anypick/releases/download/v1.1.5/AnyPick_1.1.5_x64_en-US.msi"
     },
     {
       "name": "SHA256SUMS.txt",
       "size": 1537,
-      "browser_download_url": "https://github.com/outof0/anypick/releases/download/v1.1.1/SHA256SUMS.txt"
+      "browser_download_url": "https://github.com/outof0/anypick/releases/download/v1.1.5/SHA256SUMS.txt"
     }
   ]
 }

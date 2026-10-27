@@ -1,0 +1,88 @@
+---
+title: 'API quản lý'
+description: 'API HTTP loopback mà ứng dụng khay, thanh trạng thái và bảng điều khiển dùng để đọc trạng thái của AnyPick và chuyển tài khoản hoặc khởi động, dừng proxy.'
+---
+
+`anypick serve` chạy một API HTTP có phiên bản trên `127.0.0.1` cho các công cụ
+xây dựng dựa trên AnyPick. Ứng dụng máy tính không dùng nó; chúng nói chuyện
+trực tiếp với engine. Thiết kế được ghi trong ADR-0034.
+
+## Khởi động
+
+```bash
+anypick serve --detach
+anypick serve --stop
+```
+
+`--detach` chạy máy chủ ở chế độ nền và in địa chỉ của nó. Không có tùy chọn
+này, máy chủ chạy ở chế độ tiền cảnh cho tới khi bạn nhấn Ctrl-C. `--port` cố
+định một cổng; nếu không, một cổng được chọn và ghi vào `serve.pid` trong thư mục
+dữ liệu (`~/.anypick` hoặc `ANYPICK_HOME`).
+
+## Token
+
+Mọi route trừ `/health` đều cần một bearer token:
+
+```bash
+anypick serve token
+anypick serve token --rotate
+```
+
+Token được lưu trong `serve.token` trong thư mục dữ liệu, chỉ bạn đọc được. Xoay
+token có hiệu lực ngay, không cần khởi động lại máy chủ. Gửi nó dưới dạng
+`Authorization: Bearer <token>`.
+
+## Những gì máy chủ từ chối
+
+- Yêu cầu có `Host` không phải địa chỉ loopback và cổng mà máy chủ đang nghe.
+- Mọi yêu cầu có header `Origin`, để trang web không gọi được nó.
+- `POST` có `Content-Type` không phải `application/json`.
+- Token thiếu hoặc sai, trả về `401`. Tệp token rỗng không chấp nhận gì cả.
+
+## Đọc trạng thái
+
+| Route | Trả về |
+| --- | --- |
+| `GET /health` | `ok`, `pid`, `instanceId`, `apiVersion`. Không cần token. |
+| `GET /v1/status` | `accounts`, `proxies` và `hubs` cùng lúc |
+| `GET /v1/accounts` | Mỗi tài khoản đã lưu: `provider`, `name`, `label`, `identity`, `active`, `proxyEnabled` |
+| `GET /v1/proxies` | Mỗi proxy tài khoản đã bật hoặc đang chạy: `provider`, `account`, `enabled`, `running`, `endpoint` |
+| `GET /v1/hubs` | Mỗi Proxy Hub: `name`, `enabled`, `port`, `strategy`, `sources` |
+| `GET /v1/agents` | Ứng dụng nào được gắn với nguồn nào |
+| `GET /v1/usage/history` | Mức dùng token đã phục vụ và ước tính, giống kết quả của `anypick usage --json`. Tham số `since` (`7d`, `24h` hoặc một ngày; mặc định `7d`) và `by` (`model`, `account`, `provider` hoặc `day`; mặc định `model`). Xem [Mức dùng và chi phí](/vi/docs/guides/usage). |
+
+Mọi phản hồi đều có `apiVersion`. Không phản hồi nào chứa khóa: không có thông
+tin đăng nhập của tài khoản, không có khóa proxy hay khóa hub, không có token
+quản lý. Một identity trông giống thông tin đăng nhập sẽ bị bỏ đi thay vì hiển
+thị. Để lấy khóa của một proxy, dùng `anypick proxy token`.
+
+## Thao tác
+
+| Route | Tác dụng |
+| --- | --- |
+| `POST /v1/accounts/{provider}/{name}/activate` | Chuyển tài khoản đang dùng của nhà cung cấp và cập nhật mọi ứng dụng gắn với nó |
+| `POST /v1/proxies/{provider}/{name}/start` | Khởi động proxy của tài khoản và trả về `endpoint` |
+| `POST /v1/proxies/{provider}/{name}/stop` | Dừng proxy |
+| `POST /v1/hubs/{name}/start` | Khởi động Proxy Hub, hoặc báo rằng nó đang chạy |
+| `POST /v1/hubs/{name}/stop` | Dừng hub |
+
+`activate` nhận một body tùy chọn, `{"allowForeignConfig": true}`, tương đương
+sự đồng ý của `anypick use --allow-foreign-config`. Các thao tác khác không nhận
+body, và một trường không xác định sẽ bị từ chối.
+
+Khi thất bại, phản hồi có `"ok": false`, một `code`, một `message` và, nếu có,
+`suggestions`. Yêu cầu sai là `400`, tài khoản không tồn tại là `404`, và mọi từ
+chối khác của AnyPick là `409`: khởi động một hub không tồn tại hoặc chưa bật sẽ
+trả về `409` với `HUB_DISABLED`.
+
+```bash
+token=$(anypick serve token)
+curl -s http://127.0.0.1:PORT/v1/accounts -H "Authorization: Bearer $token"
+curl -s -X POST http://127.0.0.1:PORT/v1/accounts/claude/work/activate \
+  -H "Authorization: Bearer $token" -H "Content-Type: application/json"
+```
+
+## Tương thích
+
+Trường mới được thêm mà không báo trước. Trong `/v1`, một trường không bao giờ
+bị xóa hay thay đổi; việc đó cần một phiên bản mới.

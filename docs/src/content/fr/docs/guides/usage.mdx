@@ -1,0 +1,88 @@
+---
+title: 'Utilisation et coût'
+description: "Voyez combien de tokens vos proxies, pools et Proxy Hubs locaux ont servis, par modèle, compte, fournisseur ou jour, avec une estimation de coût datée."
+---
+
+Chaque requête servie par un proxy, un pool ou un Proxy Hub en cours
+d'exécution est comptée. Le fournisseur indique combien de tokens il a utilisés,
+et AnyPick conserve ces chiffres sur cet ordinateur pendant 90 jours.
+`anypick usage` les additionne et leur attribue un prix estimé.
+
+Seul le trafic qui passe par AnyPick est compté. Un client qui utilise sa propre
+connexion et parle directement à son fournisseur n'est pas vu.
+
+## Le consulter
+
+```bash
+anypick usage                     # les 7 derniers jours, par modèle
+anypick usage --by account        # quel compte enregistré a servi quoi
+anypick usage --by day --since 30d
+anypick usage --json              # pour les scripts
+```
+
+`--since` accepte un nombre de jours (`7d`), une durée (`24h`) ou une date
+locale (`2026-10-01`). `--by` regroupe par `model`, `account`, `provider` ou
+`day`.
+
+Sortie d'un bac à sable avec un compte LM Studio :
+
+```text
+Usage since 2026-10-20 21:41, by account
+                                      requests        input       output       cached     est. USD
+lmstudio/stub                                2            6            8            0       0.0000
+total                                        2            6            8            0       0.0000
+
+Estimated at API list prices as of 2026-10-06; not a bill. Subscription logins are not charged per token.
+```
+
+## Ce qui est enregistré
+
+Pour chaque réponse réussie : quand elle a été servie, le fournisseur et le
+compte qui l'ont servie, le modèle, et les nombres de tokens d'entrée, de sortie
+et de cache indiqués par le fournisseur. Le contenu des requêtes et des
+réponses, les en-têtes et les clés ne sont jamais stockés. Une requête refusée
+que le pool ou le hub a transmise à un autre compte n'est pas comptée ; c'est le
+compte qui a finalement répondu qui l'est.
+
+Certaines réponses ne contiennent aucun nombre. Le cas courant est un flux de
+style OpenAI envoyé sans `stream_options.include_usage`. Une telle requête est
+comptée, et le résumé indique combien n'avaient pas de nombre de tokens.
+
+## L'estimation
+
+La colonne de coût est une **estimation aux prix catalogue de l'API**, avec la
+date à laquelle les prix ont été relevés. Ce n'est pas une facture :
+
+- Une connexion par abonnement (Claude Pro, ChatGPT) n'est pas facturée au
+  token. Pour elle, le chiffre indique ce que le même trafic coûterait via
+  l'API.
+- La table de prix fournie ne contient que les prix d'Anthropic. Un modèle
+  absent de la table est exclu de l'estimation, et la sortie indique combien de
+  requêtes cela représente. Un `+` après un coût signifie que certaines requêtes
+  de cette ligne ont été exclues.
+- Les tokens de cache sans prix de cache propre sont facturés au prix d'entrée ;
+  l'estimation est donc plutôt haute pour eux.
+
+Pour ajouter ou corriger un prix, créez `pricing.json` dans le répertoire de
+données d'AnyPick (`~/.anypick` par défaut), en dollars américains par million
+de tokens :
+
+```json
+{
+  "models": {
+    "glm-4.7": { "input": 0.6, "output": 2.2 },
+    "claude-opus-5-5": { "input": 4, "output": 20, "cacheRead": 0.2 }
+  }
+}
+```
+
+Un identifiant de modèle correspond exactement, ou comme préfixe suivi de `-`
+ou `@` après un éventuel préfixe `vendor/` ; `claude-opus-5-20260101` est donc
+facturé comme `claude-opus-5`. Le résumé liste les modèles dont le prix vient de
+votre fichier.
+
+## Depuis un autre programme
+
+L'[API de gestion](/fr/docs/reference/management-api) sert le même résumé sur
+`GET /v1/usage/history`, avec les mêmes options `since` et `by`. Les
+applications de bureau n'affichent pas encore l'historique d'utilisation.

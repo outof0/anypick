@@ -1,0 +1,81 @@
+---
+title: '사용량과 비용'
+description: '로컬 프록시, 풀, Proxy Hub가 처리한 토큰을 모델, 계정, 공급자, 날짜별로 확인하고 날짜가 표시된 비용 추정을 함께 봅니다.'
+---
+
+실행 중인 프록시, 풀, Proxy Hub가 처리한 모든 요청이 집계됩니다. 공급자가
+사용한 토큰 수를 알려 주고, AnyPick은 그 수치를 이 컴퓨터에 90일 동안
+보관합니다. `anypick usage`는 이를 합산하고 추정 가격을 붙입니다.
+
+AnyPick을 거치는 트래픽만 집계됩니다. 자체 로그인으로 공급자와 직접 통신하는
+클라이언트는 보이지 않습니다.
+
+## 확인하기
+
+```bash
+anypick usage                     # 최근 7일, 모델별
+anypick usage --by account        # 어떤 저장된 계정이 무엇을 처리했는지
+anypick usage --by day --since 30d
+anypick usage --json              # 스크립트용
+```
+
+`--since`에는 일 수(`7d`), 기간(`24h`), 로컬 날짜(`2026-10-01`)를 쓸 수
+있습니다. `--by`는 `model`, `account`, `provider`, `day`로 묶습니다.
+
+LM Studio 계정 하나가 있는 샌드박스의 출력:
+
+```text
+Usage since 2026-10-20 21:41, by account
+                                      requests        input       output       cached     est. USD
+lmstudio/stub                                2            6            8            0       0.0000
+total                                        2            6            8            0       0.0000
+
+Estimated at API list prices as of 2026-10-06; not a bill. Subscription logins are not charged per token.
+```
+
+## 기록되는 내용
+
+성공한 응답마다 처리 시각, 처리한 공급자와 계정, 모델, 그리고 공급자가 보고한
+입력·출력·캐시 토큰 수를 기록합니다. 요청과 응답의 내용, 헤더, 키는 절대
+저장하지 않습니다. 풀이나 허브가 다른 계정으로 넘긴 거절된 요청은 집계하지
+않고, 최종적으로 응답한 계정을 집계합니다.
+
+토큰 수가 없는 응답도 있습니다. 흔한 경우는 `stream_options.include_usage`
+없이 보낸 OpenAI 방식 스트림입니다. 그런 요청도 집계되며, 요약에 토큰 수가
+없었던 건수가 표시됩니다.
+
+## 추정
+
+비용 열은 가격을 확인한 날짜가 붙은 **API 정가 기준 추정치**입니다. 청구서가
+아닙니다.
+
+- 구독 로그인(Claude Pro, ChatGPT)은 토큰 단위로 과금되지 않습니다. 이 경우
+  수치는 같은 트래픽을 API로 썼을 때의 비용입니다.
+- 함께 제공되는 가격표에는 Anthropic 자체 가격만 있습니다. 표에 없는 모델은
+  추정에서 빠지고, 출력에 몇 건인지 표시됩니다. 비용 뒤의 `+`는 그 행의 일부
+  요청이 빠졌다는 뜻입니다.
+- 캐시 가격이 없는 캐시 토큰은 입력 가격으로 계산하므로 추정치가 높게 나오는
+  편입니다.
+
+가격을 추가하거나 고치려면 AnyPick 데이터 디렉터리(기본값 `~/.anypick`)에
+`pricing.json`을 만드세요. 단위는 100만 토큰당 미국 달러입니다.
+
+```json
+{
+  "models": {
+    "glm-4.7": { "input": 0.6, "output": 2.2 },
+    "claude-opus-5-5": { "input": 4, "output": 20, "cacheRead": 0.2 }
+  }
+}
+```
+
+모델 ID는 `vendor/` 접두사가 있으면 그것을 뺀 뒤, 정확히 일치하거나 뒤에
+`-` 또는 `@`가 오는 접두사로 일치합니다. 그래서 `claude-opus-5-20260101`은
+`claude-opus-5`의 가격으로 계산됩니다. 요약에는 가격을 내 파일에서 가져온
+모델이 나열됩니다.
+
+## 다른 프로그램에서
+
+[관리 API](/ko/docs/reference/management-api)는 같은 요약을
+`GET /v1/usage/history`로, 같은 `since`와 `by` 옵션과 함께 제공합니다. 데스크톱
+앱은 아직 사용 기록을 보여 주지 않습니다.

@@ -174,11 +174,18 @@ anypick proxy logs <provider> <account> [--lines N] [--follow]
 
 `--port` trên `enable`/`config` ghim một cổng; nếu không cổng miễn phí đầu tiên sẽ được sử dụng. `token` in hoặc xoay (`--rotate`) mã thông báo xác thực / khóa API cho proxy. `logs` in 50 dòng cuối cùng theo mặc định.
 
+Sau khi xoay khóa trên một proxy đang chạy, AnyPick kiểm tra rằng khóa mới được
+chấp nhận và khóa cũ bị từ chối, rồi cập nhật mọi client gắn với tài khoản đó
+(và với tài khoản chính của một pool thì cả client của pool). Client mà bạn đã
+chuyển cấu hình ra khỏi tuyến của AnyPick sẽ được giữ nguyên, trừ khi bạn thêm
+`--allow-foreign-config`. Nếu kiểm tra thất bại, khóa mới vẫn được in ra kèm lý
+do. Xoay khóa của thành viên đầu tiên trong một pool đang chạy vẫn giữ pool chạy.
+
 ### Bể bơi
 
 ```bash
 anypick proxy pool status <provider>
-anypick proxy pool enable <provider> [--strategy failover|round-robin]
+anypick proxy pool enable <provider> [--strategy failover|round-robin|soonest-reset]
     [--mode single|multi] [--port N] [-p N] [+account|-account ...]
 anypick proxy pool member <provider> <account> <on|off>
 anypick proxy pool start <provider>
@@ -193,15 +200,21 @@ anypick proxy pool disable <provider>
 ```bash
 anypick proxy hub status <name>
 anypick proxy hub enable <name> [--host <host>] [--port N] [-p N]
-    [--strategy failover|round-robin] [--start]
+    [--strategy failover|round-robin|soonest-reset] [--start]
 anypick proxy hub source <name> <provider> <account>
 anypick proxy hub owner <name> <model> <provider>/<account>
 anypick proxy hub preview <name>
 anypick proxy hub start <name>
 anypick proxy hub stop <name>
+anypick proxy hub combo add <name> <combo> <provider/account=model>...
+anypick proxy hub combo list <name>
+anypick proxy hub combo remove <name> <combo>
 ```
 
 `source` chuyển đổi: các nguồn hiện tại bị xóa, những nguồn vắng mặt được thêm vào (bắt buộc phải có tên tài khoản). `--strategy round-robin` làm cho trung tâm trải rộng từng mô hình trên các tài khoản được kích hoạt có thể phân phát nó — tài khoản của nhà cung cấp mà mô hình phân giải — thay vì ghim nó vào một tài khoản; không có cờ, chế độ hiện tại được giữ nguyên. Liên kết với `--with hub:<name>` sau khi bật ít nhất một nguồn. `owner` chọn tài khoản nào thắng khi hai nguồn quảng cáo cùng một id mô hình; `preview` làm mới danh mục và in các tuyến đường cùng với xung đột.
+
+`combo` quản lý các chuỗi dự phòng có tên mà hub phục vụ như id mô hình; xem
+[Proxy](/vi/docs/guides/proxies).
 
 ## Plugin
 
@@ -229,6 +242,17 @@ anypick stop
 `anypick tui` luôn mở [Ứng dụng / Giao diện người dùng thiết bị đầu cuối](/vi/docs/guides/terminal-ui). Họ lệnh `tray` được triển khai bởi công cụ Go (cây TypeScript và bề mặt khay của nó không còn tồn tại): `anypick tray` in ảnh chụp nhanh tương thích, trong khi điều khiển `start`, `status` và `stop` người giám sát tương thích và các proxy mà nó sở hữu.
 
 Các lệnh này không xác định quyền sở hữu ứng dụng gốc. Ứng dụng macOS phân giải và khởi động `Contents/Helpers/anypick-core`, giữ bảng điều khiển nhanh trên thanh menu bên trong cùng một ứng dụng và dừng trình trợ giúp trên ứng dụng cụ thể Thoát. Xem [thanh menu và ứng dụng macOS](/vi/docs/guides/tray).
+
+## Lịch sử mức dùng
+
+```bash
+anypick usage [--since 7d|24h|2026-10-01] [--by model|account|provider|day] [--json]
+```
+
+Hiển thị số token mà các proxy, pool và Proxy Hub đang chạy đã phục vụ, kèm ước
+tính chi phí theo bảng giá API. `--since` mặc định là `7d`; lịch sử được giữ 90
+ngày. `--by` mặc định là `model`. Những gì được ghi lại, cách tính ước tính và
+cách thêm giá có trong [Mức dùng và chi phí](/vi/docs/guides/usage).
 
 ## Sức khỏe
 

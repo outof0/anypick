@@ -108,6 +108,41 @@ anypick account remove workbuddy/work
 
 `anypick doctor` cho biết tài khoản cần giữ bằng `keep <provider>/<account>` và in các lệnh xóa. Khi cả hai tên đều đang hoạt động — một tên được chọn và tên còn lại vẫn được một liên kết client tham chiếu — lệnh sẽ yêu cầu liên kết lại các client về cùng một tài khoản thay vì đưa ra lệnh xóa, nhờ đó việc dọn dẹp không làm gián đoạn tuyến.
 
+### macOS không mở ứng dụng
+
+Ứng dụng macOS được ký ad hoc, không dùng Apple Developer ID, nên Gatekeeper
+không có vé công chứng để kiểm tra. macOS có thể từ chối lần mở đầu tiên với
+một trong các thông báo sau:
+
+- "Không thể mở "AnyPick.app" vì không thể xác minh nhà phát triển."
+- ""AnyPick.app" bị hỏng và không thể mở được. Bạn nên chuyển nó vào Thùng rác."
+
+Cả hai đều không có nghĩa là bản tải về bị hỏng. Có hai cách mở, và chỉ cần một.
+
+**Cho phép trong Cài đặt hệ thống.** Thử mở ứng dụng một lần rồi đóng cảnh báo,
+sau đó mở **Cài đặt hệ thống → Quyền riêng tư & Bảo mật**, cuộn tới **Bảo mật**
+và bấm **Vẫn mở** bên cạnh mục AnyPick. macOS ghi nhớ sự cho phép này, nên mỗi
+phiên bản chỉ cần làm một lần.
+
+**Xóa thuộc tính cách ly.** Dùng đường dẫn tuyệt đối:
+
+```bash
+/usr/bin/xattr -dr com.apple.quarantine /Applications/AnyPick.app
+```
+
+Đường dẫn tuyệt đối rất quan trọng. `xattr` cũng là tên một gói Python, và shim
+của trình quản lý phiên bản có thể đặt nó trước tệp hệ thống trong `PATH`.
+Chương trình đó không có tùy chọn `-r`, nên `xattr -dr` không kèm đường dẫn sẽ
+thoát với lỗi cách dùng và không xóa gì.
+
+Cài bằng cask Homebrew không bỏ qua được bước này. Homebrew gắn cùng thuộc tính
+cách ly như trình duyệt và đã bỏ tùy chọn `--no-quarantine`, nên lần mở đầu tiên
+vẫn cần sự cho phép ở trên.
+
+Khi ứng dụng đã chạy một lần, các lần mở sau và các bản cập nhật trong ứng dụng
+không hỏi lại nữa: trình cập nhật tải về bằng HTTP client của Go, vốn không gắn
+thuộc tính cách ly.
+
 ### Proxy tiếp tục chạy sau khi tôi đóng giao diện người dùng
 
 Việc đóng cửa sổ chính của ứng dụng gốc sẽ không thoát khỏi ứng dụng. Sử dụng **Thoát AnyPick** từ bảng điều khiển nhanh của ứng dụng hoặc thanh menu để dừng dịch vụ Go đi kèm của nó một cách duyên dáng.

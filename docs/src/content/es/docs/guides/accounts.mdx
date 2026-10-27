@@ -96,6 +96,35 @@ anypick add account mimo --credential subscription-key --secret --name work \
 
 Cada `--option key=value` debe ser un calificador declarado por ese proveedor. La TUI presenta los mismos tipos y perfiles de puntos finales del contrato del proveedor. En la aplicación macOS, estos proveedores muestran un formulario de clave API en Agregar inicio de sesión en lugar de un flujo de inicio de sesión.
 
+### Servidores de modelos locales
+
+Ollama y LM Studio sirven modelos desde tu propio equipo, así que no necesitan
+clave. Guarda el servidor como una cuenta:
+
+```bash
+anypick add account ollama --credential server --name local
+anypick add account lmstudio --credential server --name local
+```
+
+Eso apunta a la dirección predeterminada de este equipo:
+`http://127.0.0.1:11434/v1` para Ollama y `http://127.0.0.1:1234/v1` para LM
+Studio. Para un servidor en otro lugar, pasa su URL como perfil:
+
+```bash
+anypick add account ollama --credential server --name lan \
+  --option profile=http://192.168.1.20:11434
+```
+
+Una URL sin ruta recibe `/v1`. Si activaste la clave de API de LM Studio, añade
+`--secret`. AnyPick solo envía una clave por HTTPS o a un servidor de este
+equipo, así que se rechaza una clave para un servidor HTTP sin cifrar en otro
+lugar de la red.
+
+Claude Code, Codex, pi y omp usan la cuenta a través del proxy de AnyPick, que
+traduce las solicitudes de Claude Code a la API compatible con OpenAI del
+servidor. En las aplicaciones, estos proveedores muestran el campo de clave como
+opcional en «Añadir inicio de sesión».
+
 <Aside type="caution" title="Un inicio de sesión en vivo a la vez">
 Las CLI de proveedor normalmente mantienen una credencial en su hogar predeterminado. Las cuentas guardadas se encuentran en la tienda de AnyPick y la activación ordinaria restaura la seleccionada en la ruta de ese proveedor. Los perfiles con nombre del Codex son la excepción: cada uno obtiene un `CODEX_HOME` aislado, por lo que se pueden ejecutar varias cuentas CLI del Codex a la vez. No edite un archivo de autenticación administrado manualmente mientras su perfil esté activo.
 </Aside>

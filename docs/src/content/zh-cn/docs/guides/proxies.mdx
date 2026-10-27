@@ -92,7 +92,15 @@ TUI Proxy 面板中按 `p` 开关账号池，按 <kbd>space</kbd> 暂停或恢�
 anypick proxy pool enable kiro --strategy round-robin
 ```
 
-两种策略都只选择符合条件的成员。被配额保护设为冷却状态的账户会跳过；若某账户返回配额类错误，请求也会转给下一个成员。区别在于每次尝试从哪里开始，而非是否支持故障转移。
+`--strategy soonest-reset` 让每个请求从未用配额最早重置的账户开始。窗口重置时剩余的配额会作废，所以应当先用掉这个账户的配额：
+
+```bash
+anypick proxy pool enable codex --strategy soonest-reset
+```
+
+池每五分钟从每个成员已保存的登录中读取配额窗口，并保存在池运行时文件旁边的缓存里。请求只读取这个缓存，从不等待用量查询。Codex 和 Claude 账户会报告各自的窗口。没有读数、读数超过三十分钟，或已保存登录已过期的账户，排在有读数的账户之后；因此一个什么都不知道的池，表现与 `failover` 相同。Proxy Hub 也接受同样的策略，可以用 `anypick proxy hub enable <name> --strategy soonest-reset`，或在应用中使用 hub 的策略选择器。
+
+每种策略都只遍历*符合条件*的成员：被配额保护置于冷却期的账户会被跳过。区别在于从哪里开始尝试，而不在于是否故障转移——以配额类错误响应的成员仍会把请求交给下一个成员。
 
 所有成员都在冷却时，账号池不会在本机拒绝请求，而是只尝试最早恢复的账户一次，并将服务商的响应原样返回。这样不会因为轮询而重复冲击已耗尽的服务商；调用方会看到服务商给出的 `429`、`402` 或重置时间。
 
@@ -134,6 +142,23 @@ anypick proxy hub enable default --strategy round-robin
 Hub 也有自己的配额保护（读取同一 `ui.quotaGuard` 设置）。服务商因为 key 或账户配额不足而拒绝请求时，该账户进入冷却，Hub 会尝试下一个能够服务同一模型的启用账户。若拒绝原因与凭据无关（例如真实 500 或每分钟速率限制），Hub 会原样返回错误，不会再消耗其他账户配额。所有候选账户都在冷却时，默认仍会尝试最早恢复的账户一次；`serveWhenAllCooling: false` 时除外。账号池代理使用自己的保护设置，这一套仅用于 Hub。
 
 配置后，Proxy 面板会将 Hub 作为独立行显示；按 <kbd>enter</kbd> 或 <kbd>m</kbd> 打开编辑器。除非需要跨服务商共用端点，普通账户代理更简单。
+
+### Combo：由 hub 定义的模型 ID
+
+combo 是你为一条有序回退链起的名字。每一步是一个已经在 hub 中的来源，以及要发送给它的模型：
+
+```bash
+anypick proxy hub combo add default smart \
+  claude/work=claude-opus-4 claude/work=claude-sonnet-4 zai/plan=glm-4.6
+anypick proxy hub combo list default
+anypick proxy hub combo remove default smart
+```
+
+向 hub 请求模型 `smart` 的客户端会先用第一步。当这一步因配额被拒绝时，请求会转到下一步，并以那一步自己的模型 ID 发送。其他任何响应，包括被拒绝的请求，都会原样返回给客户端。某一步可以是池来源（`codex/pool:codex=gpt-5`），配额用尽的池会像账户一样把请求交给下一步。
+
+combo 名称是 hub 拥有的模型 ID，所以请选一个没有供应商使用的名字；hub 会拒绝与已固定模型重名的名称。保存或删除 combo 会重启正在运行的 hub，使其提供更改后的内容。
+
+hub 自己响应 `GET /v1/models`：返回已固定的模型、只有一个提供商发布的模型，以及它的 combo。两个提供商都发布的模型，在你用 `anypick proxy hub owner` 选定归属之前不会出现在列表中。绑定到 hub 的应用会在模型选择器中提供这些 combo。
 
 ## 进程由谁管理
 

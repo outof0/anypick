@@ -1,0 +1,72 @@
+---
+title: '管理 API'
+description: 'トレイアプリ、ステータスライン、ダッシュボードが AnyPick の状態を読み取り、アカウントの切り替えやプロキシの起動・停止を行うためのループバック HTTP API。'
+---
+
+`anypick serve` は、AnyPick の上に作られたツール向けに、バージョン付きの HTTP API を `127.0.0.1` で動かします。デスクトップアプリはこれを使わず、エンジンと直接通信します。設計は ADR-0034 に記録されています。
+
+## 起動する
+
+```bash
+anypick serve --detach
+anypick serve --stop
+```
+
+`--detach` はサーバーをバックグラウンドで起動し、そのアドレスを表示します。付けない場合は、Ctrl-C を押すまでフォアグラウンドで動きます。`--port` でポートを固定できます。指定しなければポートが選ばれ、データディレクトリ（`~/.anypick` または `ANYPICK_HOME`）の `serve.pid` に記録されます。
+
+## トークン
+
+`/health` 以外のすべてのルートには bearer トークンが必要です。
+
+```bash
+anypick serve token
+anypick serve token --rotate
+```
+
+トークンはデータディレクトリの `serve.token` に保存され、あなただけが読めます。ローテーションはサーバーを再起動せずにすぐ有効になります。 `Authorization: Bearer <token>` として送ります。
+
+## サーバーが拒否するもの
+
+- `Host` が、待ち受けているループバックアドレスとポートではないリクエスト。
+- `Origin` ヘッダーを持つすべてのリクエスト（Web ページから呼べないようにするため）。
+- `Content-Type` が `application/json` ではない `POST`。
+- トークンがない、または間違っているもの（`401`）。空のトークンファイルは何も受け付けません。
+
+## 状態を読む
+
+| ルート | 返すもの |
+| --- | --- |
+| `GET /health` | `ok`、`pid`、`instanceId`、`apiVersion`。トークン不要。 |
+| `GET /v1/status` | `accounts`、`proxies`、`hubs` をまとめて |
+| `GET /v1/accounts` | 保存済みの各アカウント: `provider`、`name`、`label`、`identity`、`active`、`proxyEnabled` |
+| `GET /v1/proxies` | 有効化または実行中の各アカウントプロキシ: `provider`、`account`、`enabled`、`running`、`endpoint` |
+| `GET /v1/hubs` | 各 Proxy Hub: `name`、`enabled`、`port`、`strategy`、`sources` |
+| `GET /v1/agents` | どのアプリがどのソースにバインドされているか |
+| `GET /v1/usage/history` | 処理したトークンの使用量と見積もり（`anypick usage --json` の出力と同じ）。クエリ `since`（`7d`、`24h` または日付。既定は `7d`）と `by`（`model`、`account`、`provider` または `day`。既定は `model`）。[使用量とコスト](/ja/docs/guides/usage) を参照。 |
+
+すべての応答に `apiVersion` が含まれます。どの応答にもキーは含まれません。アカウントの資格情報も、プロキシやハブのキーも、管理トークンも含みません。資格情報のように見える identity は表示せずに省きます。プロキシのキーを取得するには `anypick proxy token` を使います。
+
+## アクション
+
+| ルート | 動作 |
+| --- | --- |
+| `POST /v1/accounts/{provider}/{name}/activate` | プロバイダーのライブアカウントを切り替え、それにバインドされたすべてのアプリを更新 |
+| `POST /v1/proxies/{provider}/{name}/start` | アカウントのプロキシを起動し、その `endpoint` を返す |
+| `POST /v1/proxies/{provider}/{name}/stop` | 停止する |
+| `POST /v1/hubs/{name}/start` | Proxy Hub を起動する（すでに実行中ならそれを報告） |
+| `POST /v1/hubs/{name}/stop` | 停止する |
+
+`activate` は任意のボディ `{"allowForeignConfig": true}` を受け付けます。これは `anypick use --allow-foreign-config` と同じ同意です。他のアクションはボディを受け付けず、不明なフィールドは拒否されます。
+
+失敗時は `"ok": false`、`code`、`message`、あれば `suggestions` を返します。不正なリクエストは `400`、存在しないアカウントは `404`、AnyPick によるその他の拒否は `409` です。存在しない、または有効化されていないハブを起動すると、`409` と `HUB_DISABLED` が返ります。
+
+```bash
+token=$(anypick serve token)
+curl -s http://127.0.0.1:PORT/v1/accounts -H "Authorization: Bearer $token"
+curl -s -X POST http://127.0.0.1:PORT/v1/accounts/claude/work/activate \
+  -H "Authorization: Bearer $token" -H "Content-Type: application/json"
+```
+
+## 互換性
+
+フィールドは予告なく追加されます。`/v1` の中でフィールドが削除・変更されることはありません。それには新しいバージョンが必要です。

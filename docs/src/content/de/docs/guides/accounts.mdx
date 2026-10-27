@@ -96,6 +96,35 @@ anypick add account mimo --credential subscription-key --secret --name work \
 
 Jeder `--option key=value` muss ein von diesem Anbieter deklarierter Qualifizierer sein. Die TUI rendert die gleichen Arten und Endpunktprofile aus dem Anbietervertrag. In der macOS-App zeigen diese Anbieter unter „Anmeldung hinzufügen“ ein API-Schlüsselformular anstelle eines Anmeldeablaufs an.
 
+### Lokale Modellserver
+
+Ollama und LM Studio stellen Modelle auf Ihrem eigenen Rechner bereit und
+brauchen daher keinen Schlüssel. Speichern Sie den Server als Konto:
+
+```bash
+anypick add account ollama --credential server --name local
+anypick add account lmstudio --credential server --name local
+```
+
+Das zeigt auf die Standardadresse dieses Computers:
+`http://127.0.0.1:11434/v1` für Ollama und `http://127.0.0.1:1234/v1` für LM
+Studio. Für einen Server an anderer Stelle übergeben Sie seine URL als Profil:
+
+```bash
+anypick add account ollama --credential server --name lan \
+  --option profile=http://192.168.1.20:11434
+```
+
+Eine URL ohne Pfad erhält `/v1`. Wenn Sie den API-Schlüssel von LM Studio
+aktiviert haben, fügen Sie `--secret` hinzu. AnyPick sendet einen Schlüssel nur
+über HTTPS oder an einen Server auf diesem Computer; ein Schlüssel für einen
+reinen HTTP-Server an anderer Stelle im Netzwerk wird abgelehnt.
+
+Claude Code, Codex, pi und omp nutzen das Konto über den Proxy von AnyPick, der
+die Anfragen von Claude Code in die OpenAI-kompatible API des Servers übersetzt.
+In den Apps zeigen diese Anbieter das Schlüsselfeld in „Login hinzufügen“ als
+optional an.
+
 <Aside type="caution" title="Ein Live-Login nach dem anderen">
 Provider-CLIs behalten normalerweise einen Berechtigungsnachweis in ihrem Standard-Home. Gespeicherte Konten befinden sich im Store von AnyPick und durch die normale Aktivierung wird das ausgewählte Konto im Pfad dieses Anbieters wiederhergestellt. Eine Ausnahme bilden Codex-Namensprofile: Jedes erhält ein isoliertes `CODEX_HOME`, sodass mehrere Codex-CLI-Konten gleichzeitig ausgeführt werden können. Bearbeiten Sie eine verwaltete Authentifizierungsdatei nicht manuell, während ihr Profil aktiv ist.
 </Aside>

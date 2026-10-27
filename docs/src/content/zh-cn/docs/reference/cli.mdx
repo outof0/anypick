@@ -160,7 +160,7 @@ anypick proxy restart <provider> <account>
 anypick proxy logs <provider> <account> [--lines N] [--follow]
 
 anypick proxy pool status <provider>
-anypick proxy pool enable <provider> [--strategy failover|round-robin]
+anypick proxy pool enable <provider> [--strategy failover|round-robin|soonest-reset]
     [--mode single|multi] [--port N] [-p N] [+account|-account ...]
 anypick proxy pool member <provider> <account> <on|off>
 anypick proxy pool start <provider>
@@ -169,17 +169,24 @@ anypick proxy pool disable <provider>
 
 anypick proxy hub status <name>
 anypick proxy hub enable <name> [--host <host>] [--port N] [-p N]
-    [--strategy failover|round-robin] [--start]
+    [--strategy failover|round-robin|soonest-reset] [--start]
 anypick proxy hub source <name> <provider> <account>
 anypick proxy hub owner <name> <model> <provider>/<account>
 anypick proxy hub preview <name>
 anypick proxy hub start <name>
 anypick proxy hub stop <name>
+anypick proxy hub combo add <name> <combo> <provider/account=model>...
+anypick proxy hub combo list <name>
+anypick proxy hub combo remove <name> <combo>
 ```
 
 `--port` 在 `enable`/`config` 中固定端口；否则使用空闲端口。`token` 会显示或轮换（`--rotate`）本地代理认证 token/API key。`logs` 默认显示最近 50 行。`enable` 账号池时，`+account` 会添加成员，`-account` 会暂停成员；默认策略为 `failover`，默认模式为 `multi`。`round-robin` 会从下一个可用成员开始，`failover` 会继续使用上次成功的账户直到被拒绝。两者都会在配额类失败后尝试下一个账户。
 
+在运行中的代理上轮换后，AnyPick 会检查新密钥被接受、旧密钥被拒绝，然后更新绑定到该账户的每个客户端（如果是池的主账户，也包括池的客户端）。你已把设置从 AnyPick 路由中移走的客户端不会被改动，除非加上 `--allow-foreign-config`。如果检查失败，仍会打印新密钥，并附上原因。轮换运行中池的第一个成员不会停止该池。
+
 Proxy Hub 的 `source` 会切换指定来源：已有来源会移除，不存在的来源会添加，并且需要账户名称。`--strategy round-robin` 会让每个模型在能服务它的已启用账户间轮换；省略时保持当前模式。至少启用一个来源后，可以通过 `--with hub:<name>` 绑定。`owner` 指定多个来源提供相同模型 ID 时由哪个账户处理；`preview` 会刷新目录并打印路由和冲突。
+
+`combo` 管理 hub 作为模型 ID 提供的命名回退链；参见 [代理](/zh-cn/docs/guides/proxies)。
 
 ## 插件
 
@@ -205,6 +212,14 @@ anypick stop
 ```
 
 `anypick tui` 总是打开 [Apps / 终端界面](/zh-cn/docs/guides/terminal-ui)。`tray` 命令由 Go 引擎实现：`anypick tray` 打印兼容状态快照；`start`、`status` 和 `stop` 管理兼容 supervisor 及它拥有的代理。这些命令不决定原生应用的生命周期。macOS 应用会启动 `Contents/Helpers/anypick-core`，让菜单栏快捷面板留在同一应用中，并在显式退出应用时停止 helper。详见[桌面应用](/zh-cn/docs/guides/tray)。
+
+## 用量历史
+
+```bash
+anypick usage [--since 7d|24h|2026-10-01] [--by model|account|provider|day] [--json]
+```
+
+显示运行中的代理、池和 Proxy Hub 处理的 token，并按 API 标价估算费用。 `--since` 默认为 `7d`；历史保留 90 天。`--by` 默认为 `model`。记录了什么、估算怎么得出、如何添加价格，见[用量与费用](/zh-cn/docs/guides/usage)。
 
 ## 健康检查和修复
 

@@ -1,0 +1,91 @@
+---
+title: 'API de gestion'
+description: "L'API HTTP en boucle locale que les applications de barre de menus, les barres d'état et les tableaux de bord utilisent pour lire l'état d'AnyPick et changer de compte ou démarrer et arrêter des proxies."
+---
+
+`anypick serve` exécute une API HTTP versionnée sur `127.0.0.1` pour les outils
+construits au-dessus d'AnyPick. Les applications de bureau ne l'utilisent pas ;
+elles parlent directement au moteur. La décision est consignée dans l'ADR-0034.
+
+## La démarrer
+
+```bash
+anypick serve --detach
+anypick serve --stop
+```
+
+`--detach` lance le serveur en arrière-plan et affiche son adresse. Sans cette
+option, le serveur tourne au premier plan jusqu'à ce que vous appuyiez sur
+Ctrl-C. `--port` fixe un port ; sinon un port est choisi et enregistré dans
+`serve.pid` dans le répertoire de données (`~/.anypick` ou `ANYPICK_HOME`).
+
+## Le jeton
+
+Chaque route sauf `/health` exige un jeton bearer :
+
+```bash
+anypick serve token
+anypick serve token --rotate
+```
+
+Le jeton est stocké dans `serve.token` dans le répertoire de données, lisible
+par vous seul. Une rotation prend effet immédiatement, sans redémarrer le
+serveur. Envoyez-le sous la forme `Authorization: Bearer <token>`.
+
+## Ce que le serveur refuse
+
+- Une requête dont le `Host` n'est pas l'adresse de boucle locale et le port sur
+  lesquels il écoute.
+- Toute requête portant un en-tête `Origin`, pour qu'une page web ne puisse pas
+  l'appeler.
+- Un `POST` dont le `Content-Type` n'est pas `application/json`.
+- Un jeton absent ou incorrect, avec `401`. Un fichier de jeton vide n'accepte
+  rien.
+
+## Lire l'état
+
+| Route | Renvoie |
+| --- | --- |
+| `GET /health` | `ok`, `pid`, `instanceId`, `apiVersion`. Aucun jeton requis. |
+| `GET /v1/status` | `accounts`, `proxies` et `hubs` ensemble |
+| `GET /v1/accounts` | Chaque compte enregistré : `provider`, `name`, `label`, `identity`, `active`, `proxyEnabled` |
+| `GET /v1/proxies` | Chaque proxy de compte activé ou en cours d'exécution : `provider`, `account`, `enabled`, `running`, `endpoint` |
+| `GET /v1/hubs` | Chaque Proxy Hub : `name`, `enabled`, `port`, `strategy`, `sources` |
+| `GET /v1/agents` | Quelles applications sont liées à quelle source |
+| `GET /v1/usage/history` | L'utilisation de tokens servie et son estimation, telle que `anypick usage --json` l'affiche. Paramètres `since` (`7d`, `24h` ou une date ; `7d` par défaut) et `by` (`model`, `account`, `provider` ou `day` ; `model` par défaut). Voir [Utilisation et coût](/fr/docs/guides/usage). |
+
+Chaque réponse contient `apiVersion`. Aucune réponse ne contient de clé : ni
+l'identifiant d'un compte, ni une clé de proxy ou de hub, ni le jeton de
+gestion. Une identité qui ressemble à un identifiant est omise plutôt
+qu'affichée. Pour obtenir la clé d'un proxy, utilisez `anypick proxy token`.
+
+## Actions
+
+| Route | Effet |
+| --- | --- |
+| `POST /v1/accounts/{provider}/{name}/activate` | Change le compte actif du fournisseur et met à jour chaque application liée à celui-ci |
+| `POST /v1/proxies/{provider}/{name}/start` | Démarre le proxy du compte et renvoie son `endpoint` |
+| `POST /v1/proxies/{provider}/{name}/stop` | L'arrête |
+| `POST /v1/hubs/{name}/start` | Démarre le Proxy Hub, ou indique qu'il tourne déjà |
+| `POST /v1/hubs/{name}/stop` | L'arrête |
+
+`activate` accepte un corps facultatif, `{"allowForeignConfig": true}`, qui vaut
+le même consentement que `anypick use --allow-foreign-config`. Les autres
+actions n'acceptent pas de corps, et un champ inconnu est refusé.
+
+Un échec répond avec `"ok": false`, un `code`, un `message` et, s'il y en a, des
+`suggestions`. Une requête invalide donne `400`, un compte absent `404`, et tout
+autre refus d'AnyPick `409` : démarrer un hub qui n'existe pas ou n'est pas
+activé répond `409` avec `HUB_DISABLED`.
+
+```bash
+token=$(anypick serve token)
+curl -s http://127.0.0.1:PORT/v1/accounts -H "Authorization: Bearer $token"
+curl -s -X POST http://127.0.0.1:PORT/v1/accounts/claude/work/activate \
+  -H "Authorization: Bearer $token" -H "Content-Type: application/json"
+```
+
+## Compatibilité
+
+Des champs sont ajoutés sans préavis. Dans `/v1`, un champ n'est jamais retiré
+ni modifié ; cela nécessite une nouvelle version.

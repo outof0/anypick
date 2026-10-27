@@ -1,0 +1,61 @@
+---
+title: '用量与费用'
+description: '查看本地代理、池和 Proxy Hub 处理了多少 token，可按模型、账户、提供商或日期分组，并附带标注日期的费用估算。'
+---
+
+运行中的代理、池或 Proxy Hub 处理的每个请求都会被计数。供应商会报告用了多少 token，AnyPick 把这些数字在本机保存 90 天。`anypick usage` 把它们加总，并给出估算价格。
+
+只统计经过 AnyPick 的流量。使用自己的登录、直接与供应商通信的客户端不会被看到。
+
+## 查看
+
+```bash
+anypick usage                     # 最近 7 天，按模型
+anypick usage --by account        # 哪个已保存账户处理了什么
+anypick usage --by day --since 30d
+anypick usage --json              # 供脚本使用
+```
+
+`--since` 接受天数（`7d`）、时长（`24h`）或本地日期（`2026-10-01`）。`--by` 按 `model`、`account`、`provider` 或 `day` 分组。
+
+一个只有一个 LM Studio 账户的沙盒中的输出：
+
+```text
+Usage since 2026-10-20 21:41, by account
+                                      requests        input       output       cached     est. USD
+lmstudio/stub                                2            6            8            0       0.0000
+total                                        2            6            8            0       0.0000
+
+Estimated at API list prices as of 2026-10-06; not a bill. Subscription logins are not charged per token.
+```
+
+## 记录什么
+
+对每个成功的响应：处理时间、处理它的提供商和账户、模型，以及供应商报告的输入、输出和缓存 token 数。请求和响应的内容、请求头和密钥一律不保存。池或 hub 转给其他账户的被拒请求不计数；最终响应的账户才会被计数。
+
+有些响应不带计数。常见情况是未带 `stream_options.include_usage` 发送的 OpenAI 风格流。这样的请求仍会计数，汇总里会说明有多少个请求没有 token 数。
+
+## 估算
+
+费用一栏是**按 API 标价的估算**，并标注读取价格的日期。它不是账单：
+
+- 订阅登录（Claude Pro、ChatGPT）不按 token 计费。对它们来说，这个数字是同样的流量走 API 时的费用。
+- 内置价格表只列出 Anthropic 自己的价格。表中没有的模型不计入估算，输出会说明有多少个请求。费用后面的 `+` 表示该行有部分请求未计入。
+- 没有单独缓存价格的缓存 token 按输入价格计算，所以它们的估算偏高。
+
+要添加或修正价格，在 AnyPick 数据目录（默认 `~/.anypick`）中创建 `pricing.json`，单位是每百万 token 的美元：
+
+```json
+{
+  "models": {
+    "glm-4.7": { "input": 0.6, "output": 2.2 },
+    "claude-opus-5-5": { "input": 4, "output": 20, "cacheRead": 0.2 }
+  }
+}
+```
+
+模型 ID 在去掉可能存在的 `vendor/` 前缀后，可以完全匹配，或作为后接 `-` 或 `@` 的前缀匹配，因此 `claude-opus-5-20260101` 按 `claude-opus-5` 计价。汇总会列出价格来自你的文件的模型。
+
+## 从其他程序访问
+
+[管理 API](/zh-cn/docs/reference/management-api) 在 `GET /v1/usage/history` 提供同样的汇总，支持相同的 `since` 和 `by` 选项。桌面应用目前还不显示用量历史。

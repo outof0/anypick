@@ -108,6 +108,44 @@ anypick account remove workbuddy/work
 
 `anypick doctor` nennt das Konto, das unter `keep <provider>/<account>` behalten werden soll, und gibt die Löschbefehle aus. Wenn beide Namen aktiv sind — einer aktiv und der andere noch von einer Clientbindung referenziert — fordert der Befehl dazu auf, die Clients erneut an ein Konto zu binden, statt Löschbefehle auszugeben. So unterbricht die Bereinigung keine Route.
 
+### macOS öffnet die App nicht
+
+Die macOS-App ist ad hoc signiert, nicht mit einer Apple Developer ID, daher hat
+Gatekeeper kein Notarisierungsticket zu prüfen. macOS kann den ersten Start mit
+einer dieser Meldungen verweigern:
+
+- „AnyPick.app kann nicht geöffnet werden, da der Entwickler nicht verifiziert werden kann.“
+- „AnyPick.app ist beschädigt und kann nicht geöffnet werden. Sie sollten das Objekt in den Papierkorb verschieben.“
+
+Keine der beiden Meldungen bedeutet, dass der Download beschädigt ist. Es gibt
+zwei Wege, die App zu öffnen; einer genügt.
+
+**In den Systemeinstellungen erlauben.** Versuchen Sie einmal, die App zu öffnen,
+und schließen Sie die Warnung. Öffnen Sie dann **Systemeinstellungen →
+Datenschutz & Sicherheit**, scrollen Sie zu **Sicherheit** und klicken Sie neben
+dem Eintrag für AnyPick auf **Trotzdem öffnen**. macOS merkt sich die Freigabe;
+pro Version ist das ein einmaliger Schritt.
+
+**Das Quarantäne-Attribut entfernen.** Verwenden Sie den absoluten Pfad:
+
+```bash
+/usr/bin/xattr -dr com.apple.quarantine /Applications/AnyPick.app
+```
+
+Der absolute Pfad ist wichtig. `xattr` ist auch der Name eines Python-Pakets,
+und ein Versionsmanager-Shim kann es im `PATH` vor das Systemprogramm stellen.
+Dieses Programm hat keine Option `-r`, also endet ein bloßes `xattr -dr` mit
+einem Bedienungsfehler und entfernt nichts.
+
+Die Installation über das Homebrew-Cask erspart diesen Schritt nicht. Homebrew
+setzt dasselbe Quarantäne-Attribut wie ein Browser und hat die Option
+`--no-quarantine` entfernt; der erste Start braucht also weiterhin die Freigabe
+oben.
+
+Nachdem die App einmal gelaufen ist, fragen spätere Starts und In-App-Updates
+nicht mehr: Der Updater lädt über den HTTP-Client von Go herunter, der das
+Quarantäne-Attribut gar nicht setzt.
+
 ### Proxys laufen weiter, nachdem ich die Benutzeroberfläche geschlossen habe
 
 Durch das Schließen des Hauptfensters der nativen App wird die App nicht beendet. Verwenden Sie **Quit AnyPick** in der App oder im Quick Panel der Menüleiste, um den gebündelten Go-Dienst ordnungsgemäß zu beenden.

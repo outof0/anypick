@@ -143,6 +143,23 @@
       "otherRule": "Otras herramientas compatibles pueden usar ciertas cuentas externas o gateways de API.",
       "reference": "Consulta la referencia de compatibilidad"
     },
+    "more": {
+      "kicker": "Más allá de cambiar",
+      "title": "Cuando se agota la cuota, responde la siguiente cuenta.",
+      "body": "Los proxies locales que hacen posibles las rutas entre proveedores hacen algo más que cambiar. Activa lo que necesites; todo sigue funcionando en este equipo.",
+      "hubTitle": "Pasa de una cuenta a otra",
+      "hubBody": "Los pools y el Proxy Hub pasan una solicitud a la siguiente cuenta cuando un proveedor la rechaza por cuota. Define una cadena de modelos de respaldo como combo, o empieza cada solicitud por la cuenta cuya cuota se restablece antes.",
+      "hubLink": "Proxies y el Proxy Hub",
+      "localTitle": "Usa modelos en tu propio equipo",
+      "localBody": "Guarda Ollama o LM Studio como cuenta, sin clave. Claude Code, Codex, pi y omp lo usan a través del proxy local de AnyPick.",
+      "localLink": "Añadir un servidor de modelos local",
+      "usageTitle": "Mira lo que has usado",
+      "usageBody": "anypick usage suma los tokens que sirvieron tus proxies, por modelo, cuenta o día, con una estimación a precios de lista de API fechados. Guarda recuentos, nunca prompts ni claves.",
+      "usageLink": "Uso y coste",
+      "automationTitle": "Automatízalo",
+      "automationBody": "Todos los comandos hablan --json, y anypick serve ejecuta una API de loopback con su propio token para líneas de estado y paneles. La API nunca devuelve una clave de proxy.",
+      "automationLink": "API de gestión"
+    },
     "install": {
       "kicker": "App de escritorio o terminal",
       "title": "Empieza con la app o sigue en la terminal.",

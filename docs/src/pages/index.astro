@@ -21,6 +21,17 @@ const gettingStartedUrl = localizedPath(locale, "/docs/getting-started/");
 const projectsGuideUrl = localizedPath(locale, "/docs/guides/projects/");
 const compatibilityUrl = localizedPath(locale, "/docs/reference/cli/");
 const homeUrl = localizedPath(locale, "/");
+const features = ([
+  { key: "hub", href: localizedPath(locale, "/docs/guides/proxies/") },
+  { key: "local", href: localizedPath(locale, "/docs/guides/accounts/") },
+  { key: "usage", href: localizedPath(locale, "/docs/guides/usage/") },
+  { key: "automation", href: localizedPath(locale, "/docs/reference/management-api/") },
+] as const).map((feature) => ({
+  href: feature.href,
+  title: t(`landing.more.${feature.key}Title`),
+  body: t(`landing.more.${feature.key}Body`),
+  link: t(`landing.more.${feature.key}Link`),
+}));
 const docsUrl = localizedPath(locale, "/docs/");
 const npmCommand = "npm install -g anypick";
 const title = t("landing.meta.title");
@@ -240,6 +251,25 @@ const faqs = [
               <strong>{t("landing.compatibility.claudeRule")}</strong> {t("landing.compatibility.otherRule")} <a class="landing-inline-link" href={compatibilityUrl}>{t("landing.compatibility.reference")}</a>.
             </p>
           </div>
+        </div>
+      </section>
+
+      <section class="landing-section" id="beyond-switching">
+        <div class="landing-wrap landing-compatibility-grid">
+          <div>
+            <p class="landing-kicker">{t("landing.more.kicker")}</p>
+            <h2>{t("landing.more.title")}</h2>
+            <p class="landing-section-lede">{t("landing.more.body")}</p>
+          </div>
+          <ul class="landing-feature-list">
+            {features.map((feature) => (
+              <li>
+                <h3>{feature.title}</h3>
+                <p>{feature.body}</p>
+                <a class="landing-inline-link" href={feature.href}>{feature.link} <Icon name="ph:arrow-right" class="inline h-3.5 w-3.5" aria-hidden="true" /></a>
+              </li>
+            ))}
+          </ul>
         </div>
       </section>
 

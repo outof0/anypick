@@ -96,6 +96,35 @@ anypick add account mimo --credential subscription-key --secret --name work \
 
 Mọi `--option key=value` phải là bộ định tính được nhà cung cấp đó khai báo. TUI hiển thị các loại và hồ sơ điểm cuối giống nhau từ hợp đồng nhà cung cấp. Trong ứng dụng macOS, các nhà cung cấp này hiển thị biểu mẫu khóa API trong Thêm thông tin đăng nhập thay vì luồng đăng nhập.
 
+### Máy chủ mô hình cục bộ
+
+Ollama và LM Studio phục vụ mô hình ngay trên máy của bạn nên không cần khóa.
+Hãy lưu máy chủ thành một tài khoản:
+
+```bash
+anypick add account ollama --credential server --name local
+anypick add account lmstudio --credential server --name local
+```
+
+Lệnh này trỏ tới địa chỉ mặc định trên máy này:
+`http://127.0.0.1:11434/v1` cho Ollama và `http://127.0.0.1:1234/v1` cho LM
+Studio. Với máy chủ ở nơi khác, hãy truyền URL của nó làm profile:
+
+```bash
+anypick add account ollama --credential server --name lan \
+  --option profile=http://192.168.1.20:11434
+```
+
+URL không có đường dẫn sẽ được thêm `/v1`. Nếu bạn đã bật khóa API của LM
+Studio, hãy thêm `--secret`. AnyPick chỉ gửi khóa qua HTTPS hoặc tới máy chủ
+trên chính máy này, nên khóa dành cho một máy chủ HTTP không mã hóa ở nơi khác
+trong mạng sẽ bị từ chối.
+
+Claude Code, Codex, pi và omp dùng tài khoản này qua proxy của AnyPick; proxy
+chuyển yêu cầu của Claude Code sang API tương thích OpenAI của máy chủ. Trong
+ứng dụng, các nhà cung cấp này hiển thị ô khóa là tùy chọn trong màn hình thêm
+đăng nhập.
+
 <Aside type="caution" title="Một lần đăng nhập trực tiếp tại một thời điểm">
 CLI của nhà cung cấp thường giữ một thông tin xác thực trong trang chủ mặc định của họ. Các tài khoản đã lưu sẽ tồn tại trong cửa hàng của AnyPick và kích hoạt thông thường sẽ khôi phục tài khoản đã chọn vào đường dẫn nhà cung cấp đó. Hồ sơ được đặt tên theo Codex là ngoại lệ: mỗi hồ sơ có một `CODEX_HOME` riêng biệt, vì vậy nhiều tài khoản Codex CLI có thể chạy cùng một lúc. Không chỉnh sửa thủ công tệp xác thực được quản lý trong khi hồ sơ của nó đang hoạt động.
 </Aside>

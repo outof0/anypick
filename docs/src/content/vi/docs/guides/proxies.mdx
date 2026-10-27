@@ -100,7 +100,28 @@ round-robin` thay vào đó bắt đầu mỗi yêu cầu ở thành viên tiế
 anypick proxy pool enable kiro --strategy round-robin
 ```
 
-Cả hai chiến lược chỉ áp dụng cho các thành viên *đủ điều kiện*: tài khoản mà người bảo vệ hạn ngạch đã đặt thời gian hồi chiêu sẽ bị bỏ qua và vòng quay cũng bỏ qua. Sự khác biệt là ở chỗ lần thử bắt đầu, chứ không phải liệu nó có thất bại hay không - thành viên trả lời có lỗi cấp hạn ngạch vẫn chuyển yêu cầu cho thành viên tiếp theo.
+`--strategy soonest-reset` bắt đầu mỗi yêu cầu từ tài khoản có hạn mức chưa dùng
+được đặt lại sớm nhất. Hạn mức còn thừa trong một khung khi khung đó đặt lại sẽ
+mất đi, nên đó là tài khoản nên dùng trước:
+
+```bash
+anypick proxy pool enable codex --strategy soonest-reset
+```
+
+Cứ năm phút, pool đọc các khung hạn mức của từng thành viên từ đăng nhập đã lưu
+và giữ chúng trong một bộ nhớ đệm bên cạnh các tệp chạy của pool. Yêu cầu chỉ
+đọc bộ nhớ đệm đó; chúng không bao giờ chờ một lần tra cứu mức dùng. Tài khoản
+Codex và Claude có báo cáo khung hạn mức. Tài khoản chưa có số đo, có số đo cũ
+hơn ba mươi phút, hoặc có đăng nhập đã lưu hết hạn sẽ xếp sau các tài khoản có
+số đo, nên một pool không biết gì sẽ hoạt động như `failover`. Proxy Hub cũng
+nhận chiến lược này, bằng
+`anypick proxy hub enable <name> --strategy soonest-reset` hoặc bộ chọn chiến
+lược của hub trong ứng dụng.
+
+Mọi chiến lược chỉ duyệt các thành viên *đủ điều kiện*: tài khoản mà bộ bảo vệ
+hạn mức đã đưa vào thời gian chờ sẽ bị bỏ qua. Khác biệt nằm ở chỗ một lần thử
+bắt đầu từ đâu, không phải có chuyển sang tài khoản khác hay không — thành viên
+trả lời bằng lỗi hạn mức vẫn chuyển yêu cầu cho thành viên tiếp theo.
 
 Khi **mọi** thành viên đang hạ nhiệt, nhóm tiếp tục phân phát: nó sẽ thử tài khoản sẽ khôi phục sớm nhất và chuyển câu trả lời của nhà cung cấp lại cho người gọi, thay vì từ chối cục bộ. Chỉ một lần thử để nhà cung cấp được điều tiết hoàn toàn sẽ không bị ảnh hưởng bởi việc đi vòng quanh. Do đó, đăng ký đã hết sẽ hiển thị chính xác những gì nhà cung cấp đã nói (`429`, `402` hoặc thời gian đặt lại), đó là những gì client có thể thực hiện:
 
@@ -145,6 +166,34 @@ Chuyển đổi trên mỗi tài khoản là toàn bộ quy tắc thành viên: 
 Trung tâm cũng giữ **bảo vệ hạn ngạch** (cùng cài đặt `ui.quotaGuard`): khi nhà cung cấp từ chối yêu cầu vì khóa hoặc tài khoản đã hết hạn ngạch, tài khoản đó sẽ nguội đi và yêu cầu sẽ chuyển sang tài khoản được bật tiếp theo có thể phân phát cùng một mô hình. Việc từ chối của nhà cung cấp mà không đổ lỗi cho thông tin xác thực (500 thực, giới hạn tốc độ mỗi phút) sẽ được trao cho bạn nguyên văn - trung tâm không chi tiêu hạn ngạch của tài khoản khác cho nó. Khi mọi ứng cử viên đang nguội, nó vẫn phục vụ ứng viên phục hồi sớm nhất và đưa ra phán quyết của mình, trừ khi `serveWhenAllCooling` sai. Proxy nhóm giữ quyền bảo vệ riêng của họ; cái này chỉ áp dụng cho hub.
 
 Bảng Proxy liệt kê Hub là hàng riêng của nó khi được định cấu hình; <kbd>enter</kbd> hoặc <kbd>m</kbd> mở trình chỉnh sửa Hub. Ưu tiên các proxy thông thường cho mỗi tài khoản trừ khi bạn đặc biệt cần một điểm cuối được chia sẻ giữa các nhà cung cấp.
+
+### Combo: id mô hình do hub định nghĩa
+
+Combo là cái tên bạn đặt cho một chuỗi dự phòng có thứ tự. Mỗi bước là một nguồn
+đã có trong hub và mô hình sẽ gửi tới nguồn đó:
+
+```bash
+anypick proxy hub combo add default smart \
+  claude/work=claude-opus-4 claude/work=claude-sonnet-4 zai/plan=glm-4.6
+anypick proxy hub combo list default
+anypick proxy hub combo remove default smart
+```
+
+Client yêu cầu hub mô hình `smart` sẽ được phục vụ bởi bước đầu tiên. Khi bước
+đó bị từ chối vì hết hạn mức, yêu cầu chuyển sang bước tiếp theo, gửi với id mô
+hình của chính bước đó. Mọi câu trả lời khác, kể cả một yêu cầu bị từ chối, là
+câu trả lời cho client. Một bước có thể là nguồn pool (`codex/pool:codex=gpt-5`),
+và pool hết hạn mức sẽ chuyển yêu cầu đi giống như một tài khoản.
+
+Tên combo là một id mô hình thuộc về hub, nên hãy chọn tên mà không nhà cung cấp
+nào dùng; hub từ chối tên trùng với một mô hình đã ghim. Lưu hoặc xóa combo sẽ
+khởi động lại hub đang chạy để nó phục vụ thay đổi.
+
+Hub tự trả lời `GET /v1/models`: các mô hình đã ghim, mọi mô hình chỉ một nhà
+cung cấp của hub công bố, và các combo. Mô hình do hai nhà cung cấp công bố sẽ
+không có trong danh sách cho tới khi bạn chọn chủ sở hữu bằng
+`anypick proxy hub owner`. Ứng dụng gắn với hub hiển thị các combo trong bộ chọn
+mô hình.
 
 ## Quyền sở hữu quy trình
 

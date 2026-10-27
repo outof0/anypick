@@ -143,6 +143,23 @@
       "otherRule": "Other compatible tools can use selected external accounts or API gateways.",
       "reference": "See the compatibility reference"
     },
+    "more": {
+      "kicker": "Beyond switching",
+      "title": "When quota runs out, the next account answers.",
+      "body": "The local proxies that make cross-provider routes work do more than switch. Turn on what you need; everything still runs on this computer.",
+      "hubTitle": "Fall back between accounts",
+      "hubBody": "Pools and the Proxy Hub hand a request to the next account when a vendor refuses it for quota. Name a fallback chain of models as a combo, or start each request at the account whose quota resets soonest.",
+      "hubLink": "Proxies and the Proxy Hub",
+      "localTitle": "Use models on your own machine",
+      "localBody": "Save Ollama or LM Studio as an account, with no key. Claude Code, Codex, pi and omp reach it through AnyPick's local proxy.",
+      "localLink": "Add a local model server",
+      "usageTitle": "See what you used",
+      "usageBody": "anypick usage adds up the tokens your proxies served, by model, account or day, with an estimate at dated API list prices. It keeps counts, never prompts or keys.",
+      "usageLink": "Usage and cost",
+      "automationTitle": "Script it",
+      "automationBody": "Every command speaks --json, and anypick serve runs a loopback API with its own token for status lines and dashboards. The API never returns a proxy key.",
+      "automationLink": "Management API"
+    },
     "install": {
       "kicker": "Desktop app or terminal",
       "title": "Prefer the terminal?",

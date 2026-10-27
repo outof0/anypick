@@ -108,6 +108,44 @@ anypick account remove workbuddy/work
 
 `anypick doctor` indique le compte à conserver sous la forme `keep <provider>/<account>` et affiche les commandes de suppression. Lorsque les deux noms sont actifs — l'un actif et l'autre encore référencé par une liaison client — il vous demande de rattacher les clients à un seul compte plutôt que d'afficher des suppressions, afin que le nettoyage n'interrompe aucun itinéraire.
 
+### macOS n'ouvre pas l'application
+
+L'application macOS est signée ad hoc, pas avec un Apple Developer ID ;
+Gatekeeper n'a donc aucun ticket de notarisation à vérifier. macOS peut refuser
+le premier lancement avec l'un de ces messages :
+
+- « Impossible d'ouvrir « AnyPick.app », car le développeur ne peut pas être vérifié. »
+- « « AnyPick.app » est endommagé et ne peut pas être ouvert. Vous devriez le placer dans la corbeille. »
+
+Aucun des deux ne signifie que le téléchargement est corrompu. Il y a deux
+façons de l'ouvrir, et une seule suffit.
+
+**L'autoriser dans les Réglages Système.** Essayez d'ouvrir l'application une
+fois et fermez l'avertissement, puis ouvrez **Réglages Système →
+Confidentialité et sécurité**, faites défiler jusqu'à **Sécurité** et cliquez
+sur **Ouvrir quand même** à côté de l'entrée AnyPick. macOS mémorise
+l'autorisation ; c'est une étape unique par version.
+
+**Retirer l'attribut de quarantaine.** Utilisez le chemin absolu :
+
+```bash
+/usr/bin/xattr -dr com.apple.quarantine /Applications/AnyPick.app
+```
+
+Le chemin absolu compte. `xattr` est aussi le nom d'un paquet Python, et un shim
+de gestionnaire de versions peut le placer avant le binaire système dans le
+`PATH`. Ce programme n'a pas d'option `-r` : un `xattr -dr` sans chemin se
+termine par une erreur d'usage et ne retire rien.
+
+Installer avec le cask Homebrew n'évite pas cette étape. Homebrew applique le
+même attribut de quarantaine qu'un navigateur et a supprimé l'option
+`--no-quarantine` ; le premier lancement nécessite donc toujours l'autorisation
+ci-dessus.
+
+Une fois l'application lancée, les lancements suivants et les mises à jour
+depuis l'application ne redemandent rien : le programme de mise à jour
+télécharge via le client HTTP de Go, qui ne pose pas l'attribut de quarantaine.
+
 ### Les proxys continuent de fonctionner après la fermeture de l'interface utilisateur
 
 La fermeture de la fenêtre principale de l'application native ne quitte pas l'application. Utilisez **Quit AnyPick** depuis l'application ou le panneau rapide de la barre de menus pour arrêter correctement son service Go fourni.

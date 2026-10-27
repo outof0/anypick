@@ -1,0 +1,91 @@
+---
+title: 'API de gestión'
+description: 'La API HTTP de loopback que usan las aplicaciones de bandeja, las líneas de estado y los paneles para leer el estado de AnyPick y cambiar de cuenta o iniciar y detener proxies.'
+---
+
+`anypick serve` ejecuta una API HTTP versionada en `127.0.0.1` para herramientas
+construidas sobre AnyPick. Las aplicaciones de escritorio no la usan; hablan
+directamente con el motor. La decisión está recogida en el ADR-0034.
+
+## Iniciarla
+
+```bash
+anypick serve --detach
+anypick serve --stop
+```
+
+`--detach` ejecuta el servidor en segundo plano e imprime su dirección. Sin esa
+opción, el servidor se ejecuta en primer plano hasta que pulsas Ctrl-C.
+`--port` fija un puerto; si no, se elige uno y se guarda en `serve.pid` en el
+directorio de datos (`~/.anypick` o `ANYPICK_HOME`).
+
+## El token
+
+Todas las rutas salvo `/health` necesitan un token bearer:
+
+```bash
+anypick serve token
+anypick serve token --rotate
+```
+
+El token se guarda en `serve.token` en el directorio de datos y solo tú puedes
+leerlo. Rotarlo surte efecto de inmediato, sin reiniciar el servidor. Envíalo
+como `Authorization: Bearer <token>`.
+
+## Lo que rechaza el servidor
+
+- Una solicitud cuyo `Host` no es la dirección de loopback y el puerto en que
+  escucha.
+- Cualquier solicitud con una cabecera `Origin`, para que una página web no
+  pueda llamarla.
+- Un `POST` cuyo `Content-Type` no es `application/json`.
+- Un token ausente o incorrecto, con `401`. Un archivo de token vacío no acepta
+  nada.
+
+## Leer el estado
+
+| Ruta | Devuelve |
+| --- | --- |
+| `GET /health` | `ok`, `pid`, `instanceId`, `apiVersion`. No requiere token. |
+| `GET /v1/status` | `accounts`, `proxies` y `hubs` juntos |
+| `GET /v1/accounts` | Cada cuenta guardada: `provider`, `name`, `label`, `identity`, `active`, `proxyEnabled` |
+| `GET /v1/proxies` | Cada proxy de cuenta activado o en ejecución: `provider`, `account`, `enabled`, `running`, `endpoint` |
+| `GET /v1/hubs` | Cada Proxy Hub: `name`, `enabled`, `port`, `strategy`, `sources` |
+| `GET /v1/agents` | Qué aplicaciones están vinculadas a qué fuente |
+| `GET /v1/usage/history` | El uso de tokens servido y su estimación, como lo imprime `anypick usage --json`. Parámetros `since` (`7d`, `24h` o una fecha; `7d` por defecto) y `by` (`model`, `account`, `provider` o `day`; `model` por defecto). Consulta [Uso y coste](/es/docs/guides/usage). |
+
+Cada respuesta incluye `apiVersion`. Ninguna respuesta contiene una clave: ni la
+credencial de una cuenta, ni una clave de proxy o de hub, ni el token de
+gestión. Una identidad que parece una credencial se omite en lugar de mostrarse.
+Para obtener la clave de un proxy, usa `anypick proxy token`.
+
+## Acciones
+
+| Ruta | Hace |
+| --- | --- |
+| `POST /v1/accounts/{provider}/{name}/activate` | Cambia la cuenta activa del proveedor y actualiza cada aplicación vinculada a ella |
+| `POST /v1/proxies/{provider}/{name}/start` | Inicia el proxy de la cuenta y devuelve su `endpoint` |
+| `POST /v1/proxies/{provider}/{name}/stop` | Lo detiene |
+| `POST /v1/hubs/{name}/start` | Inicia el Proxy Hub, o informa de que ya está en ejecución |
+| `POST /v1/hubs/{name}/stop` | Lo detiene |
+
+`activate` acepta un cuerpo opcional, `{"allowForeignConfig": true}`, que es el
+mismo consentimiento que `anypick use --allow-foreign-config`. Las demás
+acciones no aceptan cuerpo, y se rechaza un campo desconocido.
+
+Un fallo responde con `"ok": false`, un `code`, un `message` y, si los hay,
+`suggestions`. Una solicitud incorrecta es `400`, una cuenta inexistente es
+`404` y cualquier otro rechazo de AnyPick es `409`: iniciar un hub que no existe
+o no está activado responde `409` con `HUB_DISABLED`.
+
+```bash
+token=$(anypick serve token)
+curl -s http://127.0.0.1:PORT/v1/accounts -H "Authorization: Bearer $token"
+curl -s -X POST http://127.0.0.1:PORT/v1/accounts/claude/work/activate \
+  -H "Authorization: Bearer $token" -H "Content-Type: application/json"
+```
+
+## Compatibilidad
+
+Los campos se añaden sin aviso. Dentro de `/v1` nunca se elimina ni se cambia un
+campo; eso requiere una versión nueva.

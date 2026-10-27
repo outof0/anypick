@@ -108,6 +108,44 @@ anypick account remove workbuddy/work
 
 `anypick doctor` indica qué cuenta conservar como `keep <provider>/<account>` e imprime los comandos de eliminación. Cuando ambos nombres están activos (uno activo y otro aún referenciado por un vínculo de cliente), pide volver a vincular los clientes a una sola cuenta en vez de imprimir comandos de eliminación, para que la limpieza no interrumpa una ruta.
 
+### macOS no abre la aplicación
+
+La aplicación de macOS está firmada ad hoc, no con un Apple Developer ID, así
+que Gatekeeper no tiene un ticket de notarización que comprobar. macOS puede
+rechazar el primer inicio con cualquiera de estos mensajes:
+
+- «No se puede abrir "AnyPick.app" porque no se puede verificar el desarrollador.»
+- «"AnyPick.app" está dañado y no se puede abrir. Deberías moverlo a la Papelera.»
+
+Ninguno de los dos significa que la descarga esté dañada. Hay dos formas de
+abrirla y basta con una.
+
+**Permitirla desde Ajustes del Sistema.** Intenta abrir la aplicación una vez y
+cierra el aviso; después abre **Ajustes del Sistema → Privacidad y seguridad**,
+desplázate hasta **Seguridad** y haz clic en **Abrir igualmente** junto a la
+entrada de AnyPick. macOS recuerda la aprobación, así que es un paso único por
+versión.
+
+**Quitar el atributo de cuarentena.** Usa la ruta absoluta:
+
+```bash
+/usr/bin/xattr -dr com.apple.quarantine /Applications/AnyPick.app
+```
+
+La ruta absoluta importa. `xattr` también es el nombre de un paquete de Python,
+y un shim de un gestor de versiones puede ponerlo por delante del binario del
+sistema en el `PATH`. Ese programa no tiene la opción `-r`, así que un `xattr -dr`
+sin ruta termina con un error de uso y no quita nada.
+
+Instalar con el cask de Homebrew no se salta este paso. Homebrew aplica el
+mismo atributo de cuarentena que un navegador y ha eliminado la opción
+`--no-quarantine`, así que el primer inicio sigue necesitando la aprobación
+anterior.
+
+Una vez que la aplicación se ha ejecutado, los inicios posteriores y las
+actualizaciones desde la aplicación no vuelven a preguntar: el actualizador
+descarga con el cliente HTTP de Go, que no pone el atributo de cuarentena.
+
 ### Los servidores proxy siguen ejecutándose después de cerrar la interfaz de usuario
 
 Cerrar la ventana principal de la aplicación nativa no cierra la aplicación. Utilice **Salir de AnyPick** desde la aplicación o el panel rápido de la barra de menú para detener elegantemente el servicio Go incluido.
