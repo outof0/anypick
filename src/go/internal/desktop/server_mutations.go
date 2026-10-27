@@ -805,11 +805,13 @@ func (s *Server) handleAccountSave(ctx context.Context, raw json.RawMessage, m M
 // provider-declared credential product — the native Add Account sheet's key path. Unlike
 // account-save there is no live login to snapshot; unlike gateway-create the
 // credential lands in the account store, so apps can be bound to it. An empty
-// profile selects the kind's first endpoint profile.
+// profile selects the kind's first endpoint profile. The key may be empty: the
+// provider's BackupInput decides whether its product needs one (a local model
+// server does not) and says so when it does.
 func (s *Server) handleAccountSaveInput(ctx context.Context, m Mutate) Result {
-	if m.ProviderID == "" || m.Name == "" || m.Kind == "" || strings.TrimSpace(m.APIKey) == "" {
+	if m.ProviderID == "" || m.Name == "" || m.Kind == "" {
 		return errorResult(m.RequestID,
-			payloadErr("account-save-input", "providerId, name, kind and apiKey"))
+			payloadErr("account-save-input", "providerId, name and kind"))
 	}
 	if s.Deps.Accounts == nil {
 		return errorResult(m.RequestID, serviceUnavailableErr("accounts service"))

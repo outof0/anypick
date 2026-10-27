@@ -432,7 +432,7 @@ func useCmd(ctx context.Context, a *app.App, providerID, name string) tea.Cmd {
 		// clients pointed at the account that was just switched away from.
 		res, err := a.Accounts.Use(ctx, providerID, name, accounts.UseOptions{
 			PostSwitch: func(pc context.Context) error {
-				n, rerr := reapplyClientsBoundTo(pc, a, refs.AccountRef(providerID, name))
+				n, rerr := a.ReapplyClientsBoundTo(pc, refs.AccountRef(providerID, name), app.ReapplyOptions{})
 				reapplied = n
 				return rerr
 			},

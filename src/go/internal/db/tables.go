@@ -80,6 +80,7 @@ var TableOwners = map[string]TableOwner{
 	},
 	"proxy_state":    {Package: "internal/store"},
 	"source_resumes": {Package: "internal/bindings"},
+	"usage_events":   {Package: "internal/usagelog"},
 
 	// These are not AnyPick's schema. They are the credential stores of the
 	// clients AnyPick integrates with, and internal/provider reads and writes

@@ -10,6 +10,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"sort"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -47,6 +48,9 @@ type Server struct {
 	// every enabled account that can answer it, not only the account the model
 	// happens to resolve to. Nil falls back to the resolved source's provider.
 	ModelsForProvider func(providerID string) []string
+	// NextReset reports when an account's unused quota resets (Unix ms, 0 when
+	// unknown), for the soonest-reset strategy. Nil leaves failover order.
+	NextReset func(providerID, account string) int64
 	// Quotas cools down an account whose vendor refused it for quota reasons, so
 	// the next request goes to another enabled account that can serve the model.
 	// Hub-only: pool proxies keep their own guard. Nil disables it.
@@ -177,6 +181,12 @@ func (s *Server) serveRoute(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte(`{"error":{"type":"authentication_error","message":"invalid hub credentials"}}`))
 		return
 	}
+	// The same key check every proxy answers, so a token rotation can prove
+	// the new key works without depending on any upstream.
+	if r.URL.Path == proxy.AuthCheckPath {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
 	// Opportunistic legacy-secret migration. Authentication has already
 	// succeeded; this write converges pre-HMAC rows and is skipped for rows
 	// that already match. It stays out of RouteByToken so the auth read path
@@ -188,6 +198,12 @@ func (s *Server) serveRoute(w http.ResponseWriter, r *http.Request) {
 	cfg := s.config()
 	if !cfg.Enabled {
 		writeErr(w, http.StatusConflict, "PROXY_DISABLED", "hub "+cfg.Name+" is disabled")
+		return
+	}
+
+	// The hub's own catalog (ADR-0036); a hub that knows none forwards the
+	// listing to its default source as before.
+	if r.Method == http.MethodGet && r.URL.Path == "/v1/models" && s.serveModels(w, &cfg, route) {
 		return
 	}
 
@@ -212,6 +228,12 @@ func (s *Server) serveRoute(w http.ResponseWriter, r *http.Request) {
 		}
 		_ = json.Unmarshal(body, &probe)
 		requestedModel = probe.Model
+		// A combo name is the hub's own model id and wins over a pin
+		// (ADR-0036): choosing it was an explicit decision.
+		if combo := cfg.ComboNamed(requestedModel); combo != nil {
+			s.serveCombo(w, r, &cfg, combo, body)
+			return
+		}
 		// One lookup, used for both halves of the decision. Resolving the
 		// source and the model remap from two passes over the same table
 		// lets the halves pick different entries: with duplicate pins, the
@@ -340,8 +362,12 @@ func (s *Server) serveChain(
 		if body != nil {
 			attempt.Body = io.NopCloser(bytes.NewReader(body))
 		}
-		writer := newAttemptWriter(w)
+		// Only an account step is metered here; a pool step meters each
+		// member inside its own ring, and metering both would count twice.
+		metered, finish := proxy.MeterUsage(w, observe.RouteHub, src.ProviderID, src.Account, requestedModel)
+		writer := newAttemptWriter(metered)
 		proxy.Serve(writer, attempt, up)
+		finish()
 		if writer.committedResponse() {
 			if s.Quotas != nil {
 				s.Quotas.clear(keyOf(*cfg, index))
@@ -395,6 +421,9 @@ func (s *Server) candidateChain(cfg *Config, resolved int, requestedModel string
 		capable = append(append([]int{}, capable[step:]...), capable[:step]...)
 	} else {
 		capable = moveFirst(capable, resolved)
+		if cfg.Strategy == StrategySoonestReset {
+			capable = s.bySoonestReset(cfg, capable)
+		}
 	}
 	if s.Quotas == nil {
 		return capable
@@ -417,6 +446,33 @@ func (s *Server) candidateChain(cfg *Config, resolved int, requestedModel string
 		}
 	}
 	return nil
+}
+
+// bySoonestReset stable-sorts sources so the one whose unused quota resets
+// soonest leads. Sources with no reading keep failover order after the rest,
+// so a hub with an empty cache behaves exactly like failover.
+func (s *Server) bySoonestReset(cfg *Config, list []int) []int {
+	if s.NextReset == nil || len(list) < 2 {
+		return list
+	}
+	keys := make(map[int]int64, len(list))
+	for _, index := range list {
+		src := cfg.Sources[index]
+		keys[index] = s.NextReset(src.ProviderID, src.Account)
+	}
+	out := append([]int(nil), list...)
+	sort.SliceStable(out, func(i, j int) bool {
+		a, b := keys[out[i]], keys[out[j]]
+		switch {
+		case a == 0:
+			return false
+		case b == 0:
+			return true
+		default:
+			return a < b
+		}
+	})
+	return out
 }
 
 // moveFirst puts index at the head, preserving the order of the rest.

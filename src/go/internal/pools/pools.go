@@ -13,6 +13,26 @@ import (
 	"github.com/outof0/anypick/go/internal/refs"
 )
 
+// Strategies a pool ring can use. They are also the hub's strategies.
+const (
+	// StrategyFailover keeps the account that last served at the head.
+	StrategyFailover = "failover"
+	// StrategyRoundRobin starts each request at the next eligible member.
+	StrategyRoundRobin = "round-robin"
+	// StrategySoonestReset starts at the member whose unused quota resets
+	// soonest, from the quota cache (ADR-0035).
+	StrategySoonestReset = "soonest-reset"
+)
+
+// ValidStrategy reports whether s names a strategy; empty means failover.
+func ValidStrategy(s string) bool {
+	switch s {
+	case "", StrategyFailover, StrategyRoundRobin, StrategySoonestReset:
+		return true
+	}
+	return false
+}
+
 type Member struct {
 	Account string `json:"account"`
 	Enabled bool   `json:"enabled"`
@@ -22,7 +42,7 @@ type Pool struct {
 	Provider  string   `json:"provider"`
 	Mode      string   `json:"mode"` // 'single' | 'multi'
 	Enabled   bool     `json:"enabled"`
-	Strategy  string   `json:"strategy"` // 'failover' | 'round-robin'
+	Strategy  string   `json:"strategy"` // see the Strategy constants
 	Host      string   `json:"host,omitempty"`
 	Port      int      `json:"port,omitempty"`
 	Members   []Member `json:"members"`

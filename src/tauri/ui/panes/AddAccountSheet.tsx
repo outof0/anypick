@@ -32,7 +32,14 @@ import {
 } from '../lib/account-flow';
 import type { ServicePort } from '../lib/service';
 import type { ServiceResult } from '../lib/wire';
-import { savePastedAuth } from '../lib/desktop-actions';
+import {
+  detectAccount,
+  loginAccount,
+  saveCredentialInput,
+  saveLiveLogin,
+  savePastedAuth,
+  type DesktopAction,
+} from '../lib/desktop-actions';
 import { translate, translateSource } from '../lib/i18n';
 import { Dialog } from '../ui/Dialog';
 import { MenuSelect } from '../ui/MenuSelect';
@@ -208,6 +215,7 @@ export function AddAccountSheet({
           providerInstalled: provider?.installed ?? false,
           blocked,
           routingComplete,
+          secretOptional: credentialKind?.secretOptional,
         })
       : activeMode === 'paste'
         ? // A pasted document is the whole account; the name is optional and the
@@ -223,17 +231,17 @@ export function AddAccountSheet({
             blocked,
           });
 
-  const send = (operation: string, extra: Record<string, unknown>) => {
-    setPending(operation);
+  const send = (action: DesktopAction) => {
+    setPending(action.operation);
     setFailure(null);
-    onSend({ operation, extra });
+    onSend(action);
   };
 
   const submit = () => {
     if (!provider) return;
     const trimmed = name.trim();
     if (activeMode === 'credential') {
-      send('account-save-input', {
+      send(saveCredentialInput({
         providerId: provider.providerId,
         name: trimmed,
         kind: credentialKind?.kind ?? kind,
@@ -241,29 +249,27 @@ export function AddAccountSheet({
         // The secret travels in `apiKey`, the same field `gateway-create` uses
         // for a profile secret, so the protocol has one secret-shaped field.
         apiKey: secret.trim(),
-      });
+      }));
       return;
     }
     if (activeMode === 'newAccount') {
-      send('account-login', {
+      send(loginAccount({
         providerId: provider.providerId,
         name: trimmed,
         methodId: method?.id ?? '',
-      });
+      }));
       return;
     }
     if (activeMode === 'paste') {
       void savePaste(trimmed);
       return;
     }
-    send('account-save', {
+    send(saveLiveLogin({
       providerId: provider.providerId,
       name: trimmed,
-      // This is a display hint for host compatibility. The service derives
-      // stored identity only from the provider's saved snapshot.
       identity: identity || `Current ${provider.label} login`,
       sourceId: localMethod?.sourceId || undefined,
-    });
+    }));
   };
 
   /**
@@ -309,10 +315,9 @@ export function AddAccountSheet({
 
   const detect = () => {
     if (!provider) return;
-    send('account-detect', {
-      providerId: provider.providerId,
-      sourceId: localMethod?.sourceId ?? provider.sourceId,
-    });
+    // The engine requires a name on account-detect; the builder carries the
+    // sentinel. Built inline, every Detect was refused as a malformed frame.
+    send(detectAccount(provider.providerId, localMethod?.sourceId ?? provider.sourceId));
   };
 
   const appName = sourceAppName({ provider, localMethod });

@@ -32,6 +32,7 @@ import (
 	"github.com/outof0/anypick/go/internal/anyerr"
 	"github.com/outof0/anypick/go/internal/lock"
 	"github.com/outof0/anypick/go/internal/paths"
+	"github.com/outof0/anypick/go/internal/quotacache"
 	"github.com/outof0/anypick/go/internal/refs"
 	"github.com/outof0/anypick/go/internal/store"
 	"github.com/outof0/anypick/go/internal/upstream"
@@ -135,6 +136,14 @@ func (s *Service) StartPoolProxy(ctx context.Context, providerID string) (*Start
 }
 
 func (s *Service) startPoolLocked(ctx context.Context, providerID string) (*StartResult, error) {
+	return s.startPoolLockedWithToken(ctx, providerID, "")
+}
+
+// startPoolLockedWithToken starts the pool serving token, or the reused-or-
+// fresh token when it is empty. A rotation needs the explicit form: stopping
+// the pool clears the primary's runtime row, token included, so a rotated
+// token written before the restart would be lost and a different one served.
+func (s *Service) startPoolLockedWithToken(ctx context.Context, providerID, token string) (*StartResult, error) {
 	pool, err := s.Pools.GetContext(ctx, providerID)
 	if err != nil {
 		return nil, err
@@ -217,9 +226,12 @@ func (s *Service) startPoolLocked(ctx context.Context, providerID string) (*Star
 	if err != nil {
 		return nil, errors.Join(err, stopErrs)
 	}
-	poolToken, err := pickPoolToken(priorState)
-	if err != nil {
-		return nil, errors.Join(err, stopErrs)
+	poolToken := token
+	if poolToken == "" {
+		poolToken, err = pickPoolToken(priorState)
+		if err != nil {
+			return nil, errors.Join(err, stopErrs)
+		}
 	}
 	instanceID, err := NewInstanceID()
 	if err != nil {
@@ -258,7 +270,7 @@ func (s *Service) startPoolLocked(ctx context.Context, providerID string) (*Star
 	} else {
 		server := &PoolServer{
 			ProviderID: providerID, InstanceID: instanceID, Token: poolToken,
-			Members: members, Strategy: pool.Strategy,
+			Members: members, Strategy: pool.Strategy, ResetOrder: s.resetOrder(providerID),
 			Resolver: s.Resolver, Guard: upstream.NewGuard(guardOptions),
 		}
 		if lerr := server.Listen(host, port); lerr != nil {
@@ -409,6 +421,44 @@ func (s *Service) StopPoolProxy(ctx context.Context, providerID string) error {
 	}, 0)
 }
 
+// KeyHolders names every source whose clients present this account's proxy
+// key: the account itself and, when the account is its pool's primary, the
+// pool, whose listener serves the key stored on that row. A rotation must move
+// the clients of all of them, or the pool's clients keep a refused key.
+func (s *Service) KeyHolders(ctx context.Context, providerID, accountName string) []refs.Ref {
+	holders := []refs.Ref{refs.AccountRef(providerID, accountName)}
+	if pooled, err := s.poolOwnsRow(ctx, providerID, accountName); err == nil && pooled {
+		holders = append(holders, refs.AccountPoolRef(providerID))
+	}
+	return holders
+}
+
+// poolOwnsRow reports whether the listener recorded on this account's runtime
+// row is the provider's pool rather than the account's own proxy. A running
+// pool stores its state on the primary member's row, so "is this account's
+// proxy running?" answers yes for the pool too. Pool leases carry no account,
+// which is what tells them apart, for an in-process pool and a detached child
+// alike.
+func (s *Service) poolOwnsRow(ctx context.Context, providerID, accountName string) (bool, error) {
+	if s.Jobs == nil {
+		return false, nil
+	}
+	state, err := s.Store.ReadProxyState(ctx, providerID, accountName)
+	if err != nil || state == nil || state.InstanceID == "" {
+		return false, err
+	}
+	leases, err := s.Jobs.ListPoolLeasesContext(ctx, providerID)
+	if err != nil {
+		return false, err
+	}
+	for _, lease := range leases {
+		if lease != nil && lease.InstanceID == state.InstanceID {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
 // stopPoolLocked stops the pool for a known primary account. Listener closes
 // first, then leases and state — deterministic shutdown, no orphaned child.
 func (s *Service) stopPoolLocked(ctx context.Context, providerID, primary string) error {
@@ -486,11 +536,29 @@ func (s *Service) cleanupPoolLeases(ctx context.Context, providerID, instanceID 
 	return errors.Join(errs...)
 }
 
-// HubPoolRing builds (without binding or auth) the failover ring for one
-// provider's enabled multi-account pool so a Proxy Hub pool source can serve
-// through the same member ordering and quota-class classification as a
-// standalone pool. The guard persists cooldowns in the pool state file, so a
-// ring rebuilt per request still cools down across requests.
+// hubRing is a cached hub pool ring and what it was built from.
+type hubRing struct {
+	key  string
+	ring *PoolServer
+}
+
+// resetOrder orders member names by the provider's quota cache, read on each
+// call so a refresh steers the next request without a restart.
+func (s *Service) resetOrder(providerID string) func([]string) []string {
+	root := s.Store.Root
+	return func(names []string) []string {
+		return quotacache.OrderBySoonestReset(names, quotacache.Load(root, providerID), time.Now().UnixMilli())
+	}
+}
+
+// HubPoolRing returns (without binding or auth) the ring for one provider's
+// enabled multi-account pool, so a Proxy Hub pool source serves through the
+// same member ordering and quota-class classification as a standalone pool.
+//
+// The ring is kept between requests while its members and strategy are
+// unchanged. It used to be rebuilt per request, which reset the round-robin
+// position to the first member every time: a hub pool source never rotated.
+// Cooldowns were unaffected, because the guard keeps them in its state file.
 func (s *Service) HubPoolRing(ctx context.Context, providerID string) (*PoolServer, error) {
 	pool, err := s.Pools.GetContext(ctx, providerID)
 	if err != nil {
@@ -512,13 +580,30 @@ func (s *Service) HubPoolRing(ctx context.Context, providerID string) (*PoolServ
 			fmt.Sprintf("No enabled accounts in %s pool. Enable a member first.", providerID),
 			"POOL_EMPTY")
 	}
-	return &PoolServer{
+	// The guard policy is part of the key: the ring is reused across hub
+	// requests, and a changed cooldown or all-cooling rule must reach the next
+	// request as it did when the ring was built per request (ADR-0026).
+	guard := s.guardOptions(providerID, members)
+	key := fmt.Sprintf("%s|%s|%t|%t|%d", pool.Strategy, strings.Join(members, "\x00"),
+		guard.Enabled, guard.ServeWhenAllCooling, guard.CooldownMs)
+	s.hubRingsMu.Lock()
+	defer s.hubRingsMu.Unlock()
+	if cached, ok := s.hubRings[providerID]; ok && cached.key == key {
+		return cached.ring, nil
+	}
+	ring := &PoolServer{
 		ProviderID: providerID,
 		Members:    members,
 		Strategy:   pool.Strategy,
+		ResetOrder: s.resetOrder(providerID),
 		Resolver:   s.Resolver,
-		Guard:      upstream.NewGuard(s.guardOptions(providerID, members)),
-	}, nil
+		Guard:      upstream.NewGuard(guard),
+	}
+	if s.hubRings == nil {
+		s.hubRings = map[string]hubRing{}
+	}
+	s.hubRings[providerID] = hubRing{key: key, ring: ring}
+	return ring, nil
 }
 
 // ServePoolExisting is the detached `_serve-pool <provider>` child entry: it
@@ -558,7 +643,7 @@ func (s *Service) ServePoolExisting(ctx context.Context, providerID string) erro
 	guardOptions := s.guardOptions(providerID, members)
 	server := &PoolServer{
 		ProviderID: providerID, InstanceID: state.InstanceID, Token: state.Token,
-		Members: members, Strategy: pool.Strategy,
+		Members: members, Strategy: pool.Strategy, ResetOrder: s.resetOrder(providerID),
 		Resolver: s.Resolver, Guard: upstream.NewGuard(guardOptions),
 	}
 	if err := server.Listen(hostOf(state.Endpoint), portOf(state.Endpoint)); err != nil {

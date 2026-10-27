@@ -2323,6 +2323,10 @@
     "other": "Rotationsverfahren",
     "description": "Original English text: Round Robin"
   },
+  "desktop.hub.soonest_reset": {
+    "other": "Frühester Reset",
+    "description": "Original English text: Soonest Reset"
+  },
   "desktop.hub.footer_conflicts": {
     "other": "Löse die Routing-Konflikte unten, bevor dieser Hub alle Modelle bereitstellt.",
     "description": "Original English text: Resolve the routing conflicts below before this hub serves every model."
@@ -3511,14 +3515,6 @@
     "other": "Geben Sie die von diesem Anbieter angezeigte AI-Gateway-ID oder den Namen ein.",
     "description": "Original English text: Enter the AI Gateway ID or name shown by this provider."
   },
-  "desktop.gateway.region": {
-    "other": "Region",
-    "description": "Original English text: Region"
-  },
-  "desktop.gateway.region_help": {
-    "other": "Wählen Sie die Region aus, in der dieses Anbieterkonto eingerichtet ist.",
-    "description": "Original English text: Choose the region where this provider account is configured."
-  },
   "desktop.gateway.provided_by": {
     "other": "Bereitgestellt von {provider}",
     "description": "Original English text: Provided by {provider}"
@@ -3578,10 +3574,6 @@
   "desktop.gateway.could_not_connect": {
     "other": "Verbindung zum Gateway fehlgeschlagen. Prüfen Sie Endpunkt-URL und API-Schlüssel.",
     "description": "Original English text: Could not connect to the gateway. Please check the endpoint URL and API key."
-  },
-  "desktop.gateway.key_storage_help": {
-    "other": "AnyPick speichert diesen Schlüssel im Kontospeicher des ausgewählten Anbieters.",
-    "description": "Original English text: AnyPick stores this key in the selected provider’s account store."
   },
   "desktop.gateway.derived_endpoint_help": {
     "other": "Der Endpunkt wird aus Ihrer Konto-ID abgeleitet.",

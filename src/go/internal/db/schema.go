@@ -364,4 +364,28 @@ var migrations = []migration{
 		name: "slug account primary keys",
 		up:   renameUnsluggedAccountKeys,
 	},
+	{
+		// No foreign key to accounts: history outlives a removed account, and
+		// a cascade would silently rewrite what was spent (ADR-0037).
+		name: "add usage history",
+		up: func(d execer) error {
+			_, err := d.Exec(`
+        CREATE TABLE IF NOT EXISTS usage_events (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          at_ms INTEGER NOT NULL,
+          route TEXT NOT NULL,
+          provider TEXT NOT NULL,
+          account TEXT NOT NULL,
+          model TEXT NOT NULL DEFAULT '',
+          status INTEGER NOT NULL,
+          input_tokens INTEGER NOT NULL DEFAULT 0,
+          output_tokens INTEGER NOT NULL DEFAULT 0,
+          cache_read_tokens INTEGER NOT NULL DEFAULT 0,
+          cache_write_tokens INTEGER NOT NULL DEFAULT 0,
+          reported INTEGER NOT NULL DEFAULT 0
+        );
+        CREATE INDEX IF NOT EXISTS usage_events_at ON usage_events(at_ms);`)
+			return err
+		},
+	},
 }

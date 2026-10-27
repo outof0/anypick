@@ -1,4 +1,20 @@
 import '@testing-library/jest-dom/vitest';
+import { afterEach } from 'vitest';
+
+import { commandShape, parseLine, unacceptedLines } from './command-corpus';
+
+// Every line a UI test sends must have a shape the Go engine accepted in
+// `ui-commands.json`. See `command-corpus.ts` for why this is not a throw.
+afterEach(() => {
+  if (unacceptedLines.length === 0) return;
+  const lines = unacceptedLines.splice(0);
+  const detail = lines.map((line) => `  ${commandShape(line)}\n    ${JSON.stringify(parseLine(line)?.payload ?? line)}`);
+  throw new Error(
+    `The UI sent ${lines.length} command(s) whose shape no corpus case covers, so nothing proves the engine accepts them:\n` +
+      `${detail.join('\n')}\n` +
+      'Build the payload with a lib/desktop-actions.ts builder and add a case to test/command-corpus.ts.',
+  );
+});
 
 // The UI renders inside a Tauri webview, so nothing in jsdom provides the
 // host surface a pane can legitimately reach for: the clipboard write, the

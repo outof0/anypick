@@ -249,6 +249,10 @@ type Service struct {
 
 	servers     *registry
 	poolServers *poolServerRegistry
+	// hubRings keeps the ring a hub pool source serves through, so its
+	// round-robin position survives from one hub request to the next.
+	hubRingsMu sync.Mutex
+	hubRings   map[string]hubRing
 
 	heartbeatMu sync.Mutex
 	heartbeats  map[string]context.CancelFunc
@@ -323,8 +327,20 @@ func (s *Service) RotateToken(ctx context.Context, providerID, accountName strin
 		return "", anyerr.Wrapf(err, "generate proxy token", "PROXY_ROTATE_FAILED")
 	}
 	err = lock.WithMutationLocks(ctx, s.Store.Root, []string{
-		refs.ProviderScope(providerID), proxyScope(providerID, accountName),
+		refs.ProviderScope(providerID), proxyScope(providerID, accountName), poolScope(providerID),
 	}, func(c context.Context) error {
+		// The pool's key lives on its primary member's row. Restarting that
+		// row as an account proxy would replace the running pool with a
+		// single-account listener, so the pool is restarted as a pool, serving
+		// the rotated key.
+		pooled, perr := s.poolOwnsRow(c, providerID, accountName)
+		if perr != nil {
+			return perr
+		}
+		if pooled {
+			_, err := s.startPoolLockedWithToken(c, providerID, newToken)
+			return err
+		}
 		st, serr := s.StatusContext(c, providerID, accountName)
 		wasRunning := serr == nil && st != nil && st.Running
 		if wasRunning {

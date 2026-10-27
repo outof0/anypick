@@ -2339,6 +2339,10 @@
     "other": "Round Robin",
     "description": "Original English text: Round Robin"
   },
+  "desktop.hub.soonest_reset": {
+    "other": "Soonest Reset",
+    "description": "Original English text: Soonest Reset"
+  },
   "desktop.hub.footer_conflicts": {
     "other": "Resolve the routing conflicts below before this hub serves every model.",
     "description": "Original English text: Resolve the routing conflicts below before this hub serves every model."
@@ -3511,14 +3515,6 @@
     "other": "Enter the AI Gateway ID or name shown by this provider.",
     "description": "Original English text: Enter the AI Gateway ID or name shown by this provider."
   },
-  "desktop.gateway.region": {
-    "other": "Region",
-    "description": "Original English text: Region"
-  },
-  "desktop.gateway.region_help": {
-    "other": "Choose the region where this provider account is configured.",
-    "description": "Original English text: Choose the region where this provider account is configured."
-  },
   "desktop.gateway.provided_by": {
     "other": "Provided by {provider}",
     "description": "Original English text: Provided by {provider}"
@@ -3578,10 +3574,6 @@
   "desktop.gateway.could_not_connect": {
     "other": "Could not connect to the gateway. Please check the endpoint URL and API key.",
     "description": "Original English text: Could not connect to the gateway. Please check the endpoint URL and API key."
-  },
-  "desktop.gateway.key_storage_help": {
-    "other": "AnyPick stores this key in the selected provider’s account store.",
-    "description": "Original English text: AnyPick stores this key in the selected provider’s account store."
   },
   "desktop.gateway.derived_endpoint_help": {
     "other": "The endpoint is derived from your Account ID.",

@@ -13,7 +13,9 @@ import {
   editGateway,
   gatewayConnectInvokes,
   gatewayConnectRoutes,
+  mutateAction,
   refreshGateway,
+  removeAccount,
   removeGateway,
 } from '../lib/desktop-actions';
 import { nativeProviderName, usageForAccount } from '../lib/model';
@@ -404,7 +406,7 @@ export function AccountsPane({
           onConfirm={() => {
             const account = pendingRemove;
             setPendingRemove(null);
-            service.mutate('account-remove', { providerId: account.providerId, name: account.name });
+            mutateAction(service, removeAccount(account.providerId, account.name));
           }}
         />
       ) : null}

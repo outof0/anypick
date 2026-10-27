@@ -156,10 +156,28 @@ successive requests spread across accounts:
 anypick proxy pool enable kiro --strategy round-robin
 ```
 
-Both strategies walk the *eligible* members only: an account the quota guard has
-put on cooldown is skipped, and rotation skips it too. The difference is where an
-attempt starts, not whether it fails over — a member that answers with a
-quota-class error still hands the request to the next one.
+`--strategy soonest-reset` starts each request at the account whose unused
+quota resets soonest. Quota left in a window when it resets is lost, so that
+account's quota is the one to spend first:
+
+```bash
+anypick proxy pool enable codex --strategy soonest-reset
+```
+
+The pool reads each member's quota windows from its saved login every five
+minutes and keeps them in a cache next to the pool's runtime files. Requests
+only read that cache; they never wait on a usage lookup. Codex and Claude
+accounts report their windows. An account with no reading, whose reading is
+more than thirty minutes old, or whose saved login has expired, goes after the
+accounts that have one, so a pool where nothing is known behaves like
+`failover`. The Proxy Hub accepts the same strategy, with
+`anypick proxy hub enable <name> --strategy soonest-reset` or the hub's
+Strategy picker in the apps.
+
+Every strategy walks the *eligible* members only: an account the quota guard has
+put on cooldown is skipped. The difference is where an attempt starts, not
+whether it fails over — a member that answers with a quota-class error still
+hands the request to the next one.
 
 When **every** member is cooling down, the pool keeps serving: it attempts the
 account that will recover soonest and passes the vendor's answer back to the
@@ -235,6 +253,33 @@ their own guard; this one applies to the hub only.
 The Proxy board lists the Hub as its own row when configured; <kbd>enter</kbd>
 or <kbd>m</kbd> opens the Hub editor. Prefer ordinary per-account proxies unless
 you specifically need one shared endpoint across providers.
+
+### Combos: model ids the hub defines
+
+A combo is a name you choose for an ordered fallback chain. Each step is a
+source already in the hub and the model to send it:
+
+```bash
+anypick proxy hub combo add default smart \
+  claude/work=claude-opus-4 claude/work=claude-sonnet-4 zai/plan=glm-4.6
+anypick proxy hub combo list default
+anypick proxy hub combo remove default smart
+```
+
+A client that asks the hub for model `smart` gets the first step. When that
+step is refused for quota, the request moves to the next step, sent under that
+step's own model id. Any other answer, including a rejected request, is the
+client's answer. A step can be a pool source (`codex/pool:codex=gpt-5`), and a
+pool that is out of quota hands the request on like an account does.
+
+A combo name is a model id the hub owns, so pick one no vendor uses; the hub
+refuses a name that is already a pinned model. Saving or removing a combo
+restarts a running hub so it serves the change.
+
+The hub answers `GET /v1/models` itself: its pinned models, every model only
+one of its providers publishes, and its combos. A model two providers publish
+stays out of the list until you pick its owner with `anypick proxy hub owner`.
+Apps bound to the hub offer the combos in their model pickers.
 
 ## Process ownership
 

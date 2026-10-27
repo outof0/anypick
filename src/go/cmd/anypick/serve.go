@@ -15,22 +15,27 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/outof0/anypick/go/internal/agentbridge"
 	"github.com/outof0/anypick/go/internal/anyerr"
 	"github.com/outof0/anypick/go/internal/app"
 	"github.com/outof0/anypick/go/internal/cli"
 	"github.com/outof0/anypick/go/internal/lock"
+	"github.com/outof0/anypick/go/internal/mgmtapi"
 	"github.com/outof0/anypick/go/internal/proxy"
 )
 
-// cmdServe runs the long-running core: a loopback-only, token-free status
-// surface (accounts, proxy liveness) that detached proxies keep serving traffic
-// independently. The desktop stdio protocol lives in internal/desktop.
+// cmdServe runs the management API (ADR-0034): a versioned, token-gated
+// loopback HTTP surface for third-party tools. The desktop stdio protocol is
+// separate and lives in internal/desktop.
 
 func cmdServe(ctx context.Context, a *app.App, args []string) int {
+	if len(args) > 0 && args[0] == "token" {
+		return cmdServeToken(a, args[1:])
+	}
 	if cli.WantsHelp(args) {
-		cliPrint("usage: anypick serve [--port <n>] [--detach] [--stop]\n\n" +
-			"Runs the local status server: /health, /status, /agents on loopback.\n" +
+		cliPrint("usage: anypick serve [--port <n>] [--detach] [--stop]\n" +
+			"       anypick serve token [--rotate]\n\n" +
+			"Runs the management API on loopback: /health, and /v1/... behind the\n" +
+			"token that `anypick serve token` prints.\n" +
 			"--detach runs it as a background child; --stop stops that child.\n")
 		return int(anyerr.Success)
 	}
@@ -86,6 +91,11 @@ func serveRun(ctx context.Context, a *app.App, port int) int {
 	}
 	removeServePID(a)
 
+	// Created before the listener so a tool never finds the API up with no
+	// token to present.
+	if _, err := mgmtapi.EnsureToken(a.Root); err != nil {
+		return reportErr(err)
+	}
 	instanceID, err := proxy.NewInstanceID()
 	if err != nil {
 		return reportErr(err)
@@ -97,7 +107,11 @@ func serveRun(ctx context.Context, a *app.App, port int) int {
 	}
 	port = ln.Addr().(*net.TCPAddr).Port
 	addr = fmt.Sprintf("127.0.0.1:%d", port)
-	mux := serveMux(a, instanceID)
+	api := &mgmtapi.Server{
+		App: a, InstanceID: instanceID, Port: port,
+		StartHub: func(c context.Context, name string) (string, int, error) { return startHub(c, a, name) },
+		StopHub:  func(c context.Context, name string) error { return stopHubChild(a, c, name) },
+	}
 
 	record := &serveRecord{PID: os.Getpid(), Port: port, InstanceID: instanceID}
 	if err := writeServeRecord(a, record); err != nil {
@@ -107,7 +121,7 @@ func serveRun(ctx context.Context, a *app.App, port int) int {
 	defer removeServeRecord(a, instanceID)
 
 	srv := proxy.ApplyServingLimits(&http.Server{
-		Handler:           mux,
+		Handler:           api.Handler(),
 		ReadHeaderTimeout: 10 * time.Second,
 		IdleTimeout:       30 * time.Second,
 	})
@@ -122,7 +136,7 @@ func serveRun(ctx context.Context, a *app.App, port int) int {
 			kv{Key: "pid", Value: os.Getpid()})
 	} else {
 		cliPrintf("anypick-go serve → http://%s  (Ctrl-C to stop)\n", addr)
-		cliPrintf("  /health   liveness\n  /status   accounts + proxies\n  /agents   redacted worker manifest\n")
+		cliPrintf("  /health   liveness (no token)\n  /v1/...   management API; token: anypick serve token\n")
 	}
 	if err := srv.Serve(ln); err != nil && err != http.ErrServerClosed {
 		return reportErr(err)
@@ -130,31 +144,34 @@ func serveRun(ctx context.Context, a *app.App, port int) int {
 	return int(anyerr.Success)
 }
 
-func serveMux(a *app.App, instanceID string) *http.ServeMux {
-	mux := http.NewServeMux()
-	mux.HandleFunc("/health", func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		cliFprintf(w, `{"ok":true,"pid":%d,"instanceId":%q}`, os.Getpid(), instanceID)
-	})
-	mux.HandleFunc("/status", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(serveStatusSnapshot(r.Context(), a))
-	})
-	mux.HandleFunc("/agents", func(w http.ResponseWriter, r *http.Request) {
-		manifest, manifestErr := agentbridge.Build(r.Context(), agentbridge.Deps{
-			Activation: a.Deps,
-			Clients:    a.Clients,
-			Bindings:   a.BindingSvc,
-			Proxy:      a.Proxy,
-		})
-		if manifestErr != nil {
-			http.Error(w, "agent manifest unavailable", http.StatusInternalServerError)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(manifest)
-	})
-	return mux
+// cmdServeToken prints the management API bearer, creating it on first use,
+// or replaces it with --rotate. Printing it is the command's purpose: the one
+// sanctioned way a key reaches output (ADR-0034 decision 8).
+func cmdServeToken(a *app.App, args []string) int {
+	fs := fsFor(args)
+	rotate := fs.Bool("rotate", false, "replace the token; the old one stops working at once")
+	if err := fs.Parse(reorder(args)); err != nil || fs.NArg() != 0 {
+		return usageError("usage: anypick serve token [--rotate]")
+	}
+	var token string
+	var err error
+	if *rotate {
+		token, err = mgmtapi.RotateToken(a.Root)
+	} else {
+		token, err = mgmtapi.EnsureToken(a.Root)
+	}
+	if err != nil {
+		return reportErr(err)
+	}
+	if globals.JSON {
+		emitOK(token,
+			kv{Key: "ok", Value: true},
+			kv{Key: "token", Value: token},
+			kv{Key: "rotated", Value: *rotate})
+		return int(anyerr.Success)
+	}
+	cliPrintlnRaw(token)
+	return int(anyerr.Success)
 }
 
 // serveDetach spawns self as a setsid child (same pattern as proxy children),
@@ -322,66 +339,6 @@ func processAlivePath(pid int) bool {
 		return false
 	}
 	return signalProbe(pid) == nil
-}
-
-// serveStatusSnapshot aggregates account + proxy state without secrets.
-func serveStatusSnapshot(ctx context.Context, a *app.App) map[string]interface{} {
-	type acctRow struct {
-		Provider string `json:"provider"`
-		Name     string `json:"name"`
-		Active   bool   `json:"active"`
-		Identity string `json:"identity,omitempty"`
-		Live     bool   `json:"liveMatch"`
-	}
-	accountsOut := []acctRow{}
-	for _, providerID := range a.Providers.IDs() {
-		active, _ := a.Accounts.Active(ctx, providerID)
-		list, err := a.Accounts.List(ctx, providerID)
-		if err != nil {
-			continue
-		}
-		current, currentErr := a.Accounts.Current(ctx, providerID)
-		for _, acc := range list {
-			row := acctRow{
-				Provider: acc.Meta.Provider, Name: acc.Meta.Name,
-				Active: active == acc.Meta.Name, Identity: acc.Meta.Identity,
-			}
-			if currentErr == nil {
-				row.Live = current.IsLiveMatch && row.Active
-			}
-			accountsOut = append(accountsOut, row)
-		}
-	}
-
-	type proxyRow struct {
-		Provider string `json:"provider"`
-		Account  string `json:"account"`
-		Running  bool   `json:"running"`
-		Endpoint string `json:"endpoint,omitempty"`
-	}
-	proxiesOut := []proxyRow{}
-	for _, providerID := range a.Providers.IDs() {
-		list, err := a.Accounts.List(ctx, providerID)
-		if err != nil {
-			continue
-		}
-		for _, acc := range list {
-			st, err := a.Proxy.StatusContext(ctx, providerID, acc.Meta.Name)
-			if err != nil || !st.Running {
-				continue
-			}
-			proxiesOut = append(proxiesOut, proxyRow{
-				Provider: providerID, Account: acc.Meta.Name,
-				Running: true, Endpoint: st.Endpoint,
-			})
-		}
-	}
-
-	return map[string]interface{}{
-		"ok":       true,
-		"accounts": accountsOut,
-		"proxies":  proxiesOut,
-	}
 }
 
 func writeJSONFile(path string, v interface{}, mode os.FileMode) error {

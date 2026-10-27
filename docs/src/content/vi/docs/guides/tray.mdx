@@ -13,7 +13,7 @@ AnyPick vận chuyển hai giao diện người dùng gốc trên một công c�
 Cả hai đều là mặt trước, không phải động cơ. Cả hai đều không đọc thông tin xác thực hoặc sở hữu trạng thái AnyPick: mỗi lần khởi chạy, bắt tay, giám sát và tắt dịch vụ Go đi kèm, sau đó hiển thị những gì dịch vụ đó gửi đi (ADR 0019 §1).
 
 <Aside type="caution" title="Cài đặt từ kênh phát hành">
-Các bản phát hành GitHub chứa macOS `.dmg`/`.zip`, trình cài đặt Linux và Windows cũng như kho lưu trữ CLI. Ứng dụng macOS không được công chứng. Trong lần khởi chạy đầu tiên, nhấp chuột phải vào `AnyPick.app` và chọn **Mở** hoặc đi tới **Cài đặt hệ thống → Quyền riêng tư & bảo mật → Vẫn mở**. Bạn cũng có thể chạy `xattr -dr com.apple.quarantine /Applications/AnyPick.app`.
+Các bản phát hành GitHub chứa macOS `.dmg`/`.zip`, trình cài đặt Linux và Windows cũng như kho lưu trữ CLI. Ứng dụng macOS không được công chứng. Trong lần khởi chạy đầu tiên, nhấp chuột phải vào `AnyPick.app` và chọn **Mở** hoặc đi tới **Cài đặt hệ thống → Quyền riêng tư & bảo mật → Vẫn mở**. Bạn cũng có thể chạy `/usr/bin/xattr -dr com.apple.quarantine /Applications/AnyPick.app`.
 </Aside>
 
 ## Ứng dụng sở hữu dịch vụ của nó

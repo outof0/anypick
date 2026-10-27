@@ -44,6 +44,7 @@ func CheckPaths(root string) []Section {
 		checkRootEntries(root),
 		checkMakefileTargets(root),
 		checkMakeReferences(root),
+		checkQuarantineInstructions(root),
 		checkDocumentCitations(root),
 		checkGoSourceCitations(root),
 	}

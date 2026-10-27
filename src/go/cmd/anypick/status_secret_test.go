@@ -92,6 +92,24 @@ func TestStatusOmitsProxyAndHubSecrets(t *testing.T) {
 		}
 	})
 	assertOmitsSecret(t, hubJSON, hubSecret, `"enabled"`)
+
+	// The management API token (ADR 0034) is the third sanctioned printer:
+	// `serve token` prints it, and nothing else that `serve` says may.
+	clearJSON()
+	serveTokenOut := captureStdout(t, func() {
+		if code := run([]string{"serve", "token"}); code != 0 {
+			t.Fatalf("serve token exited %d", code)
+		}
+	})
+	serveSecret := strings.TrimSpace(serveTokenOut)
+	if serveSecret == "" || strings.ContainsAny(serveSecret, " \n") {
+		t.Fatalf("serve token did not print the token alone: %q", serveTokenOut)
+	}
+	clearJSON()
+	serveStop := captureStdout(t, func() { _ = run([]string{"--json", "serve", "--stop"}) })
+	if strings.Contains(serveStop, serveSecret) {
+		t.Fatalf("serve --stop output contains the management token: %s", serveStop)
+	}
 }
 
 func clearJSON() {

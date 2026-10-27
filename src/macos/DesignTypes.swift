@@ -229,8 +229,6 @@ struct DesignProviderOption: Identifiable, Hashable {
   var kind: String = "gateway"
   var requiresGatewayId: Bool = false
   var requiresAccountId: Bool = false
-  var regions: [String] = []
-  var defaultRegion: String? = nil
   /// Typed credential products (API keys / plan keys) accepted through
   /// account-save-input. Native providers may publish these alongside their
   /// local-login path.
@@ -244,6 +242,7 @@ struct DesignCredentialKind: Identifiable, Hashable {
   let kind: String
   var label: String
   var profiles: [DesignCredentialProfile] = []
+  var secretOptional = false
 }
 
 struct DesignCredentialProfile: Identifiable, Hashable {
@@ -275,6 +274,9 @@ struct DesignHubSource: Identifiable, Hashable {
   var describesItself: Bool { rotates || poolSource }
   /// Hub owning this row; sent back as Name on hub mutations.
   var hub: String = ""
+  /// Rotation row: the hub-wide request mode. Empty from an older engine,
+  /// where `enabled` alone says round-robin or failover.
+  var strategy: String = ""
 }
 
 struct DesignHubCatalog: Hashable {

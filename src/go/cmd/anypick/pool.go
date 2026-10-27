@@ -164,7 +164,7 @@ func cmdPool(ctx context.Context, a *appView, args []string) int {
 		return int(anyerr.Success)
 
 	case "enable":
-		strategy := fs.String("strategy", "failover", "failover | round-robin")
+		strategy := fs.String("strategy", "failover", "failover | round-robin | soonest-reset")
 		mode := fs.String("mode", "multi", "single | multi")
 		port := fs.Int("port", 0, "fixed port (default: auto)")
 		// -p is the documented short form of --port; the stdlib parser has no
@@ -179,10 +179,8 @@ func cmdPool(ctx context.Context, a *appView, args []string) int {
 			}
 			*port = *portShort
 		}
-		switch *strategy {
-		case "failover", "round-robin":
-		default:
-			return usageError("--strategy must be failover or round-robin")
+		if !pools.ValidStrategy(*strategy) || *strategy == "" {
+			return usageError("--strategy must be failover, round-robin or soonest-reset")
 		}
 		switch *mode {
 		case "single", "multi":

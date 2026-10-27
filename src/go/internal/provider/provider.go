@@ -308,6 +308,8 @@ func RegisterBuiltin(r *Registry, home string) error {
 		newWorkBuddy(home),
 		newCline(home),
 		newCloudflareAIGateway(),
+		newOllama(),
+		newLMStudio(),
 	} {
 		if err := r.Register(p); err != nil {
 			return err

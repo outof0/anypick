@@ -26,7 +26,7 @@ approval is explained clearly.
 3. **The macOS app is described as not notarized.** Install instructions and the
    Homebrew cask tell users to right-click the app and choose **Open**, use
    **System Settings → Privacy & Security → Open Anyway**, or clear quarantine
-   with `xattr -dr com.apple.quarantine /Applications/AnyPick.app`.
+   with `/usr/bin/xattr -dr com.apple.quarantine /Applications/AnyPick.app`.
 4. **Homebrew remains project-owned.** `outof0/homebrew-tap` publishes both the
    portable CLI formula and the macOS app cask. The cask points to the versioned
    GitHub Release ZIP and carries the first-launch instructions. It is not

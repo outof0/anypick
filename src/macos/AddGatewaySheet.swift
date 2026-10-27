@@ -14,7 +14,6 @@ struct AddGatewaySheet: View {
   @State private var revealKey = false
   @State private var connectionState: ConnectionState = .untested
   @State private var connectionMessage = ""
-  @State private var region: String?
   @FocusState private var focusedField: Field?
 
   private enum Field: Hashable { case name, endpoint, apiKey, accountID, gatewayID }
@@ -24,13 +23,11 @@ struct AddGatewaySheet: View {
   private var inferredProvider: DesignProviderOption? {
     model.preferredGatewayProvider(for: targetClientID)
   }
-  private var isAPIKeyAccount: Bool { selectedProvider?.kind == "account-api-key" }
-  private var regionChoices: [String] { selectedProvider?.regions ?? [] }
   private var suppliedEndpoint: String? { model.defaultGatewayEndpoint(for: provider) }
   private var providerSuppliesEndpoint: Bool {
     selectedProvider?.providesEndpoint == true || suppliedEndpoint != nil
   }
-  private var usesCustomEndpoint: Bool { !isAPIKeyAccount && !providerSuppliesEndpoint }
+  private var usesCustomEndpoint: Bool { !providerSuppliesEndpoint }
 
   init(
     model: MacOSDesignModel,
@@ -68,7 +65,6 @@ struct AddGatewaySheet: View {
         : true)
       && (!requiresAccountId
         || !accountID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-      && (!isAPIKeyAccount || regionChoices.isEmpty || regionChoices.contains(region ?? ""))
   }
 
   private var requiresApiKey: Bool { selectedProvider?.requiresApiKey ?? true }
@@ -187,24 +183,7 @@ struct AddGatewaySheet: View {
                   .help(model.localized("desktop.gateway.gateway_id_help"))
               }
             }
-            if isAPIKeyAccount, !regionChoices.isEmpty {
-              LabeledContent(model.localized("desktop.gateway.region")) {
-                Picker(
-                  "",
-                  selection: Binding(
-                    get: {
-                      region ?? selectedProvider?.defaultRegion ?? regionChoices.first ?? ""
-                    },
-                    set: { region = $0 }
-                  )
-                ) {
-                  ForEach(regionChoices, id: \.self) { Text($0).tag($0) }
-                }
-                .labelsHidden()
-                .accessibilityIdentifier("gateway-flow.region")
-                .help(model.localized("desktop.gateway.region_help"))
-              }
-            } else if providerSuppliesEndpoint {
+            if providerSuppliesEndpoint {
               LabeledContent(
                 model.localized("desktop.proxy_detail.endpoint"),
                 value: suppliedEndpoint ?? model.localized("desktop.gateway.provided_by", replacing: ["provider": selectedProvider?.label ?? provider])
@@ -218,10 +197,8 @@ struct AddGatewaySheet: View {
                   .accessibilityIdentifier("gateway-flow.endpoint")
               }
             }
-            if !isAPIKeyAccount {
-              LabeledContent(model.localized("desktop.app_detail.connection")) {
-                connectionControl
-              }
+            LabeledContent(model.localized("desktop.app_detail.connection")) {
+              connectionControl
             }
           } header: {
             Text(model.localized("desktop.gateway.credentials"))
@@ -237,7 +214,6 @@ struct AddGatewaySheet: View {
         }
         endpoint = suppliedEndpoint ?? ""
         if gatewayName.isEmpty { gatewayName = suggestedGatewayName }
-        syncRegion()
         focusedField = .name
         if ProcessInfo.processInfo.environment["ANYPICK_MACOS_FLOW"] == "add-gateway-error" {
           DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
@@ -247,7 +223,6 @@ struct AddGatewaySheet: View {
         }
       }
       .onChange(of: provider) {
-        syncRegion()
         resetConnectionTest()
         endpoint = suppliedEndpoint ?? ""
       }
@@ -325,9 +300,6 @@ struct AddGatewaySheet: View {
         ? model.localized("desktop.gateway.could_not_connect")
         : connectionMessage
     case .untested:
-      if isAPIKeyAccount {
-        return model.localized("desktop.gateway.key_storage_help")
-      }
       if requiresAccountId {
         return model.localized("desktop.gateway.derived_endpoint_help")
       }
@@ -373,7 +345,6 @@ struct AddGatewaySheet: View {
       label: "",
       endpoint: resolvedEndpoint,
       apiKey: apiKey,
-      region: region,
       gatewayId: gatewayID.trimmingCharacters(in: .whitespacesAndNewlines),
       profile: requiresAccountId ? accountID.trimmingCharacters(in: .whitespacesAndNewlines) : nil,
       defaultModel: ""
@@ -397,15 +368,5 @@ struct AddGatewaySheet: View {
       suffix += 1
     }
     return "\(base) \(suffix)"
-  }
-
-  private func syncRegion() {
-    guard isAPIKeyAccount else {
-      region = nil
-      return
-    }
-    if !regionChoices.contains(region ?? "") {
-      region = selectedProvider?.defaultRegion ?? regionChoices.first
-    }
   }
 }

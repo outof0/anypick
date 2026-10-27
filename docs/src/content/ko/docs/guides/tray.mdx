@@ -13,7 +13,7 @@ AnyPick은 하나의 Go 엔진(ADR 0020)에 두 개의 기본 프런트 엔드�
 둘 다 엔진이 아닌 프런트 엔드입니다. 자격 증명을 읽거나 AnyPick 상태를 소유하지도 않습니다. 각각은 번들로 제공되는 Go 서비스를 시작하고, 핸드셰이크하고, 감독하고, 종료한 다음 해당 서비스가 보내는 것을 렌더링합니다(ADR 0019 §1).
 
 <Aside type="caution" title="릴리스 채널에서 설치">
-GitHub 릴리스에는 macOS `.dmg`/`.zip`, Linux 및 Windows 설치 프로그램, CLI 아카이브가 포함되어 있습니다. macOS 앱은 공증되지 않습니다. 처음 실행 시 `AnyPick.app`를 마우스 오른쪽 버튼으로 클릭하고 **열기**를 선택하거나 **시스템 설정 → 개인 정보 보호 및 보안 → 어쨌든 열기**로 이동합니다. `xattr -dr com.apple.quarantine /Applications/AnyPick.app`를 실행할 수도 있습니다.
+GitHub 릴리스에는 macOS `.dmg`/`.zip`, Linux 및 Windows 설치 프로그램, CLI 아카이브가 포함되어 있습니다. macOS 앱은 공증되지 않습니다. 처음 실행 시 `AnyPick.app`를 마우스 오른쪽 버튼으로 클릭하고 **열기**를 선택하거나 **시스템 설정 → 개인 정보 보호 및 보안 → 어쨌든 열기**로 이동합니다. `/usr/bin/xattr -dr com.apple.quarantine /Applications/AnyPick.app`를 실행할 수도 있습니다.
 </Aside>
 
 ## 앱이 서비스를 소유합니다.

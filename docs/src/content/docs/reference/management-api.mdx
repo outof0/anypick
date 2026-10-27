@@ -1,0 +1,88 @@
+---
+title: Management API
+description: The loopback HTTP API that tray apps, status lines and dashboards use to read AnyPick's state and to switch accounts or start and stop proxies.
+---
+
+`anypick serve` runs a versioned HTTP API on `127.0.0.1` for tools built on top
+of AnyPick. The desktop apps do not use it; they talk to the engine directly.
+The design is recorded in ADR-0034.
+
+## Starting it
+
+```bash
+anypick serve --detach
+anypick serve --stop
+```
+
+`--detach` runs the server in the background and prints its address. Without
+it, the server runs in the foreground until you press Ctrl-C. `--port` pins a
+port; otherwise one is chosen, and it is recorded in `serve.pid` in the data
+directory (`~/.anypick`, or `ANYPICK_HOME`).
+
+## The token
+
+Every route except `/health` needs a bearer token:
+
+```bash
+anypick serve token
+anypick serve token --rotate
+```
+
+The token is stored in `serve.token` in the data directory, readable only by
+you. Rotating it takes effect at once, without restarting the server. Send it
+as `Authorization: Bearer <token>`.
+
+## What the server refuses
+
+- A request whose `Host` is not the loopback address and port it listens on.
+- Any request that carries an `Origin` header, so a web page cannot call it.
+- A `POST` whose `Content-Type` is not `application/json`.
+- A missing or wrong token, with `401`. An empty token file accepts nothing.
+
+## Reading state
+
+| Route | Returns |
+| --- | --- |
+| `GET /health` | `ok`, `pid`, `instanceId`, `apiVersion`. No token needed. |
+| `GET /v1/status` | `accounts`, `proxies` and `hubs` together |
+| `GET /v1/accounts` | Each saved account: `provider`, `name`, `label`, `identity`, `active`, `proxyEnabled` |
+| `GET /v1/proxies` | Each enabled or running account proxy: `provider`, `account`, `enabled`, `running`, `endpoint` |
+| `GET /v1/hubs` | Each Proxy Hub: `name`, `enabled`, `port`, `strategy`, `sources` |
+| `GET /v1/agents` | Which apps are bound to which source |
+| `GET /v1/usage/history` | Served token usage and its estimate, as `anypick usage --json` prints it. Query `since` (`7d`, `24h` or a date, default `7d`) and `by` (`model`, `account`, `provider` or `day`, default `model`). See [Usage history](/docs/reference/cli#usage-history). |
+
+Every response carries `apiVersion`. No response contains a key: not an
+account's credential, not a proxy or hub key, and not the management token.
+An identity that looks like a credential is left out rather than shown. To get
+a proxy's key, use `anypick proxy token`.
+
+## Actions
+
+| Route | Does |
+| --- | --- |
+| `POST /v1/accounts/{provider}/{name}/activate` | Switches the provider's live account and updates every app bound to it |
+| `POST /v1/proxies/{provider}/{name}/start` | Starts the account's proxy and returns its `endpoint` |
+| `POST /v1/proxies/{provider}/{name}/stop` | Stops it |
+| `POST /v1/hubs/{name}/start` | Starts the Proxy Hub, or reports it already running |
+| `POST /v1/hubs/{name}/stop` | Stops it |
+
+`activate` accepts an optional body, `{"allowForeignConfig": true}`, which is
+the same consent as `anypick use --allow-foreign-config`. Other actions take no
+body, and an unknown field is refused.
+
+A failure answers with `"ok": false`, a `code`, a `message` and, when there is
+one, `suggestions`. A bad request is `400`, a missing account is `404`, and
+any other refusal from AnyPick is `409`: starting a hub that does not exist or
+is not enabled answers `409` with `HUB_DISABLED`.
+
+```bash
+token=$(anypick serve token)
+curl -s http://127.0.0.1:PORT/v1/accounts -H "Authorization: Bearer $token"
+curl -s -X POST http://127.0.0.1:PORT/v1/accounts/claude/work/activate \
+  -H "Authorization: Bearer $token" -H "Content-Type: application/json"
+```
+
+## Compatibility
+
+Fields are added without notice. A field is never removed or changed within
+`/v1`; that needs a new version.

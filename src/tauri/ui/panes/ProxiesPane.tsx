@@ -27,6 +27,7 @@ import {
   RowText,
   StatusLabel,
 } from '../ui/primitives';
+import { mutateAction, proxyBulk, proxyToken } from '../lib/desktop-actions';
 
 /**
  * Proxies: the hub on top, then one relay per saved account.
@@ -215,7 +216,7 @@ export function ProxiesPane({
             kind="secondary"
             testId="proxies-start-all"
             disabled={stoppedCount === 0 || busy.size > 0}
-            onClick={() => service.mutate('proxy-start-all', { name: 'all' })}
+            onClick={() => mutateAction(service, proxyBulk('proxy-start-all'))}
           >
             {runningCount === 0 ? t('start_all') : t('start_remaining')}
           </Button>
@@ -223,7 +224,7 @@ export function ProxiesPane({
             kind="secondary"
             testId="proxies-restart"
             disabled={!hasRunning || busy.size > 0}
-            onClick={() => service.mutate('proxy-restart-all', { name: 'all' })}
+            onClick={() => mutateAction(service, proxyBulk('proxy-restart-all'))}
           >
             {t('restart_running')}
           </Button>
@@ -307,7 +308,7 @@ export function ProxiesPane({
           onCancel={() => setPendingStopAll(false)}
           onConfirm={() => {
             setPendingStopAll(false);
-            service.mutate('proxy-stop-all', { name: 'all' });
+            mutateAction(service, proxyBulk('proxy-stop-all'));
           }}
         />
       ) : null}
@@ -318,7 +319,7 @@ export function ProxiesPane({
 function copyProxyKey(service: ServicePort, proxy: ProxyRow) {
   const subject = proxyTokenSubject(proxy.id, proxy.providerId);
   if (!subject) return;
-  service.mutate('proxy-token', subject);
+  mutateAction(service, proxyToken(subject));
 }
 
 function ProxyRowView({

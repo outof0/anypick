@@ -494,8 +494,17 @@ jobs:
           src/macos/scripts/check-node-free-app.sh "$app"
           (cd src/go && GOPATH="${HOME}/go" GOTOOLCHAIN=auto go run ./cmd/anypick-artifact node-free "$app")
           ditto -c -k --sequesterRsrc --keepParent "$app" "$RUNNER_TEMP/AnyPick-macos-universal.zip"
-          hdiutil create -volname AnyPick -srcfolder "$app" -ov -format UDZO \
-            "$RUNNER_TEMP/AnyPick-macos-universal.dmg"
+
+      # The .dmg carries INSTALL.txt beside the app: the app is ad-hoc signed and
+      # not notarized (ADR 0033), so a first launch can be refused with a message
+      # that reads as a corrupt download. The note explains it where the user
+      # meets it. The script also verifies the signature of what actually lands
+      # in the image, which the previous inline hdiutil call did not.
+      - name: Build the macOS disk image with its install note
+        run: |
+          app="$RUNNER_TEMP/anypick-macos-derived/Build/Products/Release/AnyPick.app"
+          src/macos/scripts/build-dmg.sh --app "$app" \
+            --output "$RUNNER_TEMP/AnyPick-macos-universal.dmg"
 
       - name: Smoke-test the macOS artifact on a clean account
         run: |

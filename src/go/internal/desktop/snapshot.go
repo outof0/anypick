@@ -2,6 +2,7 @@ package desktop
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -146,6 +147,8 @@ type CredentialKindRow struct {
 	Kind     string                 `json:"kind"`
 	Label    string                 `json:"label"`
 	Profiles []CredentialProfileRow `json:"profiles"`
+	// SecretOptional lets the sheet save with the key field empty.
+	SecretOptional bool `json:"secretOptional,omitempty"`
 }
 
 // CredentialProfileRow is one endpoint profile within a credential kind.
@@ -323,8 +326,12 @@ func (b *snapshotBuilder) addProxyRow(ctx context.Context, pv provider.Provider,
 		if _, err := b.srv.Deps.Proxy.RotateToken(c, providerID, name); err != nil {
 			return err
 		}
-		return b.srv.reapplyClientsBoundTo(c, refs.AccountRef(providerID, name),
-			opts.AllowForeignConfig)
+		// A pool primary's key is also the pool's: move both sets of clients.
+		var errs []error
+		for _, ref := range b.srv.Deps.Proxy.KeyHolders(c, providerID, name) {
+			errs = append(errs, b.srv.reapplyClientsBoundTo(c, ref, opts.AllowForeignConfig))
+		}
+		return errors.Join(errs...)
 	}
 	if cfg.Enabled {
 		b.snap.ProxyCount++
@@ -1147,7 +1154,9 @@ func credentialKindRows(defs []provider.CredentialDefinition) []CredentialKindRo
 		if label == "" {
 			label = c.Kind
 		}
-		out = append(out, CredentialKindRow{Kind: c.Kind, Label: label, Profiles: profiles})
+		out = append(out, CredentialKindRow{
+			Kind: c.Kind, Label: label, Profiles: profiles, SecretOptional: c.SecretOptional,
+		})
 	}
 	return out
 }

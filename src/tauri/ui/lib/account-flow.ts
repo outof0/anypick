@@ -144,10 +144,13 @@ export function credentialInputCanSubmit(input: {
   blocked: boolean;
   /** Cloudflare routes by account and gateway, so both are required. */
   routingComplete: boolean;
+  /** A local model server needs no key; the engine still checks. */
+  secretOptional?: boolean;
 }): boolean {
   if (input.blocked || !input.providerInstalled) return false;
   if (!input.routingComplete) return false;
-  return input.name.trim() !== '' && input.secret.trim() !== '';
+  if (input.name.trim() === '') return false;
+  return input.secretOptional === true || input.secret.trim() !== '';
 }
 
 /**

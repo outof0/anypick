@@ -45,6 +45,9 @@ func (s Source) IsEnabled() bool { return s.Enabled == nil || *s.Enabled }
 const (
 	StrategyFailover   = "failover"
 	StrategyRoundRobin = "round-robin"
+	// StrategySoonestReset starts each request at the account whose unused
+	// quota resets soonest (ADR-0035).
+	StrategySoonestReset = "soonest-reset"
 )
 
 // SpreadsRequests reports whether this hub spreads requests across the
@@ -68,6 +71,9 @@ type Config struct {
 	// which is the same assumption the pool ring is built on). It is an
 	// extension: persisted configs written before the mode existed carry none.
 	Strategy string `json:"strategy,omitempty"`
+	// Combos are the hub's own model ids, each an ordered fallback chain
+	// (ADR-0036).
+	Combos []Combo `json:"combos,omitempty"`
 	// Token is the hub listener bearer. The row is written through
 	// tsHubConfig, which keeps the field. Marshaling Config itself is the
 	// status path, and that path must not carry the bearer (ADR 0006 §6,
@@ -469,6 +475,7 @@ func decodeHubConfig(data []byte, name string) (*Config, error) {
 		ModelOwners json.RawMessage `json:"modelOwners"`
 		Strategy    string          `json:"strategy"`
 		Token       string          `json:"token"`
+		Combos      []Combo         `json:"combos"`
 		Revision    int             `json:"revision"`
 		CreatedAt   string          `json:"createdAt"`
 		UpdatedAt   string          `json:"updatedAt"`
@@ -476,13 +483,15 @@ func decodeHubConfig(data []byte, name string) (*Config, error) {
 	if err := json.Unmarshal(data, &w); err != nil {
 		return fail(err.Error())
 	}
-	if w.Strategy != "" && w.Strategy != StrategyFailover && w.Strategy != StrategyRoundRobin {
+	if w.Strategy != "" && w.Strategy != StrategyFailover && w.Strategy != StrategyRoundRobin &&
+		w.Strategy != StrategySoonestReset {
 		return fail("unknown strategy " + w.Strategy)
 	}
 	cfg := &Config{
 		Name: w.Name, Enabled: w.Enabled, Host: w.Host, Port: w.Port,
 		Sources: make([]Source, 0, len(w.Sources)), Revision: w.Revision,
 		Strategy: w.Strategy, Token: w.Token, CreatedAt: w.CreatedAt, UpdatedAt: w.UpdatedAt,
+		Combos: w.Combos,
 	}
 	if len(w.ModelOwners) > 0 {
 		cfg.modelOwners = json.RawMessage(string(w.ModelOwners))
@@ -517,6 +526,7 @@ type tsHubConfig struct {
 	Strategy    string          `json:"strategy,omitempty"`
 	Token       string          `json:"token,omitempty"`
 	Sources     []tsSource      `json:"sources"`
+	Combos      []Combo         `json:"combos,omitempty"`
 	ModelOwners json.RawMessage `json:"modelOwners"`
 	Revision    int             `json:"revision"`
 	CreatedAt   string          `json:"createdAt"`
@@ -539,6 +549,7 @@ func marshalTSConfig(cfg Config, modelOwners json.RawMessage) ([]byte, error) {
 		Name: cfg.Name, Enabled: cfg.Enabled,
 		Host: host, Port: cfg.Port, Strategy: cfg.Strategy,
 		Token:       cfg.Token,
+		Combos:      cfg.Combos,
 		Sources:     make([]tsSource, 0, len(cfg.Sources)),
 		ModelOwners: owners, Revision: cfg.Revision,
 		CreatedAt: cfg.CreatedAt, UpdatedAt: cfg.UpdatedAt,

@@ -278,7 +278,6 @@ final class TrayStore: ObservableObject {
     label: String? = nil,
     endpoint: String? = nil,
     apiKey: String? = nil,
-    region: String? = nil,
     gatewayId: String? = nil,
     defaultModel: String? = nil,
     overwrite: Bool? = nil,
@@ -288,6 +287,7 @@ final class TrayStore: ObservableObject {
     profile: String? = nil,
     path: String? = nil,
     transportPolicy: String? = nil,
+    strategy: String? = nil,
     sourceIDs: [String]? = nil,
     activityLabel: String,
     silentFeedback: Bool = false
@@ -304,7 +304,6 @@ final class TrayStore: ObservableObject {
       label: label,
       endpoint: endpoint,
       apiKey: apiKey,
-      region: region,
       gatewayId: gatewayId,
       defaultModel: defaultModel,
       overwrite: overwrite,
@@ -313,7 +312,8 @@ final class TrayStore: ObservableObject {
       kind: kind,
       profile: profile,
       transportPolicy: transportPolicy,
-      sourceIds: sourceIDs
+      sourceIds: sourceIDs,
+      strategy: strategy
     )
     return sendMutation(mutation, activityLabel: activityLabel, silentFeedback: silentFeedback)
   }

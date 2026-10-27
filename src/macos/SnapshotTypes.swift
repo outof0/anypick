@@ -82,6 +82,9 @@ struct HubSourceSnapshot: Decodable, Identifiable {
   /// provider's account ring instead of a single account.
   let rotates: Bool?
   let accountCount: Int?
+  /// Rotation row: the hub-wide request mode ("failover", "round-robin",
+  /// "soonest-reset"). Absent from an engine that predates it.
+  let strategy: String?
   /// True when the source value is a pool ("pool:<provider>"): the row carries
   /// its own label and detail, because there is no account to resolve.
   let poolSource: Bool?
@@ -236,6 +239,8 @@ struct ProviderCredentialKindSnapshot: Decodable, Identifiable {
   let kind: String
   let label: String
   let profiles: [ProviderCredentialProfileSnapshot]?
+  /// The product works without a key (a local model server).
+  let secretOptional: Bool?
 }
 
 struct ProviderCredentialProfileSnapshot: Decodable, Identifiable {
@@ -258,8 +263,6 @@ struct GatewayProviderSnapshot: Decodable, Identifiable {
   let defaultEndpoint: String?
   let firstPartyClientIds: [String]?
   let kind: String?
-  let regions: [String]?
-  let regionDefault: String?
   let requiresGatewayId: Bool?
   let requiresAccountId: Bool?
 }
@@ -417,7 +420,6 @@ struct Mutation: Encodable {
   let label: String?
   let endpoint: String?
   let apiKey: String?
-  let region: String?
   let gatewayId: String?
   let defaultModel: String?
   let overwrite: Bool?
@@ -429,6 +431,8 @@ struct Mutation: Encodable {
   let profile: String?
   let transportPolicy: String?
   var sourceIds: [String]? = nil
+  /// hub-rotation: the hub-wide request mode. Nil leaves only `enabled`.
+  var strategy: String? = nil
 }
 
 struct CancellationRequest: Encodable {

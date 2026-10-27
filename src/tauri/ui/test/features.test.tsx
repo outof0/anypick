@@ -48,6 +48,11 @@ function mutatePayloads(bridge: FakeBridge) {
   return bridge.commands().filter((entry) => entry.kind === 'mutate').map((entry) => entry.payload);
 }
 
+/** What each mutation carried, envelope removed. Compare exactly. */
+function mutateBodies(bridge: FakeBridge) {
+  return bridge.bodies('mutate');
+}
+
 describe('proxy key rotation', () => {
   it('confirms a relay rotation, then invokes the action the snapshot published', async () => {
     const { bridge, user } = mount(({ service, snapshot }) => <ProxiesPane service={service} snapshot={snapshot} />);
@@ -61,8 +66,8 @@ describe('proxy key rotation', () => {
     expect(dialog.getByText('Rotate API Key for Work?')).toBeInTheDocument();
 
     await user.click(dialog.getByRole('button', { name: 'Rotate Key' }));
-    expect(bridge.commands().filter((entry) => entry.kind === 'invoke').map((e) => e.payload)).toEqual([
-      expect.objectContaining({ actionId: 'act-7-203', revision: 7 }),
+    expect(bridge.bodies('invoke')).toEqual([
+      { actionId: 'act-7-203', revision: 7 },
     ]);
   });
 
@@ -141,14 +146,12 @@ describe('accounts and gateways', () => {
     await user.click(screen.getByRole('button', { name: 'New Account' }));
     // The primary button names what it will do, not what the sheet is called.
     await user.click(screen.getByRole('button', { name: 'Sign In with Claude' }));
-    expect(mutatePayloads(bridge)).toEqual([
-      expect.objectContaining({ operation: 'account-save', providerId: 'claude', name: 'Work' }),
-      expect.objectContaining({ operation: 'account-detect', providerId: 'claude' }),
-      expect.objectContaining({ operation: 'account-login', providerId: 'claude', methodId: 'subscription' }),
+    expect(mutateBodies(bridge)).toEqual([
+      // The identity is a display hint; the engine stores what the snapshot says.
+      { operation: 'account-save', providerId: 'claude', name: 'Work', identity: 'Current Claude login' },
+      { operation: 'account-detect', providerId: 'claude', name: 'detect' },
+      { operation: 'account-login', providerId: 'claude', name: 'Work', methodId: 'subscription' },
     ]);
-    expect(mutatePayloads(bridge)[0]).toEqual(
-      expect.objectContaining({ identity: 'Current Claude login' }),
-    );
     const login = mutatePayloads(bridge)[2];
     await user.click(screen.getByTestId('accounts-cancel-login'));
     expect(bridge.commands().find((entry) => entry.kind === 'cancel')?.payload?.requestId).toBe(login?.requestId);
@@ -164,11 +167,9 @@ describe('accounts and gateways', () => {
     await user.click(screen.getByRole('button', { name: 'Save' }));
     await user.click(screen.getByTestId('accounts.more.team'));
     await user.click(screen.getByRole('menuitem', { name: 'Test Connection' }));
-    expect(mutatePayloads(bridge)[0]).toEqual(
-      expect.objectContaining({ operation: 'account-edit', providerId: 'claude', name: 'work', label: '' }),
-    );
-    expect(mutatePayloads(bridge)[1]).toEqual(expect.objectContaining({ operation: 'gateway-refresh', name: 'team' }));
-    expect(mutatePayloads(bridge)[1]).not.toHaveProperty('providerId');
+    expect(mutateBodies(bridge)[0]).toEqual({ operation: 'account-edit', providerId: 'claude', name: 'work', label: '' });
+    expect(mutateBodies(bridge)[1]).toEqual({ operation: 'gateway-refresh', name: 'team' });
+    expect(mutateBodies(bridge)[1]).not.toHaveProperty('providerId');
   });
 
   it('tests a saved gateway by its name and points an app at that route', async () => {
@@ -182,14 +183,12 @@ describe('accounts and gateways', () => {
     await user.click(screen.getByTestId('accounts.connect.team'));
     await user.click(within(screen.getByTestId('gateway-connect-app-claude')).getByRole('checkbox'));
     await user.click(screen.getByTestId('gateway-connect-submit'));
-    expect(mutatePayloads(bridge)[0]).toEqual(
-      expect.objectContaining({ operation: 'gateway-refresh', name: 'team' }),
-    );
-    expect(mutatePayloads(bridge)[0]).not.toHaveProperty('endpoint');
-    expect(mutatePayloads(bridge)[0]).not.toHaveProperty('endpoint');
-    const invokes = bridge.commands().filter((entry) => entry.kind === 'invoke').map((entry) => entry.payload);
+    expect(mutateBodies(bridge)[0]).toEqual({ operation: 'gateway-refresh', name: 'team' });
+    expect(mutateBodies(bridge)[0]).not.toHaveProperty('endpoint');
+    expect(mutateBodies(bridge)[0]).not.toHaveProperty('endpoint');
+    const invokes = bridge.bodies('invoke');
     // The gateway row the fixture publishes: `gateway/team`, one action per app.
-    expect(invokes).toEqual([expect.objectContaining({ actionId: 'act-7-002', revision: 7 })]);
+    expect(invokes).toEqual([{ actionId: 'act-7-002', revision: 7 }]);
   });
 
   it('keeps the saved gateway label until the text changes', async () => {
@@ -202,9 +201,7 @@ describe('accounts and gateways', () => {
     expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
     await user.type(screen.getByTestId('gateway-edit-label'), 'Lab');
     await user.click(screen.getByRole('button', { name: 'Save' }));
-    expect(mutatePayloads(bridge)[0]).toEqual(
-      expect.objectContaining({ operation: 'gateway-edit', name: 'team', label: 'Lab' }),
-    );
+    expect(mutateBodies(bridge)[0]).toEqual({ operation: 'gateway-edit', name: 'team', label: 'Lab' });
   });
 
   it('points the second app at the gateway only after the first switch settles', async () => {
@@ -243,14 +240,14 @@ describe('accounts and gateways', () => {
     await user.click(screen.getByTestId('gateway-connect-submit'));
     const invokes = () => bridge.commands().filter((entry) => entry.kind === 'invoke').map((entry) => entry.payload);
     // The claude row is the one the fixture already publishes for `gateway/team`.
-    expect(invokes()).toEqual([expect.objectContaining({ actionId: 'act-7-002', revision: 7 })]);
+    expect(bridge.bodies('invoke')).toEqual([{ actionId: 'act-7-002', revision: 7 }]);
     const requestId = String(invokes()[0]?.requestId);
     await act(async () => {
       handleRef.current?.settle(requestId);
     });
-    expect(invokes()).toEqual([
-      expect.objectContaining({ actionId: 'act-7-002', revision: 7 }),
-      expect.objectContaining({ actionId: 'act-team-codex', revision: 7 }),
+    expect(bridge.bodies('invoke')).toEqual([
+      { actionId: 'act-7-002', revision: 7 },
+      { actionId: 'act-team-codex', revision: 7 },
     ]);
   });
 
@@ -309,22 +306,23 @@ describe('accounts and gateways', () => {
     expect(screen.getByRole('button', { name: 'Test Again' })).toBeInTheDocument();
 
     await user.click(screen.getByTestId('gateway-flow.save'));
-    expect(mutatePayloads(bridge)).toEqual([
-      expect.objectContaining({
+    expect(mutateBodies(bridge)).toEqual([
+      {
         operation: 'gateway-test',
         name: 'test',
         providerId: 'cloudflare',
         apiKey: 'sk-cf',
         profile: 'acct-1',
-      }),
-      expect.objectContaining({
+      },
+      {
         operation: 'gateway-create',
         providerId: 'cloudflare',
         name: 'edge',
+        label: 'edge',
         apiKey: 'sk-cf',
         gatewayId: 'gw-9',
         profile: 'acct-1',
-      }),
+      },
     ]);
   });
 
@@ -366,14 +364,14 @@ describe('accounts and gateways', () => {
     await user.type(screen.getByTestId('account-flow.name'), 'work');
     await user.type(screen.getByTestId('account-flow.api-key.input'), 'sk-plan');
     await user.click(screen.getByTestId('account-flow.save'));
-    expect(mutatePayloads(bridge)[0]).toEqual(
-      expect.objectContaining({
-        operation: 'account-save-input',
-        kind: 'plan',
-        profile: 'pro',
-        apiKey: 'sk-plan',
-      }),
-    );
+    expect(mutateBodies(bridge)[0]).toEqual({
+      operation: 'account-save-input',
+      providerId: 'claude',
+      name: 'work',
+      kind: 'plan',
+      profile: 'pro',
+      apiKey: 'sk-plan',
+    });
   });
 
   it('creates a gateway with the endpoint and key the user typed', async () => {
@@ -399,15 +397,14 @@ describe('accounts and gateways', () => {
     await user.type(screen.getByTestId('gateway-flow.endpoint.input'), 'https://openrouter.ai/api/v1');
     await user.type(screen.getByTestId('gateway-flow.api-key'), 'sk-test');
     await user.click(screen.getByTestId('gateway-flow.save'));
-    expect(mutatePayloads(bridge)[0]).toEqual(
-      expect.objectContaining({
-        operation: 'gateway-create',
-        providerId: 'litellm',
-        name: 'team',
-        endpoint: 'https://openrouter.ai/api/v1',
-        apiKey: 'sk-test',
-      }),
-    );
+    expect(mutateBodies(bridge)[0]).toEqual({
+      operation: 'gateway-create',
+      providerId: 'litellm',
+      name: 'team',
+      label: 'team',
+      endpoint: 'https://openrouter.ai/api/v1',
+      apiKey: 'sk-test',
+    });
   });
 });
 
@@ -445,19 +442,19 @@ describe('typed credentials and gateway removal', () => {
     await user.click(screen.getByTestId('accounts.more.team'));
     await user.click(screen.getByRole('menuitem', { name: 'Remove…' }));
     await user.click(within(screen.getByTestId('gateway-remove-dialog')).getByRole('button', { name: 'Remove' }));
-    expect(mutatePayloads(bridge)).toEqual([
-      expect.objectContaining({ operation: 'account-clear', name: 'live', providerId: 'claude', sourceId: 'cli' }),
-      expect.objectContaining({
+    expect(mutateBodies(bridge)).toEqual([
+      { operation: 'account-clear', name: 'live', providerId: 'claude', sourceId: 'cli' },
+      {
         operation: 'account-save-input',
         providerId: 'claude',
         name: 'work',
         kind: 'api-key',
         apiKey: 'sk-test',
         // A provider with one credential kind has no profile preset to send;
-        // an empty string would name a profile that does not exist.
-        profile: '',
-      }),
-      expect.objectContaining({ operation: 'gateway-remove', name: 'team', providerId: 'openrouter' }),
+        // an empty string would name a profile that does not exist, so the
+        // key is absent rather than blank.
+      },
+      { operation: 'gateway-remove', name: 'team', providerId: 'openrouter' },
     ]);
   });
 });
@@ -480,15 +477,13 @@ describe('pasted auth json', () => {
     await user.paste(body);
     await user.click(screen.getByTestId('account-flow.save'));
 
-    await waitFor(() => expect(mutatePayloads(bridge)).toHaveLength(1));
+    await waitFor(() => expect(mutateBodies(bridge)).toHaveLength(1));
     const first = mutatePayloads(bridge)[0];
-    expect(first).toEqual(
-      expect.objectContaining({
-        operation: 'account-save-auth',
-        providerId: 'claude',
-        path: '/tmp/anypick-auth-paste/paste.json',
-      }),
-    );
+    expect(mutateBodies(bridge)[0]).toEqual({
+      operation: 'account-save-auth',
+      providerId: 'claude',
+      path: '/tmp/anypick-auth-paste/paste.json',
+    });
     expect(first).not.toHaveProperty('apiKey');
     expect(first).not.toHaveProperty('name');
     expect(first).not.toHaveProperty('overwrite');
@@ -519,7 +514,7 @@ describe('pasted auth json', () => {
 
     // A second refusal, this time the collision Replace is for.
     await user.click(screen.getByTestId('account-flow.save'));
-    await waitFor(() => expect(mutatePayloads(bridge)).toHaveLength(2));
+    await waitFor(() => expect(mutateBodies(bridge)).toHaveLength(2));
     const refused = mutatePayloads(bridge)[1];
     view.rerender(
       <AccountsPane
@@ -538,15 +533,13 @@ describe('pasted auth json', () => {
     );
     expect(screen.getByTestId('account-flow.save')).toHaveTextContent('Replace Account');
     await user.click(screen.getByTestId('account-flow.save'));
-    await waitFor(() => expect(mutatePayloads(bridge)).toHaveLength(3));
-    expect(mutatePayloads(bridge)[2]).toEqual(
-      expect.objectContaining({
-        operation: 'account-save-auth',
-        providerId: 'claude',
-        path: '/tmp/anypick-auth-paste/paste.json',
-        overwrite: true,
-      }),
-    );
+    await waitFor(() => expect(mutateBodies(bridge)).toHaveLength(3));
+    expect(mutateBodies(bridge)[2]).toEqual({
+      operation: 'account-save-auth',
+      providerId: 'claude',
+      path: '/tmp/anypick-auth-paste/paste.json',
+      overwrite: true,
+    });
     expect(JSON.stringify(mutatePayloads(bridge)[2])).not.toContain('paste-secret-token');
     // Replace sends the document the engine already refused, so it is not
     // staged again. The refusal after the bad document did re-stage it.
@@ -631,14 +624,14 @@ describe('codex profiles', () => {
     await user.selectOptions(screen.getByRole('combobox', { name: 'Account or Route' }), 'account/codex/personal');
     await user.selectOptions(screen.getByRole('combobox', { name: 'Transport' }), 'proxy');
     await user.click(screen.getByTestId('codex-profile-save'));
-    expect(mutatePayloads(bridge)).toEqual([
-      expect.objectContaining({ operation: 'codex-profile-sync', sourceIds: ['account/codex/personal'] }),
-      expect.objectContaining({
+    expect(mutateBodies(bridge)).toEqual([
+      { operation: 'codex-profile-sync', sourceIds: ['account/codex/personal'] },
+      {
         operation: 'codex-profile-save',
         name: 'personal',
         sourceId: 'account/codex/personal',
         transportPolicy: 'proxy',
-      }),
+      },
     ]);
   });
 
@@ -691,15 +684,13 @@ describe('codex profiles', () => {
     await user.click(screen.getByRole('menuitem', { name: 'Edit Profile…' }));
     expect(screen.getByTestId('codex-profile-save')).toHaveTextContent('Save Changes');
     await user.click(screen.getByTestId('codex-profile-save'));
-    expect(mutatePayloads(bridge)[0]).toEqual(
-      expect.objectContaining({
-        operation: 'codex-profile-update',
-        name: 'work',
-        sourceId: 'account/codex/work',
-        defaultModel: 'gpt-5',
-        transportPolicy: 'proxy',
-      }),
-    );
+    expect(mutateBodies(bridge)[0]).toEqual({
+      operation: 'codex-profile-update',
+      name: 'work',
+      sourceId: 'account/codex/work',
+      defaultModel: 'gpt-5',
+      transportPolicy: 'proxy',
+    });
   });
 
   it('keeps automatic profile creation local and syncs with codex-profile-sync', async () => {
@@ -747,8 +738,8 @@ describe('codex profiles', () => {
     expect(mutatePayloads(bridge).some((payload) => payload?.operation === 'setting-create-codex-profiles')).toBe(false);
     await user.click(toggle);
     expect(toggle).toHaveAttribute('aria-checked', 'true');
-    expect(mutatePayloads(bridge)).toEqual([
-      expect.objectContaining({ operation: 'codex-profile-sync', sourceIds: ['account/codex/personal'] }),
+    expect(mutateBodies(bridge)).toEqual([
+      { operation: 'codex-profile-sync', sourceIds: ['account/codex/personal'] },
     ]);
     localStorage.removeItem('anypick.codexAutoProfiles');
     localStorage.removeItem('anypick.codexAutoProfileFingerprints');
@@ -763,17 +754,15 @@ describe('backups', () => {
     await user.click(screen.getByRole('button', { name: 'Export Accounts…' }));
     await user.type(screen.getByTestId('backup-export-path'), '/tmp/accounts.anypick-backup');
     await user.click(screen.getByTestId('backup-export-submit'));
-    expect(mutatePayloads(bridge)[0]).toEqual(
-      expect.objectContaining({
-        operation: 'account-backup-export',
-        path: '/tmp/accounts.anypick-backup',
-        overwrite: false,
-        accounts: [
-          { provider: 'claude', name: 'work' },
-          { provider: 'claude', name: 'personal' },
-        ],
-      }),
-    );
+    expect(mutateBodies(bridge)[0]).toEqual({
+      operation: 'account-backup-export',
+      path: '/tmp/accounts.anypick-backup',
+      overwrite: false,
+      accounts: [
+        { provider: 'claude', name: 'work' },
+        { provider: 'claude', name: 'personal' },
+      ],
+    });
   });
 
   it('reviews a file, then imports only the entries that are not replacements', async () => {
@@ -797,14 +786,12 @@ describe('backups', () => {
     await user.click(within(screen.getByTestId('backup-entry-a')).getByRole('checkbox'));
     await user.click(within(screen.getByTestId('backup-entry-b')).getByRole('checkbox'));
     await user.click(screen.getByTestId('backup-import-submit'));
-    expect(mutatePayloads(bridge)[0]).toEqual(
-      expect.objectContaining({
-        operation: 'account-backup-import',
-        inspectionId: 'insp-1',
-        entryIds: ['a'],
-        overwriteConfirmed: false,
-      }),
-    );
+    expect(mutateBodies(bridge)[0]).toEqual({
+      operation: 'account-backup-import',
+      inspectionId: 'insp-1',
+      entryIds: ['a'],
+      overwriteConfirmed: false,
+    });
   });
 
   it('allows picking a backup file with the Choose button', async () => {
@@ -821,12 +808,7 @@ describe('backups', () => {
     await user.upload(fileInput, fakeFile);
 
     expect(screen.getByTestId('backup-import-path')).toHaveValue('/Users/erik/Desktop/accounts.anypick-backup');
-    const inspect = bridge.commands().find((entry) => entry.kind === 'backup-inspect');
-    expect(inspect?.payload).toEqual(
-      expect.objectContaining({
-        path: '/Users/erik/Desktop/accounts.anypick-backup',
-      }),
-    );
+    expect(bridge.bodies('backup-inspect')).toEqual([{ path: '/Users/erik/Desktop/accounts.anypick-backup' }]);
   });
 
   it('never reviews a bare filename when the picker cannot report a path', async () => {
@@ -883,12 +865,8 @@ describe('activity', () => {
     ));
     await user.click(screen.getByRole('button', { name: 'Live Logs' }));
     await waitFor(() => expect(bridge.commands().length).toBeGreaterThan(0));
-    expect(bridge.commands()[0]).toEqual(
-      expect.objectContaining({
-        kind: 'logs',
-        payload: expect.objectContaining({ providerId: 'claude', name: 'work', lines: 200 }),
-      }),
-    );
+    expect(bridge.commandKinds()[0]).toBe('logs');
+    expect(bridge.bodies('logs')[0]).toEqual({ providerId: 'claude', name: 'work', lines: 200 });
     await waitFor(() => expect(bridge.commands().length).toBeGreaterThan(1), { timeout: 4000 });
   });
 
@@ -912,9 +890,9 @@ describe('apps', () => {
     await user.click(screen.getByTestId('app.more-claude'));
     await user.click(screen.getByTestId('app.disconnect-menu'));
     await user.click(within(screen.getByTestId('apps-disconnect-dialog')).getByRole('button', { name: 'Disconnect from AnyPick' }));
-    expect(mutatePayloads(bridge)).toEqual([
-      expect.objectContaining({ operation: 'account-refresh', providerId: 'claude', name: 'work' }),
-      expect.objectContaining({ operation: 'client-reset', name: 'claude', providerId: 'claude' }),
+    expect(mutateBodies(bridge)).toEqual([
+      { operation: 'account-refresh', providerId: 'claude', name: 'work' },
+      { operation: 'client-reset', name: 'claude', providerId: 'claude' },
     ]);
   });
 
@@ -941,8 +919,8 @@ describe('apps', () => {
     );
     await user.click(screen.getByTestId('app.more-claude'));
     await user.click(screen.getByTestId('apps-refresh-menu'));
-    expect(mutatePayloads(bridge)[0]).toEqual(expect.objectContaining({ operation: 'gateway-refresh', name: 'team' }));
-    expect(mutatePayloads(bridge)[0]).not.toHaveProperty('providerId');
+    expect(mutateBodies(bridge)[0]).toEqual({ operation: 'gateway-refresh', name: 'team' });
+    expect(mutateBodies(bridge)[0]).not.toHaveProperty('providerId');
   });
 });
 
@@ -974,15 +952,9 @@ describe('settings', () => {
     expect(screen.queryByText('Credentials')).not.toBeInTheDocument();
     expect(screen.queryByText('Not encrypted')).not.toBeInTheDocument();
     expect(screen.queryByText('Check AnyPick')).not.toBeInTheDocument();
-    expect(mutatePayloads(bridge)[0]).toEqual(
-      expect.objectContaining({ operation: 'setting-show-quota', name: 'settings', enabled: false }),
-    );
-    expect(mutatePayloads(bridge)[1]).toEqual(
-      expect.objectContaining({ operation: 'setting-quota-guard', name: 'settings', enabled: true }),
-    );
-    expect(mutatePayloads(bridge)[2]).toEqual(
-      expect.objectContaining({ operation: 'setting-language', name: 'settings', language: 'vi' }),
-    );
+    expect(mutateBodies(bridge)[0]).toEqual({ operation: 'setting-show-quota', name: 'settings', enabled: false });
+    expect(mutateBodies(bridge)[1]).toEqual({ operation: 'setting-quota-guard', name: 'settings', enabled: true });
+    expect(mutateBodies(bridge)[2]).toEqual({ operation: 'setting-language', name: 'settings', language: 'vi' });
   });
 });
 

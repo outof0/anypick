@@ -36,6 +36,9 @@ var featuredApps = []string{"claude", "codex", "gemini", "opencode"}
 type source struct {
 	name, how, id string
 	login         bool
+	// keyless sources take no key at all: every credential product they
+	// publish is key-optional (a local model server).
+	keyless bool
 }
 
 // Supported is what the registries ship: coding apps and account sources.
@@ -82,7 +85,7 @@ func Load(home string) (Supported, error) {
 				return s, err
 			}
 			how, login := connectWith(p)
-			s.sources = append(s.sources, source{p.Name(), how, id, login})
+			s.sources = append(s.sources, source{p.Name(), how, id, login, keylessSource(p)})
 		}
 	}
 	sort.SliceStable(s.sources, func(i, j int) bool {
@@ -104,17 +107,44 @@ func (s Supported) SummaryLine() (string, error) {
 		}
 		names = append(names, name)
 	}
-	logins := 0
+	logins, keyless := 0, 0
 	for _, src := range s.sources {
-		if src.login {
+		switch {
+		case src.login:
 			logins++
+		case src.keyless:
+			keyless++
 		}
 	}
+	// "The rest by API key" would be false for a server that takes none.
+	servers := ""
+	if keyless > 0 {
+		servers = fmt.Sprintf(", %d local model servers that need no key", keyless)
+	}
 	return fmt.Sprintf("Works with **%d coding apps** (%s and %d more) and **%d sources**: "+
-		"%d you sign in to or reuse an existing login for, the rest by API key. "+
+		"%d you sign in to or reuse an existing login for%s, the rest by API key. "+
 		"[Full list](#supported).\n",
 		len(s.apps), strings.Join(names, ", "), len(s.apps)-len(names),
-		len(s.sources), logins), nil
+		len(s.sources), logins, servers), nil
+}
+
+// keylessSource reports a source whose every credential product is
+// key-optional.
+func keylessSource(p provider.Provider) bool {
+	defs, ok := p.(provider.CredentialDefinitionsProvider)
+	if !ok {
+		return false
+	}
+	list := defs.CredentialDefinitions()
+	if len(list) == 0 {
+		return false
+	}
+	for _, d := range list {
+		if !d.SecretOptional {
+			return false
+		}
+	}
+	return true
 }
 
 // TableMarkdown is the full list of coding apps and sources.

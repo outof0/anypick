@@ -13,7 +13,7 @@ AnyPick fournit deux frontaux natifs sur un moteur Go (ADR 0020) :
 Les deux sont des avants, pas des moteurs. Ni l'un ni l'autre ne lit les informations d'identification et ne possède l'état AnyPick : chacun lance, établit une liaison avec, supervise et arrête le service Go fourni, puis restitue ce que ce service lui envoie (ADR 0019 §1).
 
 <Aside type="caution" title="Installer à partir du canal de publication">
-Les versions GitHub contiennent les installateurs macOS `.dmg`/`.zip`, Linux et Windows et les archives CLI. L'application macOS n'est pas notariée. Au premier lancement, cliquez avec le bouton droit sur `AnyPick.app` et choisissez **Ouvrir**, ou accédez à **Paramètres système → Confidentialité et sécurité → Ouvrir quand même**. Vous pouvez également exécuter `xattr -dr com.apple.quarantine /Applications/AnyPick.app`.
+Les versions GitHub contiennent les installateurs macOS `.dmg`/`.zip`, Linux et Windows et les archives CLI. L'application macOS n'est pas notariée. Au premier lancement, cliquez avec le bouton droit sur `AnyPick.app` et choisissez **Ouvrir**, ou accédez à **Paramètres système → Confidentialité et sécurité → Ouvrir quand même**. Vous pouvez également exécuter `/usr/bin/xattr -dr com.apple.quarantine /Applications/AnyPick.app`.
 </Aside>
 
 ## L'application est propriétaire de son service

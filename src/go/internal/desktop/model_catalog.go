@@ -301,6 +301,10 @@ func (s *Server) hubCatalogList(ctx context.Context, hubName string) []string {
 	if err != nil || cfg == nil {
 		return uniqueModelIDs(pinned)
 	}
+	// Combos are the hub's own model ids (ADR-0036), as deliberate as pins.
+	for _, combo := range cfg.Combos {
+		pinned = append(pinned, combo.Name)
+	}
 	var out []string
 	for _, src := range cfg.Sources {
 		if !src.IsEnabled() {

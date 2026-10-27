@@ -7,21 +7,20 @@ import {
   connectionFooter,
   connectionTestEnabled,
   gatewayCanSave,
-  isApiKeyAccount,
   providerSuppliesEndpoint,
   requiresApiKey,
   resolvedEndpoint,
   suggestedGatewayName,
-  syncRegion,
   usesCustomEndpoint,
   type ConnectionState,
 } from '../lib/gateway-flow';
+import { createGateway, testGateway } from '../lib/desktop-actions';
 import type { ServicePort } from '../lib/service';
 import type { ServiceResult } from '../lib/wire';
 import { translate, translateSource } from '../lib/i18n';
 import { Dialog } from '../ui/Dialog';
 import { MenuSelect } from '../ui/MenuSelect';
-import { Button, Field, Group, Row, RowActions, RowText, Select, StatusLabel } from '../ui/primitives';
+import { Button, Field, Group, Row, RowActions, RowText, StatusLabel } from '../ui/primitives';
 
 /** The answer to a `gateway-test` the sheet asked for. */
 export type GatewayFlowResult = { operation: string; result: ServiceResult };
@@ -69,23 +68,20 @@ export function AddGatewaySheet({
   const [revealKey, setRevealKey] = useState(false);
   const [accountId, setAccountId] = useState('');
   const [gatewayId, setGatewayId] = useState('');
-  const [region, setRegion] = useState(syncRegion(provider, ''));
   const [connection, setConnection] = useState<ConnectionState>('untested');
   const [message, setMessage] = useState('');
 
   const needsKey = requiresApiKey(provider);
   const custom = usesCustomEndpoint(provider);
-  const regions = provider?.regions ?? [];
 
   // Switching provider changes which fields mean anything, so every derived
-  // value has to be re-derived: the endpoint, the region, and the test result.
+  // value has to be re-derived: the endpoint and the test result.
   // Leaving a test result from the previous provider on screen would say
   // "Connected" about an endpoint that is no longer on the sheet.
   const [pendingProvider, setPendingProvider] = useState(providerId);
   if (pendingProvider !== providerId) {
     setPendingProvider(providerId);
     setEndpoint(provider?.defaultEndpoint ?? '');
-    setRegion(syncRegion(provider, ''));
     setConnection('untested');
     setMessage('');
   }
@@ -123,59 +119,43 @@ export function AddGatewaySheet({
     apiKey,
     accountId,
     endpoint,
-    region,
     busy,
   });
 
   const save = () => {
     if (!provider) return;
-    // A provider-declared API key is an *account*, not a gateway: the engine
-    // stores it in the account store and the region is the credential profile
-    // it is filed under, so the two commands are not interchangeable.
-    const keyAccount = isApiKeyAccount(provider);
-    onSend({
-      operation: keyAccount ? 'account-save' : 'gateway-create',
-      extra: keyAccount
-        ? {
-            providerId: provider.id,
-            name: name.trim(),
-            label: name.trim(),
-            apiKey: apiKey.trim(),
-            region: regions.length > 0 ? region : undefined,
-          }
-        : {
-            providerId: provider.id,
-            name: name.trim(),
-            label: name.trim(),
-            endpoint: custom ? endpoint.trim() : undefined,
-            apiKey: needsKey ? apiKey.trim() : undefined,
-            // The engine's own default applies when the field is left blank; a
-            // prefilled "default" the user cannot see is a value they have to
-            // delete before typing their own.
-            gatewayId: provider.requiresGatewayId ? gatewayId.trim() || 'default' : undefined,
-            // An account-derived gateway is probed and stored by its account
-            // id; the engine builds the URL. `accountId` is not a wire field.
-            profile: provider.requiresAccountId ? accountId.trim() : undefined,
-          },
-    });
+    onSend(
+      createGateway({
+        providerId: provider.id,
+        name,
+        label: name,
+        apiKey: needsKey ? apiKey.trim() : undefined,
+        endpoint: custom ? endpoint : undefined,
+        // The engine's own default applies when the field is left blank; a
+        // prefilled "default" the user cannot see is a value they have to
+        // delete before typing their own.
+        gatewayId: provider.requiresGatewayId ? gatewayId.trim() || 'default' : undefined,
+        // An account-derived gateway is probed and stored by its account
+        // id; the engine builds the URL. `accountId` is not a wire field.
+        profile: provider.requiresAccountId ? accountId : undefined,
+      }),
+    );
   };
 
   const test = () => {
     if (!provider) return;
     setConnection('testing');
     setMessage('');
-    onSend({
-      operation: 'gateway-test',
-      extra: {
+    onSend(
+      testGateway({
         providerId: provider.id,
-        name: 'test',
-        endpoint: resolvedEndpoint(provider, endpoint).trim(),
+        endpoint: resolvedEndpoint(provider, endpoint),
         apiKey: needsKey ? apiKey.trim() : undefined,
         // An account-scoped gateway is probed by its account id; the engine
         // derives the URL that goes with it.
-        profile: provider.requiresAccountId ? accountId.trim() : undefined,
-      },
-    });
+        profile: provider.requiresAccountId ? accountId : undefined,
+      }),
+    );
   };
 
   return (
@@ -299,21 +279,7 @@ export function AddGatewaySheet({
           </Row>
         ) : null}
 
-        {regions.length > 0 ? (
-          <Row testId="gateway-flow.region">
-            <RowText title={t('region')} />
-            <RowActions>
-              <Select
-                label=""
-                ariaLabel={t('region')}
-                value={region}
-                testId="gateway-flow.region.picker"
-                onChange={setRegion}
-                options={regions.map((value) => ({ value, label: value }))}
-              />
-            </RowActions>
-          </Row>
-        ) : providerSuppliesEndpoint(provider) ? (
+        {providerSuppliesEndpoint(provider) ? (
           // Read-only, not a field. The engine has this value; a text box would
           // invite a user to break it by typing a URL that differs by a slash.
           <Row testId="gateway-flow.endpoint">
@@ -334,48 +300,44 @@ export function AddGatewaySheet({
           </Row>
         )}
 
-        {/* A provider-declared key is filed into an account store, not routed
-            as a gateway, so there is no endpoint of its own to probe. */}
-        {!isApiKeyAccount(provider) ? (
-          <Row testId="gateway-flow.connection">
-            <RowText title={t('connection')} />
-            <RowActions>
-              {/*
-                Each state carries its own id rather than one row whose id is
-                interpolated from the state: the three states are three
-                different answers, and an inventory that only sees
-                `gateway-flow.{x}` cannot tell which ones the app can show.
-              */}
-              {connection === 'testing' ? (
-                <span
-                  className="text-[12px] text-secondary"
-                  role="status"
-                  data-testid="gateway-flow.testing"
-                >
-                  {t('testing')}
-                </span>
-              ) : null}
-              {connection === 'available' ? (
-                <span className="inline-flex" data-testid="gateway-flow.available">
-                  <StatusLabel status="ready" language={language} resolvedLanguage={resolvedLanguage} />
-                </span>
-              ) : null}
-              {connection === 'unavailable' ? (
-                <span className="inline-flex" data-testid="gateway-flow.unavailable">
-                  <StatusLabel status="unavailable" language={language} resolvedLanguage={resolvedLanguage} />
-                </span>
-              ) : null}
-              <Button
-                kind="secondary"
-                testId="gateway-flow.test"
-                disabled={connection === 'testing' || !connectionTestEnabled({ provider, apiKey, accountId, busy })}
-                onClick={test}
+        <Row testId="gateway-flow.connection">
+          <RowText title={t('connection')} />
+          <RowActions>
+            {/*
+              Each state carries its own id rather than one row whose id is
+              interpolated from the state: the three states are three
+              different answers, and an inventory that only sees
+              `gateway-flow.{x}` cannot tell which ones the app can show.
+            */}
+            {connection === 'testing' ? (
+              <span
+                className="text-[12px] text-secondary"
+                role="status"
+                data-testid="gateway-flow.testing"
               >
-                {tr(TEST_LABEL[connection])}
-              </Button>
-            </RowActions>
-          </Row>
-        ) : null}
+                {t('testing')}
+              </span>
+            ) : null}
+            {connection === 'available' ? (
+              <span className="inline-flex" data-testid="gateway-flow.available">
+                <StatusLabel status="ready" language={language} resolvedLanguage={resolvedLanguage} />
+              </span>
+            ) : null}
+            {connection === 'unavailable' ? (
+              <span className="inline-flex" data-testid="gateway-flow.unavailable">
+                <StatusLabel status="unavailable" language={language} resolvedLanguage={resolvedLanguage} />
+              </span>
+            ) : null}
+            <Button
+              kind="secondary"
+              testId="gateway-flow.test"
+              disabled={connection === 'testing' || !connectionTestEnabled({ provider, apiKey, accountId, busy })}
+              onClick={test}
+            >
+              {tr(TEST_LABEL[connection])}
+            </Button>
+          </RowActions>
+        </Row>
       </Group>
     </Dialog>
   );

@@ -21,6 +21,19 @@ func (p *codex) LiveUsage(ctx context.Context) (*LiveUsage, error) {
 	if err != nil {
 		return nil, err
 	}
+	return codexUsageFromAuth(ctx, raw)
+}
+
+// SnapshotUsage reads a saved Codex account's windows from its auth.json copy.
+func (p *codex) SnapshotUsage(ctx context.Context, snapshotDir string) (*LiveUsage, error) {
+	raw, err := os.ReadFile(filepath.Join(snapshotDir, "auth.json"))
+	if err != nil {
+		return nil, err
+	}
+	return codexUsageFromAuth(ctx, raw)
+}
+
+func codexUsageFromAuth(ctx context.Context, raw []byte) (*LiveUsage, error) {
 	var auth struct {
 		Tokens struct {
 			AccessToken string `json:"access_token"`
@@ -30,8 +43,11 @@ func (p *codex) LiveUsage(ctx context.Context) (*LiveUsage, error) {
 		return nil, fmt.Errorf("no access token")
 	}
 
-	req, _ := http.NewRequestWithContext(ctx, "GET",
-		"https://chatgpt.com/backend-api/wham/usage", nil)
+	endpoint, err := oauthTokenEndpoint("ANYPICK_CODEX_USAGE_ENDPOINT", "https://chatgpt.com/backend-api/wham/usage")
+	if err != nil {
+		return nil, err
+	}
+	req, _ := http.NewRequestWithContext(ctx, "GET", endpoint, nil)
 	req.Header.Set("Authorization", "Bearer "+auth.Tokens.AccessToken)
 	client := &http.Client{Timeout: 5 * time.Second}
 	resp, err := client.Do(req)
@@ -165,5 +181,3 @@ func usageLabel(fallback string, window map[string]interface{}) string {
 func clampPercent(v float64) int {
 	return int(math.Max(0, math.Min(100, math.Round(v))))
 }
-
-var _ = filepath.Join

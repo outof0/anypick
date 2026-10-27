@@ -13,7 +13,7 @@ AnyPick liefert zwei native Frontends über eine Go-Engine (ADR 0020):
 Beides sind Frontends, keine Motoren. Weder liest Anmeldeinformationen noch besitzt er den AnyPick-Status: Jeder startet den gebündelten Go-Dienst, tauscht mit ihm einen Handshake aus, überwacht ihn und fährt ihn herunter, und rendert dann, was dieser Dienst ihm sendet (ADR 0019 §1).
 
 <Aside type="caution" title="Vom Release-Kanal installieren">
-GitHub-Versionen enthalten die macOS-Installationsprogramme `.dmg`/`.zip`, Linux- und Windows-Installationsprogramme sowie CLI-Archive. Die macOS-App ist nicht notariell beglaubigt. Klicken Sie beim ersten Start mit der rechten Maustaste auf `AnyPick.app` und wählen Sie **Öffnen** oder gehen Sie zu **Systemeinstellungen → Datenschutz und Sicherheit → Trotzdem öffnen**. Sie können auch `xattr -dr com.apple.quarantine /Applications/AnyPick.app` ausführen.
+GitHub-Versionen enthalten die macOS-Installationsprogramme `.dmg`/`.zip`, Linux- und Windows-Installationsprogramme sowie CLI-Archive. Die macOS-App ist nicht notariell beglaubigt. Klicken Sie beim ersten Start mit der rechten Maustaste auf `AnyPick.app` und wählen Sie **Öffnen** oder gehen Sie zu **Systemeinstellungen → Datenschutz und Sicherheit → Trotzdem öffnen**. Sie können auch `/usr/bin/xattr -dr com.apple.quarantine /Applications/AnyPick.app` ausführen.
 </Aside>
 
 ## Die App besitzt ihren Dienst

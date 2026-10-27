@@ -35,6 +35,7 @@ import (
 	"github.com/outof0/anypick/go/internal/modelcache"
 	"github.com/outof0/anypick/go/internal/profile"
 	"github.com/outof0/anypick/go/internal/provider"
+	"github.com/outof0/anypick/go/internal/proxy"
 	"github.com/outof0/anypick/go/internal/refs"
 	"github.com/outof0/anypick/go/internal/runtime"
 	"github.com/outof0/anypick/go/internal/store"
@@ -168,6 +169,8 @@ func run(args []string) int {
 		code = cmdTray(ctx, a, args[1:])
 	case "serve":
 		code = cmdServe(ctx, a, args[1:])
+	case "usage":
+		code = cmdUsage(ctx, a, args[1:])
 	case "doctor":
 		code = cmdDoctor(ctx, a, args[1:])
 	case "update":
@@ -205,6 +208,7 @@ func run(args []string) int {
 			cliFprintln(os.Stderr, "_serve-proxy requires provider and account")
 			return int(anyerr.InvalidUsage)
 		}
+		defer a.RecordUsage(ctx)()
 		if err := a.Proxy.ServeExisting(ctx, args[1], args[2]); err != nil {
 			cliFprintln(os.Stderr, "serve:", err)
 			return int(anyerr.Operational)
@@ -305,13 +309,15 @@ Usage:
   anypick preset list|show|remove …
   anypick proxy enable|disable|config|start|stop|status|token|restart|logs …
   anypick proxy pool status|enable|disable|member|start|stop …
-  anypick proxy hub status|enable|source|owner|preview|start|stop|token …
+  anypick proxy hub status|enable|source|owner|combo|preview|start|stop|token …
   anypick plugin list|add|remove|enable|disable|trust …
   anypick link|unlink <client> [--with <source>] [--dir <path>]   link re-applies the global spec without --with
   anypick reset <client>
   anypick codex profile login|list|show|remove …
   anypick tui | tray
-  anypick serve [--detach|--stop]   core server (status API)
+  anypick serve [--detach|--stop]   management API on loopback
+  anypick serve token [--rotate]   print or rotate its token
+  anypick usage [--since 7d] [--by model|account|provider|day]   served tokens and a cost estimate
   anypick doctor | update | completion <bash|zsh|fish>
 
 Sources:  provider/account · gateway-name · @preset · pool:<provider>
@@ -1442,11 +1448,16 @@ func cmdProxyStatus(ctx context.Context, a *app.App, rest []string) int {
 
 func cmdProxyToken(ctx context.Context, a *app.App, rest []string) int {
 	usage := func() int {
-		cliFprintln(os.Stderr, "usage: anypick proxy token <provider> <account> [--rotate]")
+		cliFprintln(os.Stderr, "usage: anypick proxy token <provider> <account> [--rotate] [--allow-foreign-config]")
 		return int(anyerr.InvalidUsage)
 	}
 	fs := fsFor(rest)
 	rotate := fs.Bool("rotate", false, "rotate and generate a fresh API key")
+	// The same consent `use` takes: a rotation rewrites every client pointed
+	// at this proxy, and one the user moved off AnyPick's route is skipped
+	// unless they say so.
+	allowForeign := fs.Bool("allow-foreign-config", false,
+		"back up and replace client settings AnyPick does not own")
 	if err := fs.Parse(reorder(rest)); err != nil || fs.NArg() < 2 {
 		return usage()
 	}
@@ -1456,21 +1467,7 @@ func cmdProxyToken(ctx context.Context, a *app.App, rest []string) int {
 		isRotate = true
 	}
 	if isRotate {
-		token, err := a.Proxy.RotateToken(ctx, providerID, accountName)
-		if err != nil {
-			return reportErr(err)
-		}
-		if globals.JSON {
-			emitOK(token,
-				kv{Key: "ok", Value: true},
-				kv{Key: "token", Value: token},
-				kv{Key: "rotated", Value: true},
-				kv{Key: "provider", Value: providerID},
-				kv{Key: "account", Value: accountName})
-			return int(anyerr.Success)
-		}
-		cliPrintlnRaw(token)
-		return int(anyerr.Success)
+		return cmdProxyTokenRotate(ctx, a, providerID, accountName, *allowForeign)
 	}
 	rst, err := a.Proxy.RuntimeState(ctx, providerID, accountName)
 	if err != nil {
@@ -1488,6 +1485,70 @@ func cmdProxyToken(ctx context.Context, a *app.App, rest []string) int {
 		return int(anyerr.Success)
 	}
 	cliPrintlnRaw(rst.Token)
+	return int(anyerr.Success)
+}
+
+// cmdProxyTokenRotate rotates a proxy's key, proves the running proxy honours
+// it, and moves every bound client to it.
+func cmdProxyTokenRotate(ctx context.Context, a *app.App, providerID, accountName string, allowForeign bool) int {
+	// The previous key is held only long enough to prove it is refused; it is
+	// never printed.
+	var previous string
+	if prior, err := a.Proxy.RuntimeState(ctx, providerID, accountName); err == nil && prior != nil {
+		previous = prior.Token
+	}
+	token, err := a.Proxy.RotateToken(ctx, providerID, accountName)
+	if err != nil {
+		return reportErr(err)
+	}
+	// From here the new key is committed. Clients pointed at this proxy, or at
+	// the pool it is the primary of, still present the old key; they are moved
+	// before anything else can fail, and the key is always reported.
+	reapplied := 0
+	var reapplyErr error
+	for _, ref := range a.Proxy.KeyHolders(ctx, providerID, accountName) {
+		n, rerr := a.ReapplyClientsBoundTo(ctx, ref, app.ReapplyOptions{AllowForeign: allowForeign})
+		reapplied += n
+		reapplyErr = errors.Join(reapplyErr, rerr)
+	}
+	verified := false
+	var verifyErr error
+	if st, serr := a.Proxy.StatusContext(ctx, providerID, accountName); serr == nil && st != nil && st.Running {
+		verifyErr = proxy.VerifyTokenRotation(ctx, st.Endpoint, token, previous)
+		verified = verifyErr == nil
+	}
+	failure := errors.Join(reapplyErr, verifyErr)
+	if globals.JSON {
+		fields := []kv{
+			{Key: "ok", Value: failure == nil},
+			{Key: "token", Value: token},
+			{Key: "rotated", Value: true},
+			{Key: "verified", Value: verified},
+			{Key: "reappliedClients", Value: reapplied},
+			{Key: "provider", Value: providerID},
+			{Key: "account", Value: accountName},
+		}
+		if failure != nil {
+			fields = append(fields, kv{Key: "error", Value: failure.Error()})
+		}
+		emitOK(token, fields...)
+	} else {
+		// stdout carries the key alone, as before, so a script reading it is
+		// unaffected; the account of what happened goes to stderr.
+		cliPrintlnRaw(token)
+		if verified {
+			cliFprintln(os.Stderr, "verified: the running proxy accepts the new key and refuses the previous one")
+		}
+		if reapplied > 0 {
+			cliFprintln(os.Stderr, fmt.Sprintf("updated %d client(s) to the new key", reapplied))
+		}
+		if failure != nil {
+			cliFprintln(os.Stderr, "the key above is saved and in use, but:", failure)
+		}
+	}
+	if failure != nil {
+		return int(anyerr.Operational)
+	}
 	return int(anyerr.Success)
 }
 

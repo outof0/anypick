@@ -24,7 +24,9 @@ import (
 	"github.com/outof0/anypick/go/internal/hub"
 	"github.com/outof0/anypick/go/internal/modelcache"
 	"github.com/outof0/anypick/go/internal/ownership"
+	"github.com/outof0/anypick/go/internal/pools"
 	"github.com/outof0/anypick/go/internal/proxy"
+	"github.com/outof0/anypick/go/internal/quotacache"
 )
 
 func cmdProviders(ctx context.Context, a *appView, args []string) int {
@@ -529,7 +531,7 @@ func cmdCompletion(a *appView, args []string) int {
 	// Static word lists reflect the dispatched tree minus hidden helpers;
 	// positional depth resolves live ids through the hidden `__complete`
 	// helper.
-	const topLevel = "use run current list models add account gateway preset proxy plugin link unlink reset codex tui tray serve doctor update completion providers clients app start status stop stop-proxy"
+	const topLevel = "use run current list models add account gateway preset proxy plugin link unlink reset codex tui tray serve usage doctor update completion providers clients app start status stop stop-proxy"
 	switch shell {
 	case "bash":
 		cliPrintf(`# bash completion for anypick
@@ -734,7 +736,26 @@ func serveHubChild(ctx context.Context, a *appView, args []string) int {
 		// cools down and the request moves to the next account that can serve
 		// the model. Pool proxies keep their own guard.
 		Quotas: hubQuotaGuard(a, name),
+		NextReset: func(providerID, account string) int64 {
+			return quotacache.NextReset(quotacache.Load(a.Root, providerID).Accounts[account], time.Now().UnixMilli())
+		},
 	}
+	// soonest-reset steers by each source's quota cache, which this child
+	// keeps fresh beside its listener (ADR-0035).
+	if cfg.Strategy == hub.StrategySoonestReset {
+		refreshCtx, stopRefresh := context.WithCancel(ctx)
+		defer stopRefresh()
+		go a.KeepQuotaCacheFresh(refreshCtx, func() map[string][]string {
+			sources := map[string][]string{}
+			for _, src := range cfg.Sources {
+				if src.IsEnabled() && src.Account != "" {
+					sources[src.ProviderID] = append(sources[src.ProviderID], src.Account)
+				}
+			}
+			return sources
+		})
+	}
+	defer a.RecordUsage(ctx)()
 	if err := srv.Start(); err != nil {
 		cliFprintln(os.Stderr, "hub start failed:", err)
 		return int(anyerr.Operational)
@@ -774,6 +795,23 @@ func servePoolChild(ctx context.Context, a *appView, args []string) int {
 	if len(args) != 1 {
 		return usageError("_serve-pool requires a provider id")
 	}
+	// soonest-reset steers by the members' quota cache, which this child keeps
+	// fresh beside its listener (ADR-0035).
+	if pool, err := a.Proxy.GetPoolContext(ctx, args[0]); err == nil && pool != nil &&
+		pool.Strategy == pools.StrategySoonestReset {
+		refreshCtx, stopRefresh := context.WithCancel(ctx)
+		defer stopRefresh()
+		go a.KeepQuotaCacheFresh(refreshCtx, func() map[string][]string {
+			var members []string
+			for _, m := range pool.Members {
+				if m.Enabled {
+					members = append(members, m.Account)
+				}
+			}
+			return map[string][]string{args[0]: members}
+		})
+	}
+	defer a.RecordUsage(ctx)()
 	if err := a.Proxy.ServePoolExisting(ctx, args[0]); err != nil {
 		cliFprintln(os.Stderr, "pool serve failed:", err)
 		return int(anyerr.Operational)

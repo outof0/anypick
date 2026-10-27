@@ -176,7 +176,6 @@ export const PARITY: ParityRow[] = [
   { macos: 'gateway-flow.toggle-key-visibility', tauri: 'gateway-flow.api-key.reveal', status: 'done' },
   { macos: 'gateway-flow.account-id', tauri: 'gateway-flow.account-id', status: 'done' },
   { macos: 'gateway-flow.gateway-id', tauri: 'gateway-flow.gateway-id', status: 'done' },
-  { macos: 'gateway-flow.region', tauri: 'gateway-flow.region.picker', status: 'done' },
   // A provider that publishes its own base shows it read-only; one that publishes
   // none asks for a URL. Both are this row.
   { macos: 'gateway-flow.endpoint', tauri: 'gateway-flow.endpoint', status: 'done' },

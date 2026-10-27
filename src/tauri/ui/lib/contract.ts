@@ -118,6 +118,8 @@ export type CredentialKindRow = {
   kind: string;
   label: string;
   profiles: CredentialProfileRow[];
+  /** The product works without a key (a local model server). */
+  secretOptional?: boolean;
 };
 
 export type AccountProviderRow = {
@@ -157,14 +159,6 @@ export type GatewayProviderRow = {
   kind?: string;
   requiresGatewayId?: boolean;
   requiresAccountId?: boolean;
-  /**
-   * Regions for an account-scoped key, one of which the user picks. Absent from
-   * a snapshot that publishes none, which is why the picker is conditional: a
-   * provider with no regions to choose between has nothing to ask.
-   */
-  regions?: string[];
-  /** The region the provider prefers, used when the user has not chosen. */
-  regionDefault?: string;
 };
 
 export type CodexProfileRow = {
@@ -273,12 +267,16 @@ export type HubRotationSource = {
   name: 'rotation';
   label: string;
   detail: string;
-  /** True is round-robin, false is failover. */
+  /** True is round-robin, false is failover. Kept for older engines. */
   enabled: boolean;
+  /** The hub-wide request mode. Absent from an engine that predates it. */
+  strategy?: HubStrategy;
   hub: string;
   rotates: true;
   accountCount: number;
 };
+
+export type HubStrategy = 'failover' | 'round-robin' | 'soonest-reset';
 
 export type HubSource =
   | HubAccountSource

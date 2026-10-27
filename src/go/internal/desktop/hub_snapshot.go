@@ -739,8 +739,15 @@ func (s *Server) hubRotatableAccounts(
 
 func (s *Server) hubRotationRow(hubName string, cfg *hub.Config, accounts int) map[string]any {
 	enabled := cfg != nil && cfg.SpreadsRequests()
+	strategy := hub.StrategyFailover
+	if cfg != nil && cfg.Strategy != "" {
+		strategy = cfg.Strategy
+	}
 	detail := "Spread each model across the accounts that serve it"
-	if cfg != nil && cfg.SpreadsRequests() && accounts < 2 {
+	if strategy == hub.StrategySoonestReset {
+		detail = "Start with the account whose unused quota resets soonest"
+	}
+	if strategy != hub.StrategyFailover && accounts < 2 {
 		detail = "Needs two or more accounts in this hub"
 	}
 	return map[string]any{
@@ -750,6 +757,7 @@ func (s *Server) hubRotationRow(hubName string, cfg *hub.Config, accounts int) m
 		"label":        "Rotate across accounts",
 		"detail":       detail,
 		"enabled":      enabled,
+		"strategy":     strategy,
 		"hub":          hubName,
 		"rotates":      true,
 		"accountCount": accounts,
@@ -927,23 +935,26 @@ func hubPoolSourceProvider(account string) (string, bool) {
 func (s *Server) toggleHubRotation(
 	ctx context.Context, m Mutate, result Result, hubName string,
 ) Result {
-	enabled := m.Enabled
+	strategy := m.Strategy
+	if strategy == "" {
+		// An older host: its switch is round-robin on or off.
+		strategy = hub.StrategyFailover
+		if m.Enabled {
+			strategy = hub.StrategyRoundRobin
+		}
+	}
 	err := lock.WithMutationLock(ctx, s.Deps.Root, refs.SerializeRef(refs.ProxyHubRef(hubName)), func(c context.Context) error {
 		cfg, gerr := s.hubConfigOrNil(c, hubName)
 		if gerr != nil {
 			return gerr
 		}
 		if cfg == nil {
-			if !enabled {
+			if strategy == hub.StrategyFailover {
 				return nil
 			}
 			cfg = &hub.Config{Name: hubName, Sources: []hub.Source{}}
 		}
-		if enabled {
-			cfg.Strategy = hub.StrategyRoundRobin
-		} else {
-			cfg.Strategy = hub.StrategyFailover
-		}
+		cfg.Strategy = strategy
 		_, uerr := s.Deps.Hub.UpsertConfigContext(c, *cfg)
 		return uerr
 	})
@@ -955,9 +966,12 @@ func (s *Server) toggleHubRotation(
 			"Saved the mode, but the running hub did not restart",
 			"HUB_RELOAD_FAILED", anyerr.WithMutated(true)))
 	}
-	if enabled {
+	switch strategy {
+	case hub.StrategyRoundRobin:
 		result.Status, result.Message = "success", "Spreading requests across this hub's accounts."
-	} else {
+	case hub.StrategySoonestReset:
+		result.Status, result.Message = "success", "Starting with the account whose quota resets soonest."
+	default:
 		result.Status, result.Message = "success", "Each model is served by one account again."
 	}
 	return result

@@ -3,6 +3,7 @@ import { act } from '@testing-library/react';
 import type { TrayBridge, BridgeEvent } from '../lib/bridge';
 import { encodeBase64Utf8 } from '../lib/wire';
 import { snapshotFixture } from './fixture';
+import { acceptedShape, unacceptedLines } from './command-corpus';
 
 /**
  * A bridge a test drives, standing in for the Tauri shell.
@@ -30,6 +31,7 @@ export class FakeBridge implements TrayBridge {
     this.invokes.push({ cmd, args });
     if (cmd === 'send_command' && typeof args?.command === 'string') {
       this.sent.push(args.command);
+      if (!acceptedShape(args.command)) unacceptedLines.push(args.command);
       if (this.sendCommandError) throw new Error(this.sendCommandError);
       return undefined;
     }
@@ -109,6 +111,26 @@ export class FakeBridge implements TrayBridge {
         return { kind, payload: null };
       }
     });
+  }
+
+  /**
+   * Payloads of one kind with the envelope removed, for exact comparison.
+   *
+   * Compare these with `toEqual`, not `objectContaining`: a containment check
+   * passes when the UI leaves out a key the engine requires, which is how Add
+   * Login's Detect shipped without `name`. The envelope is checked here instead.
+   */
+  bodies(kind: string): Array<Record<string, unknown>> {
+    return this.commands()
+      .filter((entry) => entry.kind === kind)
+      .map(({ payload }) => {
+        if (!payload) throw new Error(`a ${kind} command carried no decodable payload`);
+        const { version, requestId, ...body } = payload;
+        if (version !== 1 || typeof requestId !== 'string' || requestId === '') {
+          throw new Error(`a ${kind} command has a bad envelope: ${JSON.stringify({ version, requestId })}`);
+        }
+        return body;
+      });
   }
 
   commandKinds(): string[] {

@@ -53,7 +53,9 @@ func TestCreateEphemeralClaude(t *testing.T) {
 	if _, err := os.Stat(rt.Directory); !os.IsNotExist(err) {
 		t.Fatalf("directory should be removed after Cleanup")
 	}
-	_ = rt.Cleanup() // second call must not error
+	if err := rt.Cleanup(); err != nil {
+		t.Fatalf("second Cleanup must be a no-op: %v", err)
+	}
 }
 
 func TestCreateEphemeralCodex(t *testing.T) {

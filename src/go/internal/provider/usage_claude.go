@@ -7,6 +7,8 @@ import (
 	"io"
 	"math"
 	"net/http"
+	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"time"
@@ -20,6 +22,25 @@ func (p *claude) LiveUsage(ctx context.Context) (*LiveUsage, error) {
 	if err != nil || credential == nil {
 		return nil, err
 	}
+	return claudeUsageFromCredential(ctx, credential.credential)
+}
+
+// SnapshotUsage reads a saved Claude account's windows from its snapshot.
+func (p *claude) SnapshotUsage(ctx context.Context, snapshotDir string) (*LiveUsage, error) {
+	raw, err := os.ReadFile(filepath.Join(snapshotDir, claudeSnapshotFile))
+	if err != nil {
+		return nil, err
+	}
+	var snapshot struct {
+		Credential string `json:"credential"`
+	}
+	if json.Unmarshal(raw, &snapshot) != nil || snapshot.Credential == "" {
+		return nil, fmt.Errorf("claude snapshot has no credential")
+	}
+	return claudeUsageFromCredential(ctx, snapshot.Credential)
+}
+
+func claudeUsageFromCredential(ctx context.Context, credential string) (*LiveUsage, error) {
 	var auth struct {
 		OAuth struct {
 			AccessToken string   `json:"accessToken"`
@@ -27,7 +48,7 @@ func (p *claude) LiveUsage(ctx context.Context) (*LiveUsage, error) {
 			Scopes      []string `json:"scopes"`
 		} `json:"claudeAiOauth"`
 	}
-	if json.Unmarshal([]byte(credential.credential), &auth) != nil {
+	if json.Unmarshal([]byte(credential), &auth) != nil {
 		return nil, fmt.Errorf("invalid Claude OAuth credential")
 	}
 	if auth.OAuth.AccessToken == "" {

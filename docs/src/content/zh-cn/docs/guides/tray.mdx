@@ -13,7 +13,7 @@ AnyPick 使用一个 Go 引擎和两个原生界面（ADR 0020）：
 两者都是界面，不是引擎。它们不会读取凭据，也不拥有 AnyPick 数据；各自负责启动内置 Go 服务、完成握手、监督服务并在退出时将其关闭，然后显示服务返回的内容（ADR 0019 §1）。
 
 <Aside type="caution" title="从正式发布渠道安装">
-GitHub Releases 提供 macOS `.dmg`/`.zip`、Linux 和 Windows 安装包，以及 CLI 压缩包。macOS 应用尚未公证。首次启动时，在 Finder 中右键 `AnyPick.app` 并选择 **打开**，或前往 **系统设置 → 隐私与安全性 → 仍要打开**。也可运行 `xattr -dr com.apple.quarantine /Applications/AnyPick.app`。
+GitHub Releases 提供 macOS `.dmg`/`.zip`、Linux 和 Windows 安装包，以及 CLI 压缩包。macOS 应用尚未公证。首次启动时，在 Finder 中右键 `AnyPick.app` 并选择 **打开**，或前往 **系统设置 → 隐私与安全性 → 仍要打开**。也可运行 `/usr/bin/xattr -dr com.apple.quarantine /Applications/AnyPick.app`。
 </Aside>
 
 ## 应用管理自己的服务

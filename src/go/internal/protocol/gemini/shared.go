@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"math/big"
 	"strings"
+
+	"github.com/outof0/anypick/go/internal/protocol"
 )
 
 const idAlphabet = "abcdefghijklmnopqrstuvwxyz0123456789"
@@ -38,8 +40,12 @@ func MessageText(msg OpenAIMessage) string {
 		if json.Unmarshal(msg.Content, &blocks) == nil {
 			parts := make([]string, 0, len(blocks))
 			for _, b := range blocks {
-				if b.Type == "text" && b.Text != "" {
+				switch {
+				case b.Type == "text" && b.Text != "":
 					parts = append(parts, b.Text)
+				case b.Type == "image_url":
+					// The text-only paths cannot send it; say it was there.
+					parts = append(parts, protocol.ImageOmitted)
 				}
 			}
 			return strings.Join(parts, "\n")
@@ -65,6 +71,9 @@ func FlattenResponsesText(value interface{}) string {
 		}
 		return strings.Join(parts, "\n")
 	case map[string]interface{}:
+		if marker, ok := binaryInputMarker(v); ok {
+			return marker
+		}
 		if s, ok := v["text"].(string); ok && s != "" {
 			return s
 		}
@@ -74,12 +83,55 @@ func FlattenResponsesText(value interface{}) string {
 		if o, ok := v["output"]; ok {
 			return FlattenResponsesText(o)
 		}
-		if raw, err := json.Marshal(v); err == nil {
+		// An unrecognised item is kept as JSON so the model still sees it,
+		// but never with an inline payload: a data URL here would be read as
+		// megabytes of prompt.
+		if raw, err := json.Marshal(redactDataURLs(v)); err == nil {
 			return string(raw)
 		}
 		return ""
 	default:
 		return ""
+	}
+}
+
+// binaryInputMarker names a Responses item that carries an image, file or audio
+// payload. Those cannot travel as text, and their JSON is mostly base64.
+func binaryInputMarker(item map[string]interface{}) (string, bool) {
+	switch typ, _ := item["type"].(string); typ {
+	case "input_image", "output_image", "image", "image_url":
+		return protocol.ImageOmitted, true
+	case "input_file":
+		return "[file omitted]", true
+	case "input_audio":
+		return "[audio omitted]", true
+	}
+	return "", false
+}
+
+// redactDataURLs returns a copy of v with every data: URL string replaced, at
+// any depth.
+func redactDataURLs(v interface{}) interface{} {
+	switch t := v.(type) {
+	case string:
+		if strings.HasPrefix(strings.ToLower(strings.TrimSpace(t)), "data:") {
+			return "[data omitted]"
+		}
+		return t
+	case []interface{}:
+		out := make([]interface{}, len(t))
+		for i, item := range t {
+			out[i] = redactDataURLs(item)
+		}
+		return out
+	case map[string]interface{}:
+		out := make(map[string]interface{}, len(t))
+		for k, item := range t {
+			out[k] = redactDataURLs(item)
+		}
+		return out
+	default:
+		return v
 	}
 }
 

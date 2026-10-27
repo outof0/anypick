@@ -45,6 +45,10 @@ func displaySafeIdentity(raw string) string {
 // displaySafeMessage keeps provider diagnostics useful while refusing to
 // render a long token copied into an error or detection message. The fallback
 // intentionally does not mention the offending value.
+// DisplaySafeMessage is displaySafeMessage for other output surfaces (the
+// management API), so every surface refuses the same opaque values.
+func DisplaySafeMessage(raw string) string { return displaySafeMessage(raw) }
+
 func displaySafeMessage(raw string) string {
 	value := strings.TrimSpace(raw)
 	if value == "" {

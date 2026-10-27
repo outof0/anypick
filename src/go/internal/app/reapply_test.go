@@ -1,4 +1,4 @@
-package tui
+package app
 
 import (
 	"context"
@@ -35,7 +35,8 @@ func TestPinnedBindingModelPrefersExplicitSelection(t *testing.T) {
 
 // Fail-closed without a composition: nothing to reapply, no error.
 func TestReapplyClientsBoundToFailsClosedWithoutComposition(t *testing.T) {
-	if n, err := reapplyClientsBoundTo(context.Background(), nil, refs.AccountRef("workbuddy", "work")); n != 0 || err != nil {
+	var a *App
+	if n, err := a.ReapplyClientsBoundTo(context.Background(), refs.AccountRef("workbuddy", "work"), ReapplyOptions{}); n != 0 || err != nil {
 		t.Fatalf("nil app = (%d, %v), want (0, nil)", n, err)
 	}
 }

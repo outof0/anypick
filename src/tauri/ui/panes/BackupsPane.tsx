@@ -1,7 +1,13 @@
 import { useEffect, useState } from 'react';
 
 import type { Snapshot } from '../lib/contract';
-import { exportBackup, forgetBackup, importBackup } from '../lib/desktop-actions';
+import {
+  backupAll,
+  exportBackup,
+  forgetBackup,
+  importBackup,
+  mutateAction,
+} from '../lib/desktop-actions';
 import { translate } from '../lib/i18n';
 import type { ServicePort } from '../lib/service';
 import type { BackupPreviewFrame } from '../lib/wire';
@@ -52,7 +58,7 @@ export function BackupsPane({
   };
 
   const handleQuickBackup = () => {
-    service.mutate('account-backup-all', { path: '' });
+    mutateAction(service, backupAll());
     setExportOpen(false);
   };
 

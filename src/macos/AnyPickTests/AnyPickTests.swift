@@ -688,6 +688,16 @@ final class AnyPickTests: XCTestCase {
         name: "Work", secret: "sk-live", providerEnabled: false, isBlocked: false))
   }
 
+  /// A local model server needs no key, so its sheet saves with the field empty.
+  func testCredentialInputSubmitAcceptsNoKeyForAKeyOptionalProduct() {
+    XCTAssertTrue(
+      addCredentialInputCanSubmit(
+        name: "Local", secret: "", providerEnabled: true, isBlocked: false, secretOptional: true))
+    XCTAssertFalse(
+      addCredentialInputCanSubmit(
+        name: " ", secret: "", providerEnabled: true, isBlocked: false, secretOptional: true))
+  }
+
   // MARK: - Hub H5 choice resolves the conflict away
   //
   // A pick does not linger on "Choose": selectRoutingCandidate records the
@@ -2235,6 +2245,24 @@ final class AnyPickTests: XCTestCase {
           let object = try JSONSerialization.jsonObject(with: data) as? [String: Any]
     else { return nil }
     return object["requestId"] as? String
+  }
+
+  /// The strategy picker names the mode, so soonest-reset is not squeezed
+  /// through the round-robin flag; `enabled` still rides along for an engine
+  /// that predates the name.
+  @MainActor
+  func testHubStrategyPickerSendsTheNamedStrategy() async throws {
+    let (store, model, box) = makeProductionHarness()
+    store.consume(Data((try frame("snapshot", makeHubSnapshotFrame()) + "\n").utf8))
+    await waitUntil(!model.hubSources.isEmpty)
+
+    model.setHubStrategy("default", strategy: "soonest-reset")
+    let payload = try mutatePayload(in: box.lines, operation: "hub-rotation")
+    XCTAssertEqual(payload["strategy"] as? String, "soonest-reset")
+    XCTAssertEqual(payload["enabled"] as? Bool, false)
+    XCTAssertEqual(payload["name"] as? String, "default")
+    // The pick shows at once, before the snapshot confirms it.
+    XCTAssertEqual(model.hubStrategy("hub/default/rotation"), "soonest-reset")
   }
 
   @MainActor

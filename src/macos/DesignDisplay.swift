@@ -995,11 +995,12 @@ func addCredentialInputCanSubmit(
   name: String,
   secret: String,
   providerEnabled: Bool,
-  isBlocked: Bool
+  isBlocked: Bool,
+  secretOptional: Bool = false
 ) -> Bool {
   if isBlocked { return false }
   let named = !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-  let keyed = !secret.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+  let keyed = secretOptional || !secret.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
   return named && keyed && providerEnabled
 }
 

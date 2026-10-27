@@ -146,6 +146,33 @@ TUI renders the same kinds and endpoint profiles from the provider contract.
 In the macOS app, these providers show an API-key form in Add Login instead
 of a sign-in flow.
 
+### Local model servers
+
+Ollama and LM Studio serve models from your own machine, so they need no key.
+Save the server as an account:
+
+```bash
+anypick add account ollama --credential server --name local
+anypick add account lmstudio --credential server --name local
+```
+
+That points at the default address on this computer:
+`http://127.0.0.1:11434/v1` for Ollama and `http://127.0.0.1:1234/v1` for LM
+Studio. For a server elsewhere, pass its URL as the profile:
+
+```bash
+anypick add account ollama --credential server --name lan \
+  --option profile=http://192.168.1.20:11434
+```
+
+A URL without a path gets `/v1`. If you turned on LM Studio's API key, add
+`--secret`. AnyPick sends a key only over HTTPS or to a server on this
+computer, so a key for a plain-HTTP server elsewhere on the network is refused.
+
+Claude Code, Codex, pi and omp use the account through AnyPick's proxy, which
+translates Claude Code's requests to the server's OpenAI-compatible API. In the
+apps, these providers show the key field as optional in Add Login.
+
 <Aside type="caution" title="One live login at a time">
 Provider CLIs normally keep one credential in their default home. Saved
 accounts live in AnyPick's store, and ordinary activation restores the selected

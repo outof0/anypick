@@ -205,7 +205,7 @@ describe('command encoding', () => {
     // Action ids are revision-scoped and expire: sending a stale revision gets
     // STALE_ACTION with nothing useful to show the user.
     const line = invokeCommand('act-7-201', 7, 'invoke-1');
-    expect(decodePayload(line)).toMatchObject({
+    expect(decodePayload(line)).toEqual({
       version: MESSAGE_VERSION,
       requestId: 'invoke-1',
       revision: 7,
@@ -217,7 +217,11 @@ describe('command encoding', () => {
     // The engine rejects a non-boolean value outright, so the key is either
     // absent or the boolean true.
     expect(decodePayload(invokeCommand('act-1', 1, 'r1'))).not.toHaveProperty('allowForeignConfig');
-    expect(decodePayload(invokeCommand('act-1', 1, 'r2', true))).toMatchObject({
+    expect(decodePayload(invokeCommand('act-1', 1, 'r2', true))).toEqual({
+      version: MESSAGE_VERSION,
+      requestId: 'r2',
+      revision: 1,
+      actionId: 'act-1',
       allowForeignConfig: true,
     });
   });
@@ -237,7 +241,10 @@ describe('command encoding', () => {
   });
 
   it('marks a setting mutation as enabled, not as a string', () => {
-    expect(decodePayload(mutateCommand('setting-show-quota', { enabled: false }, 'm2'))).toMatchObject({
+    expect(decodePayload(mutateCommand('setting-show-quota', { enabled: false }, 'm2'))).toEqual({
+      version: MESSAGE_VERSION,
+      requestId: 'm2',
+      operation: 'setting-show-quota',
       enabled: false,
     });
   });
@@ -246,7 +253,9 @@ describe('command encoding', () => {
     // The engine resolves an action id, never a model id, and a non-empty map
     // without a default is INVALID_SELECTION.
     const line = modelRolesCommand('claude', { default: 'act-7-101', sonnet: 'act-7-102' }, 7, 'mr-1');
-    expect(decodePayload(line)).toMatchObject({
+    expect(decodePayload(line)).toEqual({
+      version: MESSAGE_VERSION,
+      requestId: 'mr-1',
       clientId: 'claude',
       roleActionIds: { default: 'act-7-101', sonnet: 'act-7-102' },
       revision: 7,
@@ -255,7 +264,9 @@ describe('command encoding', () => {
 
   it('bounds a log request to the lines the engine accepts', () => {
     // protocol_strict_test.go rejects lines: 201 and accepts 200.
-    expect(decodePayload(logsCommand('claude', 'work', 200, 'lg-1'))).toMatchObject({
+    expect(decodePayload(logsCommand('claude', 'work', 200, 'lg-1'))).toEqual({
+      version: MESSAGE_VERSION,
+      requestId: 'lg-1',
       providerId: 'claude',
       name: 'work',
       lines: 200,
@@ -275,7 +286,14 @@ describe('command encoding', () => {
     const bytes = Uint8Array.from(atob(encoded), (char) => char.charCodeAt(0));
     expect(new TextDecoder().decode(bytes)).toBe(value);
     const line = mutateCommand('account-edit', { providerId: 'claude', name: 'work', label: value }, 'm3');
-    expect(decodePayload(line)).toMatchObject({ label: value });
+    expect(decodePayload(line)).toEqual({
+      version: MESSAGE_VERSION,
+      requestId: 'm3',
+      operation: 'account-edit',
+      providerId: 'claude',
+      name: 'work',
+      label: value,
+    });
   });
 
   it('gives each command a distinct request id', () => {

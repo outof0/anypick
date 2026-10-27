@@ -13,7 +13,7 @@ AnyPick envía dos interfaces nativas sobre un motor Go (ADR 0020):
 Ambos son frontales, no motores. Ninguno lee las credenciales ni posee el estado AnyPick: cada uno inicia, se comunica, supervisa y cierra el servicio Go incluido, luego procesa lo que ese servicio le envía (ADR 0019 §1).
 
 <Aside type="caution" title="Instalar desde el canal de lanzamiento">
-Las versiones de GitHub incluyen macOS `.dmg`/`.zip`, instaladores de Linux y Windows, y archivos CLI. La aplicación macOS no está certificada ante notario. En el primer inicio, haga clic derecho en `AnyPick.app` y elija **Abrir**, o vaya a **Configuración del sistema → Privacidad y seguridad → Abrir de todos modos**. También puedes ejecutar `xattr -dr com.apple.quarantine /Applications/AnyPick.app`.
+Las versiones de GitHub incluyen macOS `.dmg`/`.zip`, instaladores de Linux y Windows, y archivos CLI. La aplicación macOS no está certificada ante notario. En el primer inicio, haga clic derecho en `AnyPick.app` y elija **Abrir**, o vaya a **Configuración del sistema → Privacidad y seguridad → Abrir de todos modos**. También puedes ejecutar `/usr/bin/xattr -dr com.apple.quarantine /Applications/AnyPick.app`.
 </Aside>
 
 ## La aplicación es propietaria de su servicio.

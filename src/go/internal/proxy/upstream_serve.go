@@ -382,6 +382,34 @@ func clearUpstreamAuthHeaders(out *http.Request) {
 	out.Header.Del("api-key")
 }
 
+// joinUpstreamPath appends an inbound path to an upstream base path. Vendors
+// document their OpenAI base with its version (https://api.deepseek.com/v1)
+// and clients send the version too (/v1/chat/completions), so a plain join
+// sent .../v1/v1/chat/completions, which vendors answer 404. One /v1 is dropped
+// only when the base already ends in it: a base without a version segment
+// (Grok's CLI proxy) keeps the inbound path whole.
+func joinUpstreamPath(basePath, inbound string) string {
+	base := strings.TrimSuffix(basePath, "/")
+	if strings.HasSuffix(base, "/v1") && (inbound == "/v1" || strings.HasPrefix(inbound, "/v1/")) {
+		inbound = strings.TrimPrefix(inbound, "/v1")
+	}
+	if inbound != "" && !strings.HasPrefix(inbound, "/") {
+		inbound = "/" + inbound
+	}
+	return base + inbound
+}
+
+// setUpstreamAuth presents token the vendor's way. A keyless upstream (a local
+// model server) gets no auth header at all: `Authorization: Bearer ` with
+// nothing after it is a malformed credential some servers reject, where no
+// header is simply "unauthenticated".
+func setUpstreamAuth(out *http.Request, header, prefix, token string) {
+	if token == "" {
+		return
+	}
+	out.Header.Set(header, prefix+token)
+}
+
 func injectUpstreamAuthFields(ctx context.Context, out *http.Request, up *Upstream) error {
 	header, prefix, token, err := resolveUpstreamAuth(ctx, up)
 	if err != nil {
@@ -392,7 +420,7 @@ func injectUpstreamAuthFields(ctx context.Context, out *http.Request, up *Upstre
 		return err
 	}
 	clearUpstreamAuthHeaders(out)
-	out.Header.Set(header, prefix+token)
+	setUpstreamAuth(out, header, prefix, token)
 	applyExtraHeaders(out, extraHeaders)
 	return nil
 }
@@ -830,6 +858,14 @@ func reverseEgress(r *http.Request, up *Upstream, sink egressSink, opts reverseO
 			if opts.chatPath != "" {
 				pr.Out.URL.Path = target.Path
 				pr.Out.URL.RawPath = ""
+			} else {
+				pr.Out.URL.Path = joinUpstreamPath(target.Path, pr.In.URL.Path)
+				// Keep an escaped segment escaped: "a%2Fb" decoded to "a/b"
+				// becomes two segments, and the vendor answers 404.
+				pr.Out.URL.RawPath = ""
+				if raw := pr.In.URL.RawPath; raw != "" {
+					pr.Out.URL.RawPath = joinUpstreamPath(target.EscapedPath(), raw)
+				}
 			}
 			if sanitizing {
 				pr.Out.Body = io.NopCloser(bytes.NewReader(sanitized))
@@ -839,7 +875,7 @@ func reverseEgress(r *http.Request, up *Upstream, sink egressSink, opts reverseO
 				}
 			}
 			clearUpstreamAuthHeaders(pr.Out)
-			pr.Out.Header.Set(header, prefix+token)
+			setUpstreamAuth(pr.Out, header, prefix, token)
 			applyExtraHeaders(pr.Out, extraHeaders)
 		},
 		Transport:     egress.Transport(),

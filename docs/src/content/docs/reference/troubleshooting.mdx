@@ -140,6 +140,42 @@ removal commands. When both names are live — one active, another still
 referenced by a client binding — it asks you to re-bind clients to one account
 instead of printing removals, so a cleanup never breaks a route.
 
+### macOS will not open the app
+
+The macOS app is signed ad-hoc, not with an Apple Developer ID, so Gatekeeper
+has no notarization ticket to check. macOS may refuse the first launch with
+either of these:
+
+- "AnyPick.app cannot be opened because the developer cannot be verified."
+- "AnyPick.app is damaged and can't be opened. You should move it to the Trash."
+
+Neither message means the download is corrupt. There are two ways to open it,
+and you only need one.
+
+**Allow it from System Settings.** Try to open the app once and dismiss the
+warning, then open **System Settings → Privacy & Security**, scroll to
+**Security**, and click **Open Anyway** next to the AnyPick entry. macOS records
+the approval, so this is a one-time step per version.
+
+**Clear the quarantine flag.** Use the absolute path:
+
+```bash
+/usr/bin/xattr -dr com.apple.quarantine /Applications/AnyPick.app
+```
+
+The absolute path matters. `xattr` also names a Python package, and a
+version-manager shim can put it ahead of the system binary on `PATH`. That
+program has no `-r` flag, so a bare `xattr -dr` exits with a usage error and
+clears nothing.
+
+Installing with the Homebrew cask does not skip this step. Homebrew applies the
+same quarantine attribute a browser does, and Homebrew has removed the
+`--no-quarantine` flag, so the first launch still needs the approval above.
+
+Once the app has run, later launches and in-app updates do not ask again: the
+updater downloads through Go's HTTP client, which does not set the quarantine
+attribute at all.
+
 ### Proxies keep running after I close the UI
 
 Closing the native app's main window does not quit the app. Use **Quit AnyPick**

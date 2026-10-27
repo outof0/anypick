@@ -1,8 +1,12 @@
 package provider
 
 import (
+	"crypto/sha256"
+	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"testing"
 )
@@ -38,8 +42,15 @@ func TestProviderTrivialGetters(t *testing.T) {
 		if _, err := pv.DescribeSnapshot(empty); err != nil {
 			t.Logf("%q DescribeSnapshot empty err: %v", id, err)
 		}
-		// Restore on empty should not panic; error is expected for most.
-		_ = pv.Restore(empty)
+		// Restore writes the user's live credential files. From an empty
+		// snapshot it must refuse, or write nothing: a "successful" restore of
+		// nothing is how a saved account would blank a real login.
+		before := homeTree(t, env.Home)
+		if err := pv.Restore(empty); err == nil {
+			if after := homeTree(t, env.Home); after != before {
+				t.Errorf("%q Restore from an empty snapshot succeeded and changed the home:\n before %s\n after  %s", id, before, after)
+			}
+		}
 
 		// Backup on empty dest: compatible vendors return NO_LIVE_AUTH, file
 		// providers may also error when no live auth. Just ensure no panic.
@@ -171,4 +182,28 @@ func TestProcessUnixHelpers(t *testing.T) {
 			t.Errorf("claude AccountAdapter provider = %q", ad.SourceRef.Provider)
 		}
 	}
+}
+
+// homeTree is every file under root with its size and content hash, so a write
+// that keeps a file's length still shows.
+func homeTree(t *testing.T, root string) string {
+	t.Helper()
+	var entries []string
+	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return err
+		}
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		rel, _ := filepath.Rel(root, path)
+		entries = append(entries, fmt.Sprintf("%s:%x", rel, sha256.Sum256(data)))
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	sort.Strings(entries)
+	return strings.Join(entries, ",")
 }

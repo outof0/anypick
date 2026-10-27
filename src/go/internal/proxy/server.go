@@ -186,6 +186,23 @@ func unauthenticatedLiveness(r *http.Request) bool {
 	return r.Method == http.MethodHead || r.Method == http.MethodGet
 }
 
+// AuthCheckPath answers 204 to a caller holding the proxy secret and the usual
+// 401 to anyone else, and never reaches upstream. Token rotation probes it to
+// prove the new secret is live and the old one is refused; a model request
+// would also prove that, but only when the vendor is reachable, so a rotation
+// on a train would report a failure that has nothing to do with the token.
+const AuthCheckPath = "/_anypick/auth-check"
+
+// serveAuthCheck answers an authenticated AuthCheckPath request. The caller
+// has already passed requireProxyAuth.
+func serveAuthCheck(w http.ResponseWriter, r *http.Request) bool {
+	if r.URL.Path != AuthCheckPath {
+		return false
+	}
+	w.WriteHeader(http.StatusNoContent)
+	return true
+}
+
 func writeLiveness(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
@@ -300,7 +317,12 @@ func (s *Server) Handler() http.Handler {
 			if !requireProxyAuth(rec, r, s.Token) {
 				return
 			}
-			Serve(rec, r, s.upstreamValue())
+			if serveAuthCheck(rec, r) {
+				return
+			}
+			metered, finish := MeterUsage(rec, observe.RouteSingle, s.ProviderID, s.AccountName, "")
+			Serve(metered, r, s.upstreamValue())
+			finish()
 		})))
 	return mux
 }
