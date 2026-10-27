@@ -22,7 +22,6 @@ extension TrayStore {
       label: nil,
       endpoint: nil,
       apiKey: nil,
-      region: nil,
       gatewayId: nil,
       defaultModel: nil,
       overwrite: overwrite,

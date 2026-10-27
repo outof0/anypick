@@ -2,6 +2,7 @@ package desktop
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -479,6 +480,66 @@ func TestHubRotationToggleWritesStrategy(t *testing.T) {
 	}
 	if cfg.Strategy != hub.StrategyFailover {
 		t.Fatalf("strategy after disable = %q, want failover", cfg.Strategy)
+	}
+}
+
+// A host that names the strategy sets it directly, and the snapshot reports
+// it, so a third mode is not squeezed through the round-robin flag.
+func TestHubRotationAcceptsANamedStrategy(t *testing.T) {
+	env := hubTestEnv(t)
+	ctx := context.Background()
+	seedCodexAccounts(t, env, "work", "home")
+	srv := New(env.Deps, strings.NewReader(""), &strings.Builder{})
+
+	raw, err := json.Marshal(Mutate{
+		Version: 1, RequestID: "rot-soonest", Operation: "hub-rotation",
+		Name: "default", Strategy: hub.StrategySoonestReset,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The frame a host sends carries only the keys it sets.
+	wire, _ := json.Marshal(map[string]any{
+		"version": 1, "requestId": "rot-soonest", "operation": "hub-rotation",
+		"name": "default", "strategy": hub.StrategySoonestReset,
+	})
+	if _, err := DecodeLine("mutate\t" + base64.StdEncoding.EncodeToString(wire)); err != nil {
+		t.Fatalf("a strategy-only hub-rotation was rejected: %v", err)
+	}
+	var out strings.Builder
+	srv.Out = &out
+	if err := srv.handleMutate(ctx, raw); err != nil {
+		t.Fatal(err)
+	}
+	if res := decodeMutateResult(t, out.String()); res.Status != "success" {
+		t.Fatalf("set soonest-reset = %+v", res)
+	}
+	cfg, err := env.Deps.Hub.GetConfigContext(ctx, "default")
+	if err != nil || cfg == nil || cfg.Strategy != hub.StrategySoonestReset {
+		t.Fatalf("stored strategy = %+v, %v", cfg, err)
+	}
+	snap, err := srv.buildSnapshot(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, row := range snap.HubSources {
+		if row["rotates"] == true {
+			found = true
+			if row["strategy"] != hub.StrategySoonestReset || row["enabled"] != false {
+				t.Fatalf("rotation row = %+v, want strategy soonest-reset and the round-robin flag off", row)
+			}
+		}
+	}
+	if !found {
+		t.Fatal("no rotation row in the snapshot")
+	}
+
+	bad, _ := json.Marshal(map[string]any{
+		"version": 1, "requestId": "bad", "operation": "hub-rotation", "name": "default", "strategy": "random",
+	})
+	if _, err := DecodeLine("mutate\t" + base64.StdEncoding.EncodeToString(bad)); err == nil {
+		t.Fatal("an unknown strategy was accepted")
 	}
 }
 

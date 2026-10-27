@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type MutableRefObjec
 
 import { resolveBridge, type BridgeEvent, type TrayBridge } from './lib/bridge';
 import { planAutomaticCodexProfileSync } from './lib/codex-auto-profiles';
+import { mutateAction, syncCodexProfiles } from './lib/desktop-actions';
 import type { AppDestination, Destination, Snapshot } from './lib/contract';
 import { detectLanguage, translate, translateSource } from './lib/i18n';
 import { createService, type ServiceHandle, type ServicePort } from './lib/service';
@@ -421,7 +422,7 @@ export function App({
     if (!snapshot || busy.size > 0) return;
     const sourceIds = planAutomaticCodexProfileSync(snapshot, false);
     if (sourceIds.length === 0) return;
-    service.port.mutate('codex-profile-sync', { sourceIds });
+    mutateAction(service.port, syncCodexProfiles(sourceIds));
   }, [snapshot, busy, service]);
 
   useEffect(() => {

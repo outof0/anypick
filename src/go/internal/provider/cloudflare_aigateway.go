@@ -449,6 +449,16 @@ func (p *cloudflareAIGateway) ResolveUpstream(snapshotDir string) (*proxy.Upstre
 // uses. A model list is advisory: transport errors and non-2xx answers fall
 // back to the static catalog instead of failing the proxy start.
 func cloudflareLiveModels(ctx context.Context, base, secret, gatewayID string) ([]string, error) {
+	var headers map[string]string
+	if gatewayID != "" {
+		headers = map[string]string{cloudflareGatewayHeader: gatewayID}
+	}
+	return listOpenAIModels(ctx, base, secret, headers)
+}
+
+// listOpenAIModels reads an OpenAI-shaped GET {base}/models. The secret is
+// optional: a local model server answers without one.
+func listOpenAIModels(ctx context.Context, base, secret string, headers map[string]string) ([]string, error) {
 	target := strings.TrimRight(base, "/") + "/models"
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, target, nil)
 	if err != nil {
@@ -458,8 +468,8 @@ func cloudflareLiveModels(ctx context.Context, base, secret, gatewayID string) (
 	if secret != "" {
 		req.Header.Set("Authorization", "Bearer "+secret)
 	}
-	if gatewayID != "" {
-		req.Header.Set(cloudflareGatewayHeader, gatewayID)
+	for name, value := range headers {
+		req.Header.Set(name, value)
 	}
 	resp, err := egress.NewClient(6 * time.Second).Do(req)
 	if err != nil {

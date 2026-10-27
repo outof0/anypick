@@ -130,6 +130,25 @@ func TestAccountSaveInputHandler(t *testing.T) {
 		t.Fatalf("unknown kind = %+v, want UNSUPPORTED_CREDENTIAL_INPUT", res)
 	}
 
+	// A product that needs a key refuses a save without one in words the
+	// user can act on, now that the frame no longer rejects it blind.
+	res = save("save-input-6", map[string]interface{}{
+		"providerId": "deepseek", "name": "nokey",
+		"kind": "api-key", "profile": "global",
+	})
+	if res.Status != "error" || !strings.Contains(res.Message, "non-empty") {
+		t.Fatalf("keyless save of a keyed product = %+v, want the provider's refusal", res)
+	}
+
+	// A key-optional product saves with no key.
+	res = save("save-input-7", map[string]interface{}{
+		"providerId": "ollama", "name": "local",
+		"kind": "server", "profile": "default",
+	})
+	if res.Status != "success" {
+		t.Fatalf("keyless Ollama save = %+v, want success", res)
+	}
+
 	// Native-only providers reject credential input.
 	res = save("save-input-5", map[string]interface{}{
 		"providerId": "claude", "name": "work",
@@ -149,14 +168,29 @@ func TestAccountSaveInputContract(t *testing.T) {
 	if _, err := DecodeLine("mutate\t" + b64(t, valid)); err != nil {
 		t.Fatalf("valid save-input rejected: %v", err)
 	}
+	// A key-optional product (a local model server) is saved with no key, and
+	// only the provider knows which products those are, so the frame accepts
+	// it and the provider refuses a missing key with its own message.
+	for _, keyless := range []func(m map[string]interface{}){
+		func(m map[string]interface{}) { delete(m, "apiKey") },
+		func(m map[string]interface{}) { m["apiKey"] = "" },
+	} {
+		m := map[string]interface{}{}
+		for k, v := range valid {
+			m[k] = v
+		}
+		keyless(m)
+		if _, err := DecodeLine("mutate\t" + b64(t, m)); err != nil {
+			t.Fatalf("keyless save-input rejected at the frame: %v", err)
+		}
+	}
 	for _, tc := range []struct {
 		name   string
 		mutate func(m map[string]interface{})
 	}{
 		{"missing kind", func(m map[string]interface{}) { delete(m, "kind") }},
 		{"empty kind", func(m map[string]interface{}) { m["kind"] = "" }},
-		{"missing apiKey", func(m map[string]interface{}) { delete(m, "apiKey") }},
-		{"empty apiKey", func(m map[string]interface{}) { m["apiKey"] = "" }},
+		{"oversized apiKey", func(m map[string]interface{}) { m["apiKey"] = strings.Repeat("k", 8193) }},
 		{"missing name", func(m map[string]interface{}) { delete(m, "name") }},
 		{"missing providerId", func(m map[string]interface{}) { delete(m, "providerId") }},
 		{"unknown field", func(m map[string]interface{}) { m["region"] = "us" }},

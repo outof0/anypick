@@ -64,7 +64,7 @@ func serveOpenAIResponsesWith(w http.ResponseWriter, r *http.Request, up *Upstre
 		target.Path = strings.TrimSuffix(target.Path, "/") + up.OpenAIPath
 		target.RawPath = ""
 	} else {
-		target.Path = strings.TrimSuffix(target.Path, "/") + "/v1/chat/completions"
+		target.Path = joinUpstreamPath(target.Path, "/v1/chat/completions")
 	}
 	outReq, err := http.NewRequestWithContext(r.Context(), http.MethodPost, target.String(),
 		bytes.NewReader(chatBody))

@@ -14,11 +14,6 @@ import type { AccountRow, GatewayProviderRow } from './contract';
 
 export type ConnectionState = 'untested' | 'testing' | 'available' | 'unavailable';
 
-/** `isAPIKeyAccount`. A key saved as an account rather than as a gateway. */
-export function isApiKeyAccount(provider: GatewayProviderRow | undefined): boolean {
-  return provider?.kind === 'account-api-key';
-}
-
 /**
  * `providerSuppliesEndpoint`. The provider knows its own base URL.
  *
@@ -37,7 +32,7 @@ export function providerSuppliesEndpoint(provider: GatewayProviderRow | undefine
  * type what the engine derives — and would reject a value the engine ignores.
  */
 export function usesCustomEndpoint(provider: GatewayProviderRow | undefined): boolean {
-  if (isApiKeyAccount(provider) || providerSuppliesEndpoint(provider)) return false;
+  if (providerSuppliesEndpoint(provider)) return false;
   return !provider?.requiresAccountId;
 }
 
@@ -65,7 +60,6 @@ export function gatewayCanSave(input: {
   apiKey: string;
   accountId: string;
   endpoint: string;
-  region: string;
   busy: boolean;
 }): boolean {
   if (input.busy || !input.provider) return false;
@@ -73,11 +67,6 @@ export function gatewayCanSave(input: {
   if (requiresApiKey(input.provider) && input.apiKey.trim() === '') return false;
   if (input.provider.requiresAccountId && input.accountId.trim() === '') return false;
   if (usesCustomEndpoint(input.provider) && input.endpoint.trim() === '') return false;
-  if (isApiKeyAccount(input.provider) && (input.provider.regions ?? []).length > 0) {
-    // A token issued by one region is rejected by another, so the choice is not
-    // optional — but it defaults, so the user need not make it explicitly.
-    return (input.provider.regions ?? []).includes(input.region);
-  }
   return true;
 }
 
@@ -92,14 +81,6 @@ export function connectionTestEnabled(input: {
   if (requiresApiKey(input.provider) && input.apiKey.trim() === '') return false;
   if (input.provider?.requiresAccountId && input.accountId.trim() === '') return false;
   return true;
-}
-
-/** `syncRegion`. A region the new provider does not offer is not a region. */
-export function syncRegion(provider: GatewayProviderRow | undefined, current: string): string {
-  if (!isApiKeyAccount(provider)) return '';
-  const regions = provider?.regions ?? [];
-  if (regions.includes(current)) return current;
-  return provider?.regionDefault ?? regions[0] ?? '';
 }
 
 /**
@@ -147,9 +128,6 @@ export function connectionFooter(input: {
         input.message || 'Could not connect to the gateway. Please check the endpoint URL and API key.'
       );
     case 'untested': {
-      if (isApiKeyAccount(input.provider)) {
-        return 'AnyPick stores this key in the selected provider’s account store.';
-      }
       if (input.provider?.requiresAccountId) return 'The endpoint is derived from your Account ID.';
       if (!usesCustomEndpoint(input.provider)) {
         return `${input.provider?.label ?? 'The provider'} supplies the endpoint.`;

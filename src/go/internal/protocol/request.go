@@ -24,12 +24,22 @@ type contentBlock struct {
 	ToolUseID string          `json:"tool_use_id,omitempty"`
 	Content   json.RawMessage `json:"content,omitempty"`
 	IsError   bool            `json:"is_error,omitempty"`
-	Source    *struct {
-		Type      string `json:"type"`
-		MediaType string `json:"media_type"`
-		Data      string `json:"data"`
-	} `json:"source,omitempty"`
+	Source    *imageSource    `json:"source,omitempty"`
 }
+
+// imageSource is an Anthropic image block's source: inline base64, or a URL
+// the vendor fetches.
+type imageSource struct {
+	Type      string `json:"type"`
+	MediaType string `json:"media_type"`
+	Data      string `json:"data"`
+	URL       string `json:"url"`
+}
+
+// ImageOmitted stands in for an image a translation cannot carry. A model told
+// nothing would answer as if the user sent no picture; one handed the encoded
+// bytes as text would read megabytes of base64 as prompt.
+const ImageOmitted = "[image omitted]"
 
 type anthropicMessage struct {
 	Role    string          `json:"role"`
@@ -369,8 +379,10 @@ func userBlocksToOpenAI(blocks []contentBlock) []openAIMessage {
 		case "text":
 			parts = append(parts, part{text: b.Text})
 		case "image":
-			if b.Source != nil {
+			if imageDataURL(b.Source) != "" {
 				parts = append(parts, part{img: &b})
+			} else {
+				parts = append(parts, part{text: ImageOmitted})
 			}
 		case "tool_result":
 			flush()
@@ -396,8 +408,12 @@ func toolResultText(b contentBlock) string {
 	if json.Unmarshal(b.Content, &blocks) == nil {
 		texts := make([]string, 0, len(blocks))
 		for _, inner := range blocks {
-			if inner.Type == "text" {
+			switch inner.Type {
+			case "text":
 				texts = append(texts, inner.Text)
+			case "image":
+				// An OpenAI tool message carries text only.
+				texts = append(texts, ImageOmitted)
 			}
 		}
 		return strings.Join(texts, "\n")
@@ -405,21 +421,29 @@ func toolResultText(b contentBlock) string {
 	return ""
 }
 
-func imageDataURL(src *struct {
-	Type      string `json:"type"`
-	MediaType string `json:"media_type"`
-	Data      string `json:"data"`
-}) string {
+// imageDataURL is the OpenAI image_url for an Anthropic image source, or ""
+// when there is nothing to send.
+func imageDataURL(src *imageSource) string {
 	if src == nil {
 		return ""
 	}
-	return "data:" + src.MediaType + ";base64," + src.Data
+	switch src.Type {
+	case "url":
+		return strings.TrimSpace(src.URL)
+	case "base64", "":
+		if src.Data == "" || src.MediaType == "" {
+			return ""
+		}
+		return "data:" + src.MediaType + ";base64," + src.Data
+	default:
+		// A file reference or a future source kind has no OpenAI equivalent.
+		return ""
+	}
 }
 
 func assistantBlocksToOpenAI(blocks []contentBlock) []openAIMessage {
 	msg := openAIMessage{Role: "assistant"}
 	texts := []string{}
-	hasImage := false
 	for _, b := range blocks {
 		switch b.Type {
 		case "text":
@@ -434,16 +458,13 @@ func assistantBlocksToOpenAI(blocks []contentBlock) []openAIMessage {
 			call.Function.Arguments = args
 			msg.ToolCalls = append(msg.ToolCalls, call)
 		case "image":
-			hasImage = true
+			// OpenAI assistant messages carry no images; say one was there.
+			// Text blocks join with no separator, so the marker brings its own.
+			texts = append(texts, "\n"+ImageOmitted+"\n")
 		}
 	}
-	if len(texts) > 0 && !hasImage {
+	if len(texts) > 0 {
 		msg.Content = jsonString(DropBillingLines(strings.Join(texts, "")))
-	} else if hasImage {
-		// OpenAI assistant images are unsupported; degrade to text-only.
-		if len(texts) > 0 {
-			msg.Content = jsonString(DropBillingLines(strings.Join(texts, "")))
-		}
 	}
 	if len(msg.ToolCalls) == 0 && msg.Content == nil {
 		msg.Content = jsonString("")

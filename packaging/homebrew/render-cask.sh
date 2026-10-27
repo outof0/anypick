@@ -39,7 +39,7 @@ cask "anypick" do
       AnyPick.app and choose Open, or go to System Settings → Privacy & Security
       and choose Open Anyway. You can also remove the quarantine flag with:
 
-        xattr -dr com.apple.quarantine /Applications/AnyPick.app
+        /usr/bin/xattr -dr com.apple.quarantine /Applications/AnyPick.app
     EOS
   end
 end

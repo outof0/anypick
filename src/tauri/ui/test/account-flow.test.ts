@@ -254,6 +254,14 @@ describe('when the sheet may submit', () => {
     expect(credentialInputCanSubmit({ ...key, name: '' })).toBe(false);
   });
 
+  it('accepts an empty key only for a key-optional product', () => {
+    const keyless = { name: 'Local', secret: '', providerInstalled: true, blocked: false, routingComplete: true };
+    expect(credentialInputCanSubmit(keyless)).toBe(false);
+    expect(credentialInputCanSubmit({ ...keyless, secretOptional: true })).toBe(true);
+    // Still needs a name.
+    expect(credentialInputCanSubmit({ ...keyless, secretOptional: true, name: ' ' })).toBe(false);
+  });
+
   it('requires Cloudflare routing to be complete', () => {
     expect(
       credentialInputCanSubmit({

@@ -233,13 +233,18 @@ anypick proxy logs <provider> <account> [--lines N] [--follow]
 
 `--port` on `enable`/`config` pins a port; otherwise the first free port is
 used. `token` prints or rotates (`--rotate`) the authentication token / API key
-for the proxy. `logs` prints the last 50 lines by default.
+for the proxy. After a rotation on a running proxy, AnyPick checks that the new
+key is accepted and the previous one is refused, then updates every client
+bound to that account. A client whose settings you moved off AnyPick's route
+is left alone unless you add `--allow-foreign-config`. Rotating the first
+member of a running pool keeps the pool running. `logs` prints the last 50
+lines by default.
 
 ### Pools
 
 ```bash
 anypick proxy pool status <provider>
-anypick proxy pool enable <provider> [--strategy failover|round-robin]
+anypick proxy pool enable <provider> [--strategy failover|round-robin|soonest-reset]
     [--mode single|multi] [--port N] [-p N] [+account|-account ...]
 anypick proxy pool member <provider> <account> <on|off>
 anypick proxy pool start <provider>
@@ -258,12 +263,15 @@ quota-class failure moves the request on to the next member.
 ```bash
 anypick proxy hub status <name>
 anypick proxy hub enable <name> [--host <host>] [--port N] [-p N]
-    [--strategy failover|round-robin] [--start]
+    [--strategy failover|round-robin|soonest-reset] [--start]
 anypick proxy hub source <name> <provider> <account>
 anypick proxy hub owner <name> <model> <provider>/<account>
 anypick proxy hub preview <name>
 anypick proxy hub start <name>
 anypick proxy hub stop <name>
+anypick proxy hub combo add <name> <combo> <provider/account=model>...
+anypick proxy hub combo list <name>
+anypick proxy hub combo remove <name> <combo>
 ```
 
 `source` toggles: present sources are removed, absent ones added (an account
@@ -273,6 +281,8 @@ model resolves to — instead of pinning it to one; without the flag the current
 mode is kept. Bind with `--with hub:<name>` after at least one source is
 enabled. `owner` picks which account wins when two sources advertise the same
 model id; `preview` refreshes catalogs and prints routes plus conflicts.
+`combo` manages named fallback chains the hub serves as model ids; see
+[Combos](/docs/guides/proxies#combos-model-ids-the-hub-defines).
 
 ## Plugins
 
@@ -310,6 +320,44 @@ These commands do not define native-app ownership. The macOS app resolves and
 starts `Contents/Helpers/anypick-core`, keeps the menu-bar quick panel inside the
 same application, and stops the helper on explicit app Quit. See
 [macOS app and menu bar](/docs/guides/tray).
+
+## Usage history
+
+```bash
+anypick usage [--since 7d|24h|2026-10-01] [--by model|account|provider|day] [--json]
+```
+
+Shows the tokens that running proxies, pools and Proxy Hubs served, with a
+cost estimate. `--since` defaults to `7d`; history is kept for 90 days.
+`--by` defaults to `model`.
+
+What is recorded, per successful response: time, provider, account, model,
+and the input, output and cache token counts the vendor reported. Request and
+response content, headers and keys are never stored. A response that reports
+no counts (an OpenAI-style stream sent without `stream_options.include_usage`)
+is counted as a request with unreported usage.
+
+The cost is an **estimate at API list prices**, with the date those prices
+were read. Requests served by a subscription login (Claude Pro, ChatGPT) are
+not billed per token; for them the figure is what the same traffic would cost
+on the API. The bundled table lists Anthropic's first-party prices only. A
+model it does not list is left out of the estimate, and the output says how
+many requests that was. To add or correct a price, create `pricing.json` in
+the AnyPick data directory (`~/.anypick` by default), in USD per million
+tokens:
+
+```json
+{
+  "models": {
+    "glm-4.7": { "input": 0.6, "output": 2.2 },
+    "claude-opus-5-5": { "input": 4, "output": 20, "cacheRead": 0.2 }
+  }
+}
+```
+
+A model id matches exactly or as a prefix followed by `-` or `@`, after any
+`vendor/` prefix, so `claude-opus-5-20260101` is priced as `claude-opus-5`.
+Cache tokens without a listed cache price are charged at the input price.
 
 ## Health
 

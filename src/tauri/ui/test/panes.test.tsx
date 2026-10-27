@@ -271,9 +271,9 @@ describe('Apps pane', () => {
     await user.click(screen.getByTestId('app.models.manage'));
     await user.selectOptions(screen.getByLabelText('Model for Claude Code · sonnet'), 'act-7-102');
 
-    const roles = bridge.commands().find((entry) => entry.kind === 'model-roles');
-    expect(roles?.payload).toMatchObject({
+    expect(bridge.bodies('model-roles')[0]).toEqual({
       clientId: 'claude',
+      revision: 7,
       scope: 'connection',
       roleActionIds: { default: 'act-7-101', sonnet: 'act-7-102' },
     });
@@ -288,14 +288,13 @@ describe('Apps pane', () => {
     await user.selectOptions(screen.getByLabelText('Applies to Claude Code'), 'provider');
     await user.selectOptions(screen.getByLabelText('Model for Claude Code · sonnet'), 'act-7-102');
 
-    const roles = bridge.commands().find((entry) => entry.kind === 'model-roles');
-    expect(roles?.payload).toEqual(
-      expect.objectContaining({
-        clientId: 'claude',
-        scope: 'provider',
-        roleActionIds: { default: 'act-7-101', sonnet: 'act-7-102' },
-      }),
-    );
+    const [roles] = bridge.bodies('model-roles');
+    expect(roles).toEqual({
+      clientId: 'claude',
+      revision: 7,
+      scope: 'provider',
+      roleActionIds: { default: 'act-7-101', sonnet: 'act-7-102' },
+    });
   });
 
   it('clears connection pins when the user asks for the provider default', async () => {
@@ -306,14 +305,13 @@ describe('Apps pane', () => {
     await user.click(screen.getByTestId('app.models.manage'));
     await user.click(screen.getByTestId('models-reset-claude'));
 
-    const roles = bridge.commands().find((entry) => entry.kind === 'model-roles');
-    expect(roles?.payload).toEqual(
-      expect.objectContaining({
-        clientId: 'claude',
-        scope: 'connection',
-        roleActionIds: {},
-      }),
-    );
+    const [roles] = bridge.bodies('model-roles');
+    expect(roles).toEqual({
+      clientId: 'claude',
+      revision: 7,
+      scope: 'connection',
+      roleActionIds: {},
+    });
   });
 
   it('shows the reported quota, and hides it when the setting is off', async () => {
@@ -527,8 +525,7 @@ describe('Proxies pane', () => {
     ));
     await user.click(screen.getByTestId('proxies.more-claude/work'));
     await user.click(screen.getByRole('menuitem', { name: 'Copy API Key' }));
-    const mutate = bridge.commands().find((entry) => entry.kind === 'mutate');
-    expect(mutate?.payload).toMatchObject({ operation: 'proxy-token', providerId: 'claude' });
+    expect(bridge.bodies('mutate')).toEqual([{ operation: 'proxy-token', providerId: 'claude', name: 'work' }]);
   });
 
   it('reports the hub separately from the account proxies', () => {
@@ -554,7 +551,7 @@ describe('Proxies pane', () => {
 
     await user.click(screen.getByRole('button', { name: 'Stop All' }));
     await waitFor(() => expect(screen.queryByTestId('confirm-dialog')).not.toBeInTheDocument());
-    expect(bridge.commands().find((entry) => entry.kind === 'mutate')?.payload).toMatchObject({
+    expect(bridge.bodies('mutate')[0]).toEqual({
       operation: 'proxy-stop-all',
       name: 'all',
     });
@@ -587,7 +584,7 @@ describe('Proxies pane', () => {
       <ProxiesPane service={service} snapshot={snapshot} />
     ));
     await user.click(screen.getByRole('button', { name: 'Start Remaining Proxies' }));
-    expect(bridge.commands().find((entry) => entry.kind === 'mutate')?.payload).toMatchObject({
+    expect(bridge.bodies('mutate')[0]).toEqual({
       operation: 'proxy-start-all',
       name: 'all',
     });
@@ -613,7 +610,7 @@ describe('Accounts pane', () => {
     // four buttons is the control-panel look the contract bans.
     await user.click(screen.getByTestId('accounts.more.claude/personal'));
     await user.click(screen.getByRole('menuitem', { name: 'Refresh Login' }));
-    expect(bridge.commands().find((entry) => entry.kind === 'mutate')?.payload).toMatchObject({
+    expect(bridge.bodies('mutate')[0]).toEqual({
       operation: 'account-refresh',
       providerId: 'claude',
       name: 'personal',
@@ -629,7 +626,7 @@ describe('Accounts pane', () => {
     await user.click(screen.getByRole('menuitem', { name: 'Remove…' }));
     expect(bridge.commandKinds()).not.toContain('mutate');
     await user.click(screen.getByRole('button', { name: 'Remove' }));
-    expect(bridge.commands().find((entry) => entry.kind === 'mutate')?.payload).toMatchObject({
+    expect(bridge.bodies('mutate')[0]).toEqual({
       operation: 'account-remove',
       providerId: 'claude',
       name: 'personal',
@@ -647,16 +644,25 @@ describe('Proxy Hub pane', () => {
     // round-robin with no way to express which one is selected.
     await user.click(screen.getByRole('button', { name: 'Round Robin' }));
     await user.click(screen.getByRole('switch', { name: 'Disable Work' }));
-    const mutations = bridge.commands().filter((entry) => entry.kind === 'mutate').map((entry) => entry.payload);
-    expect(mutations[0]).toMatchObject({ operation: 'hub-rotation', name: 'default', enabled: true });
-    expect(mutations[0]).not.toHaveProperty('providerId');
-    expect(mutations[1]).toMatchObject({
+    const mutations = bridge.bodies('mutate');
+    expect(mutations[0]).toEqual({ operation: 'hub-rotation', name: 'default', strategy: 'round-robin', enabled: true });
+    expect(mutations[1]).toEqual({
       operation: 'hub-source-toggle',
       name: 'default',
       providerId: 'claude',
       sourceId: 'work',
       enabled: false,
     });
+  });
+
+  it('offers soonest-reset as a third strategy, named rather than a flag', async () => {
+    const { bridge, user } = mount(({ service, snapshot }) => (
+      <ProxyHubPane service={service} snapshot={snapshot} />
+    ));
+    await user.click(screen.getByRole('button', { name: 'Soonest Reset' }));
+    expect(bridge.bodies('mutate')).toEqual([
+      { operation: 'hub-rotation', name: 'default', strategy: 'soonest-reset', enabled: false },
+    ]);
   });
 
   it('offers a lifecycle button and the address, not just a source list', async () => {
@@ -793,7 +799,7 @@ describe('Activity and backups', () => {
   it('creates a backup with an empty path so the engine chooses the file', async () => {
     const { bridge, user } = mount(({ service, snapshot }) => <BackupsPane service={service} snapshot={snapshot} />);
     await user.click(screen.getByRole('button', { name: 'Create Backup' }));
-    expect(bridge.commands().find((entry) => entry.kind === 'mutate')?.payload).toMatchObject({
+    expect(bridge.bodies('mutate')[0]).toEqual({
       operation: 'account-backup-all',
       path: '',
     });

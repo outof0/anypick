@@ -1,0 +1,859 @@
+[
+  {
+    "case": "detectAccount: with source",
+    "kind": "mutate",
+    "payload": {
+      "version": 1,
+      "requestId": "corpus",
+      "operation": "account-detect",
+      "name": "detect",
+      "providerId": "claude",
+      "sourceId": "cli"
+    }
+  },
+  {
+    "case": "detectAccount: without source",
+    "kind": "mutate",
+    "payload": {
+      "version": 1,
+      "requestId": "corpus",
+      "operation": "account-detect",
+      "name": "detect",
+      "providerId": "claude"
+    }
+  },
+  {
+    "case": "loginAccount: named",
+    "kind": "mutate",
+    "payload": {
+      "version": 1,
+      "requestId": "corpus",
+      "operation": "account-login",
+      "providerId": "claude",
+      "methodId": "subscription",
+      "name": "work",
+      "label": "Work"
+    }
+  },
+  {
+    "case": "loginAccount: unnamed",
+    "kind": "mutate",
+    "payload": {
+      "version": 1,
+      "requestId": "corpus",
+      "operation": "account-login",
+      "providerId": "claude",
+      "methodId": "subscription"
+    }
+  },
+  {
+    "case": "loginAccount: named, no label",
+    "kind": "mutate",
+    "payload": {
+      "version": 1,
+      "requestId": "corpus",
+      "operation": "account-login",
+      "providerId": "claude",
+      "methodId": "subscription",
+      "name": "work"
+    }
+  },
+  {
+    "case": "loginAccount: from a source",
+    "kind": "mutate",
+    "payload": {
+      "version": 1,
+      "requestId": "corpus",
+      "operation": "account-login",
+      "providerId": "codex",
+      "methodId": "chatgpt",
+      "sourceId": "cli",
+      "name": "work"
+    }
+  },
+  {
+    "case": "savePastedAuth: new",
+    "kind": "mutate",
+    "payload": {
+      "version": 1,
+      "requestId": "corpus",
+      "operation": "account-save-auth",
+      "providerId": "codex",
+      "name": "work",
+      "path": "/tmp/anypick-auth-paste/paste.json"
+    }
+  },
+  {
+    "case": "savePastedAuth: unnamed overwrite",
+    "kind": "mutate",
+    "payload": {
+      "version": 1,
+      "requestId": "corpus",
+      "operation": "account-save-auth",
+      "providerId": "codex",
+      "path": "/tmp/anypick-auth-paste/paste.json",
+      "overwrite": true
+    }
+  },
+  {
+    "case": "savePastedAuth: unnamed",
+    "kind": "mutate",
+    "payload": {
+      "version": 1,
+      "requestId": "corpus",
+      "operation": "account-save-auth",
+      "providerId": "codex",
+      "path": "/tmp/anypick-auth-paste/paste.json"
+    }
+  },
+  {
+    "case": "saveCredentialInput: with profile",
+    "kind": "mutate",
+    "payload": {
+      "version": 1,
+      "requestId": "corpus",
+      "operation": "account-save-input",
+      "providerId": "claude",
+      "name": "work",
+      "kind": "api-key",
+      "apiKey": "sk-test",
+      "profile": "intl"
+    }
+  },
+  {
+    "case": "saveCredentialInput: default profile",
+    "kind": "mutate",
+    "payload": {
+      "version": 1,
+      "requestId": "corpus",
+      "operation": "account-save-input",
+      "providerId": "claude",
+      "name": "work",
+      "kind": "api-key",
+      "apiKey": "sk-test"
+    }
+  },
+  {
+    "case": "saveCredentialInput: key-optional product, no key",
+    "kind": "mutate",
+    "payload": {
+      "version": 1,
+      "requestId": "corpus",
+      "operation": "account-save-input",
+      "providerId": "ollama",
+      "name": "local",
+      "kind": "server",
+      "profile": "default"
+    }
+  },
+  {
+    "case": "saveLiveLogin: with source",
+    "kind": "mutate",
+    "payload": {
+      "version": 1,
+      "requestId": "corpus",
+      "operation": "account-save",
+      "providerId": "claude",
+      "name": "work",
+      "identity": "alex@example.test",
+      "sourceId": "cli"
+    }
+  },
+  {
+    "case": "saveLiveLogin: without source",
+    "kind": "mutate",
+    "payload": {
+      "version": 1,
+      "requestId": "corpus",
+      "operation": "account-save",
+      "providerId": "claude",
+      "name": "work",
+      "identity": "Current Claude login"
+    }
+  },
+  {
+    "case": "removeAccount: account",
+    "kind": "mutate",
+    "payload": {
+      "version": 1,
+      "requestId": "corpus",
+      "operation": "account-remove",
+      "providerId": "claude",
+      "name": "work"
+    }
+  },
+  {
+    "case": "refreshSaved: account",
+    "kind": "mutate",
+    "payload": {
+      "version": 1,
+      "requestId": "corpus",
+      "operation": "account-refresh",
+      "providerId": "claude",
+      "name": "work"
+    }
+  },
+  {
+    "case": "refreshSaved: gateway",
+    "kind": "mutate",
+    "payload": {
+      "version": 1,
+      "requestId": "corpus",
+      "operation": "gateway-refresh",
+      "name": "team"
+    }
+  },
+  {
+    "case": "editAccount: label",
+    "kind": "mutate",
+    "payload": {
+      "version": 1,
+      "requestId": "corpus",
+      "operation": "account-edit",
+      "providerId": "claude",
+      "name": "work",
+      "label": "Work"
+    }
+  },
+  {
+    "case": "editAccount: cleared label",
+    "kind": "mutate",
+    "payload": {
+      "version": 1,
+      "requestId": "corpus",
+      "operation": "account-edit",
+      "providerId": "claude",
+      "name": "work",
+      "label": ""
+    }
+  },
+  {
+    "case": "clearLiveLogin: with source",
+    "kind": "mutate",
+    "payload": {
+      "version": 1,
+      "requestId": "corpus",
+      "operation": "account-clear",
+      "name": "live",
+      "providerId": "claude",
+      "sourceId": "cli"
+    }
+  },
+  {
+    "case": "clearLiveLogin: without source",
+    "kind": "mutate",
+    "payload": {
+      "version": 1,
+      "requestId": "corpus",
+      "operation": "account-clear",
+      "name": "live",
+      "providerId": "claude"
+    }
+  },
+  {
+    "case": "createGateway: gateway, every field",
+    "kind": "mutate",
+    "payload": {
+      "version": 1,
+      "requestId": "corpus",
+      "operation": "gateway-create",
+      "providerId": "cloudflare",
+      "name": "team",
+      "label": "team",
+      "endpoint": "https://gateway.example.test/v1",
+      "apiKey": "sk-test",
+      "defaultModel": "gpt-test",
+      "gatewayId": "default",
+      "profile": "account-123"
+    }
+  },
+  {
+    "case": "createGateway: gateway, no key",
+    "kind": "mutate",
+    "payload": {
+      "version": 1,
+      "requestId": "corpus",
+      "operation": "gateway-create",
+      "providerId": "ollama",
+      "name": "local",
+      "label": "local",
+      "endpoint": "http://127.0.0.1:11434"
+    }
+  },
+  {
+    "case": "createGateway: gateway, endpoint and key",
+    "kind": "mutate",
+    "payload": {
+      "version": 1,
+      "requestId": "corpus",
+      "operation": "gateway-create",
+      "providerId": "openrouter",
+      "name": "team",
+      "label": "team",
+      "endpoint": "https://openrouter.ai/api/v1",
+      "apiKey": "sk-test"
+    }
+  },
+  {
+    "case": "createGateway: gateway, account-derived",
+    "kind": "mutate",
+    "payload": {
+      "version": 1,
+      "requestId": "corpus",
+      "operation": "gateway-create",
+      "providerId": "cloudflare",
+      "name": "team",
+      "label": "team",
+      "apiKey": "sk-test",
+      "gatewayId": "default",
+      "profile": "account-123"
+    }
+  },
+  {
+    "case": "testGateway: with key",
+    "kind": "mutate",
+    "payload": {
+      "version": 1,
+      "requestId": "corpus",
+      "operation": "gateway-test",
+      "name": "test",
+      "providerId": "openrouter",
+      "endpoint": "https://openrouter.ai/api/v1",
+      "apiKey": "sk-test"
+    }
+  },
+  {
+    "case": "testGateway: without key",
+    "kind": "mutate",
+    "payload": {
+      "version": 1,
+      "requestId": "corpus",
+      "operation": "gateway-test",
+      "name": "test",
+      "providerId": "ollama",
+      "endpoint": "http://127.0.0.1:11434"
+    }
+  },
+  {
+    "case": "testGateway: account-derived",
+    "kind": "mutate",
+    "payload": {
+      "version": 1,
+      "requestId": "corpus",
+      "operation": "gateway-test",
+      "name": "test",
+      "providerId": "cloudflare",
+      "apiKey": "sk-test",
+      "profile": "account-123"
+    }
+  },
+  {
+    "case": "editGateway: label",
+    "kind": "mutate",
+    "payload": {
+      "version": 1,
+      "requestId": "corpus",
+      "operation": "gateway-edit",
+      "name": "team",
+      "label": "Team"
+    }
+  },
+  {
+    "case": "refreshGateway: name",
+    "kind": "mutate",
+    "payload": {
+      "version": 1,
+      "requestId": "corpus",
+      "operation": "gateway-refresh",
+      "name": "team"
+    }
+  },
+  {
+    "case": "removeGateway: with provider",
+    "kind": "mutate",
+    "payload": {
+      "version": 1,
+      "requestId": "corpus",
+      "operation": "gateway-remove",
+      "name": "team",
+      "providerId": "openrouter"
+    }
+  },
+  {
+    "case": "backupAll: temp file",
+    "kind": "mutate",
+    "payload": {
+      "version": 1,
+      "requestId": "corpus",
+      "operation": "account-backup-all",
+      "path": ""
+    }
+  },
+  {
+    "case": "exportBackup: selection",
+    "kind": "mutate",
+    "payload": {
+      "version": 1,
+      "requestId": "corpus",
+      "operation": "account-backup-export",
+      "path": "/tmp/anypick-backup.json",
+      "accounts": [
+        {
+          "provider": "claude",
+          "name": "work"
+        }
+      ],
+      "overwrite": false
+    }
+  },
+  {
+    "case": "importBackup: confirmed",
+    "kind": "mutate",
+    "payload": {
+      "version": 1,
+      "requestId": "corpus",
+      "operation": "account-backup-import",
+      "inspectionId": "inspection-1",
+      "entryIds": [
+        "0",
+        "1"
+      ],
+      "overwriteConfirmed": true
+    }
+  },
+  {
+    "case": "forgetBackup: inspection",
+    "kind": "mutate",
+    "payload": {
+      "version": 1,
+      "requestId": "corpus",
+      "operation": "account-backup-forget",
+      "inspectionId": "inspection-1"
+    }
+  },
+  {
+    "case": "refreshModels: account",
+    "kind": "mutate",
+    "payload": {
+      "version": 1,
+      "requestId": "corpus",
+      "operation": "account-refresh",
+      "providerId": "claude",
+      "name": "work"
+    }
+  },
+  {
+    "case": "refreshModels: gateway",
+    "kind": "mutate",
+    "payload": {
+      "version": 1,
+      "requestId": "corpus",
+      "operation": "gateway-refresh",
+      "name": "team"
+    }
+  },
+  {
+    "case": "resetClient: client",
+    "kind": "mutate",
+    "payload": {
+      "version": 1,
+      "requestId": "corpus",
+      "operation": "client-reset",
+      "name": "claude",
+      "providerId": "claude"
+    }
+  },
+  {
+    "case": "saveCodexProfile: every field",
+    "kind": "mutate",
+    "payload": {
+      "version": 1,
+      "requestId": "corpus",
+      "operation": "codex-profile-save",
+      "name": "work",
+      "sourceId": "account/codex/work",
+      "defaultModel": "gpt-test",
+      "transportPolicy": "auto"
+    }
+  },
+  {
+    "case": "saveCodexProfile: defaults",
+    "kind": "mutate",
+    "payload": {
+      "version": 1,
+      "requestId": "corpus",
+      "operation": "codex-profile-save",
+      "name": "work",
+      "sourceId": "account/codex/work"
+    }
+  },
+  {
+    "case": "saveCodexProfile: policy, default model",
+    "kind": "mutate",
+    "payload": {
+      "version": 1,
+      "requestId": "corpus",
+      "operation": "codex-profile-save",
+      "name": "work",
+      "sourceId": "account/codex/work",
+      "transportPolicy": "direct"
+    }
+  },
+  {
+    "case": "updateCodexProfile: every field",
+    "kind": "mutate",
+    "payload": {
+      "version": 1,
+      "requestId": "corpus",
+      "operation": "codex-profile-update",
+      "name": "work",
+      "sourceId": "account/codex/work",
+      "defaultModel": "gpt-test",
+      "transportPolicy": "proxy"
+    }
+  },
+  {
+    "case": "removeCodexProfile: name",
+    "kind": "mutate",
+    "payload": {
+      "version": 1,
+      "requestId": "corpus",
+      "operation": "codex-profile-remove",
+      "name": "work"
+    }
+  },
+  {
+    "case": "syncCodexProfiles: sources",
+    "kind": "mutate",
+    "payload": {
+      "version": 1,
+      "requestId": "corpus",
+      "operation": "codex-profile-sync",
+      "sourceIds": [
+        "account/codex/work",
+        "account/codex/home"
+      ]
+    }
+  },
+  {
+    "case": "proxyBulk: start",
+    "kind": "mutate",
+    "payload": {
+      "version": 1,
+      "requestId": "corpus",
+      "operation": "proxy-start-all",
+      "name": "all"
+    }
+  },
+  {
+    "case": "proxyBulk: restart",
+    "kind": "mutate",
+    "payload": {
+      "version": 1,
+      "requestId": "corpus",
+      "operation": "proxy-restart-all",
+      "name": "all"
+    }
+  },
+  {
+    "case": "proxyBulk: stop",
+    "kind": "mutate",
+    "payload": {
+      "version": 1,
+      "requestId": "corpus",
+      "operation": "proxy-stop-all",
+      "name": "all"
+    }
+  },
+  {
+    "case": "proxyToken: proxy",
+    "kind": "mutate",
+    "payload": {
+      "version": 1,
+      "requestId": "corpus",
+      "operation": "proxy-token",
+      "providerId": "claude",
+      "name": "work"
+    }
+  },
+  {
+    "case": "settingChange: setting-launch-at-login on",
+    "kind": "mutate",
+    "payload": {
+      "version": 1,
+      "requestId": "corpus",
+      "operation": "setting-launch-at-login",
+      "name": "settings",
+      "enabled": true
+    }
+  },
+  {
+    "case": "settingChange: setting-launch-at-login off",
+    "kind": "mutate",
+    "payload": {
+      "version": 1,
+      "requestId": "corpus",
+      "operation": "setting-launch-at-login",
+      "name": "settings",
+      "enabled": false
+    }
+  },
+  {
+    "case": "settingChange: setting-show-quota on",
+    "kind": "mutate",
+    "payload": {
+      "version": 1,
+      "requestId": "corpus",
+      "operation": "setting-show-quota",
+      "name": "settings",
+      "enabled": true
+    }
+  },
+  {
+    "case": "settingChange: setting-show-quota off",
+    "kind": "mutate",
+    "payload": {
+      "version": 1,
+      "requestId": "corpus",
+      "operation": "setting-show-quota",
+      "name": "settings",
+      "enabled": false
+    }
+  },
+  {
+    "case": "settingChange: setting-auto-start-proxies on",
+    "kind": "mutate",
+    "payload": {
+      "version": 1,
+      "requestId": "corpus",
+      "operation": "setting-auto-start-proxies",
+      "name": "settings",
+      "enabled": true
+    }
+  },
+  {
+    "case": "settingChange: setting-auto-start-proxies off",
+    "kind": "mutate",
+    "payload": {
+      "version": 1,
+      "requestId": "corpus",
+      "operation": "setting-auto-start-proxies",
+      "name": "settings",
+      "enabled": false
+    }
+  },
+  {
+    "case": "settingChange: setting-quota-guard on",
+    "kind": "mutate",
+    "payload": {
+      "version": 1,
+      "requestId": "corpus",
+      "operation": "setting-quota-guard",
+      "name": "settings",
+      "enabled": true
+    }
+  },
+  {
+    "case": "settingChange: setting-quota-guard off",
+    "kind": "mutate",
+    "payload": {
+      "version": 1,
+      "requestId": "corpus",
+      "operation": "setting-quota-guard",
+      "name": "settings",
+      "enabled": false
+    }
+  },
+  {
+    "case": "languageChange: explicit",
+    "kind": "mutate",
+    "payload": {
+      "version": 1,
+      "requestId": "corpus",
+      "operation": "setting-language",
+      "name": "settings",
+      "language": "vi"
+    }
+  },
+  {
+    "case": "languageChange: auto",
+    "kind": "mutate",
+    "payload": {
+      "version": 1,
+      "requestId": "corpus",
+      "operation": "setting-language",
+      "name": "settings",
+      "language": "auto"
+    }
+  },
+  {
+    "case": "hubStrategyChange: failover",
+    "kind": "mutate",
+    "payload": {
+      "version": 1,
+      "requestId": "corpus",
+      "operation": "hub-rotation",
+      "name": "default",
+      "strategy": "failover",
+      "enabled": false
+    }
+  },
+  {
+    "case": "hubStrategyChange: round-robin",
+    "kind": "mutate",
+    "payload": {
+      "version": 1,
+      "requestId": "corpus",
+      "operation": "hub-rotation",
+      "name": "default",
+      "strategy": "round-robin",
+      "enabled": true
+    }
+  },
+  {
+    "case": "hubStrategyChange: soonest-reset",
+    "kind": "mutate",
+    "payload": {
+      "version": 1,
+      "requestId": "corpus",
+      "operation": "hub-rotation",
+      "name": "default",
+      "strategy": "soonest-reset",
+      "enabled": false
+    }
+  },
+  {
+    "case": "hubSourceChange: account",
+    "kind": "mutate",
+    "payload": {
+      "version": 1,
+      "requestId": "corpus",
+      "operation": "hub-source-toggle",
+      "name": "default",
+      "providerId": "claude",
+      "sourceId": "work",
+      "enabled": false
+    }
+  },
+  {
+    "case": "hubSourceChange: pool",
+    "kind": "mutate",
+    "payload": {
+      "version": 1,
+      "requestId": "corpus",
+      "operation": "hub-source-toggle",
+      "name": "default",
+      "providerId": "claude",
+      "sourceId": "pool:claude",
+      "enabled": true
+    }
+  },
+  {
+    "case": "hubSourceChange: rotation",
+    "kind": "mutate",
+    "payload": {
+      "version": 1,
+      "requestId": "corpus",
+      "operation": "hub-rotation",
+      "name": "default",
+      "enabled": true
+    }
+  },
+  {
+    "case": "invokeCommand: plain",
+    "kind": "invoke",
+    "payload": {
+      "version": 1,
+      "requestId": "corpus",
+      "revision": 3,
+      "actionId": "switch:claude:work"
+    }
+  },
+  {
+    "case": "invokeCommand: with consent",
+    "kind": "invoke",
+    "payload": {
+      "version": 1,
+      "requestId": "corpus",
+      "revision": 3,
+      "actionId": "connect:codex",
+      "allowForeignConfig": true
+    }
+  },
+  {
+    "case": "modelRolesCommand: connection scope",
+    "kind": "model-roles",
+    "payload": {
+      "version": 1,
+      "requestId": "corpus",
+      "revision": 3,
+      "clientId": "claude",
+      "roleActionIds": {
+        "main": "model:opus"
+      },
+      "scope": "connection"
+    }
+  },
+  {
+    "case": "modelRolesCommand: provider scope",
+    "kind": "model-roles",
+    "payload": {
+      "version": 1,
+      "requestId": "corpus",
+      "revision": 3,
+      "clientId": "claude",
+      "roleActionIds": {
+        "main": "model:opus",
+        "fast": ""
+      },
+      "scope": "provider"
+    }
+  },
+  {
+    "case": "modelRolesCommand: no scope",
+    "kind": "model-roles",
+    "payload": {
+      "version": 1,
+      "requestId": "corpus",
+      "revision": 3,
+      "clientId": "claude",
+      "roleActionIds": {}
+    }
+  },
+  {
+    "case": "logsCommand: tail",
+    "kind": "logs",
+    "payload": {
+      "version": 1,
+      "requestId": "corpus",
+      "providerId": "claude",
+      "name": "work",
+      "lines": 200
+    }
+  },
+  {
+    "case": "backupInspectCommand: path",
+    "kind": "backup-inspect",
+    "payload": {
+      "version": 1,
+      "requestId": "corpus",
+      "path": "/tmp/anypick-backup.json"
+    }
+  },
+  {
+    "case": "cancelCommand: request",
+    "kind": "cancel",
+    "payload": {
+      "version": 1,
+      "requestId": "corpus"
+    }
+  },
+  {
+    "case": "doctorCommand: report",
+    "kind": "doctor",
+    "payload": {
+      "version": 1,
+      "requestId": "corpus"
+    }
+  }
+]

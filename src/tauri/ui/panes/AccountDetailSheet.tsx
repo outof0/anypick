@@ -20,6 +20,7 @@ import type { ServicePort } from '../lib/service';
 import { ConfirmDialog } from './ProxiesPane';
 import { Dialog } from '../ui/Dialog';
 import { Button, Group, Row, RowActions, RowText, StatusLabel } from '../ui/primitives';
+import { refreshSaved } from '../lib/desktop-actions';
 
 /**
  * `AccountDetailView`. One account's identity, its quota, and its commands.
@@ -99,12 +100,8 @@ export function AccountDetailSheet({
               testId="accounts.inspector.test"
               disabled={paused || !row.canRefresh}
               onClick={() => {
-                service.mutate(
-                  row.kind === 'gateway' ? 'gateway-refresh' : 'account-refresh',
-                  row.kind === 'gateway'
-                    ? { name: row.name }
-                    : { providerId: row.providerId, name: row.name },
-                );
+                const action = refreshSaved(row);
+                service.mutate(action.operation, action.extra);
               }}
             >
               {tc(row.kind === 'gateway' ? 'test_connection' : 'refresh_login')}

@@ -10,11 +10,9 @@ func TestOpenRenamesLegacyAccountKey(t *testing.T) {
 	dir := t.TempDir()
 	database := openDB(t, dir)
 	insertLegacyAccount(t, database)
-	var version int
-	if err := database.QueryRow("PRAGMA user_version").Scan(&version); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := database.Exec("PRAGMA user_version = " + strconv.Itoa(version-1)); err != nil {
+	// Rewind to just before the slug migration, wherever it now sits in the
+	// list; later migrations re-run harmlessly (IF NOT EXISTS).
+	if _, err := database.Exec("PRAGMA user_version = " + strconv.Itoa(versionBefore(t, "slug account primary keys"))); err != nil {
 		t.Fatal(err)
 	}
 	if err := database.Close(); err != nil {
@@ -174,4 +172,17 @@ func containsAccountName(raw, name string) bool {
 		}
 	}
 	return false
+}
+
+// versionBefore is the user_version a database has just before the named
+// migration runs.
+func versionBefore(t *testing.T, name string) int {
+	t.Helper()
+	for i, m := range migrations {
+		if m.name == name {
+			return BaselineVersion + i
+		}
+	}
+	t.Fatalf("no migration named %q", name)
+	return 0
 }

@@ -168,6 +168,14 @@ func (b *snapshotBuilder) modelOptionsFor(ctx context.Context, source refs.Ref, 
 				push(id)
 			}
 		}
+		// Combos are the hub's own model ids (ADR-0036): always selectable.
+		if b.srv.Deps.Hub != nil {
+			if cfg, err := b.srv.Deps.Hub.GetConfigContext(ctx, source.Name); err == nil && cfg != nil {
+				for _, combo := range cfg.Combos {
+					push(combo.Name)
+				}
+			}
+		}
 		// A fresh Hub has no pinned route yet. Its unique catalog entries are
 		// already safe to publish, and making them options is what lets Apps
 		// configure a Hub route before the first client attachment. Conflicting

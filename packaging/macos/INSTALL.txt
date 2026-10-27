@@ -1,0 +1,116 @@
+AnyPick — install and first launch
+================================================================
+
+The app in this disk image is universal (Apple silicon and Intel) and runs on
+macOS 14 or newer. Drag AnyPick.app onto the Applications folder beside this
+file, then open it from Applications or Launchpad.
+
+Why macOS may warn you
+----------------------------------------------------------------
+
+AnyPick has no Apple Developer ID, so the app is signed ad-hoc rather than with
+a certificate Apple has issued. macOS therefore cannot verify who built it and
+may refuse the first launch with one of these messages:
+
+  * "AnyPick.app cannot be opened because the developer cannot be verified."
+  * "AnyPick.app is damaged and can't be opened. You should move it to the Trash."
+
+Neither message means the download is corrupt or that the app contains malware.
+It means Gatekeeper has no notarization ticket to check. AnyPick is open
+source — the exact binary you are running is built from this repository's
+release workflow, and the SHA256SUMS.txt published with the release lists every
+asset. Compare it before opening if you want to be sure the download is intact:
+
+  shasum -a 256 ~/Downloads/AnyPick-macos-universal.dmg
+
+Fix 1 — allow it from System Settings (recommended, no password)
+----------------------------------------------------------------
+
+  1. Try to open AnyPick once and dismiss the warning.
+  2. Open System Settings, then Privacy & Security.
+  3. Scroll to the Security section. A message about AnyPick being blocked
+     appears there; click "Open Anyway" and confirm.
+  4. Open AnyPick again. macOS remembers the exception, so this is a one-time
+     step per version.
+
+Fix 2 — clear the quarantine flag in Terminal
+----------------------------------------------------------------
+
+Use the absolute path. A Python package or a version-manager shim named
+"xattr" can shadow the system binary on your PATH, and that program does not
+accept -r, so the command would fail without clearing anything:
+
+  /usr/bin/xattr -dr com.apple.quarantine "/Applications/AnyPick.app"
+
+You only need one of the two fixes. If you install a later version, the flag
+can come back and the same step applies again.
+
+What the app needs
+----------------------------------------------------------------
+
+The app bundles its own Go service and needs no Node.js, no separate CLI
+install, and no network access on first launch beyond the login flow you start
+yourself. It writes state to ~/.anypick. Uninstalling is dragging the app to the
+Trash; remove ~/.anypick separately if you also want to delete saved accounts.
+
+Links
+----------------------------------------------------------------
+
+  Source and releases: https://github.com/outof0/anypick
+  Documentation:       https://anypick.dev
+
+
+----------------------------------------------------------------
+Tiếng Việt
+----------------------------------------------------------------
+
+Ứng dụng trong file DMG này là bản universal (Apple silicon và Intel), chạy
+trên macOS 14 trở lên. Kéo AnyPick.app vào thư mục Applications bên cạnh file
+này, sau đó mở từ Applications hoặc Launchpad.
+
+Vì sao macOS có thể cảnh báo
+----------------------------------------------------------------
+
+AnyPick không có Apple Developer ID, nên app chỉ được ký ad-hoc chứ không ký
+bằng chứng chỉ do Apple cấp. Vì vậy macOS không xác minh được ai build app và
+có thể chặn lần mở đầu tiên với một trong hai thông báo:
+
+  * "AnyPick.app cannot be opened because the developer cannot be verified."
+  * "AnyPick.app is damaged and can't be opened. You should move it to the Trash."
+
+Cả hai thông báo đều KHÔNG có nghĩa là file tải về bị hỏng hay app chứa mã độc.
+Nó chỉ có nghĩa là Gatekeeper không có vé notarization để kiểm tra. AnyPick là
+phần mềm mã nguồn mở — đúng file bạn đang chạy được build từ workflow phát hành
+của kho này, và SHA256SUMS.txt đi kèm bản phát hành liệt kê mọi tệp. Muốn chắc
+file tải về còn nguyên vẹn, đối chiếu trước khi mở:
+
+  shasum -a 256 ~/Downloads/AnyPick-macos-universal.dmg
+
+Cách 1 — cho phép trong Cài đặt hệ thống (khuyến nghị, không cần mật khẩu)
+----------------------------------------------------------------
+
+  1. Mở thử AnyPick một lần rồi đóng cảnh báo lại.
+  2. Mở Cài đặt hệ thống, vào Quyền riêng tư & Bảo mật.
+  3. Kéo xuống mục Bảo mật. Sẽ có thông báo AnyPick bị chặn; bấm "Vẫn mở"
+     rồi xác nhận.
+  4. Mở lại AnyPick. macOS ghi nhớ ngoại lệ này, nên mỗi phiên bản chỉ cần làm
+     một lần.
+
+Cách 2 — xoá cờ quarantine bằng Terminal
+----------------------------------------------------------------
+
+Dùng đường dẫn tuyệt đối. Một gói Python hoặc shim của trình quản lý phiên bản
+tên "xattr" có thể che mất lệnh hệ thống trong PATH, và chương trình đó không
+nhận cờ -r, nên lệnh sẽ báo lỗi mà không xoá được gì:
+
+  /usr/bin/xattr -dr com.apple.quarantine "/Applications/AnyPick.app"
+
+Chỉ cần một trong hai cách. Khi cài phiên bản mới, cờ có thể xuất hiện lại và
+áp dụng lại đúng bước trên.
+
+Ứng dụng cần gì
+----------------------------------------------------------------
+
+App đã đóng gói sẵn dịch vụ Go bên trong; không cần Node.js, không cần cài CLI
+riêng. Dữ liệu ghi vào ~/.anypick. Gỡ cài đặt chỉ là kéo app vào Thùng rác; xoá
+thêm ~/.anypick nếu bạn muốn xoá luôn các tài khoản đã lưu.

@@ -1076,7 +1076,6 @@ class MacOSDesignModel: ObservableObject {
     label: String,
     endpoint: String,
     apiKey: String,
-    region: String?,
     gatewayId: String? = nil,
     profile: String? = nil,
     defaultModel: String
@@ -1243,6 +1242,24 @@ class MacOSDesignModel: ObservableObject {
       return row.enabled
     }
     return hubSourceIDs.contains(sourceID)
+  }
+
+  /// The hub-wide request mode as a name: "failover", "round-robin" or
+  /// "soonest-reset". An older engine sends only the round-robin flag.
+  func hubStrategy(_ sourceID: String) -> String {
+    guard let row = hubSources.first(where: { $0.id == sourceID }) else { return "failover" }
+    if !row.strategy.isEmpty { return row.strategy }
+    return row.enabled ? "round-robin" : "failover"
+  }
+
+  /// Sets the hub-wide request mode by name (ADR-0035). The base model has no
+  /// engine, so the stored row is the whole truth.
+  func setHubStrategy(_ hub: String, strategy: String) {
+    proxyHubRotates = strategy == "round-robin"
+    if let index = hubSources.firstIndex(where: { $0.rotates && ($0.hub ?? "default") == hub }) {
+      hubSources[index].strategy = strategy
+      hubSources[index].enabled = strategy == "round-robin"
+    }
   }
 
   /// The hub-wide request mode. The base model has no engine, so the stored

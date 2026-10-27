@@ -147,11 +147,14 @@ Breaking one of these is a correctness or security regression, not a style nit.
    authenticates each request with a per-instance secret (ADR 0006) and binds
    loopback only. `StartResult.Token` never reaches a status, start, snapshot or
    log surface: the CLI (`anypick proxy start`), the TUI
-   (`src/go/internal/tui/toggleProxyCmd`) and the desktop protocol all surface the
-   endpoint only, and JSON output lands in CI logs. The one sanctioned exception
+   (`src/go/internal/tui/toggleProxyCmd`), the desktop protocol and the
+   management API (`anypick serve`, ADR 0034, `internal/mgmtapi`) all surface
+   the endpoint only, and JSON output lands in CI logs. The one sanctioned exception
    is the dedicated `anypick proxy token <provider> <account> [--rotate]`
-   command (ADR 0006 §6), which prints the bearer in human and `--json` form
-   because retrieving it is its purpose;
+   command (and `proxy hub token`, and `anypick serve token` for the
+   management API's own bearer, ADR 0034), which prints the bearer in human and
+   `--json` form because retrieving it is its purpose. ADR 0006 does not name
+   this exception; its §6 is the redaction rule the exception departs from;
    `cmd/anypick/status_secret_test.go` pins both halves of that split. An earlier
    wording here claimed the token was discarded by *every* caller, which was
    false and read as an argument against fixing a leak.

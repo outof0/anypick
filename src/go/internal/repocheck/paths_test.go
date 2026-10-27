@@ -85,6 +85,11 @@ func newFixtureRepo(t *testing.T) *fixtureRepo {
 		}
 		fixture.write(rel, "# "+filepath.Base(rel)+"\n")
 	}
+	// One correctly written quarantine command, so the instruction check has
+	// something to verify: a scan over zero commands is reported as an empty
+	// extraction, not a pass, and the clean-fixture test would fail on it.
+	fixture.write("README.md",
+		"# AnyPick\n\n```bash\n/usr/bin/xattr -dr com.apple.quarantine /Applications/AnyPick.app\n```\n")
 	fixture.gitInit()
 	return fixture
 }

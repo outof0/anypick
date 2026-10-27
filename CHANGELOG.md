@@ -6,6 +6,10 @@ Conventional Commits by `changelogithub`, are on
 
 This project follows [Semantic Versioning](https://semver.org/).
 
+## 1.1.5
+
+Add a loopback management API (`anypick serve`), Ollama and LM Studio as keyless local providers, `soonest-reset` routing for pools and the Proxy Hub, named hub combos with a hub-answered model list, and token usage history with a dated cost estimate (`anypick usage`). Verify proxy token rotation and reapply bound apps, fix a Linux account-add rejection, and stop image data leaking into translated prompts.
+
 ## 1.1.4
 
 Fix macOS update-check layout, prevent tray quota rows from overlapping, and align Gemini quota rows with other providers.

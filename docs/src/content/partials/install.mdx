@@ -4,7 +4,7 @@ macOS, Linux and Windows, plus the universal macOS `.dmg`/`.zip`, Linux desktop
 installers, and Windows installers. The macOS app is not notarized; on first
 launch, right-click `AnyPick.app` and choose **Open**, or choose **Open Anyway**
 under **System Settings → Privacy & Security**. You can also run
-`xattr -dr com.apple.quarantine /Applications/AnyPick.app`. The thin npm
+`/usr/bin/xattr -dr com.apple.quarantine /Applications/AnyPick.app`. The thin npm
 launcher (`npm install --global anypick`, Node 18+) downloads and verifies the
 matching native CLI on first run. From 1.1.0 it replaces the old JavaScript
 `anypick@1.0.x` on npm. Build from this repository when you are testing

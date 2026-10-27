@@ -25,11 +25,9 @@ import {
   saveCodexProfile,
   saveCredentialInput,
   savePastedAuth,
-  saveCurrentLogin,
   settingChange,
   syncCodexProfiles,
   testGateway,
-  testSavedGateway,
   updateCodexProfile,
   validCodexProfileName,
 } from '../lib/desktop-actions';
@@ -44,13 +42,6 @@ describe('desktop actions', () => {
     expect(detectAccount('claude')).toEqual({
       operation: 'account-detect',
       extra: { name: 'detect', providerId: 'claude' },
-    });
-  });
-
-  it('saves the current login without inventing a name', () => {
-    expect(saveCurrentLogin('claude', 'cli')).toEqual({
-      operation: 'account-save-current',
-      extra: { providerId: 'claude', sourceId: 'cli' },
     });
   });
 
@@ -137,20 +128,6 @@ describe('desktop actions', () => {
         endpoint: 'https://openrouter.ai/api/v1',
         apiKey: 'sk-test',
       },
-    });
-  });
-
-  it('saves an account-shaped gateway as an account, not a profile', () => {
-    expect(
-      createGateway({
-        providerId: 'openai',
-        name: 'work',
-        apiKey: 'sk-test',
-        kind: 'account-api-key',
-      }),
-    ).toEqual({
-      operation: 'account-save',
-      extra: { providerId: 'openai', name: 'work', apiKey: 'sk-test' },
     });
   });
 
@@ -268,13 +245,6 @@ describe('desktop actions', () => {
       ],
     } as unknown as Snapshot;
     expect(missingCodexProfileSources(snapshot)).toEqual(['account/codex/personal']);
-  });
-
-  it('probes a saved gateway by its profile name', () => {
-    expect(testSavedGateway({ name: 'team', providerId: 'openrouter' })).toEqual({
-      operation: 'gateway-test',
-      extra: { name: 'team', providerId: 'openrouter' },
-    });
   });
 
   it('connects only the apps whose route source is this gateway', () => {

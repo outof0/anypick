@@ -1,10 +1,12 @@
 package proxy
 
 import (
+	"io/fs"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -98,23 +100,42 @@ func TestNoRawDumpOn11128(t *testing.T) {
 	body := `{"model":"m","max_tokens":8,"messages":[{"role":"user","content":"` + canary + `"}]}`
 	req := httptest.NewRequest(http.MethodPost, "/v1/messages", strings.NewReader(body))
 	rec := httptest.NewRecorder()
+	// The 11128 diagnostic goes to the proxy log, which a spawned proxy writes
+	// under ANYPICK_HOME. Checking only files would pass with the prompt in
+	// the log.
+	logs := captureProxyLogs(t)
 	Serve(rec, req, up)
 
 	if rec.Code != 400 {
 		t.Fatalf("status = %d, want vendor 4xx passthrough", rec.Code)
 	}
-	entries, err := os.ReadDir(dir)
+	// Without this the test also passes when the 11128 branch never ran.
+	if !strings.Contains(logs.String(), "upstream 11128") {
+		t.Fatalf("the 11128 diagnostic did not run; logs = %q", logs.String())
+	}
+	if strings.Contains(logs.String(), canary) {
+		t.Fatalf("canary leaked into the proxy log: %q", logs.String())
+	}
+	// Walk the whole tree: a dump written under logs/ or a provider directory
+	// is the same leak as one at the root.
+	err := filepath.WalkDir(dir, func(path string, e fs.DirEntry, err error) error {
+		if err != nil || e.IsDir() {
+			return err
+		}
+		if e.Name() == "last-11128.json" {
+			t.Errorf("raw dump file must not exist: %s", path)
+		}
+		p, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		if strings.Contains(string(p), canary) {
+			t.Errorf("canary leaked into %s", path)
+		}
+		return nil
+	})
 	if err != nil {
 		t.Fatal(err)
-	}
-	for _, e := range entries {
-		if e.Name() == "last-11128.json" {
-			t.Fatalf("raw dump file must not exist")
-		}
-		p, _ := os.ReadFile(dir + "/" + e.Name())
-		if strings.Contains(string(p), canary) {
-			t.Fatalf("canary leaked into %s", e.Name())
-		}
 	}
 	if strings.Contains(rec.Body.String(), canary) {
 		t.Fatalf("canary leaked into response body")

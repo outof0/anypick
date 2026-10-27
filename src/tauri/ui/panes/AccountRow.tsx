@@ -10,6 +10,7 @@ import { MenuDivider, MenuItem, RowMenu } from '../ui/RowMenu';
 import { ProviderIcon } from '../shell/ProviderIcon';
 import { ReservedColumn } from '../ui/ReservedColumns';
 import { Button, RowActions, RowText } from '../ui/primitives';
+import { refreshSaved } from '../lib/desktop-actions';
 
 /**
  * One account or gateway row, in the four reserved trailing columns.
@@ -56,11 +57,10 @@ export function AccountRowGrid({
   // Declared before the JSX because the menu's own items call them, and a
   // handler that only closed the menu would be a menu item that does nothing.
   const switchTo = () => service.invokeAction(row.switchActionId, revision);
-  const test = () =>
-    service.mutate(
-      isGateway ? 'gateway-refresh' : 'account-refresh',
-      isGateway ? { name: row.name } : { providerId: row.providerId, name: row.name },
-    );
+  const test = () => {
+    const action = refreshSaved(row);
+    service.mutate(action.operation, action.extra);
+  };
 
   return (
     <>

@@ -39,6 +39,7 @@
         "tui",
         "tray",
         "serve",
+        "usage",
         "doctor",
         "update",
         "completion",
@@ -260,9 +261,30 @@
       "hidden": false
     },
     {
+      "path": "serve",
+      "description": "Management API on loopback (ADR-0034)",
+      "flags": ["--port", "--detach", "--stop"],
+      "subcommands": ["token"],
+      "hidden": false
+    },
+    {
+      "path": "usage",
+      "description": "Show served token usage with a dated cost estimate",
+      "flags": ["--since", "--by"],
+      "subcommands": [],
+      "hidden": false
+    },
+    {
+      "path": "serve token",
+      "description": "Print or rotate the management API token",
+      "flags": ["--rotate"],
+      "subcommands": [],
+      "hidden": false
+    },
+    {
       "path": "proxy token",
       "description": "Show or rotate a saved account proxy API key / token",
-      "flags": ["--rotate"],
+      "flags": ["--rotate", "--allow-foreign-config"],
       "subcommands": [],
       "hidden": false
     },
@@ -270,7 +292,24 @@
       "path": "proxy hub",
       "description": "Unified local Proxy Hub (opt-in)",
       "flags": [],
-      "subcommands": ["status", "enable", "source", "owner", "preview", "start", "stop", "token"],
+      "subcommands": [
+        "status",
+        "enable",
+        "source",
+        "owner",
+        "preview",
+        "start",
+        "stop",
+        "token",
+        "combo"
+      ],
+      "hidden": false
+    },
+    {
+      "path": "proxy hub combo",
+      "description": "Named fallback chains the hub serves as model ids (ADR-0036)",
+      "flags": [],
+      "subcommands": ["add", "list", "remove"],
       "hidden": false
     },
     {
@@ -579,10 +618,6 @@
       "reason": "hidden app-owned stdio service (native desktop only)"
     },
     {
-      "path": "serve",
-      "reason": "Go core status server helper"
-    },
-    {
       "path": "start",
       "reason": "Go top-level alias of TS tray start"
     },
@@ -621,6 +656,10 @@
     {
       "path": "codex",
       "reason": "Go-only: manage named Codex CLI profile routes"
+    },
+    {
+      "path": "usage",
+      "reason": "Go-only: usage history (ADR-0037) is recorded by the Go proxy, pool and hub children; the TypeScript engine had no usage store"
     }
   ]
 }

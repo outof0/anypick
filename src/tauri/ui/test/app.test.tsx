@@ -437,12 +437,12 @@ describe('App shell', () => {
     await user.click(await screen.findByTestId('proxies.more-claude/work'));
     await user.click(await screen.findByRole('menuitem', { name: 'Copy API Key' }));
 
-    const mutate = bridge.commands().find((entry) => entry.kind === 'mutate');
-    expect(mutate?.payload).toMatchObject({
+    expect(bridge.bodies('mutate')[0]).toEqual({
       operation: 'proxy-token',
       providerId: 'claude',
       name: 'work',
     });
+    const mutate = bridge.commands().find((entry) => entry.kind === 'mutate');
     const secret = 'sk-test-secret-not-for-display';
     bridge.push('result', {
       version: 1,
@@ -484,7 +484,7 @@ describe('App shell', () => {
     await user.click(screen.getByRole('button', { name: 'Manage with AnyPick' }));
     const invokes = bridge.commands().filter((entry) => entry.kind === 'invoke');
     expect(invokes).toHaveLength(2);
-    expect(invokes[1]?.payload).toMatchObject({
+    expect(bridge.bodies('invoke')[1]).toEqual({
       actionId: 'act-7-002',
       revision: 7,
       allowForeignConfig: true,

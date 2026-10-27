@@ -2,6 +2,7 @@ package gemini
 
 import (
 	"encoding/json"
+	"strings"
 	"time"
 )
 
@@ -119,12 +120,68 @@ func (b *responsesMessageBuilder) addItem(item map[string]interface{}) {
 		case "system", "developer":
 			role = "system"
 		}
-		message := OpenAIMessage{Role: role, Content: jsonRaw(FlattenResponsesText(item["content"]))}
+		content := jsonRaw(FlattenResponsesText(item["content"]))
+		if role == "user" {
+			// Chat carries images only on user messages.
+			content = responsesUserContent(item["content"])
+		}
+		message := OpenAIMessage{Role: role, Content: content}
 		if role == "assistant" {
 			message = b.attachReasoning(message)
 		}
 		b.messages = append(b.messages, message)
 	}
+}
+
+// responsesUserContent converts a user message's Responses content to Chat
+// content, keeping each input_image as an image_url part. Content with no
+// image stays a plain string, the shape every Chat upstream accepts.
+func responsesUserContent(value interface{}) json.RawMessage {
+	items, ok := value.([]interface{})
+	if !ok {
+		return jsonRaw(FlattenResponsesText(value))
+	}
+	parts := make([]map[string]interface{}, 0, len(items))
+	hasImage := false
+	for _, item := range items {
+		entry, _ := item.(map[string]interface{})
+		if url := responsesImageURL(entry); url != "" {
+			hasImage = true
+			image := map[string]interface{}{"url": url}
+			if detail, ok := entry["detail"].(string); ok && detail != "" {
+				image["detail"] = detail
+			}
+			parts = append(parts, map[string]interface{}{"type": "image_url", "image_url": image})
+			continue
+		}
+		if text := FlattenResponsesText(item); text != "" {
+			parts = append(parts, map[string]interface{}{"type": "text", "text": text})
+		}
+	}
+	if !hasImage {
+		return jsonRaw(FlattenResponsesText(value))
+	}
+	raw, err := json.Marshal(parts)
+	if err != nil {
+		return jsonRaw(FlattenResponsesText(value))
+	}
+	return raw
+}
+
+// responsesImageURL is the URL of an input_image that Chat can carry: a data
+// URL or a fetchable URL. A file_id reference has no Chat equivalent.
+func responsesImageURL(item map[string]interface{}) string {
+	if item == nil || item["type"] != "input_image" {
+		return ""
+	}
+	switch url := item["image_url"].(type) {
+	case string:
+		return strings.TrimSpace(url)
+	case map[string]interface{}:
+		s, _ := url["url"].(string)
+		return strings.TrimSpace(s)
+	}
+	return ""
 }
 
 func openAIResponsesTools(rawTools []json.RawMessage) []OpenAITool {

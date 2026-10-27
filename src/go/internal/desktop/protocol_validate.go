@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/outof0/anypick/go/internal/hub"
 	"github.com/outof0/anypick/go/internal/i18n"
 	"github.com/outof0/anypick/go/internal/transfer"
 )
@@ -244,7 +245,7 @@ func validateMutate(fields map[string]json.RawMessage) error {
 		"providerId": 64, "sourceId": 256, "methodId": 128, "name": 128,
 		"label": 160, "identity": 640, "endpoint": 2048, "apiKey": 8192, "region": 64,
 		"defaultModel": 256, "kind": 64, "profile": 128, "gatewayId": 64,
-		"transportPolicy": 16, "language": 16,
+		"transportPolicy": 16, "language": 16, "strategy": 16,
 	} {
 		if _, err := optionalStringField(fields, key, limit); err != nil {
 			return err
@@ -411,8 +412,12 @@ func validateMutate(fields map[string]json.RawMessage) error {
 		_ = json.Unmarshal(fields["name"], &name)
 		_ = json.Unmarshal(fields["kind"], &kind)
 		_ = json.Unmarshal(fields["apiKey"], &apiKey)
+		// apiKey may be absent: a credential kind can be key-optional (a local
+		// model server), and only the provider knows which. Its BackupInput
+		// refuses a missing key with a message the user can act on, where a
+		// rejected frame here would say nothing.
 		if !safeStr(providerID, 64) || !safeStr(name, 128) || !safeStr(kind, 64) ||
-			len(apiKey) == 0 || len(apiKey) > 8192 ||
+			len(apiKey) > 8192 ||
 			!keysSubset(fields, "version", "requestId", "operation",
 				"providerId", "name", "kind", "profile", "apiKey") {
 			return fmt.Errorf("invalid account-save-input payload")
@@ -472,13 +477,35 @@ func validateMutate(fields map[string]json.RawMessage) error {
 			}
 		}
 		isSetting := len(operation) > 8 && operation[:8] == "setting-"
-		if isSetting || operation == "hub-source-toggle" || operation == "hub-rotation" {
+		if isSetting || operation == "hub-source-toggle" {
 			if !hasKey(fields, "enabled") {
 				return fmt.Errorf("%s requires enabled", operation)
 			}
 		}
+		if operation == "hub-rotation" {
+			// A newer host names the strategy; an older one sends only the
+			// round-robin flag. One of the two must say what to set.
+			strategy := ""
+			_ = json.Unmarshal(fields["strategy"], &strategy)
+			if !hasKey(fields, "enabled") && strategy == "" {
+				return fmt.Errorf("hub-rotation requires enabled or strategy")
+			}
+			if hasKey(fields, "strategy") && !validHubStrategy(strategy) {
+				return fmt.Errorf("unknown hub strategy")
+			}
+		} else if hasKey(fields, "strategy") {
+			return fmt.Errorf("strategy is only valid for hub-rotation")
+		}
 	}
 	return nil
+}
+
+func validHubStrategy(s string) bool {
+	switch s {
+	case hub.StrategyFailover, hub.StrategyRoundRobin, hub.StrategySoonestReset:
+		return true
+	}
+	return false
 }
 
 // MaxBackupAccountRefs is how many accounts one desktop export or import

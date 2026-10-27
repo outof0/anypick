@@ -182,6 +182,15 @@ func hubActivationModels(ctx context.Context, a *app.App, hubName string) ([]str
 	if err != nil {
 		return nil, err
 	}
+	// Combos are the hub's own model ids (ADR-0036), chosen as deliberately
+	// as pins, so they follow the pins.
+	if a != nil && a.ProxyHub != nil {
+		if cfg, cerr := a.ProxyHub.GetConfig(ctx, hubName); cerr == nil && cfg != nil {
+			for _, combo := range cfg.Combos {
+				pinned = append(pinned, combo.Name)
+			}
+		}
+	}
 	return mergeModelIDsOrdered(pinned, hubSourceModels(ctx, a, hubName, !globals.DryRun)), nil
 }
 

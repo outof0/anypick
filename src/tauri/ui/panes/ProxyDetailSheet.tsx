@@ -29,6 +29,7 @@ import {
   useCopyConfirmation,
   WarningRow,
 } from '../ui/primitives';
+import { mutateAction, proxyToken } from '../lib/desktop-actions';
 
 /**
  * `ProxyDetailView`. One relay's identity, its endpoint, and who is using it.
@@ -256,7 +257,7 @@ export function ProxyDetailSheet({
                 onClick={() => {
                   if (!copyConfirmation.begin()) return;
                   const subject = proxyTokenSubject(proxy.id, proxy.providerId);
-                  if (subject) setCopyRequestId(service.mutate('proxy-token', subject));
+                  if (subject) setCopyRequestId(mutateAction(service, proxyToken(subject)));
                   else copyConfirmation.report(false);
                 }}
               >

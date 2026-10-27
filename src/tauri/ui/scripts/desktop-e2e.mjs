@@ -192,6 +192,17 @@ try {
       await wait('Add Login sheet rendered', () => present(selector('account-flow.provider')));
       await click(selector('account-flow.provider.picker'));
       await click('[role="option"][data-value="codex"]');
+      // Detect is a separate command from Save. Built inline without the name
+      // account-detect requires, it was refused as MALFORMED_FRAME on every
+      // install while every fake-bridge test passed.
+      await click(selector('account-flow.detect'));
+      await wait('real account-detect answered', () => execute(`
+        const button = document.querySelector(arguments[0]);
+        const card = document.querySelector(arguments[1]);
+        return !!button && !button.disabled && !!card && !/Checking/.test(card.textContent ?? '');
+      `, [selector('account-flow.detect'), selector('account-flow.identity')]));
+      assert.equal(await present(selector('account-flow.error')), false, 'account-detect failed in the Add Login sheet');
+      await checkNoServiceError();
       await typeText(selector('account-flow.name'), 'e2e-account');
       await click(selector('account-flow.save'));
       const saved = await wait('real Add Login account-save persisted in the engine', async () => {

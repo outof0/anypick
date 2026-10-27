@@ -37,7 +37,7 @@ const nimbusConfig = defineNimbusConfig({
       },
       {
         label: "Reference",
-        items: ["docs/reference/cli", "docs/reference/troubleshooting"],
+        items: ["docs/reference/cli", "docs/reference/management-api", "docs/reference/troubleshooting"],
       },
     ],
   },

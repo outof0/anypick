@@ -43,6 +43,8 @@ final class ProductionDesignModel: MacOSDesignModel {
   /// hubSourceServiceID. Snapshot confirmation (not the faster
   /// command-accepted result) clears the row spinner.
   private var hubSourcePending = [String: Bool]()
+  /// A strategy the user picked, shown until the snapshot names it.
+  private var hubStrategyPending = [String: String]()
   /// Gateway names awaiting creation, keyed by requestID. The post-create
   /// Auto-connect arms only on the success result, never on accept.
   private var pendingGatewayNames = [String: String]()
@@ -92,6 +94,7 @@ final class ProductionDesignModel: MacOSDesignModel {
     }
     serviceOperations.removeAll()
     hubSourcePending.removeAll()
+    hubStrategyPending.removeAll()
     serviceRequests.removeAll()
     pendingServiceAnnouncements.removeAll()
     confirmedServiceOperations.removeAll()
@@ -328,14 +331,18 @@ final class ProductionDesignModel: MacOSDesignModel {
       return false
     }
     let accountName = name.trimmingCharacters(in: .whitespacesAndNewlines)
-    guard !accountName.isEmpty, !secret.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    let trimmedSecret = secret.trimmingCharacters(in: .whitespacesAndNewlines)
+    // A key-optional product (a local model server) saves with no key; the
+    // engine's provider still decides.
+    let keyOptional = kinds.first(where: { $0.kind == kind })?.secretOptional == true
+    guard !accountName.isEmpty, keyOptional || !trimmedSecret.isEmpty
     else { return false }
     guard
       let requestID = store.mutate(
         operation: "account-save-input",
         name: accountName,
         providerId: source.providerId,
-        apiKey: secret,
+        apiKey: trimmedSecret.isEmpty ? nil : secret,
         kind: kind,
         profile: profile.isEmpty ? nil : profile,
         activityLabel: "saving \(source.label) account"
@@ -814,7 +821,6 @@ final class ProductionDesignModel: MacOSDesignModel {
     label: String,
     endpoint: String,
     apiKey: String,
-    region: String?,
     gatewayId: String? = nil,
     profile: String? = nil,
     defaultModel: String
@@ -823,31 +829,24 @@ final class ProductionDesignModel: MacOSDesignModel {
       showFeedback("Unknown gateway provider \(provider).", kind: .error)
       return false
     }
-    let operation = gateway.kind == "account-api-key" ? "account-save" : "gateway-create"
     guard
       let requestID = store.mutate(
-        operation: operation,
+        operation: "gateway-create",
         name: name,
         providerId: gateway.id,
         label: label,
         endpoint: endpoint,
         apiKey: apiKey,
-        region: region,
         gatewayId: gatewayId,
         defaultModel: defaultModel,
         profile: profile,
         activityLabel: "adding \(gateway.label)"
       )
     else { return false }
-    // Both shapes are tracked: an account-api-key save previously tracked
-    // nothing, so a failure produced an operationResult no view observes and
-    // the user was told nothing at all.
-    pendingOperations[requestID] = operation
-    if operation == "gateway-create" {
-      // Arm the post-create auto-connect only after success; accepting the
-      // request is not enough to identify a created gateway.
-      pendingGatewayNames[requestID] = name
-    }
+    pendingOperations[requestID] = "gateway-create"
+    // Arm the post-create auto-connect only after success; accepting the
+    // request is not enough to identify a created gateway.
+    pendingGatewayNames[requestID] = name
     operationResult = nil
     return true
   }
@@ -1114,6 +1113,30 @@ final class ProductionDesignModel: MacOSDesignModel {
     serviceFailures.removeValue(forKey: serviceID)
     hubSourcePending[serviceID] = enabled
     serviceRequests[requestID] = (serviceID, operation)
+  }
+
+  override func hubStrategy(_ sourceID: String) -> String {
+    if let desired = hubStrategyPending[hubSourceServiceID(sourceID)] { return desired }
+    return super.hubStrategy(sourceID)
+  }
+
+  override func setHubStrategy(_ hub: String, strategy: String) {
+    // `enabled` rides along so an engine that predates the named strategy
+    // still reads round-robin on or off.
+    guard
+      let requestID = store.mutate(
+        operation: "hub-rotation",
+        name: hub,
+        enabled: strategy == "round-robin",
+        strategy: strategy,
+        activityLabel: "updating Proxy Hub strategy"
+      )
+    else { return }
+    let serviceID = hubSourceServiceID("hub/\(hub)/rotation")
+    trackServiceOperation(.starting, for: serviceID)
+    serviceFailures.removeValue(forKey: serviceID)
+    hubStrategyPending[serviceID] = strategy
+    serviceRequests[requestID] = (serviceID, .starting)
   }
 
   override func setHubRotation(_ hub: String, enabled: Bool) {
@@ -1873,6 +1896,7 @@ final class ProductionDesignModel: MacOSDesignModel {
           cancelServiceTimeout(for: service.id)
           serviceOperations.removeValue(forKey: service.id)
           hubSourcePending.removeValue(forKey: service.id)
+          hubStrategyPending.removeValue(forKey: service.id)
           pendingServiceAnnouncements.removeValue(forKey: service.id)
           confirmedServiceOperations.remove(service.id)
           serviceFailures[service.id] =
@@ -2061,7 +2085,8 @@ final class ProductionDesignModel: MacOSDesignModel {
             label: $0.label,
             profiles: ($0.profiles ?? []).map {
               DesignCredentialProfile(id: $0.profileID, label: $0.label)
-            }
+            },
+            secretOptional: $0.secretOptional == true
           )
         },
         acceptsAuthPaste: $0.acceptsAuthPaste == true
@@ -2081,9 +2106,7 @@ final class ProductionDesignModel: MacOSDesignModel {
         firstPartyClientIDs: $0.firstPartyClientIds ?? [],
         kind: $0.kind ?? "gateway",
         requiresGatewayId: $0.requiresGatewayId == true,
-        requiresAccountId: $0.requiresAccountId == true,
-        regions: $0.regions ?? [],
-        defaultRegion: $0.regionDefault
+        requiresAccountId: $0.requiresAccountId == true
       )
     }
   }
@@ -2135,8 +2158,21 @@ final class ProductionDesignModel: MacOSDesignModel {
         cancelServiceTimeout(for: serviceID)
         serviceOperations.removeValue(forKey: serviceID)
         hubSourcePending.removeValue(forKey: serviceID)
+        hubStrategyPending.removeValue(forKey: serviceID)
         pendingServiceAnnouncements.removeValue(forKey: serviceID)
         confirmedServiceOperations.remove(serviceID)
+        continue
+      }
+      // A strategy pick confirms against the snapshot's strategy name.
+      if let desired = hubStrategyPending[serviceID] {
+        if store.hubSources.first(where: { hubSourceServiceID($0.id) == serviceID })?
+          .strategy == desired
+        {
+          cancelServiceTimeout(for: serviceID)
+          serviceOperations.removeValue(forKey: serviceID)
+          hubStrategyPending.removeValue(forKey: serviceID)
+          serviceFailures.removeValue(forKey: serviceID)
+        }
         continue
       }
       // Hub-source toggles confirm against the snapshot's enabled flag, not

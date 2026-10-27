@@ -13,7 +13,7 @@ AnyPick は、1 つの Go エンジン上で 2 つのネイティブ フロン�
 どちらもエンジンではなくフロントエンドです。どちらも認証情報を読み取ったり、AnyPick 状態を所有したりすることはありません。それぞれがバンドルされた Go サービスを起動、ハンドシェイク、監視およびシャットダウンし、そのサービスが送信したものをレンダリングします (ADR 0019 §1)。
 
 <Aside type="caution" title="リリース チャネルからインストールする">
-GitHub リリースには、macOS `.dmg`/`.zip`、Linux および Windows インストーラー、および CLI アーカイブが含まれています。 macOS アプリは公証されていません。初回起動時に、`AnyPick.app` を右クリックして **開く** を選択するか、**システム設定 → プライバシーとセキュリティ → とにかく開く** に移動します。 `xattr -dr com.apple.quarantine /Applications/AnyPick.app` を実行することもできます。
+GitHub リリースには、macOS `.dmg`/`.zip`、Linux および Windows インストーラー、および CLI アーカイブが含まれています。 macOS アプリは公証されていません。初回起動時に、`AnyPick.app` を右クリックして **開く** を選択するか、**システム設定 → プライバシーとセキュリティ → とにかく開く** に移動します。 `/usr/bin/xattr -dr com.apple.quarantine /Applications/AnyPick.app` を実行することもできます。
 </Aside>
 
 ## アプリは独自のサービスを所有します

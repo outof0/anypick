@@ -184,6 +184,9 @@ func looksUnknown(out, errOut string) bool {
 // free (the handlers validate arity before acting; these two would not).
 var probeExtra = map[string][]string{
 	"tray start": {"--dry-run"}, // plan only: never spawns the supervisor
+	// Bare `serve` runs the management API until interrupted; --stop on an
+	// isolated home finds nothing running and returns.
+	"serve": {"--stop"},
 }
 
 func TestCliTreePathsResolveInGoDispatch(t *testing.T) {
@@ -768,9 +771,13 @@ var rootOnlyFlags = map[string]bool{"version": true, "V": true, "tui": true}
 // probeRefusedPaths are root commands that must never be run for a probe even
 // if a doc line carried a flag: they spawn supervisors or open surfaces. No
 // current fence does, so this is a guard against a future one.
+//
+// `serve` is absent on purpose: it is a documented command with flags now
+// (ADR-0034), and both its handlers parse flags before they bind a port or
+// touch the token, so an unknown flag returns at the parse error.
 var probeRefusedPaths = map[string]bool{
 	"start": true, "stop": true, "tray": true, "app": true, "tui": true,
-	"serve": true, "desktop-service": true,
+	"desktop-service": true,
 }
 
 // refusedByProbe reports whether the first path token is one the probe must

@@ -2323,6 +2323,10 @@
     "other": "轮询",
     "description": "Original English text: Round Robin"
   },
+  "desktop.hub.soonest_reset": {
+    "other": "最早重置",
+    "description": "Original English text: Soonest Reset"
+  },
   "desktop.hub.footer_conflicts": {
     "other": "请先解决下方的路由冲突，然后 Hub 才能提供所有模型。",
     "description": "Original English text: Resolve the routing conflicts below before this hub serves every model."
@@ -3511,14 +3515,6 @@
     "other": "输入此提供方显示的 AI 网关 ID 或名称。",
     "description": "Original English text: Enter the AI Gateway ID or name shown by this provider."
   },
-  "desktop.gateway.region": {
-    "other": "区域",
-    "description": "Original English text: Region"
-  },
-  "desktop.gateway.region_help": {
-    "other": "选择此提供方账户所在的区域。",
-    "description": "Original English text: Choose the region where this provider account is configured."
-  },
   "desktop.gateway.provided_by": {
     "other": "由 {provider} 提供",
     "description": "Original English text: Provided by {provider}"
@@ -3578,10 +3574,6 @@
   "desktop.gateway.could_not_connect": {
     "other": "无法连接到网关。请检查端点 URL 和 API 密钥。",
     "description": "Original English text: Could not connect to the gateway. Please check the endpoint URL and API key."
-  },
-  "desktop.gateway.key_storage_help": {
-    "other": "AnyPick 会将此密钥存储在所选提供方的账户存储中。",
-    "description": "Original English text: AnyPick stores this key in the selected provider’s account store."
   },
   "desktop.gateway.derived_endpoint_help": {
     "other": "端点由你的账户 ID 推导得出。",

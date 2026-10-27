@@ -86,7 +86,7 @@ immutable from the workflow; use a new patch version to replace a bad binary.
 - The cask warns that the app is not notarized and shows the first-launch
   approval steps: right-click **Open**, use **System Settings → Privacy &
   Security → Open Anyway**, or run
-  `xattr -dr com.apple.quarantine /Applications/AnyPick.app`.
+  `/usr/bin/xattr -dr com.apple.quarantine /Applications/AnyPick.app`.
 
 ### Scoop
 
@@ -117,7 +117,28 @@ ad-hoc code signature, and publishes `.dmg` and `.zip` assets without
 notarization. No Apple Developer account or Apple release secrets are needed.
 macOS may block the first launch; users can right-click **Open**, choose **Open
 Anyway** under **System Settings → Privacy & Security**, or run
-`xattr -dr com.apple.quarantine /Applications/AnyPick.app`.
+`/usr/bin/xattr -dr com.apple.quarantine /Applications/AnyPick.app`.
+
+The Homebrew cask is not an escape from that step. Homebrew applies the same
+quarantine attribute a browser does — verified on an installed cask, which
+carries `com.apple.quarantine` — so a cask install still needs the one-time
+approval. `brew install --no-quarantine` is not an option: Homebrew removed
+that flag. Do not promise users that the cask avoids the warning.
+
+`src/macos/scripts/build-dmg.sh` builds the disk image. It stages the app, an
+`Applications` drop target, and `packaging/macos/INSTALL.txt`, then mounts the
+finished image and verifies that all three are present and that the app still
+verifies. The note explains the Gatekeeper block in English and Vietnamese at
+the moment the user meets it, because the release page and the Homebrew caveats
+cannot help someone looking at a Finder warning. The script refuses to package
+an app whose signature does not verify, so a `.dmg` is never built around a
+bundle Gatekeeper would reject as damaged.
+
+The command is written with an absolute path on purpose. `xattr` also names a
+Python package, and a pyenv shim puts it ahead of `/usr/bin` on some machines;
+that program has no `-r` flag, so the documented fix would exit 64 and clear
+nothing. `make check-paths` fails on a bare `xattr -dr` in any instruction file
+so this cannot come back.
 
 ## Recovery
 

@@ -27,7 +27,8 @@ extension ProductionDesignModel {
       rotates: source.rotates ?? false,
       rotatesAccountCount: source.accountCount ?? 0,
       poolSource: source.poolSource ?? false,
-      hub: source.hub ?? "default"
+      hub: source.hub ?? "default",
+      strategy: source.strategy ?? ""
     )
   }
 

@@ -32,5 +32,7 @@ func TestMutatingMethodsTakeContext(t *testing.T) {
 		"degenerateTap.Write":        "http.ResponseWriter implementation; writes a response body, not persisted state",
 		"degenerateTap.WriteHeader":  "http.ResponseWriter implementation; writes a response status, not persisted state",
 		"logWriterFunc.Write":        "http.ResponseWriter implementation; writes a response body, not persisted state",
+		"usageMeter.Write":           "http.ResponseWriter implementation; passes a response body through, not persisted state",
+		"usageMeter.WriteHeader":     "http.ResponseWriter implementation; passes a response status through, not persisted state",
 	})
 }

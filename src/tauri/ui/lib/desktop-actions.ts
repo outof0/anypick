@@ -1,5 +1,6 @@
-import type { HubSource, Snapshot } from './contract';
+import type { HubSource, HubStrategy, Snapshot } from './contract';
 import { isRotation } from './hub';
+import type { ServicePort } from './service';
 
 /**
  * The desktop commands the macOS app already sends.
@@ -9,12 +10,23 @@ import { isRotation } from './hub';
  * is kept, because the engine treats a present blank label as a clear.
  * `account-detect`, `account-clear`, and `gateway-test` still need a name
  * even though the handler does not store it, so those names are fixed sentinels.
+ *
+ * Panes send mutations only through these builders. Every builder has a case
+ * in `test/command-corpus.ts`, whose output the Go engine must accept
+ * (`internal/desktop/ui_command_corpus_test.go`). A payload built inline in a
+ * pane reached the engine untested: Detect sent no name and every press was
+ * refused as `MALFORMED_FRAME`.
  */
 
 export type DesktopAction = {
   operation: string;
   extra: Record<string, unknown>;
 };
+
+/** Send a built action; returns the requestId the service assigned. */
+export function mutateAction(service: Pick<ServicePort, 'mutate'>, action: DesktopAction): string {
+  return service.mutate(action.operation, action.extra);
+}
 
 function defined(fields: Record<string, unknown>): Record<string, unknown> {
   const extra: Record<string, unknown> = {};
@@ -27,10 +39,6 @@ function defined(fields: Record<string, unknown>): Record<string, unknown> {
 
 export function detectAccount(providerId: string, sourceId?: string): DesktopAction {
   return { operation: 'account-detect', extra: defined({ name: 'detect', providerId, sourceId }) };
-}
-
-export function saveCurrentLogin(providerId: string, sourceId?: string): DesktopAction {
-  return { operation: 'account-save-current', extra: defined({ providerId, sourceId }) };
 }
 
 export function loginAccount(input: {
@@ -89,6 +97,40 @@ export function saveCredentialInput(input: {
   };
 }
 
+/**
+ * Save the login the app already holds under a new name.
+ *
+ * `identity` is a display hint older hosts send; the engine derives stored
+ * identity from the provider snapshot only.
+ */
+export function saveLiveLogin(input: {
+  providerId: string;
+  name: string;
+  identity: string;
+  sourceId?: string;
+}): DesktopAction {
+  return {
+    operation: 'account-save',
+    extra: defined({
+      providerId: input.providerId,
+      name: input.name.trim(),
+      identity: input.identity,
+      sourceId: input.sourceId,
+    }),
+  };
+}
+
+export function removeAccount(providerId: string, name: string): DesktopAction {
+  return { operation: 'account-remove', extra: { providerId, name } };
+}
+
+/** Refresh a saved row: an account re-reads its login, a gateway is re-probed. */
+export function refreshSaved(row: { kind: string; providerId: string; name: string }): DesktopAction {
+  return row.kind === 'gateway'
+    ? { operation: 'gateway-refresh', extra: { name: row.name } }
+    : { operation: 'account-refresh', extra: { providerId: row.providerId, name: row.name } };
+}
+
 export function editAccount(account: { providerId: string; name: string }, label: string): DesktopAction {
   return {
     operation: 'account-edit',
@@ -100,6 +142,7 @@ export function clearLiveLogin(providerId: string, sourceId?: string): DesktopAc
   return { operation: 'account-clear', extra: defined({ name: 'live', providerId, sourceId }) };
 }
 
+/** Save what the Add API Gateway sheet collected, sending only what was filled. */
 export function createGateway(input: {
   providerId: string;
   name: string;
@@ -107,32 +150,28 @@ export function createGateway(input: {
   apiKey?: string;
   label?: string;
   defaultModel?: string;
-  region?: string;
   gatewayId?: string;
   profile?: string;
-  kind?: string;
 }): DesktopAction {
-  const extra = defined({
-    providerId: input.providerId,
-    name: input.name.trim(),
-    endpoint: input.endpoint?.trim(),
-    apiKey: input.apiKey,
-    label: input.label?.trim(),
-    defaultModel: input.defaultModel?.trim(),
-    region: input.region?.trim(),
-    gatewayId: input.gatewayId?.trim(),
-    profile: input.profile?.trim(),
-  });
   return {
-    operation: input.kind === 'account-api-key' ? 'account-save' : 'gateway-create',
-    extra,
+    operation: 'gateway-create',
+    extra: defined({
+      providerId: input.providerId,
+      name: input.name.trim(),
+      label: input.label?.trim(),
+      endpoint: input.endpoint?.trim(),
+      apiKey: input.apiKey,
+      defaultModel: input.defaultModel?.trim(),
+      gatewayId: input.gatewayId?.trim(),
+      profile: input.profile?.trim(),
+    }),
   };
 }
 
 export function testGateway(input: {
   providerId: string;
   endpoint: string;
-  apiKey: string;
+  apiKey?: string;
   profile?: string;
 }): DesktopAction {
   return {
@@ -157,6 +196,11 @@ export function refreshGateway(name: string): DesktopAction {
 
 export function removeGateway(name: string, providerId: string): DesktopAction {
   return { operation: 'gateway-remove', extra: defined({ name, providerId }) };
+}
+
+/** Back up every account to a temp file the engine names; there is no picker. */
+export function backupAll(): DesktopAction {
+  return { operation: 'account-backup-all', extra: { path: '' } };
 }
 
 export function exportBackup(
@@ -210,17 +254,6 @@ export function refreshModels(sourceId: string): DesktopAction | null {
   const gateway = gatewayFromSource(sourceId);
   if (gateway) return { operation: 'gateway-refresh', extra: { name: gateway } };
   return null;
-}
-
-/**
- * Probe a gateway that is already saved.
- *
- * The pre-create probe uses the sentinel name "test" so it cannot attach to a
- * stored profile. A saved probe uses the profile name: the engine loads the
- * stored endpoint and key and ignores anything else on the command.
- */
-export function testSavedGateway(gateway: { name: string; providerId: string }): DesktopAction {
-  return { operation: 'gateway-test', extra: { name: gateway.name, providerId: gateway.providerId } };
 }
 
 export type GatewayConnectRoute = {
@@ -332,6 +365,20 @@ export function missingCodexProfileSources(snapshot: Snapshot): string[] {
     .map((source) => source.sourceId);
 }
 
+export type ProxyBulkOperation = 'proxy-start-all' | 'proxy-restart-all' | 'proxy-stop-all';
+
+export function proxyBulk(operation: ProxyBulkOperation): DesktopAction {
+  return { operation, extra: { name: 'all' } };
+}
+
+/**
+ * Ask the engine for a proxy's bearer. It is returned in the result only,
+ * never a snapshot (ADR 0006 §6).
+ */
+export function proxyToken(subject: { providerId: string; name: string }): DesktopAction {
+  return { operation: 'proxy-token', extra: { providerId: subject.providerId, name: subject.name } };
+}
+
 export function settingChange(operation: string, enabled: boolean): DesktopAction {
   return { operation, extra: { name: 'settings', enabled } };
 }
@@ -355,6 +402,17 @@ export function languageChange(language: string): DesktopAction {
  * `enabled` is always sent. The old presence-toggle inferred it from whether
  * the key was there, which inverted the switch.
  */
+/**
+ * The hub-wide request mode (ADR-0035). `enabled` rides along so an engine
+ * that predates the named strategy still reads round-robin on or off.
+ */
+export function hubStrategyChange(hub: string, strategy: HubStrategy): DesktopAction {
+  return {
+    operation: 'hub-rotation',
+    extra: { name: hub || 'default', strategy, enabled: strategy === 'round-robin' },
+  };
+}
+
 export function hubSourceChange(input: {
   hub: string;
   source: HubSource;

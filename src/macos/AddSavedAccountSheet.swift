@@ -196,7 +196,8 @@ struct AddSavedAccountSheet: View {
         name: accountName,
         secret: apiSecret,
         providerEnabled: selectedProvider?.enabled == true,
-        isBlocked: blocked
+        isBlocked: blocked,
+        secretOptional: selectedCredentialKind?.secretOptional == true
       )
     }
     if sourceMode == .newAccount, !hasIdentity {

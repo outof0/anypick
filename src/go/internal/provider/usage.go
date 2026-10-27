@@ -25,3 +25,11 @@ type LiveUsage struct {
 type LiveUsageProvider interface {
 	LiveUsage(ctx context.Context) (*LiveUsage, error)
 }
+
+// SnapshotUsageProvider reads a saved account's quota windows from its
+// snapshot, so routing can compare accounts that are not the live login. It
+// only reads: an expired token yields an error, never a refresh, because a
+// refresh would rewrite the snapshot outside the account's own lock.
+type SnapshotUsageProvider interface {
+	SnapshotUsage(ctx context.Context, snapshotDir string) (*LiveUsage, error)
+}

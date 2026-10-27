@@ -22,7 +22,7 @@ import (
 func cmdHub(ctx context.Context, a *appView, args []string) int {
 	usage := func() int {
 		cliFprintln(os.Stderr,
-			"usage: anypick proxy hub <status|enable|source|owner|preview|start|stop|token> <name> …")
+			"usage: anypick proxy hub <status|enable|source|owner|preview|start|stop|token|combo> <name> …")
 		return int(anyerr.InvalidUsage)
 	}
 	if len(args) == 0 {
@@ -38,6 +38,9 @@ func cmdHub(ctx context.Context, a *appView, args []string) int {
 
 	case "token":
 		return cmdHubToken(ctx, a, usage, fs, rest)
+
+	case "combo":
+		return cmdHubCombo(ctx, a, usage, fs, rest)
 
 	case "enable":
 		return cmdHubEnable(ctx, a, usage, fs, rest)
@@ -188,15 +191,33 @@ func cmdHubToken(ctx context.Context, a *appView, usage func() int, fs *flag.Fla
 		isRotate = true
 	}
 	if isRotate {
+		// Held only to prove it is refused afterwards; never printed.
+		previous, _ := a.ProxyHub.EnsureHubTokenContext(ctx, name)
 		token, err := a.ProxyHub.RotateHubTokenContext(ctx, name)
 		if err != nil {
 			return reportErr(err)
 		}
+		// The key is committed; a failed check is reported beside it, never
+		// instead of it, or the user is left without the key now in use.
+		verified, verr := verifyHubRotation(ctx, a, name, token, previous)
 		if wantJSON(rest) {
-			jsonOut(map[string]string{"hub": name, "apiKey": token})
-			return int(anyerr.Success)
+			out := map[string]interface{}{"hub": name, "apiKey": token, "verified": verified}
+			if verr != nil {
+				out["error"] = verr.Error()
+			}
+			jsonOut(out)
+		} else {
+			cliPrintf("hub %s: new api_key: %s\n", name, token)
+			if verified {
+				cliFprintln(os.Stderr, "verified: the running hub accepts the new key and refuses the previous one")
+			}
+			if verr != nil {
+				cliFprintln(os.Stderr, "the key above is saved and in use, but:", verr)
+			}
 		}
-		cliPrintf("hub %s: new api_key: %s\n", name, token)
+		if verr != nil {
+			return int(anyerr.Operational)
+		}
 		return int(anyerr.Success)
 	}
 	token, err := a.ProxyHub.EnsureHubTokenContext(ctx, name)
@@ -209,6 +230,52 @@ func cmdHubToken(ctx context.Context, a *appView, usage func() int, fs *flag.Fla
 	}
 	cliPrintf("hub %s: api_key: %s\n", name, token)
 	return int(anyerr.Success)
+}
+
+// verifyHubRotation proves a running hub accepts the rotated key and refuses
+// the previous one. A hub that is not running has nothing to check, which is
+// not a failure. The hub is identified by its /health name first: the port in
+// the config could be held by something else entirely.
+func verifyHubRotation(ctx context.Context, a *appView, name, token, previous string) (bool, error) {
+	cfg, err := a.ProxyHub.GetConfig(ctx, name)
+	if err != nil || cfg == nil || cfg.Port <= 0 {
+		return false, err
+	}
+	host := cfg.Host
+	if host == "" {
+		host = "127.0.0.1"
+	}
+	endpoint := fmt.Sprintf("http://%s:%d", host, cfg.Port)
+	if !hubAnswersAs(ctx, endpoint, name) {
+		return false, nil
+	}
+	if err := proxy.VerifyTokenRotation(ctx, endpoint, token, previous); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+// hubAnswersAs reports whether endpoint's /health names this hub.
+func hubAnswersAs(ctx context.Context, endpoint, name string) bool {
+	probeCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+	req, err := http.NewRequestWithContext(probeCtx, http.MethodGet, endpoint+"/health", nil)
+	if err != nil {
+		return false
+	}
+	client := &http.Client{Transport: &http.Transport{Proxy: nil}}
+	defer client.CloseIdleConnections()
+	resp, err := client.Do(req)
+	if err != nil {
+		return false
+	}
+	defer resp.Body.Close()
+	var health struct {
+		Hub string `json:"hub"`
+	}
+	return resp.StatusCode == http.StatusOK &&
+		json.NewDecoder(io.LimitReader(resp.Body, 64<<10)).Decode(&health) == nil &&
+		health.Hub == name
 }
 
 // enableHub applies the enable overrides under the hub's mutation lock and
@@ -252,7 +319,7 @@ func cmdHubEnable(ctx context.Context, a *appView, usage func() int, fs *flag.Fl
 	// behaviour: `proxy hub start` already spawns the child, so this only
 	// chains that call after a successful enable.
 	start := fs.Bool("start", false, "start the hub after enabling it")
-	strategy := fs.String("strategy", "", "failover | round-robin (default: keep the current mode)")
+	strategy := fs.String("strategy", "", "failover | round-robin | soonest-reset (default: keep the current mode)")
 	if err := fs.Parse(reorder(rest)); err != nil || fs.NArg() != 1 {
 		return usage()
 	}
@@ -263,9 +330,9 @@ func cmdHubEnable(ctx context.Context, a *appView, usage func() int, fs *flag.Fl
 		*port = *portShort
 	}
 	switch *strategy {
-	case "", hub.StrategyFailover, hub.StrategyRoundRobin:
+	case "", hub.StrategyFailover, hub.StrategyRoundRobin, hub.StrategySoonestReset:
 	default:
-		return usageError("--strategy must be failover or round-robin")
+		return usageError("--strategy must be failover, round-robin or soonest-reset")
 	}
 	name := fs.Arg(0)
 	if globals.DryRun {
@@ -363,12 +430,28 @@ func cmdHubStart(ctx context.Context, a *appView, usage func() int, fs *flag.Fla
 		return usage()
 	}
 	name := fs.Arg(0)
+	state, pid, err := startHub(ctx, a, name)
+	if err != nil {
+		return reportErr(err)
+	}
+	emitOK(fmt.Sprintf("%s (pid %d)", state, pid),
+		kv{Key: "ok", Value: true},
+		kv{Key: "state", Value: state},
+		kv{Key: "hub", Value: name},
+		kv{Key: "pid", Value: pid})
+	return int(anyerr.Success)
+}
+
+// startHub starts the named hub's detached child, or adopts a fresh one that
+// is already running. The CLI and the management API share it, so the two
+// cannot disagree about when a running child is stale (ADR-0030).
+func startHub(ctx context.Context, a *appView, name string) (state string, pid int, err error) {
 	cfg, gerr := a.ProxyHub.GetConfig(ctx, name)
 	if gerr != nil {
-		return reportErr(gerr)
+		return "", 0, gerr
 	}
 	if cfg == nil || !cfg.Enabled {
-		return reportErr(anyerr.Newf("hub "+name+" is not enabled", "HUB_DISABLED"))
+		return "", 0, anyerr.Newf("hub "+name+" is not enabled", "HUB_DISABLED")
 	}
 	pidFile := hubPIDPath(a.Root, name)
 	if pid := readPID(pidFile); pid != 0 {
@@ -376,15 +459,10 @@ func cmdHubStart(ctx context.Context, a *appView, usage func() int, fs *flag.Fla
 		// revision trails the stored one (ADR-0030), adopt it otherwise.
 		if cfg.Port != 0 && !hub.ChildSynced(fmt.Sprintf("http://127.0.0.1:%d", cfg.Port), cfg.Revision) {
 			if err := stopHubChild(a, ctx, name); err != nil {
-				return reportErr(err)
+				return "", 0, err
 			}
 		} else {
-			emitOK(fmt.Sprintf("already running (pid %d)", pid),
-				kv{Key: "ok", Value: true},
-				kv{Key: "state", Value: "already running"},
-				kv{Key: "hub", Value: name},
-				kv{Key: "pid", Value: pid})
-			return int(anyerr.Success)
+			return "already running", pid, nil
 		}
 	}
 	// No live child. Publish a port before spawn so the next freshness check
@@ -394,7 +472,7 @@ func cmdHubStart(ctx context.Context, a *appView, usage func() int, fs *flag.Fla
 	if hub.ShouldPublishPort(cfg.Port, false) {
 		picked, perr := proxy.PickFreePort()
 		if perr != nil {
-			return reportErr(perr)
+			return "", 0, perr
 		}
 		err := lock.WithMutationLock(ctx, a.Root, refs.MutationScopeForRef(refs.ProxyHubRef(name)), func(c context.Context) error {
 			existing, gerr := a.ProxyHub.GetConfig(c, name)
@@ -412,19 +490,14 @@ func cmdHubStart(ctx context.Context, a *appView, usage func() int, fs *flag.Fla
 			return uerr
 		})
 		if err != nil {
-			return reportErr(err)
+			return "", 0, err
 		}
 	}
 	pid, serr := spawnDetachedService(a.Root, []string{"_serve-hub", name}, pidFile)
 	if serr != nil {
-		return reportErr(serr)
+		return "", 0, serr
 	}
-	emitOK(fmt.Sprintf("started (pid %d)", pid),
-		kv{Key: "ok", Value: true},
-		kv{Key: "state", Value: "started"},
-		kv{Key: "hub", Value: name},
-		kv{Key: "pid", Value: pid})
-	return int(anyerr.Success)
+	return "started", pid, nil
 }
 
 // cmdHubSourceDryRun resolves toggle semantics read-only: present source

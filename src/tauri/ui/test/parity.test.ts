@@ -319,7 +319,6 @@ describe('the macOS to Tauri feature map', () => {
     // shows up in the report the next time the port touches its pane.
     const mappedTauri = new Set(PARITY.filter((r) => r.status === 'done').map((r) => r.tauri));
     const orphans = [...tauriIds].filter((id) => !mappedTauri.has(id));
-    expect(true).toBe(true);
     if (orphans.length > 0) {
       console.warn(
         `unmapped Tauri ids (${orphans.length}):\n${orphans.map((id) => `  ${id}`).join('\n')}`,

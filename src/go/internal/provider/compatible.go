@@ -48,6 +48,10 @@ type CredentialDefinition struct {
 	Label           string            `json:"label"`
 	CredentialClass string            `json:"credentialClass,omitempty"` // provider_api_key | coding_plan_key | external_oauth
 	Profiles        []EndpointProfile `json:"profiles"`
+	// SecretOptional marks a product that works without a secret, such as a
+	// local model server. Pickers then accept an empty key; the provider's
+	// BackupInput is still what decides.
+	SecretOptional bool `json:"secretOptional,omitempty"`
 }
 
 type CompatibleDefinition struct {

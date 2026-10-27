@@ -6,12 +6,10 @@ import {
   connectionFooter,
   connectionTestEnabled,
   gatewayCanSave,
-  isApiKeyAccount,
   providerSuppliesEndpoint,
   requiresApiKey,
   resolvedEndpoint,
   suggestedGatewayName,
-  syncRegion,
   usesCustomEndpoint,
 } from '../lib/gateway-flow';
 
@@ -50,14 +48,10 @@ describe('what shape a gateway takes', () => {
     requiresAccountId: true,
     requiresGatewayId: true,
   });
-  const keyAccount = provider({ id: 'glm', label: 'GLM', kind: 'account-api-key' });
 
   it('asks for a URL only from a provider that publishes none', () => {
     expect(usesCustomEndpoint(custom)).toBe(true);
     expect(usesCustomEndpoint(hosted)).toBe(false);
-    // A key is filed into an account store, not routed as a gateway, so it has
-    // no endpoint of its own to ask for.
-    expect(usesCustomEndpoint(keyAccount)).toBe(false);
   });
 
   it('never asks for a URL the engine derives from the account id', () => {
@@ -79,11 +73,6 @@ describe('what shape a gateway takes', () => {
     expect(resolvedEndpoint(hosted, 'https://elsewhere.example')).toBe('https://openrouter.ai/api/v1');
     expect(resolvedEndpoint(custom, 'https://elsewhere.example')).toBe('https://elsewhere.example');
   });
-
-  it('recognises a provider-declared key as an account', () => {
-    expect(isApiKeyAccount(keyAccount)).toBe(true);
-    expect(isApiKeyAccount(hosted)).toBe(false);
-  });
 });
 
 describe('when Add Gateway is enabled', () => {
@@ -93,7 +82,6 @@ describe('when Add Gateway is enabled', () => {
     apiKey: 'sk-test',
     accountId: '',
     endpoint: 'https://openrouter.ai/api/v1',
-    region: '',
     busy: false,
   };
 
@@ -129,19 +117,6 @@ describe('when Add Gateway is enabled', () => {
 
   it('never needs an account id from a provider that does not use one', () => {
     expect(gatewayCanSave(base)).toBe(true);
-  });
-
-  it('needs a region only when the provider offers a choice', () => {
-    const regional = {
-      ...base,
-      provider: provider({ kind: 'account-api-key', regions: ['intl', 'cn'] }),
-    };
-    expect(gatewayCanSave({ ...regional, region: '' })).toBe(false);
-    expect(gatewayCanSave({ ...regional, region: 'intl' })).toBe(true);
-    // No regions to choose between means nothing to ask.
-    expect(
-      gatewayCanSave({ ...base, provider: provider({ kind: 'account-api-key', regions: [] }) }),
-    ).toBe(true);
   });
 
   it('refuses while the engine is busy', () => {
@@ -200,34 +175,10 @@ describe('the suggested name', () => {
   });
 });
 
-describe('the region', () => {
-  const regional = provider({ kind: 'account-api-key', regions: ['intl', 'cn'], regionDefault: 'cn' });
-  const plain = provider();
-
-  it('falls back to the provider preferred region', () => {
-    expect(syncRegion(regional, '')).toBe('cn');
-  });
-
-  it('keeps a region the provider still offers', () => {
-    expect(syncRegion(regional, 'intl')).toBe('intl');
-  });
-
-  it('corrects a region the new provider does not offer', () => {
-    // Switching providers leaves the previous region behind, and sending it
-    // names a region that does not exist.
-    expect(syncRegion(regional, 'us')).toBe('cn');
-  });
-
-  it('is nothing for a provider with no regions', () => {
-    expect(syncRegion(plain, 'intl')).toBe('');
-  });
-});
-
 describe('the connection footer', () => {
   const hosted = provider({ defaultEndpoint: 'https://openrouter.ai/api/v1', providesEndpoint: true });
   const custom = provider({ id: 'litellm', kind: 'custom' });
   const cloudflare = provider({ id: 'cloudflare-aigateway', requiresAccountId: true });
-  const keyAccount = provider({ id: 'glm', kind: 'account-api-key' });
   const base = { message: '', endpoint: '', busy: false };
 
   it('says what is being contacted while testing', () => {
@@ -253,7 +204,6 @@ describe('the connection footer', () => {
   });
 
   it('explains the untested shape instead of sitting blank', () => {
-    expect(connectionFooter({ ...base, state: 'untested', provider: keyAccount })).toContain('account store');
     expect(connectionFooter({ ...base, state: 'untested', provider: cloudflare })).toContain(
       'derived from your Account ID',
     );

@@ -123,10 +123,13 @@ type Mutate struct {
 	// the native Add Account sheet. The secret itself travels in APIKey —
 	// the same field gateway-create already uses for profile secrets — so
 	// no second secret-shaped field is introduced.
-	Kind            string   `json:"kind"`
-	Profile         string   `json:"profile"`
-	TransportPolicy string   `json:"transportPolicy,omitempty"`
-	SourceIDs       []string `json:"sourceIds,omitempty"`
+	Kind            string `json:"kind"`
+	Profile         string `json:"profile"`
+	TransportPolicy string `json:"transportPolicy,omitempty"`
+	// Strategy is the hub-wide request mode for hub-rotation. Hosts that
+	// predate it send only Enabled (round-robin or failover).
+	Strategy  string   `json:"strategy,omitempty"`
+	SourceIDs []string `json:"sourceIds,omitempty"`
 	// Backup-package operations (account refs / import flow).
 	Accounts           []BackupAccountRef `json:"accounts,omitempty"`
 	InspectionID       string             `json:"inspectionId,omitempty"`

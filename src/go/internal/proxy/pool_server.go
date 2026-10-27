@@ -3,9 +3,10 @@
 // accounts resolved through the same upstream resolver path as
 // single-account proxies.
 //
-// Failover is intentional: the persisted strategy (failover |
-// round-robin) is recorded but NOT rotated — the ring is always
-// ordered-failover with active-account promotion via the QuotaGuard.
+// The persisted strategy picks where each request starts: failover keeps the
+// account that last served (ADR-0024), round-robin rotates (ADR-0026), and
+// soonest-reset starts where unused quota resets first (ADR-0035). Every
+// strategy fails over inside one request on a quota-class refusal.
 package proxy
 
 import (
@@ -59,9 +60,14 @@ type PoolServer struct {
 	// failover: the guard keeps the account that last served at the head of the
 	// ring, so every request is sticky until an account is cooled down.
 	// round-robin: requests rotate through the eligible members in ring order.
-	// Both skip cooling accounts and both fail over inside one request when the
+	// soonest-reset: requests start at the eligible member whose unused quota
+	// resets soonest, ordered by ResetOrder (ADR-0035).
+	// All skip cooling accounts and all fail over inside one request when the
 	// member that answered is quota-class exhausted.
 	Strategy string
+	// ResetOrder orders member names by when their quota resets, soonest
+	// first. Nil, or a cache with nothing in it, leaves failover order.
+	ResetOrder func(names []string) []string
 	// RingDeadline is an aggregate pre-commit budget. Zero uses
 	// DefaultPoolRingDeadline; it never cuts a stream after commit.
 	RingDeadline time.Duration
@@ -117,7 +123,10 @@ func (s *PoolServer) Handler() http.Handler {
 			if !requireProxyAuth(rec, r, s.Token) {
 				return
 			}
-			s.servePoolRequest(rec, r, req)
+			if serveAuthCheck(rec, r) {
+				return
+			}
+			s.servePoolRequest(rec, r, req, observe.RoutePool)
 		})))
 	return mux
 }
@@ -137,12 +146,22 @@ func (s *PoolServer) ServeAuthorized(w http.ResponseWriter, r *http.Request) {
 		req.End(rec.status, observe.Classify(rec.status, false))
 		logProxyLine(r, rec.status, time.Since(start))
 	}()
-	s.servePoolRequest(rec, r, req)
+	s.servePoolRequest(rec, r, req, observe.RoutePoolHub)
 }
 
 // ringOrder resolves the members this request may use, in the order it will try
 // them, and reports whether the ring is running on cooling members only.
 func (s *PoolServer) ringOrder(candidates []upstream.Candidate) (ordered []upstream.Candidate, fromCooling bool, err error) {
+	if strings.EqualFold(strings.TrimSpace(s.Strategy), "soonest-reset") {
+		eligible, eerr := s.Guard.Eligible(candidates)
+		if eerr != nil {
+			return nil, false, eerr
+		}
+		if len(eligible) == 0 {
+			return s.coolingOrder(candidates)
+		}
+		return orderByReset(eligible, s.ResetOrder), false, nil
+	}
 	if strings.EqualFold(strings.TrimSpace(s.Strategy), "round-robin") {
 		eligible, eerr := s.Guard.Eligible(candidates)
 		if eerr != nil {
@@ -174,6 +193,34 @@ func (s *PoolServer) ringOrder(candidates []upstream.Candidate) (ordered []upstr
 	return s.coolingOrder(candidates)
 }
 
+// orderByReset reorders candidates by order(names). Candidates the ordering
+// does not name keep their place after the ones it does.
+func orderByReset(candidates []upstream.Candidate, order func([]string) []string) []upstream.Candidate {
+	if order == nil || len(candidates) < 2 {
+		return candidates
+	}
+	names := make([]string, len(candidates))
+	byName := make(map[string][]upstream.Candidate, len(candidates))
+	for i, c := range candidates {
+		names[i] = c.GetAccountName()
+		byName[names[i]] = append(byName[names[i]], c)
+	}
+	out := make([]upstream.Candidate, 0, len(candidates))
+	for _, name := range order(names) {
+		if queue := byName[name]; len(queue) > 0 {
+			out = append(out, queue[0])
+			byName[name] = queue[1:]
+		}
+	}
+	for _, c := range candidates {
+		if queue := byName[c.GetAccountName()]; len(queue) > 0 {
+			out = append(out, queue[0])
+			byName[c.GetAccountName()] = queue[1:]
+		}
+	}
+	return out
+}
+
 // coolingOrder is the last resort: every member is cooling, so the ring may
 // either attempt the one that recovers soonest or refuse. The caller decides
 // through the guard's policy.
@@ -194,7 +241,7 @@ func (s *PoolServer) coolingOrder(candidates []upstream.Candidate) ([]upstream.C
 //
 // obs may be nil when a caller has its own accounting; every method on it is
 // nil-safe, so the ring never needs to care whether it is being watched.
-func (s *PoolServer) servePoolRequest(w http.ResponseWriter, r *http.Request, obs *observe.Request) {
+func (s *PoolServer) servePoolRequest(w http.ResponseWriter, r *http.Request, obs *observe.Request, route string) {
 	start := time.Now()
 	// The aggregate deadline applies only until one member commits. Each
 	// attempt receives a cancellable context with the same absolute deadline;
@@ -221,6 +268,7 @@ func (s *PoolServer) servePoolRequest(w http.ResponseWriter, r *http.Request, ob
 		}
 		bodyBytes = raw
 	}
+	requestModel := requestModelOf(bodyBytes)
 	candidates := make([]upstream.Candidate, len(s.Members))
 	for i, m := range s.Members {
 		candidates[i] = poolCandidate{account: m}
@@ -264,11 +312,13 @@ func (s *PoolServer) servePoolRequest(w http.ResponseWriter, r *http.Request, ob
 		} else {
 			attempt.Body = nil
 		}
-		cw := &captureWriter{ResponseWriter: w}
+		metered, finish := MeterUsage(w, route, s.ProviderID, account, requestModel)
+		cw := &captureWriter{ResponseWriter: metered}
 		if attemptTimer != nil {
 			cw.onCommit = func() { attemptTimer.Stop() }
 		}
 		s.serveMember(cw, attempt, up)
+		finish()
 		if attemptTimer != nil {
 			attemptTimer.Stop()
 			attemptCancel()

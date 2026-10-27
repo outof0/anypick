@@ -21,5 +21,11 @@ or go to **System Settings → Privacy & Security → Open Anyway**. You can als
 remove the quarantine flag with:
 
 ```bash
-xattr -dr com.apple.quarantine /Applications/AnyPick.app
+/usr/bin/xattr -dr com.apple.quarantine /Applications/AnyPick.app
 ```
+
+Installing through the cask does not remove this step. Homebrew sets the same
+quarantine attribute on a cask download that a browser sets on a `.dmg`, so the
+first launch still needs approval; `--no-quarantine` is not available because
+Homebrew removed it. The cask caveats say so rather than implying the cask
+avoids the warning.

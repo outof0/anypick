@@ -705,6 +705,30 @@ mod tests {
         assert!(!valid_ui_command(&"x".repeat(MAX_UI_COMMAND_BYTES + 1)));
     }
 
+    /// Every command the UI can build crosses this boundary before the engine
+    /// sees it. The corpus is written by the UI's own builders
+    /// (src/tauri/ui/test/command-corpus.ts) and the engine's decoder accepts
+    /// every entry (internal/desktop/ui_command_corpus_test.go), so the host
+    /// must not be the one layer that refuses them, as it once did Doctor.
+    #[test]
+    fn ui_command_corpus_crosses_the_host_boundary() {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../go/testdata/parity/ui-commands.json");
+        let raw = std::fs::read_to_string(&path).unwrap();
+        let entries: Vec<serde_json::Value> = serde_json::from_str(&raw).unwrap();
+        assert!(entries.len() > 50, "the UI corpus is unexpectedly small");
+        for entry in entries {
+            let kind = entry["kind"].as_str().unwrap();
+            let payload = serde_json::to_vec(&entry["payload"]).unwrap();
+            let line = format!("{kind}\t{}", STANDARD.encode(payload));
+            assert!(
+                valid_ui_command(&line),
+                "host rejects {}: {line}",
+                entry["case"]
+            );
+        }
+    }
+
     #[test]
     fn restart_schedule_is_bounded() {
         assert_eq!(RESTART_DELAYS_MS.len(), MAX_RESTARTS);

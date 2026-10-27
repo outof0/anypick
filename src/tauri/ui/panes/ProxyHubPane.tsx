@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Symbol } from '../shell/Symbol';
 
-import type { HubConflict, HubSource, ProxyRow, Snapshot } from '../lib/contract';
-import { hubSourceChange } from '../lib/desktop-actions';
+import type { HubConflict, HubSource, HubStrategy, ProxyRow, Snapshot } from '../lib/contract';
+import { hubSourceChange, hubStrategyChange, mutateAction, proxyToken } from '../lib/desktop-actions';
 import {
   catalogModelCount,
   hubProxy,
@@ -415,7 +415,7 @@ function hubStatus(hub: ProxyRow): 'running' | 'attention' | 'stopped' {
 function copyHubKey(service: ServicePort, hub: ProxyRow): string {
   // The engine mints the key on request and returns it in the result payload.
   // Nothing here reads or stores it; App copies it and names the action only.
-  return service.mutate('proxy-token', { providerId: hub.providerId, name: hub.id.split('/').slice(1).join('/') });
+  return mutateAction(service, proxyToken({ providerId: hub.providerId, name: hub.id.split('/').slice(1).join('/') }));
 }
 
 /**
@@ -532,20 +532,16 @@ function StrategyRow({
       ) : null}
       <RowActions>
         <SegmentedControl
-          value={rotation.enabled ? 'round-robin' : 'failover'}
+          value={('strategy' in rotation ? rotation.strategy : undefined) ?? (rotation.enabled ? 'round-robin' : 'failover')}
           testId={`hub.strategy.${rotation.hub}`}
           disabled={busy.size > 0 || count < 2}
           options={[
             { value: 'failover', label: t('failover') },
             { value: 'round-robin', label: t('round_robin') },
+            { value: 'soonest-reset', label: t('soonest_reset') },
           ]}
           onChange={(value) => {
-            const action = hubSourceChange({
-              hub: rotation.hub,
-              source: rotation,
-              enabled: value === 'round-robin',
-            });
-            service.mutate(action.operation, action.extra);
+            mutateAction(service, hubStrategyChange(rotation.hub, value as HubStrategy));
           }}
         />
       </RowActions>

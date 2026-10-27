@@ -423,11 +423,14 @@ struct ProxyHubView: View {
     let serviceID = hubSourceServiceID(rotation.id)
     VStack(alignment: .leading, spacing: 4) {
       Picker(model.localized("desktop.hub.strategy"), selection: Binding(
-        get: { model.hubSourceShowsEnabled(rotation.id) },
-        set: { enabled in model.setHubRotation(rotation.hub.isEmpty ? "default" : rotation.hub, enabled: enabled) }
+        get: { model.hubStrategy(rotation.id) },
+        set: { strategy in
+          model.setHubStrategy(rotation.hub.isEmpty ? "default" : rotation.hub, strategy: strategy)
+        }
       )) {
-        Text(model.localized("desktop.hub.failover")).tag(false)
-        Text(model.localized("desktop.hub.round_robin")).tag(true)
+        Text(model.localized("desktop.hub.failover")).tag("failover")
+        Text(model.localized("desktop.hub.round_robin")).tag("round-robin")
+        Text(model.localized("desktop.hub.soonest_reset")).tag("soonest-reset")
       }
       .pickerStyle(.segmented)
       .labelsHidden()

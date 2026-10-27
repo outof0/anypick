@@ -93,6 +93,21 @@ func TestProxyDiscoveryMatrix(t *testing.T) {
 			}
 			return snap
 		}, wantDiscovery: true},
+		// Keyless: the seed passes no secret, which is the case worth pinning.
+		"ollama": {seed: func(t *testing.T) string {
+			snap := t.TempDir()
+			if _, err := newOllama().BackupInput("server", "", "global", snap); err != nil {
+				t.Fatalf("ollama seed: %v", err)
+			}
+			return snap
+		}, wantDiscovery: true},
+		"lmstudio": {seed: func(t *testing.T) string {
+			snap := t.TempDir()
+			if _, err := newLMStudio().BackupInput("server", "", "default", snap); err != nil {
+				t.Fatalf("lmstudio seed: %v", err)
+			}
+			return snap
+		}, wantDiscovery: true},
 		"codex": {seed: func(t *testing.T) string {
 			snap := t.TempDir()
 			writeCodexMatrixAuth(t, snap)

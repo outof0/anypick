@@ -115,7 +115,9 @@ func TestBackupImportViaInspectionFlow(t *testing.T) {
 	}
 	// Remove the local account so restore lands as `create`.
 	if _, gerr := srcStore.Get(context.Background(), "codex", "alpha"); gerr == nil {
-		_ = srcStore.DeleteContext(context.Background(), "codex", "alpha")
+		if err := srcStore.DeleteContext(context.Background(), "codex", "alpha"); err != nil {
+			t.Fatalf("delete before restore: %v", err)
+		}
 	}
 
 	var out bytes.Buffer
