@@ -133,7 +133,9 @@ desktop app instead. It starts a separate app window on the profile's
 `CODEX_HOME`, next to the app you already have open, and writes the profile's
 route into that home's `config.toml` (the app has no `--profile` option). The
 app reads that file only when it starts, so after changing a profile's route,
-quit its window and open the profile again. The macOS and desktop apps offer
+quit its window and open the profile again. Removing a profile while its
+window is open fails with `CODEX_APP_RUNNING` (exit 5); quit the window first.
+The macOS and desktop apps offer
 the same action as **Open in Codex App** in a profile's actions menu.
 
 `anypick codex profile remove <name>` deletes the route and the files AnyPick

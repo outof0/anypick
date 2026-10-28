@@ -865,6 +865,9 @@ func (a *codexAdapter) ResetProfile(name string) error {
 		return err
 	}
 	root := a.profileRoot()
+	if CodexProfileAppRunning(root, name) {
+		return errCodexProfileAppRunning(name)
+	}
 	path := CodexProfileConfigPathForRoot(root, name)
 	if err := resetCodexProfileConfig(path, codexProfileRestorePath(root, name)); err != nil {
 		return err

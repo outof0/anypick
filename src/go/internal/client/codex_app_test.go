@@ -188,3 +188,82 @@ experimental_bearer_token = "secret"
 		t.Fatal("recovery does not snapshot the app config")
 	}
 }
+
+// model_reasoning_effort is copied with the route, so removing it from the
+// profile must remove it from the app config too.
+func TestWriteCodexProfileAppConfigClearsRemovedReasoningEffort(t *testing.T) {
+	root := t.TempDir()
+	writeProfileConfig(t, root, "work", "model = \"gpt-5\"\nmodel_reasoning_effort = \"high\"\n")
+	if err := WriteCodexProfileAppConfig(root, "work"); err != nil {
+		t.Fatal(err)
+	}
+	if doc := readAppConfig(t, root, "work"); doc["model_reasoning_effort"] != "high" {
+		t.Fatalf("reasoning effort not copied: %v", doc)
+	}
+	writeProfileConfig(t, root, "work", "model = \"gpt-5\"\n")
+	if err := WriteCodexProfileAppConfig(root, "work"); err != nil {
+		t.Fatal(err)
+	}
+	if doc := readAppConfig(t, root, "work"); doc["model_reasoning_effort"] != nil {
+		t.Fatalf("stale reasoning effort kept: %v", doc)
+	}
+}
+
+func writeSingletonLock(t *testing.T, root, name, target string) {
+	t.Helper()
+	dir := CodexProfileAppUserDataPath(root, name)
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(target, filepath.Join(dir, "SingletonLock")); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+}
+
+// A running instance would recreate the token-bearing config.toml in a
+// directory nothing tracks, so removal waits for it to quit. A lock a crash
+// left behind (dead pid, another host) does not block removal.
+func TestResetProfileRefusesWhileAppInstanceRuns(t *testing.T) {
+	host, err := os.Hostname()
+	if err != nil {
+		t.Skip(err)
+	}
+	oldAlive := codexAppProcessAlive
+	t.Cleanup(func() { codexAppProcessAlive = oldAlive })
+	codexAppProcessAlive = func(pid int) bool { return pid == 4242 }
+
+	for _, tc := range []struct {
+		target  string
+		refused bool
+	}{
+		{host + "-4242", true},
+		{host + "-4243", false},
+		{"elsewhere.local-4242", false},
+		{"garbage", false},
+	} {
+		root := t.TempDir()
+		writeProfileConfig(t, root, "work", "model_provider = \"anypick\"\n")
+		if err := WriteCodexProfileAppConfig(root, "work"); err != nil {
+			t.Fatal(err)
+		}
+		writeSingletonLock(t, root, "work", tc.target)
+		a := &codexAdapter{home: t.TempDir(), root: root}
+		err := a.ResetProfile("work")
+		_, statErr := os.Stat(CodexProfileAppConfigPath(root, "work"))
+		if tc.refused {
+			if err == nil || !strings.Contains(err.Error(), "open in the Codex app") {
+				t.Fatalf("%s: err = %v", tc.target, err)
+			}
+			if statErr != nil {
+				t.Fatalf("%s: refused reset still removed the app config", tc.target)
+			}
+			if err := a.RemoveProfileFiles("work"); err == nil {
+				t.Fatalf("%s: purge ran with the instance open", tc.target)
+			}
+			continue
+		}
+		if err != nil || !os.IsNotExist(statErr) {
+			t.Fatalf("%s: err = %v, app config = %v", tc.target, err, statErr)
+		}
+	}
+}

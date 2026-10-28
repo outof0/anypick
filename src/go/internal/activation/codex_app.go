@@ -22,6 +22,13 @@ func OpenCodexProfileApp(ctx context.Context, name string, deps *Deps) error {
 	if err := client.ValidateCodexProfileName(name); err != nil {
 		return anyerr.Newf(err.Error(), "INVALID_USAGE", anyerr.WithExitCode(anyerr.InvalidUsage))
 	}
+	// Checked before the write: config.toml in CODEX_HOME carries the route's
+	// bearer token and is also the base config the CLI reads there, so a
+	// platform that cannot launch the app must not get one.
+	if !client.CodexProfileAppSupported() {
+		return anyerr.Newf(client.ErrCodexAppUnsupported.Error(), "UNSUPPORTED_PLATFORM",
+			anyerr.WithExitCode(anyerr.CapabilityConflict))
+	}
 	err := lock.WithMutationLocks(ctx, deps.Root,
 		[]string{"client/codex", "client-profile/codex/" + name},
 		func(c context.Context) error {

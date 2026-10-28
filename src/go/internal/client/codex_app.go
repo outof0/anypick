@@ -6,10 +6,13 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
+	"syscall"
 
 	"github.com/pelletier/go-toml/v2"
 
+	"github.com/outof0/anypick/go/internal/anyerr"
 	"github.com/outof0/anypick/go/internal/atomicfile"
 )
 
@@ -18,8 +21,10 @@ import (
 const codexAppBundleID = "com.openai.codex"
 
 // codexAppRouteKeys are the root keys a profile's route owns in the app's
-// config.toml. Everything else in that file belongs to the app.
-var codexAppRouteKeys = []string{"model", "model_provider", "model_catalog_json"}
+// config.toml. Everything else in that file belongs to the app. A key copied
+// from the profile must be listed here, or removing it from the profile would
+// leave the old value in the app config for good.
+var codexAppRouteKeys = []string{"model", "model_provider", "model_catalog_json", "model_reasoning_effort"}
 
 // CodexProfileAppConfigPath is config.toml in the profile's CODEX_HOME. The
 // CLI reads <name>.config.toml through --profile; the desktop app has no
@@ -79,9 +84,6 @@ func WriteCodexProfileAppConfig(root, name string) error {
 			app[key] = v
 		}
 	}
-	if v, ok := profile["model_reasoning_effort"]; ok {
-		app["model_reasoning_effort"] = v
-	}
 	if providers, ok := profile["model_providers"].(map[string]any); ok {
 		if anypick, ok := providers["anypick"].(map[string]any); ok {
 			provider := make(map[string]any, len(anypick))
@@ -138,6 +140,15 @@ var codexAppOpen = func(args []string) error {
 // codexAppGOOS is runtime.GOOS; tests replace it.
 var codexAppGOOS = runtime.GOOS
 
+// SetCodexAppPlatformForTest makes CodexProfileAppSupported answer for goos
+// and returns a restore function. Other packages' tests use it to reach the
+// unsupported-platform path on a Mac.
+func SetCodexAppPlatformForTest(goos string) func() {
+	old := codexAppGOOS
+	codexAppGOOS = goos
+	return func() { codexAppGOOS = old }
+}
+
 // ErrCodexAppUnsupported reports a platform without the Codex desktop app
 // launch path. Only macOS's open(1) can pass a per-instance environment.
 var ErrCodexAppUnsupported = fmt.Errorf("opening a Codex profile in the Codex app is supported only on macOS")
@@ -169,4 +180,48 @@ func LaunchCodexProfileApp(root, name string) error {
 		"--env", "CODEX_ELECTRON_USER_DATA_PATH=" + userData,
 		"--args", "--user-data-dir=" + userData,
 	})
+}
+
+// codexAppProcessAlive reports whether pid is a running process; tests
+// replace it.
+var codexAppProcessAlive = func(pid int) bool {
+	proc, err := os.FindProcess(pid)
+	if err != nil {
+		return false
+	}
+	return proc.Signal(syscall.Signal(0)) == nil
+}
+
+// CodexProfileAppRunning reports whether a Codex app instance still runs on
+// the profile. Electron's single-instance lock is a SingletonLock symlink in
+// the user data directory whose target is "<hostname>-<pid>"; a lock left by
+// a crash names a pid that is gone, or another host.
+func CodexProfileAppRunning(root, name string) bool {
+	target, err := os.Readlink(filepath.Join(CodexProfileAppUserDataPath(root, name), "SingletonLock"))
+	if err != nil {
+		return false
+	}
+	i := strings.LastIndex(target, "-")
+	if i < 0 {
+		return false
+	}
+	if host, err := os.Hostname(); err == nil && target[:i] != host {
+		return false
+	}
+	pid, err := strconv.Atoi(target[i+1:])
+	if err != nil || pid <= 0 {
+		return false
+	}
+	return codexAppProcessAlive(pid)
+}
+
+// errCodexProfileAppRunning refuses to remove a profile whose app instance is
+// open: the instance rewrites config.toml (with the route's bearer token) and
+// refreshes auth.json in CODEX_HOME, so it would recreate them in a directory
+// nothing tracks any more.
+func errCodexProfileAppRunning(name string) error {
+	return anyerr.Newf(
+		"Codex profile "+name+" is open in the Codex app.",
+		"CODEX_APP_RUNNING", anyerr.WithExitCode(anyerr.CapabilityConflict),
+		anyerr.WithSuggestions("Quit that Codex app window, then try again."))
 }
