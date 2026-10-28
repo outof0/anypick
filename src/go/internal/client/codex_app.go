@@ -2,13 +2,13 @@ package client
 
 import (
 	"fmt"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
-	"strconv"
 	"strings"
-	"syscall"
+	"time"
 
 	"github.com/pelletier/go-toml/v2"
 
@@ -174,45 +174,71 @@ func LaunchCodexProfileApp(root, name string) error {
 	if err := os.MkdirAll(userData, 0o700); err != nil {
 		return err
 	}
-	return codexAppOpen([]string{
+	if err := MarkCodexProfileAppStarting(root, name); err != nil {
+		return err
+	}
+	marker := filepath.Join(userData, codexAppLaunchMarker)
+	err := codexAppOpen([]string{
 		"-n", "-b", codexAppBundleID,
 		"--env", "CODEX_HOME=" + home,
 		"--env", "CODEX_ELECTRON_USER_DATA_PATH=" + userData,
 		"--args", "--user-data-dir=" + userData,
 	})
-}
-
-// codexAppProcessAlive reports whether pid is a running process; tests
-// replace it.
-var codexAppProcessAlive = func(pid int) bool {
-	proc, err := os.FindProcess(pid)
 	if err != nil {
-		return false
+		// Nothing is starting, so the grace period must not block a removal.
+		_ = os.Remove(marker)
 	}
-	return proc.Signal(syscall.Signal(0)) == nil
+	return err
 }
 
-// CodexProfileAppRunning reports whether a Codex app instance still runs on
-// the profile. Electron's single-instance lock is a SingletonLock symlink in
-// the user data directory whose target is "<hostname>-<pid>"; a lock left by
-// a crash names a pid that is gone, or another host.
+// codexAppLaunchGrace covers the gap between open(1) returning and the new
+// instance creating its singleton socket, during which a removal would
+// otherwise see no instance at all.
+const codexAppLaunchGrace = 30 * time.Second
+
+// codexAppLaunchMarker is written into the instance's user data directory
+// just before the launch; its age is what the grace period is measured from.
+const codexAppLaunchMarker = "anypick-launch"
+
+// MarkCodexProfileAppStarting makes the profile count as open for the launch
+// grace period. OpenCodexProfileApp calls it inside the profile's mutation
+// lock, so a removal that takes the lock after the app config is written
+// already sees the instance as starting.
+func MarkCodexProfileAppStarting(root, name string) error {
+	userData := CodexProfileAppUserDataPath(root, name)
+	if err := os.MkdirAll(userData, 0o700); err != nil {
+		return err
+	}
+	return atomicfile.Write(filepath.Join(userData, codexAppLaunchMarker), nil, 0o600)
+}
+
+// CodexProfileAppRunning reports whether a Codex app instance runs, or is
+// starting, on the profile. Electron's single-instance check is a
+// SingletonSocket symlink in the user data directory pointing at a Unix
+// socket the running instance listens on; connecting is the same liveness
+// test Chromium itself uses. It is preferred over the SingletonLock
+// "<hostname>-<pid>" target, which a crash leaves behind for a pid that may
+// be reused and which stops matching when the Mac's hostname changes.
 func CodexProfileAppRunning(root, name string) bool {
-	target, err := os.Readlink(filepath.Join(CodexProfileAppUserDataPath(root, name), "SingletonLock"))
+	userData := CodexProfileAppUserDataPath(root, name)
+	// A marker from the future (the clock stepped back) is stale, not open.
+	if info, err := os.Stat(filepath.Join(userData, codexAppLaunchMarker)); err == nil {
+		if age := time.Since(info.ModTime()); age >= 0 && age < codexAppLaunchGrace {
+			return true
+		}
+	}
+	// The link's target, not the link, is dialled: a socket path is limited
+	// to about 104 bytes, and the target sits in the short system temp dir.
+	target, err := os.Readlink(filepath.Join(userData, "SingletonSocket"))
 	if err != nil {
 		return false
 	}
-	i := strings.LastIndex(target, "-")
-	if i < 0 {
+	conn, err := net.DialTimeout("unix", target, time.Second)
+	if err != nil {
 		return false
 	}
-	if host, err := os.Hostname(); err == nil && target[:i] != host {
-		return false
-	}
-	pid, err := strconv.Atoi(target[i+1:])
-	if err != nil || pid <= 0 {
-		return false
-	}
-	return codexAppProcessAlive(pid)
+	_ = conn.Close()
+	return true
 }
 
 // errCodexProfileAppRunning refuses to remove a profile whose app instance is
@@ -223,5 +249,5 @@ func errCodexProfileAppRunning(name string) error {
 	return anyerr.Newf(
 		"Codex profile "+name+" is open in the Codex app.",
 		"CODEX_APP_RUNNING", anyerr.WithExitCode(anyerr.CapabilityConflict),
-		anyerr.WithSuggestions("Quit that Codex app window, then try again."))
+		anyerr.WithSuggestions("Quit that Codex app window, then try again. A window opened in the last 30 seconds counts as open while it starts."))
 }

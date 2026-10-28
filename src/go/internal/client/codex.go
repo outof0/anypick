@@ -864,10 +864,10 @@ func (a *codexAdapter) ResetProfile(name string) error {
 	if err := ValidateCodexProfileName(name); err != nil {
 		return err
 	}
-	root := a.profileRoot()
-	if CodexProfileAppRunning(root, name) {
-		return errCodexProfileAppRunning(name)
+	if err := a.ProfileInUse(name); err != nil {
+		return err
 	}
+	root := a.profileRoot()
 	path := CodexProfileConfigPathForRoot(root, name)
 	if err := resetCodexProfileConfig(path, codexProfileRestorePath(root, name)); err != nil {
 		return err
@@ -894,6 +894,17 @@ func (a *codexAdapter) ResetProfile(name string) error {
 		if removeErr := os.Remove(generated); removeErr != nil && !os.IsNotExist(removeErr) {
 			return removeErr
 		}
+	}
+	return nil
+}
+
+// ProfileInUse refuses to remove a profile whose Codex app instance is open:
+// the instance rewrites config.toml (with the route's bearer token) and
+// refreshes auth.json in CODEX_HOME, so it would recreate them in a directory
+// nothing tracks any more.
+func (a *codexAdapter) ProfileInUse(name string) error {
+	if CodexProfileAppRunning(a.profileRoot(), name) {
+		return errCodexProfileAppRunning(name)
 	}
 	return nil
 }

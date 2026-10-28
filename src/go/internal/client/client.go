@@ -208,6 +208,14 @@ type ProfilePurger interface {
 	RemoveProfileFiles(name string) error
 }
 
+// ProfileInUseChecker reports a named profile that something outside AnyPick
+// still has open, as an error to refuse the removal with. RemoveNamedProfiles
+// asks it for every profile in a batch before removing any, so a batch
+// refused on its last profile has not already removed the first.
+type ProfileInUseChecker interface {
+	ProfileInUse(name string) error
+}
+
 // ExecutableAdapter overrides the client id when launching an ephemeral run.
 // Most clients use the same name for their binary; clients whose published
 // product name differs (Command Code ships the `cmd` binary) opt in here.

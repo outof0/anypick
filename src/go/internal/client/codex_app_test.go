@@ -2,11 +2,14 @@ package client
 
 import (
 	"errors"
+	"net"
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/pelletier/go-toml/v2"
 )
@@ -209,61 +212,122 @@ func TestWriteCodexProfileAppConfigClearsRemovedReasoningEffort(t *testing.T) {
 	}
 }
 
-func writeSingletonLock(t *testing.T, root, name, target string) {
+// listenSingletonSocket stands in for a running instance: a Unix socket in a
+// short temp dir (socket paths are limited to about 104 bytes) and the
+// SingletonSocket link Electron puts in the user data directory.
+func listenSingletonSocket(t *testing.T, root, name string) net.Listener {
 	t.Helper()
-	dir := CodexProfileAppUserDataPath(root, name)
-	if err := os.MkdirAll(dir, 0o700); err != nil {
+	if runtime.GOOS == "windows" {
+		t.Skip("the Codex app instance check is macOS-only")
+	}
+	sockDir, err := os.MkdirTemp("", "cx")
+	if err != nil {
 		t.Fatal(err)
 	}
-	if err := os.Symlink(target, filepath.Join(dir, "SingletonLock")); err != nil {
-		t.Skipf("symlinks unavailable: %v", err)
+	t.Cleanup(func() { os.RemoveAll(sockDir) })
+	sock := filepath.Join(sockDir, "SingletonSocket")
+	ln, err := net.Listen("unix", sock)
+	if err != nil {
+		t.Fatal(err)
 	}
+	t.Cleanup(func() { ln.Close() })
+	userData := CodexProfileAppUserDataPath(root, name)
+	if err := os.MkdirAll(userData, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(sock, filepath.Join(userData, "SingletonSocket")); err != nil {
+		t.Fatal(err)
+	}
+	return ln
 }
 
 // A running instance would recreate the token-bearing config.toml in a
-// directory nothing tracks, so removal waits for it to quit. A lock a crash
-// left behind (dead pid, another host) does not block removal.
+// directory nothing tracks, so removal waits for it to quit. Whatever a
+// crash leaves behind (a socket link with no listener, an old launch
+// marker) must not block removal.
 func TestResetProfileRefusesWhileAppInstanceRuns(t *testing.T) {
-	host, err := os.Hostname()
-	if err != nil {
-		t.Skip(err)
-	}
-	oldAlive := codexAppProcessAlive
-	t.Cleanup(func() { codexAppProcessAlive = oldAlive })
-	codexAppProcessAlive = func(pid int) bool { return pid == 4242 }
-
 	for _, tc := range []struct {
-		target  string
+		name    string
+		setup   func(t *testing.T, root string)
 		refused bool
 	}{
-		{host + "-4242", true},
-		{host + "-4243", false},
-		{"elsewhere.local-4242", false},
-		{"garbage", false},
+		{"listening instance", func(t *testing.T, root string) { listenSingletonSocket(t, root, "work") }, true},
+		{"crashed instance", func(t *testing.T, root string) {
+			// A crash leaves the socket file with nothing listening on it.
+			ln := listenSingletonSocket(t, root, "work").(*net.UnixListener)
+			ln.SetUnlinkOnClose(false)
+			ln.Close()
+		}, false},
+		{"instance starting", func(t *testing.T, root string) { writeLaunchMarker(t, root, "work", 0) }, true},
+		{"old launch marker", func(t *testing.T, root string) { writeLaunchMarker(t, root, "work", -time.Minute) }, false},
+		{"launch marker from the future", func(t *testing.T, root string) { writeLaunchMarker(t, root, "work", time.Hour) }, false},
+		{"never opened", func(*testing.T, string) {}, false},
 	} {
-		root := t.TempDir()
-		writeProfileConfig(t, root, "work", "model_provider = \"anypick\"\n")
-		if err := WriteCodexProfileAppConfig(root, "work"); err != nil {
-			t.Fatal(err)
-		}
-		writeSingletonLock(t, root, "work", tc.target)
-		a := &codexAdapter{home: t.TempDir(), root: root}
-		err := a.ResetProfile("work")
-		_, statErr := os.Stat(CodexProfileAppConfigPath(root, "work"))
-		if tc.refused {
+		t.Run(tc.name, func(t *testing.T) {
+			root := t.TempDir()
+			writeProfileConfig(t, root, "work", "model_provider = \"anypick\"\n")
+			if err := WriteCodexProfileAppConfig(root, "work"); err != nil {
+				t.Fatal(err)
+			}
+			tc.setup(t, root)
+			a := &codexAdapter{home: t.TempDir(), root: root}
+			err := a.ResetProfile("work")
+			_, statErr := os.Stat(CodexProfileAppConfigPath(root, "work"))
+			if !tc.refused {
+				if err != nil || !os.IsNotExist(statErr) {
+					t.Fatalf("err = %v, app config = %v", err, statErr)
+				}
+				return
+			}
 			if err == nil || !strings.Contains(err.Error(), "open in the Codex app") {
-				t.Fatalf("%s: err = %v", tc.target, err)
+				t.Fatalf("err = %v", err)
 			}
 			if statErr != nil {
-				t.Fatalf("%s: refused reset still removed the app config", tc.target)
+				t.Fatal("refused reset still removed the app config")
 			}
 			if err := a.RemoveProfileFiles("work"); err == nil {
-				t.Fatalf("%s: purge ran with the instance open", tc.target)
+				t.Fatal("purge ran with the instance open")
 			}
-			continue
-		}
-		if err != nil || !os.IsNotExist(statErr) {
-			t.Fatalf("%s: err = %v, app config = %v", tc.target, err, statErr)
-		}
+		})
+	}
+}
+
+func writeLaunchMarker(t *testing.T, root, name string, age time.Duration) {
+	t.Helper()
+	userData := CodexProfileAppUserDataPath(root, name)
+	if err := os.MkdirAll(userData, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	marker := filepath.Join(userData, codexAppLaunchMarker)
+	if err := os.WriteFile(marker, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	when := time.Now().Add(age)
+	if err := os.Chtimes(marker, when, when); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// A failed launch starts nothing, so it must not leave the marker that makes
+// a removal wait out the grace period.
+func TestLaunchCodexProfileAppMarksOnlyASuccessfulLaunch(t *testing.T) {
+	oldOpen, oldGOOS := codexAppOpen, codexAppGOOS
+	t.Cleanup(func() { codexAppOpen, codexAppGOOS = oldOpen, oldGOOS })
+	codexAppGOOS = "darwin"
+	root := t.TempDir()
+
+	codexAppOpen = func([]string) error { return errors.New("no app") }
+	if err := LaunchCodexProfileApp(root, "work"); err == nil {
+		t.Fatal("launch error swallowed")
+	}
+	if CodexProfileAppRunning(root, "work") {
+		t.Fatal("failed launch left the profile looking open")
+	}
+	codexAppOpen = func([]string) error { return nil }
+	if err := LaunchCodexProfileApp(root, "work"); err != nil {
+		t.Fatal(err)
+	}
+	if !CodexProfileAppRunning(root, "work") {
+		t.Fatal("a starting instance does not count as open")
 	}
 }
