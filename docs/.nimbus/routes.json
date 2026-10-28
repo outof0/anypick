@@ -3,6 +3,7 @@
   "base": "/",
   "knownRoutes": [
     "/",
+    "/404",
     "/de",
     "/de/docs",
     "/de/docs/concepts",
