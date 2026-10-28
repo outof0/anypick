@@ -236,3 +236,22 @@ func TestCodeAssistCatalogWithNothingListableFallsBackToQuota(t *testing.T) {
 		t.Fatalf("models = %+v", cat.Models)
 	}
 }
+
+// When quota metadata names nothing either, the catalog is a failure, so
+// /v1/models answers 502 rather than an empty list with no default.
+func TestCodeAssistCatalogWithNothingListableAndEmptyQuotaFails(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case strings.HasSuffix(r.URL.Path, ":fetchAvailableModels"):
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{"models": map[string]interface{}{}})
+		case strings.HasSuffix(r.URL.Path, ":retrieveUserQuota"):
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{"buckets": []interface{}{}})
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer srv.Close()
+	if cat, err := fetchGeminiCatalogFromCodeAssist(context.Background(), srv.URL, "tok", "proj", ""); err == nil {
+		t.Fatalf("empty discovery answered as success: %+v", cat)
+	}
+}

@@ -368,6 +368,9 @@ func fetchGeminiCatalogFromCodeAssist(ctx context.Context, base, token, project,
 		if qerr != nil {
 			return nil, qerr
 		}
+		if len(quota.Models) == 0 {
+			return nil, fmt.Errorf("code assist model discovery found no model: fetchAvailableModels and retrieveUserQuota both listed none")
+		}
 		quota.TierRoutes = cat.TierRoutes
 		return quota, nil
 	}
