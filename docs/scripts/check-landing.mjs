@@ -14,6 +14,12 @@ for (const asset of release.assets) {
   assert(asset.browser_download_url.startsWith(releasePrefix), `Unexpected asset origin: ${asset.name}`);
   assert(asset.size > 0, `Empty asset: ${asset.name}`);
 }
+// Unknown paths must 404 rather than fall back to the homepage with a 200.
+const notFound = await read('dist/404.html');
+assert(notFound.includes('content="noindex"'), '404 page: noindex');
+assert(!sitemap.includes('/404'), '404 page: not in the sitemap');
+assert.match(await read('dist/_redirects'), /^\/sitemap\.xml \/sitemap-index\.xml 301$/m, '/sitemap.xml redirect');
+assert(sitemap.includes('hreflang="vi" href="https://anypick.dev/vi/docs/"'), 'sitemap: docs language alternates');
 for (const [path, lang] of Object.entries(locales)) {
   const html = await read(`dist/${path}index.html`);
   const page = new URL(path, origin).href;

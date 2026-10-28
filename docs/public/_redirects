@@ -1,0 +1,4 @@
+# Cloudflare Pages redirects (Direct Upload honours this file in dist/).
+# Crawlers and SEO tools probe /sitemap.xml first; the sitemap integration
+# writes /sitemap-index.xml, and without this rule the probe got the homepage.
+/sitemap.xml /sitemap-index.xml 301

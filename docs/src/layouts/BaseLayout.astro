@@ -10,7 +10,8 @@ import { SearchDialog } from "@/components/ui/search";
 import NimbusHead from "nimbus-docs/components/NimbusHead.astro";
 import release from "../data/release.json";
 import type { BasePageProps } from "nimbus-docs/types";
-import { getTranslator, localeForPath, localePrefix, localizedPath, supportedLocales } from "@/i18n";
+import { getTranslator, localeForPath, localePrefix, supportedLocales } from "@/i18n";
+import { localeAlternates as localeAlternatesFor } from "@/lib/seo";
 
 type Props = BasePageProps & {
   /** Exact title that opts into the site's custom metadata head. */
@@ -97,16 +98,14 @@ const softwareApplicationStructuredData = isHomePage && canonicalUrl
       license: "https://github.com/outof0/anypick/blob/main/LICENSE",
     })
   : null;
-const localeAlternates = isHomePage && Astro.site
-  ? [
-      ...supportedLocales.map((locale) => ({
-        hreflang: locale,
-        href: new URL(localizedPath(locale, "/"), Astro.site).href,
-      })),
-      { hreflang: "x-default", href: new URL("/", Astro.site).href },
-    ]
-  : [];
+const localeAlternates = Astro.site && !noindex ? localeAlternatesFor(Astro.url.pathname, Astro.site) : [];
 const mergedHead = [...(config.head ?? []), ...pageHead];
+// NimbusHead renders no language alternates of its own, so docs pages carry
+// theirs through its `head` passthrough.
+const docsHead = [
+  ...pageHead,
+  ...localeAlternates.map(({ hreflang, href }) => ({ tag: "link" as const, attrs: { rel: "alternate", hreflang, href } })),
+];
 const shikiCssHref = `${import.meta.env.BASE_URL}_nimbus/shiki.css${import.meta.env.DEV ? `?v=${Date.now()}` : ""}`;
 ---
 
@@ -206,7 +205,7 @@ const shikiCssHref = `${import.meta.env.BASE_URL}_nimbus/shiki.css${import.meta.
         markdownUrl={markdownUrl}
         socialImage={socialImage}
         lastUpdated={lastUpdated}
-        head={pageHead}
+        head={docsHead}
         collection={collection}
         entryId={entryId}
       />

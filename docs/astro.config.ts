@@ -3,6 +3,7 @@ import icon from "astro-icon";
 import tailwindcss from "@tailwindcss/vite";
 import nimbus, { defineConfig as defineNimbusConfig } from "nimbus-docs";
 import { tableScroll } from "nimbus-docs/markdown";
+import { lastModified, localeAlternates } from "./src/lib/seo";
 
 const nimbusConfig = defineNimbusConfig({
   // Must match the deployed origin, no trailing slash: it drives canonical
@@ -94,6 +95,17 @@ export default defineConfig({
       // (styled by `.nb-table-scroll` in src/styles/prose.css).
       markdown: {
         hastPlugins: [tableScroll()],
+      },
+      // The same language alternates the page heads carry, plus the page's
+      // last commit date, so crawlers can find translations and recrawl
+      // changed pages from the sitemap alone.
+      sitemap: {
+        serialize(item) {
+          const { pathname } = new URL(item.url);
+          const links = localeAlternates(pathname, item.url).map(({ hreflang, href }) => ({ lang: hreflang, url: href }));
+          const lastmod = lastModified(pathname);
+          return { ...item, ...(links.length > 0 && { links }), ...(lastmod && { lastmod }) };
+        },
       },
     }),
   ],
