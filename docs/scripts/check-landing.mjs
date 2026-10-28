@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 
 const root = new URL('../', import.meta.url);
@@ -20,6 +21,13 @@ assert(notFound.includes('content="noindex"'), '404 page: noindex');
 assert(!sitemap.includes('/404'), '404 page: not in the sitemap');
 assert.match(await read('dist/_redirects'), /^\/sitemap\.xml \/sitemap-index\.xml 301$/m, '/sitemap.xml redirect');
 assert(sitemap.includes('hreflang="vi" href="https://anypick.dev/vi/docs/"'), 'sitemap: docs language alternates');
+// seo.ts resolves sources from the working directory; run from anywhere else
+// it silently finds none, so pin both outputs it drives.
+const docsPage = await read('dist/vi/docs/guides/usage/index.html');
+assert.equal((docsPage.match(/rel="alternate" hreflang=/g) ?? []).length, 10, 'docs page: nine languages and x-default');
+let shallow = true; // no git (a source tarball): seo.ts omits lastmod too
+try { shallow = execFileSync('git', ['rev-parse', '--is-shallow-repository'], { encoding: 'utf8' }).trim() === 'true'; } catch {}
+if (!shallow) assert.equal((sitemap.match(/<lastmod>/g) ?? []).length, (sitemap.match(/<loc>/g) ?? []).length, 'sitemap: lastmod on every URL');
 for (const [path, lang] of Object.entries(locales)) {
   const html = await read(`dist/${path}index.html`);
   const page = new URL(path, origin).href;

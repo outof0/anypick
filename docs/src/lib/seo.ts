@@ -60,7 +60,9 @@ function sourcesFor(pathname: string): string[] {
 
 let commitDates: Map<string, string> | null = null;
 
-/** Newest commit date per docs/ file, read from git once per build. */
+/** Newest author date per docs/ file, read from git once per build. Author
+ * date matches what nimbus uses for a page's "last updated", so the sitemap
+ * and the page never disagree after a rebase. */
 function loadCommitDates(): Map<string, string> {
   if (commitDates) return commitDates;
   commitDates = new Map();
@@ -69,7 +71,7 @@ function loadCommitDates(): Map<string, string> {
     // wrong lastmod on every page; no lastmod is the honest answer there.
     const shallow = execFileSync("git", ["rev-parse", "--is-shallow-repository"], { encoding: "utf8" }).trim();
     if (shallow === "true") return commitDates;
-    const log = execFileSync("git", ["log", "--format=@%cI", "--name-only", "--relative", "--", "src"], {
+    const log = execFileSync("git", ["log", "--format=@%aI", "--name-only", "--relative", "--", "src"], {
       encoding: "utf8",
       maxBuffer: 64 * 1024 * 1024,
     });
