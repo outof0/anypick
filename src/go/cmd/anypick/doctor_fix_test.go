@@ -295,7 +295,7 @@ func TestRebuildCachesClearsSQLiteViaCLI(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer closeFn2()
-	models, merr := (&modelcache.Store{DB: reopened.DB}).ModelsForProvider(ctx, "grok")
+	models, merr := (&modelcache.Store{DB: reopened.DB}).ModelsForProvider(ctx, "grok", 0)
 	if merr != nil {
 		t.Fatal(merr)
 	}

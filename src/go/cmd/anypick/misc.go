@@ -18,6 +18,7 @@ import (
 	"github.com/outof0/anypick/go/internal/agentbridge"
 	"github.com/outof0/anypick/go/internal/anyerr"
 	"github.com/outof0/anypick/go/internal/buildinfo"
+	"github.com/outof0/anypick/go/internal/catalog"
 	"github.com/outof0/anypick/go/internal/cli"
 	"github.com/outof0/anypick/go/internal/config"
 	"github.com/outof0/anypick/go/internal/doctor"
@@ -868,7 +869,7 @@ func (h hubProviderModels) ModelsForProvider(providerID string) []string {
 		return nil
 	}
 	store := &modelcache.Store{DB: h.a.DB}
-	models, err := store.ModelsForProvider(context.Background(), providerID)
+	models, err := store.ModelsForProvider(context.Background(), providerID, catalog.ModelCatalogRules(providerID))
 	if err != nil {
 		return nil
 	}

@@ -113,30 +113,57 @@ func readWorkBuddyProductCatalog(path string) ([]string, error) {
 	}
 	var doc struct {
 		Models []struct {
-			ID string `json:"id"`
+			ID               string `json:"id"`
+			SupportsToolCall *bool  `json:"supportsToolCall"`
 		} `json:"models"`
 	}
 	if err := json.Unmarshal(raw, &doc); err != nil {
 		return nil, fmt.Errorf("decode WorkBuddy product model catalog: %w", err)
 	}
-	models := make([]string, 0, len(doc.Models))
-	seen := make(map[string]bool, len(doc.Models))
+	// WorkBuddy persists the merged custom-model catalog in this cache and
+	// namespaces custom entries as custom-local:<id>. Those entries are
+	// downstream aliases created by the client, not models the subscription
+	// account serves. Feeding them back into AnyPick would make the next
+	// activation publish every model twice.
+	//
+	// The UI tier aliases (fast-model, default-model, …) are thinking-only
+	// routers, not slugs a borrowing client can call. Publishing them as
+	// custom-local models is what collapses the WorkBuddy agent into a
+	// "Let me write." / "OK." loop.
+	type productModel struct {
+		id               string
+		supportsToolCall *bool
+	}
+	product := make([]productModel, 0, len(doc.Models))
 	for _, model := range doc.Models {
 		id := strings.TrimSpace(model.ID)
-		// WorkBuddy persists the merged custom-model catalog in this cache and
-		// namespaces custom entries as custom-local:<id>. Those entries are
-		// downstream aliases created by the client, not models the subscription
-		// account serves. Feeding them back into AnyPick would make the next
-		// activation publish every model twice.
-		//
-		// The UI tier aliases (fast-model, default-model, …) are thinking-only
-		// routers, not slugs a borrowing client can call. Publishing them as
-		// custom-local models is what collapses the WorkBuddy agent into a
-		// "Let me write." / "OK." loop.
-		if id != "" && !strings.HasPrefix(id, workbuddyCustomLocalModelPrefix) &&
-			!workbuddyRouterModelID(id) && !seen[id] {
-			seen[id] = true
-			models = append(models, id)
+		if id != "" && !strings.HasPrefix(id, workbuddyCustomLocalModelPrefix) && !workbuddyRouterModelID(id) {
+			product = append(product, productModel{id: id, supportsToolCall: model.SupportsToolCall})
+		}
+	}
+	// Every client AnyPick points at WorkBuddy is an agent that calls tools,
+	// so a model the catalogue does not mark tool-capable (image and video
+	// generation) has nothing to serve it. A catalogue from before the
+	// field existed marks none, and then the field proves nothing. Only
+	// product entries count: AnyPick writes its own custom-local entries
+	// with the field set, which would otherwise make an old catalogue look
+	// declared and drop every model in it.
+	toolCallDeclared := false
+	for _, model := range product {
+		if model.supportsToolCall != nil {
+			toolCallDeclared = true
+			break
+		}
+	}
+	models := make([]string, 0, len(product))
+	seen := make(map[string]bool, len(product))
+	for _, model := range product {
+		if toolCallDeclared && (model.supportsToolCall == nil || !*model.supportsToolCall) {
+			continue
+		}
+		if !seen[model.id] {
+			seen[model.id] = true
+			models = append(models, model.id)
 		}
 	}
 	return models, nil

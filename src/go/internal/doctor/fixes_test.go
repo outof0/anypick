@@ -374,7 +374,7 @@ func TestRebuildCachesDeletesRows(t *testing.T) {
 	if len(result.Applied) != 1 || !result.Applied[0].OK {
 		t.Fatalf("rebuild failed: %+v", result.Applied)
 	}
-	models, err := store.ModelsForProvider(ctx, "grok")
+	models, err := store.ModelsForProvider(ctx, "grok", 0)
 	if err != nil {
 		t.Fatal(err)
 	}

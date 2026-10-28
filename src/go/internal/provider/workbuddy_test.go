@@ -902,6 +902,59 @@ func TestWorkBuddyModelDiscoveryReadsProductCatalog(t *testing.T) {
 	}
 }
 
+// The current product catalogue also lists image and video generation models.
+// They carry no supportsToolCall, and no agent client can use them.
+func TestWorkBuddyModelDiscoveryDropsModelsWithoutToolCalls(t *testing.T) {
+	home := t.TempDir()
+	path := filepath.Join(home, ".workbuddy-ai", "cache", workbuddyProductCatalogFile)
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte(`{"models":[
+    {"id":"default-model","supportsToolCall":true},
+    {"id":"gpt-6-sol","supportsToolCall":true},
+    {"id":"glm-5.3","supportsToolCall":true},
+    {"id":"chat-no-tools","supportsToolCall":false},
+    {"id":"hy-image-3.5","tags":["text-to-image","image-to-image"]},
+    {"id":"kling-video-v3","tags":["text-to-video"],"videoGeneration":{"maxSeconds":15}}
+  ]}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	models, err := workbuddyModelDiscovery(home)(context.Background())
+	if err != nil {
+		t.Fatalf("model discovery: %v", err)
+	}
+	if got := strings.Join(models, ","); got != "gpt-6-sol,glm-5.3" {
+		t.Fatalf("models = %q, want gpt-6-sol,glm-5.3", got)
+	}
+}
+
+// A catalogue from before supportsToolCall existed still carries the
+// custom-local entries AnyPick wrote, and those set the field. They must not
+// make the old catalogue look declared, or every product model is dropped.
+func TestWorkBuddyModelDiscoveryIgnoresOwnEntriesForToolCallDeclaration(t *testing.T) {
+	home := t.TempDir()
+	path := filepath.Join(home, ".workbuddy-ai", "cache", workbuddyProductCatalogFile)
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte(`{"models":[
+    {"id":"default-model","supportsToolCall":true},
+    {"id":"`+workbuddyCustomLocalModelPrefix+`gpt-6-sol","supportsToolCall":true},
+    {"id":"hy3"},
+    {"id":"glm-5.3"}
+  ]}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	models, err := workbuddyModelDiscovery(home)(context.Background())
+	if err != nil {
+		t.Fatalf("model discovery: %v", err)
+	}
+	if got := strings.Join(models, ","); got != "hy3,glm-5.3" {
+		t.Fatalf("models = %q, want hy3,glm-5.3", got)
+	}
+}
+
 // TestWorkBuddyStalledServerFailsFast pins the per-request timeout: the poll
 // loop's five-minute deadline only applies between iterations, so without a
 // bound on one request a stalled connection holds Sign In — and the desktop
