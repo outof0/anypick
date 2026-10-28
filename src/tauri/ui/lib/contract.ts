@@ -169,6 +169,8 @@ export type CodexProfileRow = {
   /** 'auto' | 'direct' | 'proxy' */
   transportPolicy: string;
   launchCommand: string;
+  /** True when this machine can open the profile in the Codex desktop app (macOS). */
+  appOpenable?: boolean;
 };
 
 export type CodexProfileSourceRow = {

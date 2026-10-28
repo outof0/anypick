@@ -693,6 +693,54 @@ describe('codex profiles', () => {
     });
   });
 
+  it('opens a Codex profile in the Codex app only where the engine says it can', async () => {
+    const profile = {
+      name: 'work',
+      sourceId: 'account/codex/work',
+      sourceLabel: 'Work',
+      modelId: 'gpt-5',
+      transportPolicy: 'proxy',
+      launchCommand: 'codex --profile work',
+    };
+    const actions = [
+      ...snapshotFixture().actions,
+      {
+        id: 'act-codex',
+        clientId: 'codex',
+        sourceId: 'account/codex/work',
+        client: 'Codex',
+        label: 'Work',
+        detail: 'work@example.com',
+        kind: 'native' as const,
+        presentation: 'native-account' as const,
+        selected: true,
+        enabled: true,
+        routeKind: 'managed-account' as const,
+      },
+    ];
+    const sources = [
+      { sourceId: 'account/codex/work', kind: 'account', label: 'Work', detail: '', selected: true, models: ['gpt-5'] },
+    ];
+
+    const hidden = mount(
+      ({ service, snapshot: current }) => <AppsPane service={service} snapshot={current} />,
+      snapshotFixture({ actions, codexProfiles: [{ ...profile, appOpenable: false }], codexProfileSources: sources }),
+    );
+    await hidden.user.click(screen.getByTestId('apps-row-codex'));
+    await hidden.user.click(screen.getByTestId('codex-profile.more.work'));
+    expect(screen.queryByRole('menuitem', { name: 'Open in Codex App' })).toBeNull();
+    hidden.unmount();
+
+    const { bridge, user } = mount(
+      ({ service, snapshot: current }) => <AppsPane service={service} snapshot={current} />,
+      snapshotFixture({ actions, codexProfiles: [{ ...profile, appOpenable: true }], codexProfileSources: sources }),
+    );
+    await user.click(screen.getByTestId('apps-row-codex'));
+    await user.click(screen.getByTestId('codex-profile.more.work'));
+    await user.click(screen.getByRole('menuitem', { name: 'Open in Codex App' }));
+    expect(mutateBodies(bridge)[0]).toEqual({ operation: 'codex-profile-open', name: 'work' });
+  });
+
   it('keeps automatic profile creation local and syncs with codex-profile-sync', async () => {
     localStorage.removeItem('anypick.codexAutoProfiles');
     localStorage.removeItem('anypick.codexAutoProfileFingerprints');

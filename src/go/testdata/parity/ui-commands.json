@@ -523,6 +523,16 @@
     }
   },
   {
+    "case": "openCodexProfile: name",
+    "kind": "mutate",
+    "payload": {
+      "version": 1,
+      "requestId": "corpus",
+      "operation": "codex-profile-open",
+      "name": "work"
+    }
+  },
+  {
     "case": "syncCodexProfiles: sources",
     "kind": "mutate",
     "payload": {

@@ -222,8 +222,10 @@ anypick use codex --with codex/work --transport proxy
 anypick use codex --with hub:default
 ```
 
-These routes configure Codex CLI. Codex Desktop retains its own signed-in
-account and does not follow the CLI's `CODEX_HOME`.
+These routes configure Codex CLI. Codex Desktop opened from the Dock retains
+its own signed-in account. To use a profile in the desktop app, run
+`anypick codex profile open <name>` (macOS) or choose **Open in Codex App** from
+the profile's actions menu: it opens a separate Codex window on that profile.
 
 When the client and the account speak different protocols, AnyPick starts a
 local translating proxy and points the client at it. You do not start the proxy

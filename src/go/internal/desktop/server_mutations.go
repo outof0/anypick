@@ -646,6 +646,8 @@ func (s *Server) routeMutation(ctx context.Context, payload json.RawMessage, m M
 		result = s.mutateCodexProfileSync(ctx, m, result)
 	case "codex-profile-remove":
 		result = s.mutateCodexProfileRemove(ctx, m, result)
+	case "codex-profile-open":
+		result = s.mutateCodexProfileOpen(ctx, m, result)
 	case "account-import", "account-export", "account-backup-all",
 		"account-backup-export", "account-backup-import", "account-backup-forget":
 		result = s.handleTransferOp(ctx, m)

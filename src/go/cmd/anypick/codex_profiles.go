@@ -19,13 +19,13 @@ import (
 // transaction.
 func cmdCodex(ctx context.Context, a *appView, args []string) int {
 	if len(args) == 0 {
-		return usageError("usage: anypick codex profile <login|list|show|remove> …")
+		return usageError("usage: anypick codex profile <login|list|show|open|remove> …")
 	}
 	if args[0] != "profile" {
 		return usageError("unknown codex subcommand %q", args[0])
 	}
 	if len(args) == 1 {
-		return usageError("usage: anypick codex profile <login|list|show|remove> …")
+		return usageError("usage: anypick codex profile <login|list|show|open|remove> …")
 	}
 	switch args[1] {
 	case "login":
@@ -34,6 +34,8 @@ func cmdCodex(ctx context.Context, a *appView, args []string) int {
 		return cmdCodexProfileList(ctx, a, args[2:])
 	case "show":
 		return cmdCodexProfileShow(ctx, a, args[2:])
+	case "open":
+		return cmdCodexProfileOpen(ctx, a, args[2:])
 	case "remove":
 		return cmdCodexProfileRemove(ctx, a, args[2:])
 	default:
@@ -267,6 +269,37 @@ func cmdCodexProfileShow(ctx context.Context, a *appView, args []string) int {
 	cliPrintf("  CODEX_HOME: %s\n  auth: %s\n  config: %s\n  launch: %s\n",
 		profileHome, authPath, configPath,
 		client.CodexProfileLaunchCommand(a.Root, name, sourceEnv))
+	return int(anyerr.Success)
+}
+
+// cmdCodexProfileOpen starts a separate Codex desktop app instance on the
+// profile's CODEX_HOME, beside whatever account the regular app is signed in
+// with.
+func cmdCodexProfileOpen(ctx context.Context, a *appView, args []string) int {
+	fs := fsFor(args)
+	if err := fs.Parse(reorder(args)); err != nil || fs.NArg() != 1 {
+		return usageError("usage: anypick codex profile open <name>")
+	}
+	name := fs.Arg(0)
+	if err := client.ValidateCodexProfileName(name); err != nil {
+		return reportErr(anyerr.Newf(err.Error(), "INVALID_USAGE",
+			anyerr.WithExitCode(anyerr.InvalidUsage)))
+	}
+	profileHome := client.CodexProfileHomePath(a.Root, name)
+	if globals.DryRun {
+		printDryRunFields("codex.profile.open", "Would open Codex profile "+name+" in the Codex app",
+			kv{Key: "profile", Value: name},
+			kv{Key: "codexHome", Value: profileHome},
+			kv{Key: "config", Value: client.CodexProfileAppConfigPath(a.Root, name)})
+		return int(anyerr.Success)
+	}
+	if err := activation.OpenCodexProfileApp(ctx, name, a.Deps); err != nil {
+		return reportErr(err)
+	}
+	emitOK("opened Codex profile "+name+" in the Codex app",
+		kv{Key: "ok", Value: true},
+		kv{Key: "profile", Value: name},
+		kv{Key: "codexHome", Value: profileHome})
 	return int(anyerr.Success)
 }
 

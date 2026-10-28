@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/outof0/anypick/go/internal/activation"
@@ -24,6 +25,10 @@ type CodexProfileRow struct {
 	ModelID         string `json:"modelId"`
 	TransportPolicy string `json:"transportPolicy"`
 	LaunchCommand   string `json:"launchCommand"`
+	// AppOpenable says the profile can be opened in the Codex desktop app
+	// from this machine (codex-profile-open). Only macOS can launch the app
+	// with a per-instance CODEX_HOME.
+	AppOpenable bool `json:"appOpenable"`
 }
 
 // CodexProfileSourceRow is an app-route option with its source-scoped model
@@ -85,12 +90,9 @@ func (b *snapshotBuilder) codexProfiles(ctx context.Context) {
 		b.snap.CodexProfileSources = append(b.snap.CodexProfileSources, row)
 	}
 	// Stable display order keeps the picker calm across refreshes.
-	for i := 1; i < len(b.snap.CodexProfileSources); i++ {
-		for j := i; j > 0 && b.snap.CodexProfileSources[j].Label < b.snap.CodexProfileSources[j-1].Label; j-- {
-			b.snap.CodexProfileSources[j], b.snap.CodexProfileSources[j-1] =
-				b.snap.CodexProfileSources[j-1], b.snap.CodexProfileSources[j]
-		}
-	}
+	sort.SliceStable(b.snap.CodexProfileSources, func(i, j int) bool {
+		return b.snap.CodexProfileSources[i].Label < b.snap.CodexProfileSources[j].Label
+	})
 
 	profiles, err := store.ListContext(ctx, "codex")
 	if err != nil {
@@ -115,6 +117,7 @@ func (b *snapshotBuilder) codexProfiles(ctx context.Context) {
 			TransportPolicy: policy,
 			LaunchCommand: client.CodexProfileLaunchCommand(
 				b.srv.Deps.Root, named.Name, codexProfileNeedsEnv(ctx, b.srv, &named)),
+			AppOpenable: client.CodexProfileAppSupported(),
 		})
 	}
 }
@@ -425,6 +428,19 @@ func (s *Server) mutateCodexProfile(ctx context.Context, m Mutate, result Result
 	} else {
 		result.Message = fmt.Sprintf("Added Codex profile %s.", m.Name)
 	}
+	return result
+}
+
+func (s *Server) mutateCodexProfileOpen(ctx context.Context, m Mutate, result Result) Result {
+	if s.Deps.Activation == nil {
+		return result.Fail(serviceUnavailableErr("Codex profile service"))
+	}
+	// The CLI's `codex profile open` runs the same function, so both write
+	// the same app config and launch the same way.
+	if err := activation.OpenCodexProfileApp(ctx, m.Name, s.Deps.Activation); err != nil {
+		return result.Fail(err)
+	}
+	result.Message = fmt.Sprintf("Opened Codex profile %s in the Codex app.", m.Name)
 	return result
 }
 

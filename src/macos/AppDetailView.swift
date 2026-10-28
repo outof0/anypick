@@ -326,6 +326,12 @@ struct AppDetailView: View {
         identifier: "codex-profile.more.\(profile.name)",
         isDisabled: model.isBusy
       ) {
+        if profile.appOpenable {
+          Button(model.localized("desktop.app_detail.open_in_codex_app"), systemImage: "macwindow") {
+            model.openCodexProfileInApp(name: profile.name)
+          }
+          .help(model.localized("desktop.app_detail.open_in_codex_app_help"))
+        }
         Button(model.localized("desktop.app_detail.edit_profile"), systemImage: "slider.horizontal.3") {
           editingCodexProfile = profile
           showingCodexProfileSheet = true

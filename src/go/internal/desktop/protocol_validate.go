@@ -131,7 +131,7 @@ var mutationOperations = map[string]bool{
 	"account-clear": true, "gateway-create": true, "gateway-test": true,
 	"gateway-edit": true, "gateway-refresh": true, "gateway-remove": true,
 	"client-reset": true, "codex-profile-save": true, "codex-profile-update": true,
-	"codex-profile-remove": true, "codex-profile-sync": true,
+	"codex-profile-remove": true, "codex-profile-sync": true, "codex-profile-open": true,
 	"hub-source-toggle": true, "hub-rotation": true,
 	"proxy-restart-all": true, "proxy-start-all": true, "proxy-stop-all": true, "proxy-token": true,
 	"setting-launch-at-login": true, "setting-auto-start-proxies": true,
@@ -447,12 +447,12 @@ func validateMutate(fields map[string]json.RawMessage) error {
 			}
 			seen[sourceID] = true
 		}
-	case "codex-profile-remove":
+	case "codex-profile-remove", "codex-profile-open":
 		name := ""
 		_ = json.Unmarshal(fields["name"], &name)
 		if !safeStr(name, 64) ||
 			!keysSubset(fields, "version", "requestId", "operation", "name") {
-			return fmt.Errorf("invalid codex-profile-remove payload")
+			return fmt.Errorf("invalid %s payload", operation)
 		}
 	default:
 		name := ""

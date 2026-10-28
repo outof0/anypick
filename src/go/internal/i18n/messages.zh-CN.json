@@ -524,7 +524,7 @@
     "description": "Original English text: warning: %s\n"
   },
   "cli.help.root": {
-    "other": "anypick-go — 将 AI 编程客户端连接到你已有的账号\n\n用法：\n  anypick use <client> --with <source> [--profile <name>] [--model <id>] [--transport auto|direct|proxy]\n  anypick run <client> (--with <source>|--profile <name>) -- <args…>   隔离的临时启动\n  anypick current <provider>\n  anypick list providers | accounts [<provider>]\n  anypick models <client> [--with <source>]   查看此连接可用的模型 ID\n  anypick add account <provider> --name <name> [--current|--new] [--source <id>] [--force]\n  anypick add gateway <name> --provider <id> [--endpoint url]\n  anypick add <provider> --name <name> [--force]   （add account --current 的弃用别名）\n  anypick account list|remove|refresh|export|import …\n  anypick account export <provider> <name> [--out <file>] | [<provider>] --all [--out <file>] [--overwrite]\n  anypick account import <provider> <name> <file.json> [--force] | <file.json> [<file2.json> …] [--force]\n  anypick gateway add|list|show|edit|remove|reset …\n  anypick preset list|show|remove …\n  anypick proxy enable|disable|config|start|stop|status|token|restart|logs …\n  anypick proxy pool status|enable|disable|member|start|stop …\n  anypick proxy hub status|enable|source|owner|preview|start|stop|token …\n  anypick plugin list|add|remove|enable|disable|trust …\n  anypick link|unlink <client> [--with <source>] [--dir <path>]   不带 --with 时，link 会重新应用全局配置\n  anypick reset <client>\n  anypick codex profile login|list|show|remove …\n  anypick tui | tray\n  anypick serve [--detach|--stop]   核心服务（状态 API）\n  anypick doctor | update | completion <bash|zsh|fish>\n\n来源：  provider/account · gateway-name · @preset · pool:<provider>\n",
+    "other": "anypick-go — 将 AI 编程客户端连接到你已有的账号\n\n用法：\n  anypick use <client> --with <source> [--profile <name>] [--model <id>] [--transport auto|direct|proxy]\n  anypick run <client> (--with <source>|--profile <name>) -- <args…>   隔离的临时启动\n  anypick current <provider>\n  anypick list providers | accounts [<provider>]\n  anypick models <client> [--with <source>]   查看此连接可用的模型 ID\n  anypick add account <provider> --name <name> [--current|--new] [--source <id>] [--force]\n  anypick add gateway <name> --provider <id> [--endpoint url]\n  anypick add <provider> --name <name> [--force]   （add account --current 的弃用别名）\n  anypick account list|remove|refresh|export|import …\n  anypick account export <provider> <name> [--out <file>] | [<provider>] --all [--out <file>] [--overwrite]\n  anypick account import <provider> <name> <file.json> [--force] | <file.json> [<file2.json> …] [--force]\n  anypick gateway add|list|show|edit|remove|reset …\n  anypick preset list|show|remove …\n  anypick proxy enable|disable|config|start|stop|status|token|restart|logs …\n  anypick proxy pool status|enable|disable|member|start|stop …\n  anypick proxy hub status|enable|source|owner|preview|start|stop|token …\n  anypick plugin list|add|remove|enable|disable|trust …\n  anypick link|unlink <client> [--with <source>] [--dir <path>]   不带 --with 时，link 会重新应用全局配置\n  anypick reset <client>\n  anypick codex profile login|list|show|open|remove …\n  anypick tui | tray\n  anypick serve [--detach|--stop]   核心服务（状态 API）\n  anypick doctor | update | completion <bash|zsh|fish>\n\n来源：  provider/account · gateway-name · @preset · pool:<provider>\n",
     "description": "Original English text: anypick-go — point AI coding clients at accounts you already have\n\nUsage:\n  anypick use <client> --with <source> [--profile <name>] [--model <id>] [--transport auto|direct|proxy]\n "
   },
   "tui.app_status.ready": {
@@ -3350,6 +3350,14 @@
   "desktop.app_detail.edit_profile_help": {
     "other": "更改此配置的名称、账户或模型设置。",
     "description": "Original English text: Change this profile’s name, account, or model settings."
+  },
+  "desktop.app_detail.open_in_codex_app": {
+    "other": "在 Codex 应用中打开",
+    "description": "Original English text: Open in Codex App"
+  },
+  "desktop.app_detail.open_in_codex_app_help": {
+    "other": "打开一个使用此配置的独立 Codex 应用窗口。",
+    "description": "Original English text: Start a separate Codex app window that uses this profile."
   },
   "desktop.app_detail.remove_profile": {
     "other": "移除配置…",

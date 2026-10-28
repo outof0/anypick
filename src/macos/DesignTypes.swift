@@ -420,6 +420,8 @@ struct DesignCodexProfile: Identifiable, Hashable {
   var modelID: String
   var transportPolicy: String
   var launchCommand: String
+  /// The engine can open this profile in the Codex desktop app.
+  var appOpenable: Bool = false
 }
 
 func validCodexProfileName(_ value: String) -> Bool {

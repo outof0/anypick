@@ -12,6 +12,7 @@ import {
 } from '../lib/codex-auto-profiles';
 import {
   missingCodexProfileSources,
+  openCodexProfile,
   removeCodexProfile,
   saveCodexProfile,
   syncCodexProfiles,
@@ -574,6 +575,10 @@ function CodexProfilesBlock({
               language={language}
               resolvedLanguage={resolvedLanguage}
               onEdit={() => setSheetProfile(profile)}
+              onOpen={() => {
+                const action = openCodexProfile(profile.name);
+                service.mutate(action.operation, action.extra);
+              }}
               onRemove={() => {
                 const action = removeCodexProfile(profile.name);
                 service.mutate(action.operation, action.extra);
@@ -689,6 +694,7 @@ function CodexProfileRow({
   language,
   resolvedLanguage,
   onEdit,
+  onOpen,
   onRemove,
 }: {
   profile: CodexProfileRowContract;
@@ -697,6 +703,7 @@ function CodexProfileRow({
   language: string;
   resolvedLanguage: string;
   onEdit: () => void;
+  onOpen: () => void;
   onRemove: () => void;
 }) {
   const provider = codexProfileProvider(profile.sourceId);
@@ -728,6 +735,14 @@ function CodexProfileRow({
         >
           {(close) => (
             <>
+              {profile.appOpenable ? (
+                <MenuItem onSelect={() => {
+                    close();
+                    onOpen();
+                  }}>
+                  {t('open_in_codex_app')}
+                </MenuItem>
+              ) : null}
               <MenuItem onSelect={() => {
                   close();
                   onEdit();

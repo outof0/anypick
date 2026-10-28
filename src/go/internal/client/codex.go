@@ -258,6 +258,7 @@ func CodexProfilePaths(home, root, name string) []string {
 		CodexProfileAuthPath(root, name),
 		CodexProfileEnvPath(root, name),
 		codexProfileRestorePath(root, name),
+		CodexProfileAppConfigPath(root, name),
 	}
 }
 
@@ -883,6 +884,9 @@ func (a *codexAdapter) ResetProfile(name string) error {
 		CodexProfileAuthPath(root, name),
 		CodexProfileEnvPath(root, name),
 		codexProfileRestorePath(root, name),
+		// The desktop app's copy of the route carries the same bearer
+		// token as the env file.
+		CodexProfileAppConfigPath(root, name),
 	} {
 		if removeErr := os.Remove(generated); removeErr != nil && !os.IsNotExist(removeErr) {
 			return removeErr
@@ -940,7 +944,10 @@ func (a *codexAdapter) RemoveProfileFiles(name string) error {
 	if err := a.ResetProfile(name); err != nil {
 		return err
 	}
-	return os.RemoveAll(CodexProfileHomePath(a.profileRoot(), name))
+	if err := os.RemoveAll(CodexProfileHomePath(a.profileRoot(), name)); err != nil {
+		return err
+	}
+	return os.RemoveAll(CodexProfileAppUserDataPath(a.profileRoot(), name))
 }
 
 // InspectProfile verifies the file selected by Codex's --profile flag rather
