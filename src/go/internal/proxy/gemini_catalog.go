@@ -312,18 +312,14 @@ func fetchGeminiCatalogFromGoogle(ctx context.Context, base, apiKey string) (*ge
 
 // codeAssistCatalogResponse is the fetchAvailableModels payload.
 type codeAssistCatalogResponse struct {
-	Models              map[string]codeAssistModelDetails `json:"models"`
-	DefaultAgentModelID string                            `json:"defaultAgentModelId"`
-	AgentModelSorts     []struct {
-		Groups []struct {
-			ModelIDs []interface{} `json:"modelIds"`
-		} `json:"groups"`
-	} `json:"agentModelSorts"`
+	Models map[string]codeAssistModelDetails `json:"models"`
+	// TieredModelIDs names the route behind each of the IDE's tiers
+	// ("pro", "flash", "flashLite").
+	TieredModelIDs map[string][]interface{} `json:"tieredModelIds"`
 }
 
 type codeAssistModelDetails struct {
 	DisplayName   interface{} `json:"displayName"`
-	Recommended   interface{} `json:"recommended"`
 	Disabled      interface{} `json:"disabled"`
 	APIProvider   interface{} `json:"apiProvider"`
 	ModelProvider interface{} `json:"modelProvider"`
@@ -362,16 +358,64 @@ func fetchGeminiCatalogFromCodeAssist(ctx context.Context, base, token, project,
 	if err := json.Unmarshal(raw, &body); err != nil {
 		return nil, fmt.Errorf("decode code assist catalog: %w", err)
 	}
-	return parseCodeAssistCatalog(body), nil
+	cat := parseCodeAssistCatalog(body)
+	if len(cat.Models) == 0 {
+		// An empty list answered as success leaves /v1/models with nothing
+		// and a client with no default; quota metadata still names the
+		// account's real ids.
+		quota, qerr := fetchGeminiCatalogFromCodeAssistQuota(ctx, client, base, token, project,
+			"fetchAvailableModels listed no usable model")
+		if qerr != nil {
+			return nil, qerr
+		}
+		quota.TierRoutes = cat.TierRoutes
+		return quota, nil
+	}
+	return cat, nil
 }
 
+// parseCodeAssistCatalog lists what Antigravity's picker offers, taken from
+// Google's data alone: the routes of the pro and flash tiers, under the id
+// Google itself uses (the catalog key, and the modelVersion a response
+// reports, e.g. gemini-3.8-flash-tiered). The app's own labels and ids
+// ("Gemini 3.8 Flash (High)", gemini-3.8-flash-high) are compiled into each
+// Antigravity release; copying them would make every new model wait for an
+// AnyPick release, while a re-pointed tier is picked up on the next refresh.
+// The rest of the catalog (IDE helpers, the flash-lite tier the IDE uses for
+// commit messages and search, image generation) is not listed but stays
+// callable by exact id.
 func parseCodeAssistCatalog(body codeAssistCatalogResponse) *gemini.GeminiModelCatalog {
-	byID := map[string]gemini.GeminiModelDescriptor{}
-	rawToCanonical := map[string]string{}
-	available := map[string]bool{}
+	tiers := codeAssistTierRoutes(body)
+	models := make([]gemini.GeminiModelDescriptor, 0, 2)
+	seen := map[string]bool{}
+	for _, intent := range []gemini.GeminiModelIntent{gemini.IntentQuality, gemini.IntentFast} {
+		id := tiers[intent]
+		if id == "" || seen[id] {
+			continue
+		}
+		seen[id] = true
+		models = append(models, gemini.GeminiModelDescriptor{ID: id, UpstreamID: id})
+	}
+	if len(models) == 0 {
+		// A catalog without tiers names no picker model; the named Google
+		// models are the only list left. The caller falls back to quota
+		// metadata when this is empty too.
+		models = codeAssistNamedModels(body)
+	}
+	// Newest first, as model pickers list them: a client takes its first
+	// entry as the default.
+	sort.Slice(models, func(i, j int) bool {
+		return gemini.CompareGeminiModelIDs(models[i].ID, models[j].ID) < 0
+	})
+	return &gemini.GeminiModelCatalog{Models: models, TierRoutes: tiers}
+}
+
+func codeAssistNamedModels(body codeAssistCatalogResponse) []gemini.GeminiModelDescriptor {
+	var models []gemini.GeminiModelDescriptor
 	for rawID, details := range body.Models {
 		id := strings.TrimPrefix(strings.TrimSpace(rawID), "models/")
-		if id == "" || isTrue(details.Disabled) {
+		name, _ := details.DisplayName.(string)
+		if id == "" || strings.TrimSpace(name) == "" || isTrue(details.Disabled) {
 			continue
 		}
 		if s, ok := details.APIProvider.(string); ok && s != "" && s != "API_PROVIDER_GOOGLE_GEMINI" {
@@ -380,89 +424,50 @@ func parseCodeAssistCatalog(body codeAssistCatalogResponse) *gemini.GeminiModelC
 		if s, ok := details.ModelProvider.(string); ok && s != "" && s != "MODEL_PROVIDER_GOOGLE" {
 			continue
 		}
-		canonicalID := codeAssistPublicModelID(id)
-		d := gemini.GeminiModelDescriptor{ID: canonicalID, UpstreamID: id}
-		if s, ok := details.DisplayName.(string); ok && s != "" {
-			d.DisplayName = codeAssistPublicDisplayName(s)
-		}
-		if isTrue(details.Recommended) {
-			d.Recommended = true
-		}
-		if existing, ok := byID[canonicalID]; !ok || preferCodeAssistModel(d, existing) {
-			byID[canonicalID] = d
-		}
-		rawToCanonical[id] = canonicalID
-		available[canonicalID] = true
+		models = append(models, gemini.GeminiModelDescriptor{ID: id, UpstreamID: id, DisplayName: strings.TrimSpace(name)})
 	}
-	if len(byID) == 0 {
-		return &gemini.GeminiModelCatalog{}
-	}
-	models := make([]gemini.GeminiModelDescriptor, 0, len(byID))
-	for _, model := range byID {
-		models = append(models, model)
-	}
-	sort.Slice(models, func(i, j int) bool { return models[i].ID < models[j].ID })
-	preferred := make([]string, 0)
-	for _, sort := range body.AgentModelSorts {
-		for _, group := range sort.Groups {
-			for _, mid := range group.ModelIDs {
-				if s, ok := mid.(string); ok {
-					raw := strings.TrimPrefix(strings.TrimSpace(s), "models/")
-					id := rawToCanonical[raw]
-					if id == "" {
-						id = codeAssistPublicModelID(raw)
-					}
-					if id != "" && available[id] && !containsString(preferred, id) {
-						preferred = append(preferred, id)
-					}
+	return models
+}
+
+// codeAssistTierKeys maps the keys of tieredModelIds to the intents a client
+// already expresses with a friendly name ("flash", "lite", "sonnet", ...).
+var codeAssistTierKeys = map[string]gemini.GeminiModelIntent{
+	"pro":       gemini.IntentQuality,
+	"flash":     gemini.IntentFast,
+	"flashLite": gemini.IntentLite,
+}
+
+// codeAssistTierRoutes reads the route the IDE uses for each tier. A route is
+// kept even when it is absent from models: it is the vendor's own answer to
+// "which model serves Flash", and generateContent accepts it. A route the
+// catalog marks disabled is skipped, or every friendly name of that tier
+// would be sent to a model the account cannot call.
+func codeAssistTierRoutes(body codeAssistCatalogResponse) map[gemini.GeminiModelIntent]string {
+	tiers := map[gemini.GeminiModelIntent]string{}
+	for key, ids := range body.TieredModelIDs {
+		intent, ok := codeAssistTierKeys[key]
+		if !ok {
+			continue
+		}
+		for _, v := range ids {
+			if s, ok := v.(string); ok {
+				if id := strings.TrimPrefix(strings.TrimSpace(s), "models/"); id != "" && !codeAssistModelDisabled(body, id) {
+					tiers[intent] = id
+					break
 				}
 			}
 		}
 	}
-	out := &gemini.GeminiModelCatalog{Models: models, PreferredModelIDs: preferred}
-	defaultRaw := strings.TrimPrefix(strings.TrimSpace(body.DefaultAgentModelID), "models/")
-	defaultID := rawToCanonical[defaultRaw]
-	if defaultID == "" {
-		defaultID = codeAssistPublicModelID(defaultRaw)
+	if len(tiers) == 0 {
+		return nil
 	}
-	if defaultID != "" && available[defaultID] {
-		out.DefaultModelID = defaultID
-	}
-	return out
+	return tiers
 }
 
-// codeAssistPublicModelID hides the Code Assist-only "-tiered" route suffix
-// from clients while descriptors keep the original as UpstreamID for egress.
-func codeAssistPublicModelID(id string) string {
-	id = strings.TrimSpace(id)
-	lower := strings.ToLower(id)
-	if strings.HasPrefix(lower, "gemini-") && strings.HasSuffix(lower, "-tiered") {
-		return id[:len(id)-len("-tiered")]
-	}
-	return id
-}
-
-func codeAssistPublicDisplayName(name string) string {
-	trimmed := strings.TrimSpace(name)
-	lower := strings.ToLower(trimmed)
-	for _, suffix := range []string{" (tiered)", " tiered"} {
-		if strings.HasSuffix(lower, suffix) {
-			return strings.TrimSpace(trimmed[:len(trimmed)-len(suffix)])
-		}
-	}
-	return trimmed
-}
-
-func preferCodeAssistModel(candidate, existing gemini.GeminiModelDescriptor) bool {
-	// An exact public ID should win over an internal tiered alias when both
-	// are advertised. Otherwise the tiered route keeps its internal ID solely
-	// for the upstream request while clients see the canonical family name.
-	candidateCanonical := candidate.ID == candidate.UpstreamID
-	existingCanonical := existing.ID == existing.UpstreamID
-	if candidateCanonical != existingCanonical {
-		return candidateCanonical
-	}
-	return candidate.Recommended && !existing.Recommended
+// codeAssistModelDisabled reports whether the catalog marks id disabled. Keys
+// arrive both bare and as models/<id>.
+func codeAssistModelDisabled(body codeAssistCatalogResponse, id string) bool {
+	return isTrue(body.Models[id].Disabled) || isTrue(body.Models["models/"+id].Disabled)
 }
 
 // fetchGeminiCatalogFromCodeAssistQuota is the partial fallback when
@@ -523,32 +528,8 @@ func fetchGeminiCatalogFromCodeAssistQuota(ctx context.Context, client *http.Cli
 			add(v["name"])
 		}
 	}
-	return &gemini.GeminiModelCatalog{Models: normalizeCodeAssistCatalogModels(models)}, nil
-}
-
-func normalizeCodeAssistCatalogModels(rawModels []gemini.GeminiModelDescriptor) []gemini.GeminiModelDescriptor {
-	byID := make(map[string]gemini.GeminiModelDescriptor, len(rawModels))
-	for _, raw := range rawModels {
-		id := strings.TrimSpace(raw.ID)
-		if id == "" {
-			continue
-		}
-		canonicalID := codeAssistPublicModelID(id)
-		raw.ID = canonicalID
-		if strings.TrimSpace(raw.UpstreamID) == "" {
-			raw.UpstreamID = id
-		}
-		raw.DisplayName = codeAssistPublicDisplayName(raw.DisplayName)
-		if existing, ok := byID[canonicalID]; !ok || preferCodeAssistModel(raw, existing) {
-			byID[canonicalID] = raw
-		}
-	}
-	out := make([]gemini.GeminiModelDescriptor, 0, len(byID))
-	for _, model := range byID {
-		out = append(out, model)
-	}
-	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
-	return out
+	sort.Slice(models, func(i, j int) bool { return models[i].ID < models[j].ID })
+	return &gemini.GeminiModelCatalog{Models: models}, nil
 }
 
 func containsString(xs []string, s string) bool {

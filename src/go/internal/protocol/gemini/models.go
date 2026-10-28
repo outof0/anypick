@@ -8,10 +8,12 @@ import (
 // GeminiModelIntent is the friendly intent a client name maps to.
 type GeminiModelIntent string
 
+// Intents a friendly client name maps to. Code Assist's tieredModelIds use
+// the same three tiers, so a catalog can name the vendor's route for each.
 const (
-	intentQuality GeminiModelIntent = "quality"
-	intentFast    GeminiModelIntent = "fast"
-	intentLite    GeminiModelIntent = "lite"
+	IntentQuality GeminiModelIntent = "quality"
+	IntentFast    GeminiModelIntent = "fast"
+	IntentLite    GeminiModelIntent = "lite"
 )
 
 // GeminiModelResolution keeps the client-facing model id separate from the
@@ -26,8 +28,7 @@ type GeminiModelResolution struct {
 // GeminiModelDescriptor is one catalog entry.
 type GeminiModelDescriptor struct {
 	ID string
-	// UpstreamID preserves an OAuth provider's internal route name when ID is
-	// normalized for clients (for example, gemini-3.8-flash-tiered).
+	// UpstreamID is the id sent to the provider when it differs from ID.
 	UpstreamID  string
 	DisplayName string
 	Recommended bool
@@ -38,6 +39,9 @@ type GeminiModelCatalog struct {
 	Models            []GeminiModelDescriptor
 	DefaultModelID    string
 	PreferredModelIDs []string
+	// TierRoutes is the upstream route the vendor uses for each intent. A
+	// route is not listed in Models: clients reach it by intent only.
+	TierRoutes map[GeminiModelIntent]string
 }
 
 // ModelCatalogInput accepts either a bare id list or a structured catalog.
@@ -99,7 +103,23 @@ func ResolveGeminiModel(requested string, available ModelCatalogInput, effort st
 			return resolutionForDescriptor(alias, id, ternary(alias.ID != defaultAlias.ID, "effort", "alias"))
 		}
 
+		// AnyPick 1.1.x saved tier routes with Google's "-tiered" cut off
+		// (gemini-3.8-flash) in bindings and client configs. Google never
+		// published that id, so it is read back as the route it was cut from,
+		// and only while the live catalog still names that route. No new id
+		// is ever derived this way.
+		for _, route := range catalog.TierRoutes {
+			if strings.EqualFold(route, id+"-tiered") {
+				return GeminiModelResolution{ID: id, UpstreamID: route, Remapped: true, Reason: "legacy"}
+			}
+		}
+
 		intent := modelIntent(id)
+		if route := catalog.TierRoutes[intent]; intent != "" && route != "" {
+			// The client keeps the name it asked for; only egress uses the
+			// vendor's tier route.
+			return GeminiModelResolution{ID: id, UpstreamID: route, Remapped: true, Reason: "intent"}
+		}
 		if intent == "" {
 			// Unknown concrete ids are intentionally not rejected; the live
 			// catalog can be stale during a rollout.
@@ -120,7 +140,7 @@ func ResolveGeminiModel(requested string, available ModelCatalogInput, effort st
 		}
 	}
 	if selected == "" {
-		selected = SelectGeminiModel(ids, intentQuality)
+		selected = SelectGeminiModel(ids, IntentQuality)
 	}
 	if selected != "" {
 		return resolutionForCatalogID(selected, catalog, "", "default")
@@ -300,11 +320,11 @@ func SelectGeminiModel(available []string, intent GeminiModelIntent) string {
 	sortGeminiModelIDs(ranked)
 	for _, id := range ranked {
 		switch intent {
-		case intentLite:
+		case IntentLite:
 			if modelIDHas(id, "lite") {
 				return id
 			}
-		case intentFast:
+		case IntentFast:
 			if modelIDHas(id, "flash") && !modelIDHas(id, "lite") {
 				return id
 			}
@@ -315,13 +335,13 @@ func SelectGeminiModel(available []string, intent GeminiModelIntent) string {
 		}
 	}
 	switch intent {
-	case intentLite:
+	case IntentLite:
 		for _, id := range ranked {
 			if modelIDHas(id, "flash") {
 				return id
 			}
 		}
-	case intentFast:
+	case IntentFast:
 		for _, id := range ranked {
 			if modelIDHas(id, "lite") {
 				return id
@@ -352,15 +372,15 @@ func modelIntent(model string) GeminiModelIntent {
 		return ""
 	}
 	if id == "lite" || id == "haiku" || strings.Contains(id, "lite") {
-		return intentLite
+		return IntentLite
 	}
 	if id == "flash" || id == "mini" || strings.Contains(id, "flash") || strings.Contains(id, "mini") || id == "fast" {
-		return intentFast
+		return IntentFast
 	}
 	if id == "gemini" || id == "auto" || strings.Contains(id, "latest") ||
 		strings.Contains(id, "pro") || strings.Contains(id, "sonnet") ||
 		strings.Contains(id, "opus") || strings.HasPrefix(id, "gpt") || strings.Contains(id, "codex") {
-		return intentQuality
+		return IntentQuality
 	}
 	return ""
 }

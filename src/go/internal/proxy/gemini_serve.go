@@ -130,7 +130,9 @@ func serveGemini(w http.ResponseWriter, r *http.Request, up *Upstream) {
 
 // translateToGemini routes the inbound body to the right converter and returns
 // the Gemini request, the resolved model id, and whether the client asked for
-// streaming. Model resolution consults the live account catalog
+// streaming. Converters get the upstream id: thinking config depends on the
+// model generation, and a tier intent ("flash") names none until it is
+// resolved to the vendor's route. Model resolution consults the live account catalog
 // (liveGeminiCatalog) and falls back to the empty-catalog passthrough for
 // unknown concrete ids.
 func translateToGemini(up *Upstream, ctx context.Context, path string, body []byte) (*gemini.GeminiGenerateRequest, string, string, bool, error) {
@@ -142,14 +144,14 @@ func translateToGemini(up *Upstream, ctx context.Context, path string, body []by
 			return nil, "", "", false, fmt.Errorf("invalid OpenAI chat body: %w", err)
 		}
 		model := gemini.ResolveGeminiModel(req.Model, catalog, stringFromEffort(req))
-		return gemini.OpenAIToGemini(req, model.ID), model.ID, model.UpstreamID, req.Stream, nil
+		return gemini.OpenAIToGemini(req, model.UpstreamID), model.ID, model.UpstreamID, req.Stream, nil
 	case "/v1/responses":
 		var req gemini.OpenAIResponsesRequest
 		if err := json.Unmarshal(body, &req); err != nil {
 			return nil, "", "", false, fmt.Errorf("invalid OpenAI responses body: %w", err)
 		}
 		model := gemini.ResolveGeminiModel(req.Model, catalog, "")
-		return gemini.OpenAIResponsesToGemini(req, model.ID), model.ID, model.UpstreamID, req.Stream, nil
+		return gemini.OpenAIResponsesToGemini(req, model.UpstreamID), model.ID, model.UpstreamID, req.Stream, nil
 	case "/v1/messages":
 		var req gemini.AnthropicMessageRequest
 		if err := json.Unmarshal(body, &req); err != nil {
@@ -159,7 +161,7 @@ func translateToGemini(up *Upstream, ctx context.Context, path string, body []by
 			return nil, "", "", false, fmt.Errorf("model is required")
 		}
 		model := gemini.ResolveGeminiModel(req.Model, catalog, stringFromAnthropicEffort(req))
-		g, _, err := gemini.AnthropicToGemini(body, model.ID)
+		g, _, err := gemini.AnthropicToGemini(body, model.UpstreamID)
 		if err != nil {
 			return nil, "", "", false, err
 		}
