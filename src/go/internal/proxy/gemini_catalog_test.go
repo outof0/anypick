@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -142,18 +143,22 @@ func TestLiveGeminiCatalogCachesAndFallsBack(t *testing.T) {
 }
 
 // The shape below is trimmed from a live Antigravity fetchAvailableModels
-// response. Antigravity's picker shows the route of its flash (and pro) tier,
-// labelled from names compiled into the app; the rest of the catalog backs
-// IDE helpers, commit messages, search and image generation.
+// response (October 2026). Both the pro and flash tiers route to one flash
+// model, so the picker also lists the Gemini models Google recommends by name;
+// the rest of the catalog backs IDE helpers, commit messages, search and image
+// generation. gemini-2.5-flash really is named "Gemini 3.5 Flash Lite".
 func TestParseCodeAssistCatalogListsTierRoutes(t *testing.T) {
 	var body codeAssistCatalogResponse
 	if err := json.Unmarshal([]byte(`{
 		"models": {
-			"gemini-2.5-pro":   {"displayName": "Gemini 2.5 Pro", "modelProvider": "MODEL_PROVIDER_GOOGLE", "apiProvider": "API_PROVIDER_GOOGLE_GEMINI"},
+			"gemini-2.5-pro":   {"displayName": "Gemini 2.5 Pro", "recommended": true, "modelProvider": "MODEL_PROVIDER_GOOGLE", "apiProvider": "API_PROVIDER_GOOGLE_GEMINI"},
+			"gemini-2.5-flash": {"displayName": "Gemini 3.5 Flash Lite", "recommended": true, "modelProvider": "MODEL_PROVIDER_GOOGLE", "apiProvider": "API_PROVIDER_GOOGLE_GEMINI"},
+			"gemini-3.1-flash-lite": {"displayName": "Gemini 3.1 Flash Lite", "recommended": true, "modelProvider": "MODEL_PROVIDER_GOOGLE", "apiProvider": "API_PROVIDER_GOOGLE_GEMINI"},
 			"gemini-3-flash":   {"displayName": "Gemini 3 Flash", "recommended": true, "modelProvider": "MODEL_PROVIDER_GOOGLE", "apiProvider": "API_PROVIDER_GOOGLE_GEMINI"},
 			"gemini-3.5-flash-lite": {"displayName": "Gemini 3.5 Flash Lite", "modelProvider": "MODEL_PROVIDER_GOOGLE", "apiProvider": "API_PROVIDER_GOOGLE_GEMINI"},
 			"gemini-3.8-flash-tiered": {"recommended": true, "modelProvider": "MODEL_PROVIDER_GOOGLE", "apiProvider": "API_PROVIDER_GOOGLE_GEMINI"},
-			"gemini-3.1-flash-image": {"displayName": "Gemini 3.1 Flash Image", "modelProvider": "MODEL_PROVIDER_GOOGLE", "apiProvider": "API_PROVIDER_GOOGLE_GEMINI"},
+			"gemini-3.1-flash-image": {"displayName": "Gemini 3.1 Flash Image", "recommended": true, "modelProvider": "MODEL_PROVIDER_GOOGLE", "apiProvider": "API_PROVIDER_GOOGLE_GEMINI"},
+			"gemini-3-internal":      {"displayName": "Gemini 3 Internal", "recommended": true, "isInternal": true, "modelProvider": "MODEL_PROVIDER_GOOGLE", "apiProvider": "API_PROVIDER_GOOGLE_GEMINI"},
 			"tab_flash_lite_preview": {"modelProvider": "MODEL_PROVIDER_GOOGLE", "apiProvider": "API_PROVIDER_GOOGLE_GEMINI"},
 			"chat_20706": {"isInternal": true, "modelProvider": "MODEL_PROVIDER_GOOGLE", "apiProvider": "API_PROVIDER_INTERNAL"},
 			"claude-sonnet-4-6": {"displayName": "Claude Sonnet 4.6 (Thinking)", "modelProvider": "MODEL_PROVIDER_ANTHROPIC", "apiProvider": "API_PROVIDER_ANTHROPIC_VERTEX"}
@@ -167,13 +172,19 @@ func TestParseCodeAssistCatalogListsTierRoutes(t *testing.T) {
 	}
 	cat := parseCodeAssistCatalog(body)
 
-	if len(cat.Models) != 1 || cat.Models[0].ID != "gemini-3.8-flash-tiered" ||
-		cat.Models[0].UpstreamID != "gemini-3.8-flash-tiered" {
-		t.Fatalf("models = %+v, want only the pro/flash route under Google's own id", cat.Models)
+	var ids []string
+	for _, m := range cat.Models {
+		if m.UpstreamID != m.ID {
+			t.Fatalf("%s sent upstream as %s, want Google's own id", m.ID, m.UpstreamID)
+		}
+		ids = append(ids, m.ID)
+	}
+	if want := []string{"gemini-3.8-flash-tiered", "gemini-3-flash", "gemini-2.5-pro"}; !reflect.DeepEqual(ids, want) {
+		t.Fatalf("models = %v, want the tier route then Google's recommended Gemini models, newest first: %v", ids, want)
 	}
 	// Unlisted ids stay callable as themselves.
-	if got := gemini.ResolveGeminiModel("gemini-2.5-pro", cat, ""); got.UpstreamID != "gemini-2.5-pro" {
-		t.Fatalf("gemini-2.5-pro resolved to %+v", got)
+	if got := gemini.ResolveGeminiModel("gemini-3.1-flash-lite", cat, ""); got.UpstreamID != "gemini-3.1-flash-lite" {
+		t.Fatalf("gemini-3.1-flash-lite resolved to %+v", got)
 	}
 	tiers := map[gemini.GeminiModelIntent]string{
 		gemini.IntentFast:    "gemini-3.8-flash-tiered",
