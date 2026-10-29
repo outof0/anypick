@@ -170,12 +170,7 @@ func seedCodexAppGlobalState(mainHome, profileHome string) error {
 	seededPath := filepath.Join(profileHome, codexAppSeededFile)
 	seeded := map[string]any{}
 	_ = readJSONIfExists(seededPath, &seeded) // unreadable reads as never seeded
-	for _, key := range codexAppMergedStateKeys {
-		if v, ok := main[key]; ok {
-			state[key] = mergeCodexStateValue(v, state[key], stringSet(seeded[key]))
-			seeded[key] = codexStateIDs(v)
-		}
-	}
+	next, pending := mergeCodexAppProjects(main, state, seeded)
 	profileHost := "local:" + profileHome
 	for _, key := range codexAppHostKeyedStateKeys {
 		byHost, _ := main[key].(map[string]any)
@@ -192,6 +187,14 @@ func seedCodexAppGlobalState(mainHome, profileHome string) error {
 	}
 	state["electron-persisted-atom-state"] = atoms
 
+	// The record is written first with this round's ids and the earlier ones
+	// together, so a failed state write cannot leave copied ids unrecorded
+	// (they would then read as the profile's own and never leave). Over-
+	// recording only drops ids the main app no longer has. The exact record
+	// replaces it once the state is written.
+	if err := writeCodexSeeded(seededPath, pending); err != nil {
+		return err
+	}
 	out, err := json.Marshal(state)
 	if err != nil {
 		return err
@@ -199,10 +202,7 @@ func seedCodexAppGlobalState(mainHome, profileHome string) error {
 	if err := atomicfile.Write(path, out, 0o600); err != nil {
 		return err
 	}
-	if out, err = json.Marshal(seeded); err != nil {
-		return err
-	}
-	if err := atomicfile.Write(seededPath, out, 0o600); err != nil {
+	if err := writeCodexSeeded(seededPath, next); err != nil {
 		return err
 	}
 	// The app keeps a .bak beside the file; a stale one must not be what it
@@ -252,6 +252,74 @@ func mergeCodexStateValue(main, profile any, copied map[string]bool) any {
 		return out
 	}
 	return main
+}
+
+// mergeCodexAppProjects merges the main app's project collections into the
+// profile state and returns two records of the ids copied from main: next is
+// this round's exact set, pending adds the earlier copied ids to it.
+func mergeCodexAppProjects(main, state, seeded map[string]any) (next, pending map[string]any) {
+	own := codexProfileOwnProjects(main, state)
+	next = make(map[string]any, len(codexAppMergedStateKeys))
+	pending = make(map[string]any, len(codexAppMergedStateKeys))
+	for _, key := range codexAppMergedStateKeys {
+		v, ok := main[key]
+		if !ok {
+			// Nothing to merge this round; the earlier record still says
+			// which profile ids came from the main app.
+			if prev, recorded := seeded[key]; recorded {
+				next[key], pending[key] = prev, prev
+			}
+			continue
+		}
+		copied := stringSet(seeded[key])
+		if _, recorded := seeded[key]; !recorded && codexAppFormerlyCopiedKeys[key] {
+			copied = codexIDsExcept(state[key], own)
+		}
+		state[key] = mergeCodexStateValue(v, state[key], copied)
+		next[key] = codexStateIDs(v)
+		pending[key] = codexStateIDs(v)
+		for id := range copied {
+			pending[key] = append(pending[key].([]any), id)
+		}
+	}
+	return next, pending
+}
+
+// codexAppFormerlyCopiedKeys were copied wholesale before the seeded record
+// existed (1.2.0). With no record yet, their ids in the profile came from the
+// main app, except projects only the profile has.
+var codexAppFormerlyCopiedKeys = map[string]bool{"project-order": true, "pinned-project-ids": true}
+
+// codexProfileOwnProjects are the project ids in the profile's local-projects
+// that the main app does not have: projects opened in the profile window.
+func codexProfileOwnProjects(main, profile map[string]any) map[string]bool {
+	mainProjects, _ := main["local-projects"].(map[string]any)
+	profileProjects, _ := profile["local-projects"].(map[string]any)
+	own := map[string]bool{}
+	for id := range profileProjects {
+		if _, shared := mainProjects[id]; !shared {
+			own[id] = true
+		}
+	}
+	return own
+}
+
+func codexIDsExcept(v any, keep map[string]bool) map[string]bool {
+	out := map[string]bool{}
+	for _, id := range codexStateIDs(v) {
+		if s := id.(string); !keep[s] {
+			out[s] = true
+		}
+	}
+	return out
+}
+
+func writeCodexSeeded(path string, seeded map[string]any) error {
+	out, err := json.Marshal(seeded)
+	if err != nil {
+		return err
+	}
+	return atomicfile.Write(path, out, 0o600)
 }
 
 // codexStateIDs lists the ids a collection holds: a map's keys or a list's

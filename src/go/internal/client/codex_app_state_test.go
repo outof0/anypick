@@ -309,7 +309,7 @@ func TestShareCodexMainStateMergesProjectListsKeepingTheProfiles(t *testing.T) {
 			"local-s": map[string]any{"id": "local-s", "name": "from-main"},
 		},
 		"thread-project-assignments": map[string]any{"t1": map[string]any{"projectId": "local-a"}},
-		"project-order":              []any{"p1", "p2"},
+		"project-order":              []any{"local-a", "local-s"},
 		"projectless-thread-ids":     []any{"t9"},
 	})
 	writeJSON(t, statePath, map[string]any{
@@ -318,7 +318,7 @@ func TestShareCodexMainStateMergesProjectListsKeepingTheProfiles(t *testing.T) {
 			"local-s":   map[string]any{"id": "local-s", "name": "stale"},
 		},
 		"thread-project-assignments": map[string]any{"t2": map[string]any{"projectId": "local-own"}},
-		"project-order":              []any{"p2", "p3"},
+		"project-order":              []any{"local-s", "local-own"},
 	})
 
 	if err := ShareCodexMainState(root, "work", mainHome, false); err != nil {
@@ -333,7 +333,7 @@ func TestShareCodexMainStateMergesProjectListsKeepingTheProfiles(t *testing.T) {
 	if assigned := state["thread-project-assignments"].(map[string]any); assigned["t1"] == nil || assigned["t2"] == nil {
 		t.Fatalf("thread-project-assignments = %v", assigned)
 	}
-	if !reflect.DeepEqual(state["project-order"], []any{"p1", "p2", "p3"}) {
+	if !reflect.DeepEqual(state["project-order"], []any{"local-a", "local-s", "local-own"}) {
 		t.Fatalf("project-order = %v", state["project-order"])
 	}
 	if !reflect.DeepEqual(state["projectless-thread-ids"], []any{"t9"}) {
@@ -399,5 +399,65 @@ func TestMergeCodexStateValueTakesMainOnShapeMismatch(t *testing.T) {
 	main := map[string]any{"a": 1.0}
 	if got := mergeCodexStateValue(main, []any{"x"}, nil); !reflect.DeepEqual(got, main) {
 		t.Fatalf("got %v", got)
+	}
+}
+
+// A profile 1.2.0 seeded has the main app's pins and order copied in with no
+// record of it. On the first open since, those ids count as copied, so what
+// the main app unpinned or removed leaves; a project the profile window
+// opened itself keeps its place.
+func TestShareCodexMainStateUpgradesAProfileSeededWithoutARecord(t *testing.T) {
+	root, mainHome := t.TempDir(), newMainHome(t)
+	writeProfileConfig(t, root, "work", "model_provider = \"anypick\"\n")
+	if err := WriteCodexProfileAppConfig(root, "work"); err != nil {
+		t.Fatal(err)
+	}
+	statePath := filepath.Join(CodexProfileHomePath(root, "work"), codexAppGlobalStateFile)
+	writeJSON(t, filepath.Join(mainHome, codexAppGlobalStateFile), map[string]any{
+		"local-projects":     map[string]any{"A": map[string]any{"id": "A"}, "B": map[string]any{"id": "B"}},
+		"pinned-project-ids": []any{"A"},
+		"project-order":      []any{"A", "B"},
+	})
+	writeJSON(t, statePath, map[string]any{
+		"local-projects":     map[string]any{"OWN": map[string]any{"id": "OWN"}},
+		"pinned-project-ids": []any{"A", "B", "OWN"},
+		"project-order":      []any{"A", "B", "GONE", "OWN"},
+	})
+
+	if err := ShareCodexMainState(root, "work", mainHome, false); err != nil {
+		t.Fatal(err)
+	}
+	state := readGlobalState(t, statePath)
+	if !reflect.DeepEqual(state["pinned-project-ids"], []any{"A", "OWN"}) {
+		t.Fatalf("pinned-project-ids = %v", state["pinned-project-ids"])
+	}
+	if !reflect.DeepEqual(state["project-order"], []any{"A", "B", "OWN"}) {
+		t.Fatalf("project-order = %v", state["project-order"])
+	}
+}
+
+// An open while the main app's state lacks a key keeps that key's record, so
+// an entry it copied still leaves once the main app removes it.
+func TestShareCodexMainStateKeepsTheRecordWhenMainOmitsAKey(t *testing.T) {
+	root, mainHome := t.TempDir(), newMainHome(t)
+	writeProfileConfig(t, root, "work", "model_provider = \"anypick\"\n")
+	if err := WriteCodexProfileAppConfig(root, "work"); err != nil {
+		t.Fatal(err)
+	}
+	mainPath := filepath.Join(mainHome, codexAppGlobalStateFile)
+	statePath := filepath.Join(CodexProfileHomePath(root, "work"), codexAppGlobalStateFile)
+	writeJSON(t, statePath, map[string]any{})
+	for _, main := range []map[string]any{
+		{"thread-project-assignments": map[string]any{"t1": map[string]any{"projectId": "A"}}},
+		{},
+		{"thread-project-assignments": map[string]any{}},
+	} {
+		writeJSON(t, mainPath, main)
+		if err := ShareCodexMainState(root, "work", mainHome, false); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if assigned := readGlobalState(t, statePath)["thread-project-assignments"].(map[string]any); len(assigned) != 0 {
+		t.Fatalf("thread-project-assignments = %v", assigned)
 	}
 }
