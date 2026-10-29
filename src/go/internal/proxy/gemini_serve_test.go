@@ -11,6 +11,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/outof0/anypick/go/internal/protocol/gemini"
 )
 
 // geminiMock echoes a canned generateContent response and records what it
@@ -631,4 +633,34 @@ func TestGeminiServeResolvesAliasFromLiveCatalog(t *testing.T) {
 	if !sawGenerateContent {
 		t.Fatalf("no generateContent call recorded; paths=%v", paths)
 	}
+}
+
+// Codex reads the completed item from response.output_item.done and drops a
+// reasoning item that has no summary field. The one carrying a tool call's
+// thought signature has no summary text, so it must still arrive with
+// "summary":[] or Gemini rejects the next tool turn.
+func TestResponsesStreamDoneEventKeepsTheToolSignatureCarrier(t *testing.T) {
+	res := &gemini.GeminiGenerateResponse{Candidates: []gemini.GeminiCandidate{{Content: &gemini.GeminiContent{Role: "model", Parts: []gemini.GeminiPart{
+		{Text: "I will check the date."},
+		{FunctionCall: &gemini.GeminiFunctionCall{Name: "exec_command", Args: map[string]interface{}{"cmd": "date"}}, ThoughtSignature: "sig-1"},
+	}}}}}
+	rec := httptest.NewRecorder()
+	writeOpenAIResponsesStream(rec, gemini.GeminiToOpenAIResponses(res, "gemini-3.8-flash-tiered"))
+	for _, line := range strings.Split(rec.Body.String(), "\n") {
+		data, ok := strings.CutPrefix(line, "data: ")
+		if !ok || !strings.Contains(data, `"response.output_item.done"`) || !strings.Contains(data, "sig-1") {
+			continue
+		}
+		var event struct {
+			Item map[string]json.RawMessage `json:"item"`
+		}
+		if err := json.Unmarshal([]byte(data), &event); err != nil {
+			t.Fatal(err)
+		}
+		if string(event.Item["type"]) != `"reasoning"` || string(event.Item["summary"]) != "[]" {
+			t.Fatalf("done item = %s", data)
+		}
+		return
+	}
+	t.Fatalf("no output_item.done carries the signature:\n%s", rec.Body.String())
 }
