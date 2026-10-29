@@ -16,6 +16,23 @@ const (
 	IntentLite    GeminiModelIntent = "lite"
 )
 
+// tieredSuffix ends the id Code Assist gives a tier route
+// (gemini-3.8-flash-tiered).
+const tieredSuffix = "-tiered"
+
+// DisplayModelID is the label a model picker shows for id: a tier route
+// without Google's "-tiered" suffix, any other id unchanged. It is a label
+// only. The id a client sends stays the route itself. Typed by hand, the
+// shortened form resolves back to the route only while the account's live
+// catalog names it as a tier route (ResolveGeminiModel's legacy case).
+func DisplayModelID(id string) string {
+	if len(id) > len(tieredSuffix) && strings.HasPrefix(strings.ToLower(id), "gemini-") &&
+		strings.EqualFold(id[len(id)-len(tieredSuffix):], tieredSuffix) {
+		return id[:len(id)-len(tieredSuffix)]
+	}
+	return id
+}
+
 // GeminiModelResolution keeps the client-facing model id separate from the
 // exact endpoint id accepted by an OAuth provider such as Code Assist.
 type GeminiModelResolution struct {
@@ -109,7 +126,7 @@ func ResolveGeminiModel(requested string, available ModelCatalogInput, effort st
 		// and only while the live catalog still names that route. No new id
 		// is ever derived this way.
 		for _, route := range catalog.TierRoutes {
-			if strings.EqualFold(route, id+"-tiered") {
+			if strings.EqualFold(route, id+tieredSuffix) {
 				return GeminiModelResolution{ID: id, UpstreamID: route, Remapped: true, Reason: "legacy"}
 			}
 		}
