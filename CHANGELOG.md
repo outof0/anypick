@@ -6,6 +6,10 @@ Conventional Commits by `changelogithub`, are on
 
 This project follows [Semantic Versioning](https://semver.org/).
 
+## 1.2.1
+
+Restore a missing model-cache column when the database already reports the current schema version, so Codex profiles get their discovered model list again instead of a static fallback list, and the Codex model picker shows Gemini tier routes without Google's `-tiered` suffix. A Codex profile window opened in the Codex app now lists the main app's projects as well as its recent threads. On macOS, row icon buttons (open, show key, rotate key, inspect) no longer look disabled next to Copy.
+
 ## 1.2.0
 
 On macOS, open a Codex profile in its own Codex desktop app window (`anypick codex profile open`), on the main app's projects and sessions with onboarding skipped, or in Terminal with your login shell's `PATH`; a profile with its window open cannot be removed. Gemini accounts now list only the models Antigravity's picker offers, by Google's own ids (the rest stay callable by exact id), and WorkBuddy no longer lists image and video models. Model lists cached under older filter rules are rediscovered.
