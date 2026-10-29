@@ -179,12 +179,15 @@ func TestParseCodeAssistCatalogListsTierRoutes(t *testing.T) {
 		}
 		ids = append(ids, m.ID)
 	}
-	if want := []string{"gemini-3.8-flash-tiered", "gemini-3-flash", "gemini-2.5-pro"}; !reflect.DeepEqual(ids, want) {
-		t.Fatalf("models = %v, want the tier route then Google's recommended Gemini models, newest first: %v", ids, want)
+	if want := []string{"gemini-3.8-flash-tiered", "gemini-3-flash"}; !reflect.DeepEqual(ids, want) {
+		t.Fatalf("models = %v, want the tier route then Google's recommended Gemini 3 models, newest first: %v", ids, want)
 	}
-	// Unlisted ids stay callable as themselves.
-	if got := gemini.ResolveGeminiModel("gemini-3.1-flash-lite", cat, ""); got.UpstreamID != "gemini-3.1-flash-lite" {
-		t.Fatalf("gemini-3.1-flash-lite resolved to %+v", got)
+	// Unlisted ids stay callable as themselves, including the recommended
+	// 2.x model the picker leaves out.
+	for _, id := range []string{"gemini-3.1-flash-lite", "gemini-2.5-pro"} {
+		if got := gemini.ResolveGeminiModel(id, cat, ""); got.UpstreamID != id {
+			t.Fatalf("%s resolved to %+v", id, got)
+		}
 	}
 	tiers := map[gemini.GeminiModelIntent]string{
 		gemini.IntentFast:    "gemini-3.8-flash-tiered",

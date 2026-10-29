@@ -8,7 +8,7 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## 1.2.1
 
-Restore a missing model-cache column when the database already reports the current schema version, so Codex profiles get their discovered model list again instead of a static fallback list, and the Codex model picker shows Gemini tier routes without Google's `-tiered` suffix. A Codex profile window opened in the Codex app now lists the main app's projects as well as its recent threads. Tool calls through a Gemini account no longer fail on the next turn with a missing `thought_signature`, and threads whose tool calls lost their signature under 1.2.0 continue on Gemini 3. Gemini accounts also list Google's recommended models (for example `gemini-3-flash` and `gemini-2.5-pro`) beside the tier route. On macOS, row icon buttons (open, show key, rotate key, inspect) no longer look disabled next to Copy.
+Restore a missing model-cache column when the database already reports the current schema version, so Codex profiles get their discovered model list again instead of a static fallback list, and the Codex model picker shows Gemini tier routes without Google's `-tiered` suffix. A Codex profile window opened in the Codex app now lists the main app's projects as well as its recent threads. Tool calls through a Gemini account no longer fail on the next turn with a missing `thought_signature`, and threads whose tool calls lost their signature under 1.2.0 continue on Gemini 3. Gemini accounts also list Google's recommended Gemini 3 models (for example `gemini-3-flash`) beside the tier route. On macOS, row icon buttons (open, show key, rotate key, inspect) no longer look disabled next to Copy.
 
 ## 1.2.0
 

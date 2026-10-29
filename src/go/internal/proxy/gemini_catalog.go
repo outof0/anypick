@@ -449,7 +449,10 @@ func codeAssistNamedModels(body codeAssistCatalogResponse) []gemini.GeminiModelD
 // agent use: a named, enabled Google Gemini model flagged recommended, other
 // than the lite and image models the IDE keeps for helpers. Lite is read from
 // the id and the name alike, because Google labels some flash ids "Flash
-// Lite" (gemini-2.5-flash is named "Gemini 3.5 Flash Lite").
+// Lite" (gemini-2.5-flash is named "Gemini 3.5 Flash Lite"). Only Gemini 3
+// and newer: the catalog still recommends gemini-2.5-pro, but a subscription
+// account gets "No capacity" or a license error for it, so listing it would
+// offer a model that fails on the first turn.
 func codeAssistRecommendedModels(body codeAssistCatalogResponse) []gemini.GeminiModelDescriptor {
 	images := map[string]bool{}
 	for _, v := range body.ImageGenerationModelIDs {
@@ -465,7 +468,8 @@ func codeAssistRecommendedModels(body codeAssistCatalogResponse) []gemini.Gemini
 		}
 		name := strings.ToLower(m.DisplayName + " " + m.ID)
 		if !isTrue(details.Recommended) || isTrue(details.IsInternal) || images[m.ID] ||
-			!strings.HasPrefix(m.ID, "gemini-") || strings.Contains(name, "lite") || strings.Contains(name, "image") {
+			!strings.HasPrefix(m.ID, "gemini-") || gemini.ParseGeminiModelVersion(m.ID)[0] < 3 ||
+			strings.Contains(name, "lite") || strings.Contains(name, "image") {
 			continue
 		}
 		models = append(models, gemini.GeminiModelDescriptor{ID: m.ID, UpstreamID: m.ID})
