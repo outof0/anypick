@@ -2,8 +2,10 @@ package activation
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/outof0/anypick/go/internal/anyerr"
@@ -63,5 +65,53 @@ func TestRemoveNamedProfilesRefusesBatchBeforeRemovingAny(t *testing.T) {
 	}
 	if _, err := os.Stat(first.configPath); err != nil {
 		t.Fatalf("first profile's files removed by a refused batch: %v", err)
+	}
+}
+
+// Opening a profile on a Mac writes the route, points the window at the main
+// app's database and state, and only then launches it. The main home is the
+// Codex adapter's (CODEX_HOME here), never the developer's real one.
+func TestOpenCodexProfileAppSharesMainStateBeforeLaunch(t *testing.T) {
+	env := newTestEnv(t)
+	mainHome := t.TempDir()
+	t.Setenv("CODEX_HOME", mainHome)
+	t.Setenv("CODEX_SQLITE_HOME", "")
+	if err := os.WriteFile(filepath.Join(mainHome, "state_5.sqlite"), nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	env.makeCodexProfile(t, "work", refs.AccountRef("codex", "a"), "auto")
+	t.Cleanup(client.SetCodexAppPlatformForTest("darwin"))
+	statePath := filepath.Join(client.CodexProfileHomePath(env.Root, "work"), ".codex-global-state.json")
+	launched := false
+	t.Cleanup(client.SetCodexAppOpenForTest(func([]string) error {
+		// Everything the window reads at start is in place before it starts.
+		if _, err := os.Stat(statePath); err != nil {
+			t.Errorf("launched before the state was seeded: %v", err)
+		}
+		launched = true
+		return nil
+	}))
+
+	if err := OpenCodexProfileApp(context.Background(), "work", env.Deps); err != nil {
+		t.Fatal(err)
+	}
+	if !launched {
+		t.Fatal("app not launched")
+	}
+	raw, err := os.ReadFile(client.CodexProfileAppConfigPath(env.Root, "work"))
+	if err != nil || !strings.Contains(string(raw), mainHome) {
+		t.Fatalf("app config does not share the main database: %s (%v)", raw, err)
+	}
+	state := map[string]any{}
+	stateRaw, err := os.ReadFile(statePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(stateRaw, &state); err != nil {
+		t.Fatal(err)
+	}
+	atoms, _ := state["electron-persisted-atom-state"].(map[string]any)
+	if atoms["electron:onboarding-projectless-completed"] != true {
+		t.Fatalf("onboarding not skipped: %v", state)
 	}
 }

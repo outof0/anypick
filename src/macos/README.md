@@ -399,7 +399,7 @@ Main window sidebar (pane destinations, System Settings style):
 | Destination | Job |
 | --- | --- |
 | Overview | Attention + Get Started + summary. Not a marketing dashboard. |
-| Apps | Every switchable installed client/provider. Native-only clients switch saved accounts; only compatible-routing clients expose custom providers and model configuration. Codex also manages named profiles here: choose a saved account or route, optional model and transport, edit existing profiles, then copy the profile's Terminal launch command or choose Open in Codex App, which starts a separate Codex app window on the profile's `CODEX_HOME`. Proxy profiles use a discovered source model when no model is selected. |
+| Apps | Every switchable installed client/provider. Native-only clients switch saved accounts; only compatible-routing clients expose custom providers and model configuration. Codex also manages named profiles here: choose a saved account or route, optional model and transport, edit existing profiles, then run a profile from its row: Open in Terminal (a Terminal window running Codex CLI on the profile), Open in Codex App (a separate Codex app window on the profile's `CODEX_HOME`), or copy its launch command. Each is a borderless icon button with its own tooltip; Edit and Remove stay in the row's actions menu. Proxy profiles use a discovered source model when no model is selected. |
 | Accounts & APIs | Searchable saved logins and API endpoints. **Add Login** owns importing the current local login and provider sign-in; there is no separate “Save Current Login” toolbar action. |
 | Proxy Hub | One local endpoint, its sources, published models, and service lifecycle. |
 | Proxies | Per-account translation processes and their service lifecycle. |

@@ -890,6 +890,7 @@ func (a *codexAdapter) ResetProfile(name string) error {
 		// The desktop app's copy of the route carries the same bearer
 		// token as the env file.
 		CodexProfileAppConfigPath(root, name),
+		CodexProfileTerminalScriptPath(root, name),
 	} {
 		if removeErr := os.Remove(generated); removeErr != nil && !os.IsNotExist(removeErr) {
 			return removeErr
@@ -955,10 +956,17 @@ func (a *codexAdapter) RemoveProfileFiles(name string) error {
 	if err := ValidateCodexProfileName(name); err != nil {
 		return err
 	}
+	// Read before ResetProfile deletes the app config it is recorded in.
+	shared := codexProfileSharesMainSessions(a.profileRoot(), name)
 	if err := a.ResetProfile(name); err != nil {
 		return err
 	}
-	if err := os.RemoveAll(CodexProfileHomePath(a.profileRoot(), name)); err != nil {
+	home := CodexProfileHomePath(a.profileRoot(), name)
+	if shared {
+		if err := removeCodexHomeKeepingSessions(home); err != nil {
+			return err
+		}
+	} else if err := os.RemoveAll(home); err != nil {
 		return err
 	}
 	return os.RemoveAll(CodexProfileAppUserDataPath(a.profileRoot(), name))

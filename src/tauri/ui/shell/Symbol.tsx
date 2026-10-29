@@ -59,7 +59,7 @@ const SYMBOL_PATHS: Record<string, string> = {
   'chevron.left': 'M15 5l-7 7 7 7',
   'plus': 'M12 5v14 M5 12h14',
   'arrow.clockwise': 'M20 11a8 8 0 1 0 1 4 M20 5v6h-6',
-  'arrow.up.forward.app': 'M8 16v-4 M8 8v-1 M16 20v-9 M12 20V9 M4 20v-4 M8 4h.01 M16 7h.01',
+  'arrow.up.forward.app': 'M13 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7 M12 12l8-8 M15 4h5v5',
   'line.3.horizontal.decrease': 'M3 6h18 M6 12h12 M9 18h6',
   'square.and.arrow.down': 'M12 3v12 M8 11l4 4 4-4 M4 19h16',
   'sparkles': 'M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3z',

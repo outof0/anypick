@@ -638,16 +638,9 @@ func (s *Server) routeMutation(ctx context.Context, payload json.RawMessage, m M
 		result = s.handleAccountClear(ctx, m)
 	case "client-reset":
 		result = s.mutateClientReset(ctx, m, result)
-	case "codex-profile-save":
-		result = s.mutateCodexProfileSave(ctx, m, result)
-	case "codex-profile-update":
-		result = s.mutateCodexProfileUpdate(ctx, m, result)
-	case "codex-profile-sync":
-		result = s.mutateCodexProfileSync(ctx, m, result)
-	case "codex-profile-remove":
-		result = s.mutateCodexProfileRemove(ctx, m, result)
-	case "codex-profile-open":
-		result = s.mutateCodexProfileOpen(ctx, m, result)
+	case "codex-profile-save", "codex-profile-update", "codex-profile-sync",
+		"codex-profile-remove", "codex-profile-terminal", "codex-profile-open":
+		result = s.routeCodexProfileMutation(ctx, m, result)
 	case "account-import", "account-export", "account-backup-all",
 		"account-backup-export", "account-backup-import", "account-backup-forget":
 		result = s.handleTransferOp(ctx, m)

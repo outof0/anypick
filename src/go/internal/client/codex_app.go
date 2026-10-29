@@ -24,7 +24,7 @@ const codexAppBundleID = "com.openai.codex"
 // config.toml. Everything else in that file belongs to the app. A key copied
 // from the profile must be listed here, or removing it from the profile would
 // leave the old value in the app config for good.
-var codexAppRouteKeys = []string{"model", "model_provider", "model_catalog_json", "model_reasoning_effort"}
+var codexAppRouteKeys = []string{"model", "model_provider", "model_catalog_json", "model_reasoning_effort", "sqlite_home"}
 
 // CodexProfileAppConfigPath is config.toml in the profile's CODEX_HOME. The
 // CLI reads <name>.config.toml through --profile; the desktop app has no
@@ -139,6 +139,15 @@ var codexAppOpen = func(args []string) error {
 
 // codexAppGOOS is runtime.GOOS; tests replace it.
 var codexAppGOOS = runtime.GOOS
+
+// SetCodexAppOpenForTest replaces the open(1) call with fn and returns a
+// restore function, so other packages' tests can open a profile without
+// launching the app.
+func SetCodexAppOpenForTest(fn func(args []string) error) func() {
+	old := codexAppOpen
+	codexAppOpen = fn
+	return func() { codexAppOpen = old }
+}
 
 // SetCodexAppPlatformForTest makes CodexProfileAppSupported answer for goos
 // and returns a restore function. Other packages' tests use it to reach the

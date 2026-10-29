@@ -3339,6 +3339,10 @@
     "other": "Sao chép lệnh chạy {name}",
     "description": "Original English text: Copy launch command for {name}"
   },
+  "desktop.app_detail.copy_launch_command_help": {
+    "other": "Sao chép lệnh Codex CLI của hồ sơ này để tự dán vào terminal.",
+    "description": "Original English text: Copy the Codex CLI command for this profile, to paste into a terminal yourself."
+  },
   "desktop.app_detail.actions_for": {
     "other": "Thao tác cho {name}",
     "description": "Original English text: Actions for {name}"
@@ -3352,12 +3356,20 @@
     "description": "Original English text: Change this profile’s name, account, or model settings."
   },
   "desktop.app_detail.open_in_codex_app": {
-    "other": "Mở trong Codex App",
-    "description": "Original English text: Open in Codex App"
+    "other": "Mở {name} trong Codex App",
+    "description": "Original English text: Open {name} in Codex App"
   },
   "desktop.app_detail.open_in_codex_app_help": {
     "other": "Mở một cửa sổ Codex App riêng dùng hồ sơ này.",
     "description": "Original English text: Start a separate Codex app window that uses this profile."
+  },
+  "desktop.app_detail.open_in_terminal": {
+    "other": "Mở {name} trong Terminal",
+    "description": "Original English text: Open {name} in Terminal"
+  },
+  "desktop.app_detail.open_in_terminal_help": {
+    "other": "Mở cửa sổ Terminal chạy Codex CLI với hồ sơ này.",
+    "description": "Original English text: Open a Terminal window that runs Codex CLI with this profile."
   },
   "desktop.app_detail.remove_profile": {
     "other": "Xóa hồ sơ…",

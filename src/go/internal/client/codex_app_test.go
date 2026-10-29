@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"reflect"
 	"runtime"
@@ -329,5 +330,67 @@ func TestLaunchCodexProfileAppMarksOnlyASuccessfulLaunch(t *testing.T) {
 	}
 	if !CodexProfileAppRunning(root, "work") {
 		t.Fatal("a starting instance does not count as open")
+	}
+}
+
+// The terminal gets a script that runs the launch command in the login shell
+// (where `codex` is on PATH); the script is the user's own and executable.
+func TestLaunchCodexProfileTerminalRunsLaunchCommand(t *testing.T) {
+	root := t.TempDir()
+	var got []string
+	oldOpen, oldGOOS := codexAppOpen, codexAppGOOS
+	codexAppOpen = func(args []string) error { got = args; return nil }
+	codexAppGOOS = "darwin"
+	t.Cleanup(func() { codexAppOpen, codexAppGOOS = oldOpen, oldGOOS })
+
+	command := CodexProfileLaunchCommand(root, "work", true)
+	if err := LaunchCodexProfileTerminal(root, "work", command); err != nil {
+		t.Fatal(err)
+	}
+	path := CodexProfileTerminalScriptPath(root, "work")
+	if !reflect.DeepEqual(got, []string{path}) {
+		t.Fatalf("open args = %q", got)
+	}
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(raw), `-l -c `+shellQuote(command)) {
+		t.Fatalf("script does not run the launch command:\n%s", raw)
+	}
+	if runtime.GOOS != "windows" {
+		// Run the script's shell selection with a stub in place of exec, for
+		// a POSIX login shell and for one that cannot run the command.
+		for shell, want := range map[string]string{"/bin/bash": "/bin/bash", "/usr/local/bin/fish": "/bin/zsh", "/bin/tcsh": "/bin/zsh", "": "/bin/zsh"} {
+			probe := strings.Replace(string(raw), `exec "$login"`, `echo "$login"; exit 0; exec "$login"`, 1)
+			cmd := exec.Command("/bin/sh", "-c", probe)
+			cmd.Env = []string{"SHELL=" + shell}
+			out, err := cmd.Output()
+			if err != nil || strings.TrimSpace(string(out)) != want {
+				t.Errorf("SHELL=%q runs %q (%v), want %q", shell, out, err, want)
+			}
+		}
+	}
+	if info, _ := os.Stat(path); runtime.GOOS != "windows" && info.Mode().Perm() != 0o700 {
+		t.Fatalf("script mode = %v", info.Mode().Perm())
+	}
+
+	a := &codexAdapter{home: t.TempDir(), root: root}
+	if err := a.ResetProfile("work"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Fatalf("reset left the terminal script: %v", err)
+	}
+}
+
+func TestLaunchCodexProfileTerminalRefusesOtherPlatforms(t *testing.T) {
+	t.Cleanup(SetCodexAppPlatformForTest("linux"))
+	root := t.TempDir()
+	if err := LaunchCodexProfileTerminal(root, "work", "codex"); !errors.Is(err, ErrCodexTerminalUnsupported) {
+		t.Fatalf("err = %v", err)
+	}
+	if _, err := os.Stat(CodexProfileTerminalScriptPath(root, "work")); !os.IsNotExist(err) {
+		t.Fatalf("script written on an unsupported platform: %v", err)
 	}
 }

@@ -42,6 +42,15 @@ func OpenCodexProfileApp(ctx context.Context, name string, deps *Deps) error {
 			if err := client.WriteCodexProfileAppConfig(deps.Root, name); err != nil {
 				return err
 			}
+			if deps.Clients != nil {
+				if adapter, err := deps.Clients.Get("codex"); err == nil {
+					running := client.CodexProfileAppRunning(deps.Root, name)
+					if err := client.ShareCodexMainState(deps.Root, name,
+						client.CodexMainHomeFor(adapter), running); err != nil {
+						return err
+					}
+				}
+			}
 			// Marked under the lock: a removal queued behind this open must
 			// see the instance as starting, not find nothing and delete the
 			// home it is about to run on. A failed launch clears the mark.

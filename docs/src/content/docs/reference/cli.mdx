@@ -135,8 +135,22 @@ route into that home's `config.toml` (the app has no `--profile` option). The
 app reads that file only when it starts, so after changing a profile's route,
 quit its window and open the profile again. Removing a profile while its
 window is open fails with `CODEX_APP_RUNNING` (exit 5); quit the window first.
-The macOS and desktop apps offer
-the same action as **Open in Codex App** in a profile's actions menu.
+
+The profile window shares your main Codex app's projects and session list
+and skips the app's onboarding: AnyPick points the profile's `sqlite_home` at
+the database your main app uses. Sessions from either window show in both,
+and so do sessions you start with the profile's launch command in a terminal
+once the profile has been opened in the app. Keep a session open in one
+window at a time, and expect a session started on one provider to fail when
+continued on another, for example a GPT session continued through a Gemini
+account. A profile's session files stay in its own `CODEX_HOME`, so they are
+kept when the profile is removed, including when its account is deleted.
+
+On macOS, the macOS and desktop apps offer **Open in Codex App** and **Open in
+Terminal** as buttons on each profile row, next to the copy button. **Open in
+Terminal** opens your default terminal running the profile's launch command in
+your login shell (zsh if your login shell is not a POSIX shell). Elsewhere,
+copy the launch command instead.
 
 `anypick codex profile remove <name>` deletes the route and the files AnyPick
 generated for it (the profile config, its model catalog, and its env file). The

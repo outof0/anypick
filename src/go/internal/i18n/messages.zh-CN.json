@@ -3339,6 +3339,10 @@
     "other": "复制 {name} 的启动命令",
     "description": "Original English text: Copy launch command for {name}"
   },
+  "desktop.app_detail.copy_launch_command_help": {
+    "other": "复制此配置文件的 Codex CLI 命令，自行粘贴到终端中。",
+    "description": "Original English text: Copy the Codex CLI command for this profile, to paste into a terminal yourself."
+  },
   "desktop.app_detail.actions_for": {
     "other": "{name} 的操作",
     "description": "Original English text: Actions for {name}"
@@ -3352,12 +3356,20 @@
     "description": "Original English text: Change this profile’s name, account, or model settings."
   },
   "desktop.app_detail.open_in_codex_app": {
-    "other": "在 Codex 应用中打开",
-    "description": "Original English text: Open in Codex App"
+    "other": "在 Codex 应用中打开 {name}",
+    "description": "Original English text: Open {name} in Codex App"
   },
   "desktop.app_detail.open_in_codex_app_help": {
     "other": "打开一个使用此配置的独立 Codex 应用窗口。",
     "description": "Original English text: Start a separate Codex app window that uses this profile."
+  },
+  "desktop.app_detail.open_in_terminal": {
+    "other": "在终端中打开 {name}",
+    "description": "Original English text: Open {name} in Terminal"
+  },
+  "desktop.app_detail.open_in_terminal_help": {
+    "other": "打开一个用此配置文件运行 Codex CLI 的终端窗口。",
+    "description": "Original English text: Open a Terminal window that runs Codex CLI with this profile."
   },
   "desktop.app_detail.remove_profile": {
     "other": "移除配置…",

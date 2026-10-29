@@ -3339,6 +3339,10 @@
     "other": "{name} 실행 명령 복사",
     "description": "Original English text: Copy launch command for {name}"
   },
+  "desktop.app_detail.copy_launch_command_help": {
+    "other": "이 프로필의 Codex CLI 명령을 복사해 직접 터미널에 붙여넣습니다.",
+    "description": "Original English text: Copy the Codex CLI command for this profile, to paste into a terminal yourself."
+  },
   "desktop.app_detail.actions_for": {
     "other": "{name} 작업",
     "description": "Original English text: Actions for {name}"
@@ -3352,12 +3356,20 @@
     "description": "Original English text: Change this profile’s name, account, or model settings."
   },
   "desktop.app_detail.open_in_codex_app": {
-    "other": "Codex 앱에서 열기",
-    "description": "Original English text: Open in Codex App"
+    "other": "Codex 앱에서 {name} 열기",
+    "description": "Original English text: Open {name} in Codex App"
   },
   "desktop.app_detail.open_in_codex_app_help": {
     "other": "이 프로필을 사용하는 별도의 Codex 앱 창을 엽니다.",
     "description": "Original English text: Start a separate Codex app window that uses this profile."
+  },
+  "desktop.app_detail.open_in_terminal": {
+    "other": "터미널에서 {name} 열기",
+    "description": "Original English text: Open {name} in Terminal"
+  },
+  "desktop.app_detail.open_in_terminal_help": {
+    "other": "이 프로필로 Codex CLI를 실행하는 터미널 창을 엽니다.",
+    "description": "Original English text: Open a Terminal window that runs Codex CLI with this profile."
   },
   "desktop.app_detail.remove_profile": {
     "other": "프로필 제거…",

@@ -13,6 +13,7 @@ import {
 import {
   missingCodexProfileSources,
   openCodexProfile,
+  openCodexProfileInTerminal,
   removeCodexProfile,
   saveCodexProfile,
   syncCodexProfiles,
@@ -32,10 +33,12 @@ import {
   usageForApp,
 } from '../lib/model';
 import type { ServicePort } from '../lib/service';
+import { Symbol } from '../shell/Symbol';
 import { translate, translateSource } from '../lib/i18n';
 import {
   Button,
   CopyButton,
+  IconButton,
   CheckRow,
   Field,
   Group,
@@ -579,6 +582,10 @@ function CodexProfilesBlock({
                 const action = openCodexProfile(profile.name);
                 service.mutate(action.operation, action.extra);
               }}
+              onOpenTerminal={() => {
+                const action = openCodexProfileInTerminal(profile.name);
+                service.mutate(action.operation, action.extra);
+              }}
               onRemove={() => {
                 const action = removeCodexProfile(profile.name);
                 service.mutate(action.operation, action.extra);
@@ -695,6 +702,7 @@ function CodexProfileRow({
   resolvedLanguage,
   onEdit,
   onOpen,
+  onOpenTerminal,
   onRemove,
 }: {
   profile: CodexProfileRowContract;
@@ -704,6 +712,7 @@ function CodexProfileRow({
   resolvedLanguage: string;
   onEdit: () => void;
   onOpen: () => void;
+  onOpenTerminal: () => void;
   onRemove: () => void;
 }) {
   const provider = codexProfileProvider(profile.sourceId);
@@ -717,9 +726,38 @@ function CodexProfileRow({
       <ProviderIcon provider={provider} size={24} className="mr-1.5 flex-none" />
       <RowText title={profile.name} detail={codexProfileSummary(profile, language, resolvedLanguage)} />
       <RowActions>
+        {/* The three ways to run a profile sit side by side, each with its
+            own symbol and a help tag that says where it runs. */}
+        {profile.terminalOpenable ? (
+          <IconButton
+            label={t('open_in_terminal').replace('{name}', profile.name)}
+            help={t('open_in_terminal_help')}
+            language={language}
+            resolvedLanguage={resolvedLanguage}
+            disabled={busy.size > 0}
+            testId={`codex-profile.terminal.${profile.name}`}
+            onClick={onOpenTerminal}
+          >
+            <Symbol name="terminal" size={13} />
+          </IconButton>
+        ) : null}
+        {profile.appOpenable ? (
+          <IconButton
+            label={t('open_in_codex_app').replace('{name}', profile.name)}
+            help={t('open_in_codex_app_help')}
+            language={language}
+            resolvedLanguage={resolvedLanguage}
+            disabled={busy.size > 0}
+            testId={`codex-profile.open-app.${profile.name}`}
+            onClick={onOpen}
+          >
+            <Symbol name="arrow.up.forward.app" size={13} />
+          </IconButton>
+        ) : null}
         <CopyButton
           value={profile.launchCommand}
           label={t('copy_launch_command').replace('{name}', profile.name)}
+          help={t('copy_launch_command_help')}
           copy={service.copy}
           language={language}
           resolvedLanguage={resolvedLanguage}
@@ -735,14 +773,6 @@ function CodexProfileRow({
         >
           {(close) => (
             <>
-              {profile.appOpenable ? (
-                <MenuItem onSelect={() => {
-                    close();
-                    onOpen();
-                  }}>
-                  {t('open_in_codex_app')}
-                </MenuItem>
-              ) : null}
               <MenuItem onSelect={() => {
                   close();
                   onEdit();

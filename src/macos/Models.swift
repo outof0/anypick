@@ -419,7 +419,8 @@ class MacOSDesignModel: ObservableObject {
           modelID: "gemini-3.8-flash",
           transportPolicy: "auto",
           launchCommand: "source '$HOME/.anypick/clients/codex/profiles/gemini-work.env.sh' && CODEX_HOME='$HOME/.anypick/clients/codex/profiles/gemini-work/codex-home' codex --profile 'gemini-work'",
-          appOpenable: true
+          appOpenable: true,
+          terminalOpenable: true
         ),
       ]
     }
@@ -847,6 +848,11 @@ class MacOSDesignModel: ObservableObject {
     )
     showFeedback("Added Codex profile \(normalizedName).", kind: .success)
     return true
+  }
+
+  func openCodexProfileInTerminal(name: String) {
+    guard codexProfiles.contains(where: { $0.name == name }) else { return }
+    showFeedback("Opened Codex profile \(name) in a terminal.", kind: .success)
   }
 
   func openCodexProfileInApp(name: String) {

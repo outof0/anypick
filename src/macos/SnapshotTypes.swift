@@ -178,6 +178,8 @@ struct CodexProfileSnapshot: Decodable, Identifiable, Equatable {
   let launchCommand: String
   /// Absent from engines that predate codex-profile-open.
   let appOpenable: Bool?
+  /// Absent from engines that predate codex-profile-terminal.
+  let terminalOpenable: Bool?
 }
 
 struct GatewaySnapshot: Decodable, Identifiable {

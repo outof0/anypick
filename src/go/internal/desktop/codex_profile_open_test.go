@@ -15,6 +15,8 @@ func TestValidateCodexProfileOpenPayload(t *testing.T) {
 		{`{"version":1,"requestId":"r","operation":"codex-profile-open","name":"work"}`, true},
 		{`{"version":1,"requestId":"r","operation":"codex-profile-open","name":"work","path":"/tmp"}`, false},
 		{`{"version":1,"requestId":"r","operation":"codex-profile-open","name":""}`, false},
+		{`{"version":1,"requestId":"r","operation":"codex-profile-terminal","name":"work"}`, true},
+		{`{"version":1,"requestId":"r","operation":"codex-profile-terminal","name":"work","command":"rm -rf ~"}`, false},
 	} {
 		fields := map[string]json.RawMessage{}
 		if err := json.Unmarshal([]byte(tc.payload), &fields); err != nil {
@@ -34,6 +36,20 @@ func TestMutateCodexProfileOpenUnknownProfile(t *testing.T) {
 	srv := New(env.Deps, strings.NewReader(""), &strings.Builder{})
 	result := srv.mutateCodexProfileOpen(context.Background(),
 		Mutate{RequestID: "r", Operation: "codex-profile-open", Name: "missing"},
+		Result{Version: ProtocolVersion, RequestID: "r", Status: "success"})
+	if result.Status != "error" || result.Code != "CODEX_PROFILE_NOT_FOUND" {
+		t.Fatalf("result = %+v", result)
+	}
+}
+
+// The terminal runs the engine's own launch command for a saved profile, so
+// an unknown name fails before any script is written.
+func TestMutateCodexProfileTerminalUnknownProfile(t *testing.T) {
+	env := newTrayEnv(t)
+	wireActivation(t, env)
+	srv := New(env.Deps, strings.NewReader(""), &strings.Builder{})
+	result := srv.mutateCodexProfileTerminal(context.Background(),
+		Mutate{RequestID: "r", Operation: "codex-profile-terminal", Name: "missing"},
 		Result{Version: ProtocolVersion, RequestID: "r", Status: "success"})
 	if result.Status != "error" || result.Code != "CODEX_PROFILE_NOT_FOUND" {
 		t.Fatalf("result = %+v", result)

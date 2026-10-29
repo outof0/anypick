@@ -132,7 +132,8 @@ var mutationOperations = map[string]bool{
 	"gateway-edit": true, "gateway-refresh": true, "gateway-remove": true,
 	"client-reset": true, "codex-profile-save": true, "codex-profile-update": true,
 	"codex-profile-remove": true, "codex-profile-sync": true, "codex-profile-open": true,
-	"hub-source-toggle": true, "hub-rotation": true,
+	"codex-profile-terminal": true,
+	"hub-source-toggle":      true, "hub-rotation": true,
 	"proxy-restart-all": true, "proxy-start-all": true, "proxy-stop-all": true, "proxy-token": true,
 	"setting-launch-at-login": true, "setting-auto-start-proxies": true,
 	"setting-show-quota": true, "setting-quota-guard": true,
@@ -447,7 +448,7 @@ func validateMutate(fields map[string]json.RawMessage) error {
 			}
 			seen[sourceID] = true
 		}
-	case "codex-profile-remove", "codex-profile-open":
+	case "codex-profile-remove", "codex-profile-open", "codex-profile-terminal":
 		name := ""
 		_ = json.Unmarshal(fields["name"], &name)
 		if !safeStr(name, 64) ||

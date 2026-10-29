@@ -693,7 +693,7 @@ describe('codex profiles', () => {
     });
   });
 
-  it('opens a Codex profile in the Codex app only where the engine says it can', async () => {
+  it('runs a Codex profile in a terminal or the Codex app only where the engine says it can', async () => {
     const profile = {
       name: 'work',
       sourceId: 'account/codex/work',
@@ -724,21 +724,42 @@ describe('codex profiles', () => {
 
     const hidden = mount(
       ({ service, snapshot: current }) => <AppsPane service={service} snapshot={current} />,
-      snapshotFixture({ actions, codexProfiles: [{ ...profile, appOpenable: false }], codexProfileSources: sources }),
+      snapshotFixture({
+        actions,
+        codexProfiles: [{ ...profile, appOpenable: false, terminalOpenable: false }],
+        codexProfileSources: sources,
+      }),
     );
     await hidden.user.click(screen.getByTestId('apps-row-codex'));
-    await hidden.user.click(screen.getByTestId('codex-profile.more.work'));
-    expect(screen.queryByRole('menuitem', { name: 'Open in Codex App' })).toBeNull();
+    expect(screen.queryByTestId('codex-profile.open-app.work')).toBeNull();
+    expect(screen.queryByTestId('codex-profile.terminal.work')).toBeNull();
     hidden.unmount();
 
     const { bridge, user } = mount(
       ({ service, snapshot: current }) => <AppsPane service={service} snapshot={current} />,
-      snapshotFixture({ actions, codexProfiles: [{ ...profile, appOpenable: true }], codexProfileSources: sources }),
+      snapshotFixture({
+        actions,
+        codexProfiles: [{ ...profile, appOpenable: true, terminalOpenable: true }],
+        codexProfileSources: sources,
+      }),
     );
     await user.click(screen.getByTestId('apps-row-codex'));
-    await user.click(screen.getByTestId('codex-profile.more.work'));
-    await user.click(screen.getByRole('menuitem', { name: 'Open in Codex App' }));
-    expect(mutateBodies(bridge)[0]).toEqual({ operation: 'codex-profile-open', name: 'work' });
+    // The run actions sit in the row beside Copy, each named for where it
+    // runs, rather than inside the actions menu.
+    const terminal = screen.getByTestId('codex-profile.terminal.work');
+    const app = screen.getByTestId('codex-profile.open-app.work');
+    // Named per row for a screen reader; the help tag says what each does.
+    expect(terminal).toHaveAccessibleName('Open work in Terminal');
+    expect(app).toHaveAccessibleName('Open work in Codex App');
+    expect(terminal).toHaveAttribute('title', 'Open a Terminal window that runs Codex CLI with this profile.');
+    expect(app).toHaveAttribute('title', 'Start a separate Codex app window that uses this profile.');
+    expect(screen.getByTestId('codex-profile.copy.work')).toHaveAccessibleName('Copy launch command for work');
+    await user.click(terminal);
+    await user.click(app);
+    expect(mutateBodies(bridge)).toEqual([
+      { operation: 'codex-profile-terminal', name: 'work' },
+      { operation: 'codex-profile-open', name: 'work' },
+    ]);
   });
 
   it('keeps automatic profile creation local and syncs with codex-profile-sync', async () => {

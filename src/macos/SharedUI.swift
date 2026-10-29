@@ -295,6 +295,9 @@ struct DesignCopyButton: View {
   let label: String
   let copiedLabel: String
   let identifier: String
+  /// A longer tooltip than the accessibility label, for a row whose other
+  /// buttons need telling apart. Defaults to the label.
+  var help: String? = nil
   let action: () -> Void
 
   var body: some View {
@@ -303,7 +306,7 @@ struct DesignCopyButton: View {
     }
     .buttonStyle(.borderless)
     .controlSize(.small)
-    .help(copied ? copiedLabel : label)
+    .help(copied ? copiedLabel : (help ?? label))
     .accessibilityLabel(copied ? copiedLabel : label)
     .accessibilityIdentifier(identifier)
   }
@@ -324,6 +327,8 @@ struct DesignIconButton: View {
   let label: String
   let identifier: String
   let isDisabled: Bool
+  /// A longer tooltip than the accessibility label. Defaults to the label.
+  let help: String?
   let action: () -> Void
 
   init(
@@ -331,12 +336,14 @@ struct DesignIconButton: View {
     label: String,
     identifier: String,
     isDisabled: Bool = false,
+    help: String? = nil,
     action: @escaping () -> Void
   ) {
     self.symbol = symbol
     self.label = label
     self.identifier = identifier
     self.isDisabled = isDisabled
+    self.help = help
     self.action = action
   }
 
@@ -347,7 +354,7 @@ struct DesignIconButton: View {
     }
     .buttonStyle(.borderless)
     .controlSize(.small)
-    .help(label)
+    .help(help ?? label)
     .accessibilityLabel(label)
     .accessibilityIdentifier(identifier)
     .disabled(isDisabled)

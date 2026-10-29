@@ -20,6 +20,7 @@ import {
   refreshGateway,
   refreshModels,
   openCodexProfile,
+  openCodexProfileInTerminal,
   removeCodexProfile,
   removeGateway,
   resetClient,
@@ -218,6 +219,10 @@ describe('desktop actions', () => {
     });
     expect(openCodexProfile('work')).toEqual({
       operation: 'codex-profile-open',
+      extra: { name: 'work' },
+    });
+    expect(openCodexProfileInTerminal('work')).toEqual({
+      operation: 'codex-profile-terminal',
       extra: { name: 'work' },
     });
     expect(syncCodexProfiles(['account/codex/work'])).toEqual({

@@ -3339,6 +3339,10 @@
     "other": "Copiar comando de inicialização de {name}",
     "description": "Original English text: Copy launch command for {name}"
   },
+  "desktop.app_detail.copy_launch_command_help": {
+    "other": "Copia o comando do Codex CLI deste perfil para você colar em um terminal.",
+    "description": "Original English text: Copy the Codex CLI command for this profile, to paste into a terminal yourself."
+  },
   "desktop.app_detail.actions_for": {
     "other": "Ações para {name}",
     "description": "Original English text: Actions for {name}"
@@ -3352,12 +3356,20 @@
     "description": "Original English text: Change this profile’s name, account, or model settings."
   },
   "desktop.app_detail.open_in_codex_app": {
-    "other": "Abrir no app Codex",
-    "description": "Original English text: Open in Codex App"
+    "other": "Abrir {name} no app Codex",
+    "description": "Original English text: Open {name} in Codex App"
   },
   "desktop.app_detail.open_in_codex_app_help": {
     "other": "Abre uma janela separada do app Codex que usa este perfil.",
     "description": "Original English text: Start a separate Codex app window that uses this profile."
+  },
+  "desktop.app_detail.open_in_terminal": {
+    "other": "Abrir {name} no Terminal",
+    "description": "Original English text: Open {name} in Terminal"
+  },
+  "desktop.app_detail.open_in_terminal_help": {
+    "other": "Abre uma janela do Terminal que executa o Codex CLI com este perfil.",
+    "description": "Original English text: Open a Terminal window that runs Codex CLI with this profile."
   },
   "desktop.app_detail.remove_profile": {
     "other": "Remover perfil…",

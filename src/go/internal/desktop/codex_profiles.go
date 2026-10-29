@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -29,6 +30,9 @@ type CodexProfileRow struct {
 	// from this machine (codex-profile-open). Only macOS can launch the app
 	// with a per-instance CODEX_HOME.
 	AppOpenable bool `json:"appOpenable"`
+	// TerminalOpenable says the profile can be opened in a terminal window
+	// running its launch command (codex-profile-terminal).
+	TerminalOpenable bool `json:"terminalOpenable"`
 }
 
 // CodexProfileSourceRow is an app-route option with its source-scoped model
@@ -51,6 +55,40 @@ func (b *snapshotBuilder) codexProfiles(ctx context.Context) {
 	if store == nil {
 		return
 	}
+	sourcesByID := b.codexProfileSources(ctx)
+
+	profiles, err := store.ListContext(ctx, "codex")
+	if err != nil {
+		b.srv.logErr(fmt.Errorf("read Codex profiles for snapshot: %w", err))
+		return
+	}
+	for _, named := range profiles {
+		sourceID := refs.SerializeRef(named.Spec.Source)
+		sourceLabel := refs.DisplayRef(named.Spec.Source)
+		if source, ok := sourcesByID[sourceID]; ok && source.Label != "" {
+			sourceLabel = source.Label
+		}
+		policy := named.Spec.TransportPolicy
+		if policy == "" {
+			policy = string(transport.PolicyAuto)
+		}
+		b.snap.CodexProfiles = append(b.snap.CodexProfiles, CodexProfileRow{
+			Name:            named.Name,
+			SourceID:        sourceID,
+			SourceLabel:     sourceLabel,
+			ModelID:         primaryModelOf(named.Spec),
+			TransportPolicy: policy,
+			LaunchCommand: client.CodexProfileLaunchCommand(
+				b.srv.Deps.Root, named.Name, codexProfileNeedsEnv(ctx, b.srv, &named)),
+			AppOpenable:      client.CodexProfileAppSupported(),
+			TerminalOpenable: client.CodexProfileTerminalSupported(),
+		})
+	}
+}
+
+// codexProfileSources fills the snapshot's profile source options and returns
+// them by source id, for the profile rows' labels.
+func (b *snapshotBuilder) codexProfileSources(ctx context.Context) map[string]CodexProfileSourceRow {
 	providers := map[string]bool{}
 	if b.srv.Deps.Providers != nil {
 		for _, id := range b.srv.Deps.Providers.IDs() {
@@ -93,33 +131,7 @@ func (b *snapshotBuilder) codexProfiles(ctx context.Context) {
 	sort.SliceStable(b.snap.CodexProfileSources, func(i, j int) bool {
 		return b.snap.CodexProfileSources[i].Label < b.snap.CodexProfileSources[j].Label
 	})
-
-	profiles, err := store.ListContext(ctx, "codex")
-	if err != nil {
-		b.srv.logErr(fmt.Errorf("read Codex profiles for snapshot: %w", err))
-		return
-	}
-	for _, named := range profiles {
-		sourceID := refs.SerializeRef(named.Spec.Source)
-		sourceLabel := refs.DisplayRef(named.Spec.Source)
-		if source, ok := sourcesByID[sourceID]; ok && source.Label != "" {
-			sourceLabel = source.Label
-		}
-		policy := named.Spec.TransportPolicy
-		if policy == "" {
-			policy = string(transport.PolicyAuto)
-		}
-		b.snap.CodexProfiles = append(b.snap.CodexProfiles, CodexProfileRow{
-			Name:            named.Name,
-			SourceID:        sourceID,
-			SourceLabel:     sourceLabel,
-			ModelID:         primaryModelOf(named.Spec),
-			TransportPolicy: policy,
-			LaunchCommand: client.CodexProfileLaunchCommand(
-				b.srv.Deps.Root, named.Name, codexProfileNeedsEnv(ctx, b.srv, &named)),
-			AppOpenable: client.CodexProfileAppSupported(),
-		})
-	}
+	return sourcesByID
 }
 
 func codexProfileSourceKind(kind refs.Kind) bool {
@@ -441,6 +453,53 @@ func (s *Server) mutateCodexProfileOpen(ctx context.Context, m Mutate, result Re
 		return result.Fail(err)
 	}
 	result.Message = fmt.Sprintf("Opened Codex profile %s in the Codex app.", m.Name)
+	return result
+}
+
+// routeCodexProfileMutation dispatches the codex-profile-* operations that
+// routeMutation hands over as one group.
+func (s *Server) routeCodexProfileMutation(ctx context.Context, m Mutate, result Result) Result {
+	switch m.Operation {
+	case "codex-profile-save":
+		return s.mutateCodexProfileSave(ctx, m, result)
+	case "codex-profile-update":
+		return s.mutateCodexProfileUpdate(ctx, m, result)
+	case "codex-profile-sync":
+		return s.mutateCodexProfileSync(ctx, m, result)
+	case "codex-profile-remove":
+		return s.mutateCodexProfileRemove(ctx, m, result)
+	case "codex-profile-terminal":
+		return s.mutateCodexProfileTerminal(ctx, m, result)
+	case "codex-profile-open":
+		return s.mutateCodexProfileOpen(ctx, m, result)
+	default:
+		return result.Fail(fmt.Errorf("unknown Codex profile operation %q", m.Operation))
+	}
+}
+
+// mutateCodexProfileTerminal opens a terminal running the same launch command
+// the snapshot row offers to copy, so the two cannot drift apart.
+func (s *Server) mutateCodexProfileTerminal(ctx context.Context, m Mutate, result Result) Result {
+	if s.Deps.Activation == nil || s.Deps.Activation.ClientProfiles == nil {
+		return result.Fail(serviceUnavailableErr("Codex profile service"))
+	}
+	named, err := s.Deps.Activation.ClientProfiles.GetContext(ctx, "codex", m.Name)
+	if err != nil {
+		return result.Fail(err)
+	}
+	if named == nil {
+		return result.Fail(activation.NamedProfileNotFound(m.Name))
+	}
+	command := client.CodexProfileLaunchCommand(s.Deps.Root, m.Name, codexProfileNeedsEnv(ctx, s, named))
+	if err := client.LaunchCodexProfileTerminal(s.Deps.Root, m.Name, command); err != nil {
+		if errors.Is(err, client.ErrCodexTerminalUnsupported) {
+			return result.Fail(anyerr.Newf(err.Error(), "UNSUPPORTED_PLATFORM",
+				anyerr.WithExitCode(anyerr.CapabilityConflict)))
+		}
+		return result.Fail(anyerr.Wrapf(err, "open a terminal", "OPERATIONAL",
+			anyerr.WithExitCode(anyerr.Operational)))
+	}
+	result.Message = fmt.Sprintf("Opened Codex profile %s in a terminal.", m.Name)
 	return result
 }
 
