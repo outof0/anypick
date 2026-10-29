@@ -142,6 +142,30 @@ func TestLiveGeminiCatalogCachesAndFallsBack(t *testing.T) {
 	}
 }
 
+// A recommended named model newer than the tier route, or one keyed with
+// "models/", is listed after the route; the route stays the client default.
+func TestParseCodeAssistCatalogKeepsTierRouteAsDefault(t *testing.T) {
+	var body codeAssistCatalogResponse
+	if err := json.Unmarshal([]byte(`{
+		"models": {
+			"gemini-3.8-flash-tiered": {"modelProvider": "MODEL_PROVIDER_GOOGLE", "apiProvider": "API_PROVIDER_GOOGLE_GEMINI"},
+			"gemini-3.8-pro":         {"displayName": "Gemini 3.8 Pro", "recommended": true},
+			"gemini-4-flash":         {"displayName": "Gemini 4 Flash", "recommended": true},
+			"models/gemini-3-flash":  {"displayName": "Gemini 3 Flash", "recommended": true}
+		},
+		"tieredModelIds": {"flash": ["gemini-3.8-flash-tiered"], "pro": ["gemini-3.8-flash-tiered"]}
+	}`), &body); err != nil {
+		t.Fatal(err)
+	}
+	var ids []string
+	for _, m := range parseCodeAssistCatalog(body).Models {
+		ids = append(ids, m.ID)
+	}
+	if want := []string{"gemini-3.8-flash-tiered", "gemini-4-flash", "gemini-3.8-pro", "gemini-3-flash"}; !reflect.DeepEqual(ids, want) {
+		t.Fatalf("models = %v, want %v", ids, want)
+	}
+}
+
 // The shape below is trimmed from a live Antigravity fetchAvailableModels
 // response (October 2026). Both the pro and flash tiers route to one flash
 // model, so the picker also lists the Gemini models Google recommends by name;

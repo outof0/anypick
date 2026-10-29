@@ -112,11 +112,22 @@ func TestResponsesHistoryWithoutSignatureIsFilled(t *testing.T) {
 // Gemini 2.x does not validate signatures and the placeholder is documented
 // for Gemini 3, so older models get the request unchanged.
 func TestFillMissingToolSignaturesLeavesOlderModelsAlone(t *testing.T) {
-	for _, model := range []string{"gemini-2.5-pro", "gemini-2.5-flash", "custom-model"} {
+	for _, model := range []string{"gemini-2.5-pro", "gemini-2.5-flash", "custom-model", ""} {
 		req := &GeminiGenerateRequest{Contents: []GeminiContent{
 			{Role: "model", Parts: []GeminiPart{{FunctionCall: &GeminiFunctionCall{Name: "a"}}}},
 		}}
 		if n := FillMissingToolSignatures(req, model); n != 0 || req.Contents[0].Parts[0].ThoughtSignature != "" {
+			t.Fatalf("%s: filled %d", model, n)
+		}
+	}
+}
+
+func TestFillMissingToolSignaturesFillsGemini3Ids(t *testing.T) {
+	for _, model := range []string{"gemini-3-flash", "gemini-3.8-flash-tiered"} {
+		req := &GeminiGenerateRequest{Contents: []GeminiContent{
+			{Role: "model", Parts: []GeminiPart{{FunctionCall: &GeminiFunctionCall{Name: "a"}}}},
+		}}
+		if n := FillMissingToolSignatures(req, model); n != 1 || req.Contents[0].Parts[0].ThoughtSignature != SkipThoughtSignature {
 			t.Fatalf("%s: filled %d", model, n)
 		}
 	}

@@ -384,7 +384,7 @@ func fetchGeminiCatalogFromCodeAssist(ctx context.Context, base, token, project,
 // parseCodeAssistCatalog lists what an agent picker should offer, taken from
 // Google's data alone, under the ids Google itself uses: the routes of the pro
 // and flash tiers (gemini-3.8-flash-tiered) and the Gemini models Google marks
-// recommended with a name of their own (gemini-2.5-pro, gemini-3-flash). A
+// recommended with a name of their own (gemini-3-flash). A
 // tier can point both pro and flash at one flash route, which left a single
 // model to pick. Antigravity's own labels and ids ("Gemini 3.8 Flash (High)",
 // gemini-3.8-flash-high) are compiled into each app release and are not
@@ -404,26 +404,35 @@ func parseCodeAssistCatalog(body codeAssistCatalogResponse) *gemini.GeminiModelC
 		seen[id] = true
 		models = append(models, gemini.GeminiModelDescriptor{ID: id, UpstreamID: id})
 	}
-	if len(models) > 0 {
-		for _, m := range codeAssistRecommendedModels(body) {
-			if !seen[m.ID] {
-				seen[m.ID] = true
-				models = append(models, m)
-			}
-		}
-	}
 	if len(models) == 0 {
 		// A catalog without tiers names no picker model; the named Google
 		// models are the only list left. The caller falls back to quota
 		// metadata when this is empty too.
 		models = codeAssistNamedModels(body)
+		sortGeminiNewestFirst(models)
+		return &gemini.GeminiModelCatalog{Models: models, TierRoutes: tiers}
 	}
-	// Newest first, as model pickers list them: a client takes its first
-	// entry as the default.
+	// A client takes its first entry as the default, and that must stay a
+	// tier route: the subscription is what serves it, while a named model
+	// Google recommends, even a newer one, can answer "No capacity" or a
+	// license error. Each block is listed newest first on its own.
+	sortGeminiNewestFirst(models)
+	var named []gemini.GeminiModelDescriptor
+	for _, m := range codeAssistRecommendedModels(body) {
+		if !seen[m.ID] {
+			seen[m.ID] = true
+			named = append(named, m)
+		}
+	}
+	sortGeminiNewestFirst(named)
+	return &gemini.GeminiModelCatalog{Models: append(models, named...), TierRoutes: tiers}
+}
+
+// sortGeminiNewestFirst orders models as pickers list them.
+func sortGeminiNewestFirst(models []gemini.GeminiModelDescriptor) {
 	sort.Slice(models, func(i, j int) bool {
 		return gemini.CompareGeminiModelIDs(models[i].ID, models[j].ID) < 0
 	})
-	return &gemini.GeminiModelCatalog{Models: models, TierRoutes: tiers}
 }
 
 func codeAssistNamedModels(body codeAssistCatalogResponse) []gemini.GeminiModelDescriptor {
