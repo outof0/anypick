@@ -39,6 +39,7 @@ anypick run <client> (--with <source>|--profile <name>) [--model <id>] -- <argsâ
 anypick codex profile login <name> [--auth-method <id>] [--source <id>]
 anypick codex profile list
 anypick codex profile show <name>
+anypick codex profile open <name>
 anypick codex profile remove <name> [--yes]
 anypick current <provider>
 anypick models <client> [--with <source>]
@@ -124,8 +125,34 @@ explicitly; proxy-backed profiles also source their owner-only env file. Do not
 print or commit that env file: it contains the local proxy credential.
 Hub-backed profiles have distinct route tokens, so activating one profile
 does not invalidate the default route or another profile. These commands
-configure Codex CLI; Codex Desktop keeps its own signed-in account and does
-not follow the CLI's `CODEX_HOME`.
+configure Codex CLI. Codex Desktop opened from the Dock keeps its own signed-in
+account and does not follow the CLI's `CODEX_HOME`.
+
+On macOS, `anypick codex profile open <name>` opens the profile in the Codex
+desktop app instead. It starts a separate app window on the profile's
+`CODEX_HOME`, next to the app you already have open, and writes the profile's
+route into that home's `config.toml` (the app has no `--profile` option). The
+app reads that file only when it starts, so after changing a profile's route,
+quit its window and open the profile again. Removing a profile while its
+window is open fails with `CODEX_APP_RUNNING` (exit 5); quit the window first.
+
+The profile window shares your main Codex app's projects and session list
+and skips the app's onboarding: AnyPick points the profile's `sqlite_home` at
+the database your main app uses. Sessions from either window show in both,
+and so do sessions you start with the profile's launch command in a terminal
+once the profile has been opened in the app. Keep a session open in one
+window at a time, and expect a session started on one provider to fail when
+continued on another, for example a GPT session continued through a Gemini
+account. A profile's session files stay in its own `CODEX_HOME`, so they are
+kept when the profile is removed, including when its account is deleted.
+
+On macOS, the macOS and desktop apps offer **Open in Codex App** and **Open in
+Terminal** as buttons on each profile row, next to the copy button. **Open in
+Terminal** opens your default terminal and runs the profile's launch command
+with the `PATH` your own login shell sets up (zsh, bash, fish, tcsh and other
+shells are each asked the way they accept, so `codex` installed through
+Homebrew or a Node version manager is found). When Codex exits, the window
+stays open in your login shell. Elsewhere, copy the launch command instead.
 
 `anypick codex profile remove <name>` deletes the route and the files AnyPick
 generated for it (the profile config, its model catalog, and its env file). The

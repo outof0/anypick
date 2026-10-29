@@ -258,6 +258,7 @@ func CodexProfilePaths(home, root, name string) []string {
 		CodexProfileAuthPath(root, name),
 		CodexProfileEnvPath(root, name),
 		codexProfileRestorePath(root, name),
+		CodexProfileAppConfigPath(root, name),
 	}
 }
 
@@ -863,6 +864,9 @@ func (a *codexAdapter) ResetProfile(name string) error {
 	if err := ValidateCodexProfileName(name); err != nil {
 		return err
 	}
+	if err := a.ProfileInUse(name); err != nil {
+		return err
+	}
 	root := a.profileRoot()
 	path := CodexProfileConfigPathForRoot(root, name)
 	if err := resetCodexProfileConfig(path, codexProfileRestorePath(root, name)); err != nil {
@@ -883,10 +887,25 @@ func (a *codexAdapter) ResetProfile(name string) error {
 		CodexProfileAuthPath(root, name),
 		CodexProfileEnvPath(root, name),
 		codexProfileRestorePath(root, name),
+		// The desktop app's copy of the route carries the same bearer
+		// token as the env file.
+		CodexProfileAppConfigPath(root, name),
+		CodexProfileTerminalScriptPath(root, name),
 	} {
 		if removeErr := os.Remove(generated); removeErr != nil && !os.IsNotExist(removeErr) {
 			return removeErr
 		}
+	}
+	return nil
+}
+
+// ProfileInUse refuses to remove a profile whose Codex app instance is open:
+// the instance rewrites config.toml (with the route's bearer token) and
+// refreshes auth.json in CODEX_HOME, so it would recreate them in a directory
+// nothing tracks any more.
+func (a *codexAdapter) ProfileInUse(name string) error {
+	if CodexProfileAppRunning(a.profileRoot(), name) {
+		return errCodexProfileAppRunning(name)
 	}
 	return nil
 }
@@ -937,10 +956,20 @@ func (a *codexAdapter) RemoveProfileFiles(name string) error {
 	if err := ValidateCodexProfileName(name); err != nil {
 		return err
 	}
+	// Read before ResetProfile deletes the app config it is recorded in.
+	shared := codexProfileSharesMainSessions(a.profileRoot(), name)
 	if err := a.ResetProfile(name); err != nil {
 		return err
 	}
-	return os.RemoveAll(CodexProfileHomePath(a.profileRoot(), name))
+	home := CodexProfileHomePath(a.profileRoot(), name)
+	if shared {
+		if err := removeCodexHomeKeepingSessions(home); err != nil {
+			return err
+		}
+	} else if err := os.RemoveAll(home); err != nil {
+		return err
+	}
+	return os.RemoveAll(CodexProfileAppUserDataPath(a.profileRoot(), name))
 }
 
 // InspectProfile verifies the file selected by Codex's --profile flag rather

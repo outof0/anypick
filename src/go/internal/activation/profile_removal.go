@@ -121,6 +121,9 @@ func RemoveNamedProfiles(ctx context.Context, removals []ProfileRemoval, deps *D
 		}
 	}
 	return lock.WithMutationLocks(ctx, deps.Root, scopes, func(c context.Context) error {
+		if err := checkProfilesNotInUse(removals, deps); err != nil {
+			return err
+		}
 		if stop != nil {
 			if err := stop(c); err != nil {
 				return err
@@ -133,6 +136,24 @@ func RemoveNamedProfiles(ctx context.Context, removals []ProfileRemoval, deps *D
 		}
 		return nil
 	}, 0)
+}
+
+// checkProfilesNotInUse refuses the whole batch before anything is removed or
+// stopped. Each removal is its own unit, so a refusal discovered on the second
+// profile would otherwise leave the first one already gone.
+func checkProfilesNotInUse(removals []ProfileRemoval, deps *Deps) error {
+	for _, r := range removals {
+		adapter, err := deps.Clients.Get(r.Client)
+		if err != nil {
+			return err
+		}
+		if checker, ok := adapter.(client.ProfileInUseChecker); ok {
+			if err := checker.ProfileInUse(r.Name); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 func removeNamedProfileLocked(ctx context.Context, r ProfileRemoval, deps *Deps) error {

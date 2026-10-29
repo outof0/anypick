@@ -11,6 +11,7 @@ import (
 
 // The macOS Updates pane decodes these lines; pin the contract it relies on.
 func TestUpdateCheckJSONFixtureLines(t *testing.T) {
+	isolateEnv(t)
 	t.Setenv("ANYPICK_UPDATE_TESTING", "1")
 	for _, name := range update.FixtureNames() {
 		t.Setenv("ANYPICK_UPDATE_FIXTURE", name)

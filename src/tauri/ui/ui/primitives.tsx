@@ -37,10 +37,13 @@ export function CopyButton({
   resolvedLanguage = 'en',
   disabled = false,
   testId,
+  help,
 }: {
   value: string;
-  /** The help tag, and what the confirmation announces. */
+  /** The accessible name, and what the confirmation announces. */
   label: string;
+  /** A longer help tag than the label; defaults to it. */
+  help?: string;
   copy: (text: string) => Promise<boolean>;
   language?: string;
   resolvedLanguage?: string;
@@ -61,6 +64,7 @@ export function CopyButton({
   return (
     <IconButton
       label={label}
+      help={help}
       language={language}
       resolvedLanguage={resolvedLanguage}
       phase={phase}
@@ -448,6 +452,7 @@ export function IconButton({
   confirmed,
   onClick,
   label,
+  help,
   phase = 'idle',
   language = 'auto',
   resolvedLanguage = 'en',
@@ -467,6 +472,11 @@ export function IconButton({
    * control is a type error rather than something a review has to catch.
    */
   label: string;
+  /**
+   * A longer help tag than the accessible name, for a row whose buttons need
+   * telling apart by what they do. Defaults to the label.
+   */
+  help?: string;
   language?: string;
   resolvedLanguage?: string;
   phase?: IconCommandPhase;
@@ -494,7 +504,7 @@ export function IconButton({
       // single-flight slot, so the disabled state is the gate, not decoration.
       disabled={disabled || working}
       aria-label={announced}
-      title={announced}
+      title={landed || working || help === undefined ? announced : help}
       aria-busy={working || undefined}
       aria-haspopup={ariaHasPopup}
       aria-expanded={ariaExpanded}

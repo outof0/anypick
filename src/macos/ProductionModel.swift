@@ -719,6 +719,38 @@ final class ProductionDesignModel: MacOSDesignModel {
     return true
   }
 
+  override func openCodexProfileInTerminal(name: String) {
+    guard store.codexProfiles.contains(where: { $0.name == name }) else {
+      showFeedback("That Codex profile no longer exists. Refresh and try again.", kind: .error)
+      return
+    }
+    guard
+      let requestID = store.mutate(
+        operation: "codex-profile-terminal",
+        name: name,
+        activityLabel: "opening Codex profile \(name) in a terminal"
+      )
+    else { return }
+    pendingOperations[requestID] = "codex-profile-terminal"
+    operationResult = nil
+  }
+
+  override func openCodexProfileInApp(name: String) {
+    guard store.codexProfiles.contains(where: { $0.name == name }) else {
+      showFeedback("That Codex profile no longer exists. Refresh and try again.", kind: .error)
+      return
+    }
+    guard
+      let requestID = store.mutate(
+        operation: "codex-profile-open",
+        name: name,
+        activityLabel: "opening Codex profile \(name) in the Codex app"
+      )
+    else { return }
+    pendingOperations[requestID] = "codex-profile-open"
+    operationResult = nil
+  }
+
   override func removeCodexProfile(name: String) {
     guard store.codexProfiles.contains(where: { $0.name == name }) else {
       showFeedback("That Codex profile no longer exists. Refresh and try again.", kind: .error)
@@ -1678,7 +1710,9 @@ final class ProductionDesignModel: MacOSDesignModel {
         sourceLabel: sourceLabels[$0.sourceId] ?? $0.sourceLabel,
         modelID: $0.modelId,
         transportPolicy: $0.transportPolicy,
-        launchCommand: $0.launchCommand
+        launchCommand: $0.launchCommand,
+        appOpenable: $0.appOpenable ?? false,
+        terminalOpenable: $0.terminalOpenable ?? false
       )
     }
     if codexProfiles != profiles {

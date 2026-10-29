@@ -354,6 +354,14 @@ export function removeCodexProfile(name: string): DesktopAction {
   return { operation: 'codex-profile-remove', extra: { name } };
 }
 
+export function openCodexProfile(name: string): DesktopAction {
+  return { operation: 'codex-profile-open', extra: { name } };
+}
+
+export function openCodexProfileInTerminal(name: string): DesktopAction {
+  return { operation: 'codex-profile-terminal', extra: { name } };
+}
+
 export function syncCodexProfiles(sourceIds: string[]): DesktopAction {
   return { operation: 'codex-profile-sync', extra: { sourceIds } };
 }

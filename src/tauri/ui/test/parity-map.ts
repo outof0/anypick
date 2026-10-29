@@ -104,6 +104,8 @@ export const PARITY: ParityRow[] = [
   { macos: 'codex-profile.add', tauri: 'codex-profile.add', status: 'done' },
   { macos: 'codex-profile.name', tauri: 'codex-profile-name', status: 'done' },
   { macos: 'codex-profile.copy.{x}', tauri: 'codex-profile.copy.{x}', status: 'done' },
+  { macos: 'codex-profile.terminal.{x}', tauri: 'codex-profile.terminal.{x}', status: 'done' },
+  { macos: 'codex-profile.open-app.{x}', tauri: 'codex-profile.open-app.{x}', status: 'done' },
   { macos: 'codex-profile.more.{x}', tauri: 'codex-profile.more.{x}', status: 'done' },
   { macos: 'codex-profile.create-missing', tauri: 'codex-profile.create-missing', status: 'done' },
   { macos: 'codex-profile.source', tauri: 'codex-profile.source', status: 'done' },

@@ -311,11 +311,36 @@ struct AppDetailView: View {
           .lineLimit(1)
       }
       Spacer(minLength: 8)
+      // The three ways to run a profile sit side by side, each with its own
+      // symbol and a tooltip that says where it runs.
+      if profile.terminalOpenable {
+        DesignIconButton(
+          symbol: "terminal",
+          label: model.localized("desktop.app_detail.open_in_terminal", replacing: ["name": profile.name]),
+          identifier: "codex-profile.terminal.\(profile.name)",
+          isDisabled: model.isBusy,
+          help: model.localized("desktop.app_detail.open_in_terminal_help")
+        ) {
+          model.openCodexProfileInTerminal(name: profile.name)
+        }
+      }
+      if profile.appOpenable {
+        DesignIconButton(
+          symbol: "arrow.up.forward.app",
+          label: model.localized("desktop.app_detail.open_in_codex_app", replacing: ["name": profile.name]),
+          identifier: "codex-profile.open-app.\(profile.name)",
+          isDisabled: model.isBusy,
+          help: model.localized("desktop.app_detail.open_in_codex_app_help")
+        ) {
+          model.openCodexProfileInApp(name: profile.name)
+        }
+      }
       DesignCopyButton(
         copied: copiedCodexProfileID == profile.id,
         label: model.localized("desktop.app_detail.copy_launch_command", replacing: ["name": profile.name]),
         copiedLabel: model.localized("desktop.common.copied_to_clipboard"),
-        identifier: "codex-profile.copy.\(profile.name)"
+        identifier: "codex-profile.copy.\(profile.name)",
+        help: model.localized("desktop.app_detail.copy_launch_command_help")
       ) {
         copyCodexProfileCommand(profile)
       }

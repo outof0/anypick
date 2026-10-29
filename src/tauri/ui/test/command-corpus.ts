@@ -211,6 +211,8 @@ export const MUTATE_CASES: CorpusCase[] = [
     actions.updateCodexProfile({ name: 'work', sourceId: 'account/codex/work', modelId: 'gpt-test', transportPolicy: 'proxy' }),
   ),
   mutate('removeCodexProfile', 'name', actions.removeCodexProfile('work')),
+  mutate('openCodexProfile', 'name', actions.openCodexProfile('work')),
+  mutate('openCodexProfileInTerminal', 'name', actions.openCodexProfileInTerminal('work')),
   mutate('syncCodexProfiles', 'sources', actions.syncCodexProfiles(['account/codex/work', 'account/codex/home'])),
   mutate('proxyBulk', 'start', actions.proxyBulk('proxy-start-all')),
   mutate('proxyBulk', 'restart', actions.proxyBulk('proxy-restart-all')),
