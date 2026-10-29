@@ -664,3 +664,64 @@ func TestResponsesStreamDoneEventKeepsTheToolSignatureCarrier(t *testing.T) {
 	}
 	t.Fatalf("no output_item.done carries the signature:\n%s", rec.Body.String())
 }
+
+// A fresh tool turn round-trips Gemini's own signature: what the proxy
+// answered, echoed back the way Codex does, reaches Gemini with the real
+// signature and no placeholder. If a future change loses it again, this fails
+// instead of the placeholder hiding it.
+func TestResponsesToolTurnKeepsTheRealSignatureWithoutAPlaceholder(t *testing.T) {
+	var logs strings.Builder
+	t.Cleanup(SetLogSinkForTest(&logs))
+	res := &gemini.GeminiGenerateResponse{Candidates: []gemini.GeminiCandidate{{Content: &gemini.GeminiContent{Role: "model", Parts: []gemini.GeminiPart{
+		{Text: "I will check the date."},
+		{FunctionCall: &gemini.GeminiFunctionCall{Name: "exec_command", Args: map[string]interface{}{"cmd": "date"}}, ThoughtSignature: "real-sig"},
+	}}}}}
+	out := gemini.GeminiToOpenAIResponses(res, "gemini-3.8-flash-tiered")
+	echoed := []interface{}{map[string]interface{}{"type": "message", "role": "user", "content": "date?"}}
+	for _, item := range out.Output {
+		raw, err := json.Marshal(item)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var m map[string]interface{}
+		if err := json.Unmarshal(raw, &m); err != nil {
+			t.Fatal(err)
+		}
+		echoed = append(echoed, m)
+		if m["type"] == "function_call" {
+			echoed = append(echoed, map[string]interface{}{"type": "function_call_output", "call_id": m["call_id"], "output": "Thu"})
+		}
+	}
+	input, _ := json.Marshal(echoed)
+	req := signGeminiHistory(gemini.OpenAIResponsesToGemini(gemini.OpenAIResponsesRequest{Input: input}, "gemini-3.8-flash-tiered"), "gemini-3.8-flash-tiered")
+	found := false
+	for _, content := range req.Contents {
+		for _, part := range content.Parts {
+			if part.FunctionCall != nil {
+				found = true
+				if part.ThoughtSignature != "real-sig" {
+					t.Fatalf("functionCall signature = %q, want the real one", part.ThoughtSignature)
+				}
+			}
+		}
+	}
+	if !found {
+		t.Fatal("no functionCall reached Gemini")
+	}
+	if strings.Contains(logs.String(), "placeholder") {
+		t.Fatalf("placeholder logged on a fresh turn: %s", logs.String())
+	}
+}
+
+// History that lost its signature is filled, and proxy.log says so.
+func TestSignGeminiHistoryLogsAFilledPlaceholder(t *testing.T) {
+	var logs strings.Builder
+	t.Cleanup(SetLogSinkForTest(&logs))
+	req := &gemini.GeminiGenerateRequest{Contents: []gemini.GeminiContent{
+		{Role: "model", Parts: []gemini.GeminiPart{{FunctionCall: &gemini.GeminiFunctionCall{Name: "a"}}}},
+	}}
+	signGeminiHistory(req, "gemini-3.8-flash-tiered")
+	if req.Contents[0].Parts[0].ThoughtSignature != gemini.SkipThoughtSignature || !strings.Contains(logs.String(), "placeholder") {
+		t.Fatalf("signature %q, log %q", req.Contents[0].Parts[0].ThoughtSignature, logs.String())
+	}
+}
