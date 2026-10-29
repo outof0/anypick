@@ -355,21 +355,8 @@ func TestLaunchCodexProfileTerminalRunsLaunchCommand(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(raw), `-l -c `+shellQuote(command)) {
+	if !strings.Contains(string(raw), "("+command+")") {
 		t.Fatalf("script does not run the launch command:\n%s", raw)
-	}
-	if runtime.GOOS != "windows" {
-		// Run the script's shell selection with a stub in place of exec, for
-		// a POSIX login shell and for one that cannot run the command.
-		for shell, want := range map[string]string{"/bin/bash": "/bin/bash", "/usr/local/bin/fish": "/bin/zsh", "/bin/tcsh": "/bin/zsh", "": "/bin/zsh"} {
-			probe := strings.Replace(string(raw), `exec "$login"`, `echo "$login"; exit 0; exec "$login"`, 1)
-			cmd := exec.Command("/bin/sh", "-c", probe)
-			cmd.Env = []string{"SHELL=" + shell}
-			out, err := cmd.Output()
-			if err != nil || strings.TrimSpace(string(out)) != want {
-				t.Errorf("SHELL=%q runs %q (%v), want %q", shell, out, err, want)
-			}
-		}
 	}
 	if info, _ := os.Stat(path); runtime.GOOS != "windows" && info.Mode().Perm() != 0o700 {
 		t.Fatalf("script mode = %v", info.Mode().Perm())
@@ -392,5 +379,70 @@ func TestLaunchCodexProfileTerminalRefusesOtherPlatforms(t *testing.T) {
 	}
 	if _, err := os.Stat(CodexProfileTerminalScriptPath(root, "work")); !os.IsNotExist(err) {
 		t.Fatalf("script written on an unsupported platform: %v", err)
+	}
+}
+
+// The script borrows PATH from the user's own login shell, asking each shell
+// family the way it accepts, then runs Codex with it. Stub shells stand in for
+// zsh, fish and tcsh: each logs how it was asked and answers with a PATH
+// (after some startup noise) holding a stub codex.
+func TestCodexTerminalScriptUsesTheUsersShellPath(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("the terminal script is macOS-only")
+	}
+	for _, tc := range []struct {
+		shell, wantArgs string
+		hasCodex        bool
+	}{
+		{"zsh", "-i -l -c printenv PATH", true},
+		{"fish", "-l -c printenv PATH", true},
+		{"tcsh", "-c printenv PATH", true},
+		{"zsh", "-i -l -c printenv PATH", false},
+	} {
+		dir := t.TempDir()
+		bin := filepath.Join(dir, "bin")
+		if err := os.MkdirAll(bin, 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if tc.hasCodex {
+			stub := "#!/bin/sh\necho \"codex-ran CODEX_HOME=$CODEX_HOME $*\"\n"
+			if err := os.WriteFile(filepath.Join(bin, "codex"), []byte(stub), 0o700); err != nil {
+				t.Fatal(err)
+			}
+		}
+		shell := filepath.Join(dir, tc.shell)
+		log := filepath.Join(dir, "args")
+		stubShell := "#!/bin/sh\necho \"$*\" >> " + shellQuote(log) + "\necho 'startup noise'\necho " + shellQuote(bin+":/usr/bin:/bin") + "\n"
+		if err := os.WriteFile(shell, []byte(stubShell), 0o700); err != nil {
+			t.Fatal(err)
+		}
+
+		script := codexTerminalScript("work", "CODEX_HOME='/h' codex --profile 'work'")
+		lines := strings.Split(script, "\n")
+		for i, line := range lines {
+			if strings.HasPrefix(line, "user_shell=$(dscl") {
+				lines[i] = "user_shell=" + shellQuote(shell)
+			}
+			if line == `exec "$user_shell" -l` {
+				lines[i] = `echo "then $user_shell"`
+			}
+		}
+		cmd := exec.Command("/bin/sh", "-c", strings.Join(lines, "\n"))
+		cmd.Env = []string{"PATH=/usr/bin:/bin", "SHELL=/bin/false"}
+		out, _ := cmd.CombinedOutput()
+		got := string(out)
+		asked, _ := os.ReadFile(log)
+		if !strings.Contains(string(asked), tc.wantArgs) {
+			t.Errorf("%s asked as %q, want %q", tc.shell, asked, tc.wantArgs)
+		}
+		if tc.hasCodex != strings.Contains(got, "codex-ran CODEX_HOME=/h --profile work") {
+			t.Errorf("%s (codex installed: %v):\n%s", tc.shell, tc.hasCodex, got)
+		}
+		if !tc.hasCodex && !strings.Contains(got, "codex is not on the PATH") {
+			t.Errorf("missing codex not explained:\n%s", got)
+		}
+		if !strings.Contains(got, "then "+shell) {
+			t.Errorf("window does not continue in the user's shell:\n%s", got)
+		}
 	}
 }

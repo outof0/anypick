@@ -148,9 +148,11 @@ kept when the profile is removed, including when its account is deleted.
 
 On macOS, the macOS and desktop apps offer **Open in Codex App** and **Open in
 Terminal** as buttons on each profile row, next to the copy button. **Open in
-Terminal** opens your default terminal running the profile's launch command in
-your login shell (zsh if your login shell is not a POSIX shell). Elsewhere,
-copy the launch command instead.
+Terminal** opens your default terminal and runs the profile's launch command
+with the `PATH` your own login shell sets up (zsh, bash, fish, tcsh and other
+shells are each asked the way they accept, so `codex` installed through
+Homebrew or a Node version manager is found). When Codex exits, the window
+stays open in your login shell. Elsewhere, copy the launch command instead.
 
 `anypick codex profile remove <name>` deletes the route and the files AnyPick
 generated for it (the profile config, its model catalog, and its env file). The
