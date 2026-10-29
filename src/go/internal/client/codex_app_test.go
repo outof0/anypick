@@ -384,65 +384,110 @@ func TestLaunchCodexProfileTerminalRefusesOtherPlatforms(t *testing.T) {
 
 // The script borrows PATH from the user's own login shell, asking each shell
 // family the way it accepts, then runs Codex with it. Stub shells stand in for
-// zsh, fish and tcsh: each logs how it was asked and answers with a PATH
-// (after some startup noise) holding a stub codex.
+// each family: they log how they were asked, print startup and logout noise
+// around the answer, and answer with a PATH that holds a stub codex. The
+// launch command is the real one, sourcing an env file that exports a secret,
+// which must reach codex and not the shell the window continues in.
 func TestCodexTerminalScriptUsesTheUsersShellPath(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("the terminal script is macOS-only")
 	}
 	for _, tc := range []struct {
 		shell, wantArgs string
+		fromEnv         bool // found through $SHELL, not the account record
 		hasCodex        bool
 	}{
-		{"zsh", "-i -l -c printenv PATH", true},
-		{"fish", "-l -c printenv PATH", true},
-		{"tcsh", "-c printenv PATH", true},
-		{"zsh", "-i -l -c printenv PATH", false},
+		{shell: "zsh", wantArgs: "-i -l -c", hasCodex: true},
+		{shell: "bash", wantArgs: "-i -l -c", fromEnv: true, hasCodex: true},
+		{shell: "fish", wantArgs: "-l -c", hasCodex: true},
+		{shell: "tcsh", wantArgs: "-c", hasCodex: true},
+		{shell: "ksh", wantArgs: "-l -c", hasCodex: true},
+		{shell: "zsh", wantArgs: "-i -l -c"},
 	} {
-		dir := t.TempDir()
-		bin := filepath.Join(dir, "bin")
-		if err := os.MkdirAll(bin, 0o700); err != nil {
-			t.Fatal(err)
-		}
-		if tc.hasCodex {
-			stub := "#!/bin/sh\necho \"codex-ran CODEX_HOME=$CODEX_HOME $*\"\n"
-			if err := os.WriteFile(filepath.Join(bin, "codex"), []byte(stub), 0o700); err != nil {
+		t.Run(tc.shell, func(t *testing.T) {
+			dir, root := t.TempDir(), t.TempDir()
+			bin := filepath.Join(dir, "bin")
+			if err := os.MkdirAll(bin, 0o700); err != nil {
 				t.Fatal(err)
 			}
-		}
-		shell := filepath.Join(dir, tc.shell)
-		log := filepath.Join(dir, "args")
-		stubShell := "#!/bin/sh\necho \"$*\" >> " + shellQuote(log) + "\necho 'startup noise'\necho " + shellQuote(bin+":/usr/bin:/bin") + "\n"
-		if err := os.WriteFile(shell, []byte(stubShell), 0o700); err != nil {
-			t.Fatal(err)
-		}
+			if tc.hasCodex {
+				stub := "#!/bin/sh\necho \"codex-ran secret=$ANYPICK_TEST_SECRET $*\"\n"
+				if err := os.WriteFile(filepath.Join(bin, "codex"), []byte(stub), 0o700); err != nil {
+					t.Fatal(err)
+				}
+			}
+			envPath := CodexProfileEnvPath(root, "work")
+			if err := os.MkdirAll(filepath.Dir(envPath), 0o700); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(envPath, []byte("export ANYPICK_TEST_SECRET=s3cret\n"), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			shell := filepath.Join(dir, tc.shell)
+			log := filepath.Join(dir, "args")
+			stubShell := "#!/bin/sh\n" +
+				"echo \"$*\" >> " + shellQuote(log) + "\n" +
+				"echo 'startup noise'\n" +
+				"for last; do :; done\n" +
+				"PATH=" + shellQuote(bin+":/usr/bin:/bin") + " /bin/sh -c \"$last\"\n" +
+				"echo 'bye from logout'\n"
+			if err := os.WriteFile(shell, []byte(stubShell), 0o700); err != nil {
+				t.Fatal(err)
+			}
 
-		script := codexTerminalScript("work", "CODEX_HOME='/h' codex --profile 'work'")
-		lines := strings.Split(script, "\n")
-		for i, line := range lines {
-			if strings.HasPrefix(line, "user_shell=$(dscl") {
-				lines[i] = "user_shell=" + shellQuote(shell)
+			script := codexTerminalScript("work", CodexProfileLaunchCommand(root, "work", true))
+			lines := strings.Split(script, "\n")
+			for i, line := range lines {
+				if strings.HasPrefix(line, "user_shell=$(dscl") {
+					lines[i] = "user_shell=" + shellQuote(shell)
+					if tc.fromEnv {
+						lines[i] = "user_shell=/nonexistent"
+					}
+				}
+				if line == `exec "$user_shell" -l` {
+					lines[i] = `echo "then $user_shell secret=${ANYPICK_TEST_SECRET:-none}"`
+				}
 			}
-			if line == `exec "$user_shell" -l` {
-				lines[i] = `echo "then $user_shell"`
+			cmd := exec.Command("/bin/sh", "-c", strings.Join(lines, "\n"))
+			cmd.Env = []string{"PATH=/usr/bin:/bin", "SHELL=" + shell}
+			out, _ := cmd.CombinedOutput()
+			got := string(out)
+			asked, _ := os.ReadFile(log)
+			if !strings.HasPrefix(string(asked), tc.wantArgs+" printenv PATH") {
+				t.Errorf("asked as %q, want %q", asked, tc.wantArgs)
 			}
+			ran := strings.Contains(got, "codex-ran secret=s3cret --profile work")
+			if tc.hasCodex != ran {
+				t.Errorf("codex installed: %v, ran: %v\n%s", tc.hasCodex, ran, got)
+			}
+			if !tc.hasCodex && !strings.Contains(got, "codex is not on the PATH") {
+				t.Errorf("missing codex not explained:\n%s", got)
+			}
+			if !strings.Contains(got, "then "+shell+" secret=none") {
+				t.Errorf("window does not continue in the user's shell, or the secret leaked into it:\n%s", got)
+			}
+		})
+	}
+}
+
+// With no usable account record and no $SHELL, the script still has a shell.
+func TestCodexTerminalScriptFallsBackToZsh(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("the terminal script is macOS-only")
+	}
+	var fallback string
+	for _, line := range strings.Split(codexTerminalScript("work", "true"), "\n") {
+		if strings.HasPrefix(line, `[ -x "$user_shell" ]`) {
+			fallback = line
 		}
-		cmd := exec.Command("/bin/sh", "-c", strings.Join(lines, "\n"))
-		cmd.Env = []string{"PATH=/usr/bin:/bin", "SHELL=/bin/false"}
-		out, _ := cmd.CombinedOutput()
-		got := string(out)
-		asked, _ := os.ReadFile(log)
-		if !strings.Contains(string(asked), tc.wantArgs) {
-			t.Errorf("%s asked as %q, want %q", tc.shell, asked, tc.wantArgs)
-		}
-		if tc.hasCodex != strings.Contains(got, "codex-ran CODEX_HOME=/h --profile work") {
-			t.Errorf("%s (codex installed: %v):\n%s", tc.shell, tc.hasCodex, got)
-		}
-		if !tc.hasCodex && !strings.Contains(got, "codex is not on the PATH") {
-			t.Errorf("missing codex not explained:\n%s", got)
-		}
-		if !strings.Contains(got, "then "+shell) {
-			t.Errorf("window does not continue in the user's shell:\n%s", got)
-		}
+	}
+	if fallback == "" {
+		t.Fatal("no fallback line in the script")
+	}
+	cmd := exec.Command("/bin/sh", "-c", "user_shell=/nonexistent\n"+fallback+"\necho \"$user_shell\"")
+	cmd.Env = []string{"PATH=/usr/bin:/bin"}
+	out, err := cmd.Output()
+	if err != nil || strings.TrimSpace(string(out)) != "/bin/zsh" {
+		t.Fatalf("fallback = %q (%v)", out, err)
 	}
 }

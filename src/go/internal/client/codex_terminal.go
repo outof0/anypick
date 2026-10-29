@@ -54,7 +54,13 @@ func LaunchCodexProfileTerminal(root, name, command string) error {
 // than $SHELL, for its PATH, in the form each shell family accepts: zsh and
 // bash as interactive login shells, so .zshrc/.bashrc run too; fish as a
 // login shell; csh and tcsh without -l, which they reject next to -c.
-// printenv prints PATH colon-joined from every shell, fish included.
+// printenv prints PATH colon-joined from every shell, fish included, and the
+// probe is a plain pipe that every family parses (no $(...) for csh). The
+// answer is tagged and picked out by its tag, because startup and logout files
+// (.zlogout, .bash_logout, a `clear`) can print around it; with no tagged line
+// the bare PATH stays. The probe runs those files once more, so anything they
+// show or ask (a greeting, an ssh-add passphrase) appears in the window before
+// Codex starts.
 //
 // The launch command itself is POSIX (`source`, `&&`, `VAR=value cmd`), so it
 // runs in /bin/sh with that PATH, in a subshell so the profile's env file does
@@ -65,11 +71,13 @@ func codexTerminalScript(name, command string) string {
 # Written by AnyPick: runs Codex on profile ` + name + `.
 user_shell=$(dscl . -read "/Users/$(id -un)" UserShell 2>/dev/null | sed -n 's/^UserShell: //p')
 [ -x "$user_shell" ] || user_shell=${SHELL:-/bin/zsh}
+probe='printenv PATH | sed "s/^/__ANYPICK_PATH=/"'
 case "${user_shell##*/}" in
-  zsh|bash) user_path=$("$user_shell" -i -l -c 'printenv PATH' </dev/null 2>/dev/null | tail -n 1) ;;
-  csh|tcsh) user_path=$("$user_shell" -c 'printenv PATH' </dev/null 2>/dev/null | tail -n 1) ;;
-  *) user_path=$("$user_shell" -l -c 'printenv PATH' </dev/null 2>/dev/null | tail -n 1) ;;
+  zsh|bash) user_path=$("$user_shell" -i -l -c "$probe" </dev/null 2>/dev/null) ;;
+  csh|tcsh) user_path=$("$user_shell" -c "$probe" </dev/null 2>/dev/null) ;;
+  *) user_path=$("$user_shell" -l -c "$probe" </dev/null 2>/dev/null) ;;
 esac
+user_path=$(printf '%s\n' "$user_path" | sed -n 's/^__ANYPICK_PATH=//p' | tail -n 1)
 [ -n "$user_path" ] && PATH=$user_path && export PATH
 if command -v codex >/dev/null 2>&1; then
   (` + command + `)
