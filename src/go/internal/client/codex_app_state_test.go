@@ -180,7 +180,7 @@ func TestShareCodexMainStateFollowsTheMainDatabase(t *testing.T) {
 		if err := os.WriteFile(filepath.Join(db, "state_5.sqlite"), nil, 0o600); err != nil {
 			t.Fatal(err)
 		}
-		if err := os.WriteFile(filepath.Join(mainHome, "config.toml"), []byte("sqlite_home = \""+db+"\"\n"), 0o600); err != nil {
+		if err := os.WriteFile(filepath.Join(mainHome, "config.toml"), []byte("sqlite_home = '"+db+"'\n"), 0o600); err != nil {
 			t.Fatal(err)
 		}
 		if err := ShareCodexMainState(root, "work", mainHome, true); err != nil {

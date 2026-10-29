@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+
+	"github.com/outof0/anypick/go/internal/client"
 )
 
 func TestValidateCodexProfileOpenPayload(t *testing.T) {
@@ -31,6 +33,9 @@ func TestValidateCodexProfileOpenPayload(t *testing.T) {
 // Opening a profile that is not saved fails with the profile's own error and
 // launches nothing.
 func TestMutateCodexProfileOpenUnknownProfile(t *testing.T) {
+	// On Linux and Windows the platform check answers first; the profile
+	// lookup is what this pins.
+	t.Cleanup(client.SetCodexAppPlatformForTest("darwin"))
 	env := newTrayEnv(t)
 	wireActivation(t, env)
 	srv := New(env.Deps, strings.NewReader(""), &strings.Builder{})

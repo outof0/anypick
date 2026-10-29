@@ -91,8 +91,12 @@ followUpQueueMode = "steer"
 		t.Fatalf("CLI state copied into the app config: %v", doc)
 	}
 	info, err := os.Stat(appPath)
-	if err != nil || info.Mode().Perm() != 0o600 {
-		t.Fatalf("app config mode = %v, %v", info, err)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Windows has no Unix permission bits to check.
+	if runtime.GOOS != "windows" && info.Mode().Perm() != 0o600 {
+		t.Fatalf("app config mode = %v", info.Mode().Perm())
 	}
 }
 
@@ -389,8 +393,10 @@ func TestLaunchCodexProfileTerminalRefusesOtherPlatforms(t *testing.T) {
 // launch command is the real one, sourcing an env file that exports a secret,
 // which must reach codex and not the shell the window continues in.
 func TestCodexTerminalScriptUsesTheUsersShellPath(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("the terminal script is macOS-only")
+	// The script runs under macOS's /bin/sh, which has `source`; Linux's
+	// dash does not, and the feature is macOS-only.
+	if runtime.GOOS != "darwin" {
+		t.Skip("the terminal script runs only on macOS")
 	}
 	for _, tc := range []struct {
 		shell, wantArgs string
