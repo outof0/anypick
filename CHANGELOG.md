@@ -6,6 +6,10 @@ Conventional Commits by `changelogithub`, are on
 
 This project follows [Semantic Versioning](https://semver.org/).
 
+## 1.2.0
+
+On macOS, open a Codex profile in its own Codex desktop app window (`anypick codex profile open`), on the main app's projects and sessions with onboarding skipped, or in Terminal with your login shell's `PATH`; a profile with its window open cannot be removed. Gemini accounts now list only the models Antigravity's picker offers, by Google's own ids (the rest stay callable by exact id), and WorkBuddy no longer lists image and video models. Model lists cached under older filter rules are rediscovered.
+
 ## 1.1.5
 
 Add a loopback management API (`anypick serve`), Ollama and LM Studio as keyless local providers, `soonest-reset` routing for pools and the Proxy Hub, named hub combos with a hub-answered model list, and token usage history with a dated cost estimate (`anypick usage`). Verify proxy token rotation and reapply bound apps, fix a Linux account-add rejection, and stop image data leaking into translated prompts.
