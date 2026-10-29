@@ -79,6 +79,11 @@ func (s *Service) List(ctx context.Context, req Request) Result {
 	if s.Cache != nil && cacheKey != "" {
 		cached, _ = s.Cache.Get(ctx, req.ProviderID, cacheKey)
 	}
+	// A list filtered under older discovery rules can hold ids the provider
+	// no longer publishes; it is not even a stale answer.
+	if cached != nil && cached.Rules != catalog.ModelCatalogRules(req.ProviderID) {
+		cached = nil
+	}
 	now := s.now()
 	if !req.Refresh && cached != nil && isFresh(cached.FetchedAt, now) {
 		return Result{Models: cached.Models, Source: SourceCache, FetchedAt: cached.FetchedAt}
@@ -152,6 +157,7 @@ func (s *Service) StoreLive(ctx context.Context, providerID, endpoint string, mo
 	return lock.WithMutationLock(ctx, s.Root, "model-cache", func(c context.Context) error {
 		return s.Cache.Write(c, &modelcache.Entry{
 			Provider: providerID, Endpoint: normalizeEndpoint(endpoint), Models: models, FetchedAt: fetchedAt,
+			Rules: catalog.ModelCatalogRules(providerID),
 		})
 	})
 }

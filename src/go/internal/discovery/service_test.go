@@ -190,3 +190,30 @@ func TestListUsesAccountScopedCacheWithoutAnEndpoint(t *testing.T) {
 		t.Fatalf("account cache was not used: %+v", res)
 	}
 }
+
+// A row filtered under older discovery rules is not served, not even as a
+// stale fallback: it can hold ids the provider no longer publishes. A fresh
+// write records the current rules and is served again.
+func TestListIgnoresCatalogCachedUnderOlderRules(t *testing.T) {
+	svc, store := newTestService(t)
+	ctx := context.Background()
+	key := "account/gemini/work"
+	if err := store.Write(ctx, &modelcache.Entry{
+		Provider: "gemini-api", Endpoint: key,
+		Models: []string{"gemini-3.8-flash-tiered", "tab_flash_lite_preview"}, FetchedAt: "2026-09-18T06:44:20.574Z",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	res := svc.List(ctx, Request{ProviderID: "gemini-api", CacheKey: key, NoLive: true})
+	if res.Source != SourceCatalog {
+		t.Fatalf("old-rules row was served: %+v", res)
+	}
+
+	if err := svc.StoreLive(ctx, "gemini-api", key, []string{"gemini-3-flash"}); err != nil {
+		t.Fatal(err)
+	}
+	res = svc.List(ctx, Request{ProviderID: "gemini-api", CacheKey: key, NoLive: true})
+	if res.Source != SourceCache || len(res.Models) != 1 || res.Models[0] != "gemini-3-flash" {
+		t.Fatalf("current-rules row not served: %+v", res)
+	}
+}

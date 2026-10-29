@@ -58,3 +58,25 @@ func CatalogIdentityFor(providerID string) string {
 func AccountCatalogKey(providerID, accountName string) string {
 	return "account/" + providerID + "/" + accountName
 }
+
+// modelCatalogRules versions what each provider's live discovery publishes.
+// Bump an entry when a provider's filter starts dropping or renaming ids:
+// rows cached under an older version then read as absent, and an empty
+// account catalog is rediscovered on the next route or profile action. A
+// provider without an entry is at version 0, which every existing row has.
+var modelCatalogRules = map[string]int{
+	// 1: only the routes of Antigravity's pro and flash tiers
+	// (gemini-3.8-flash-tiered); IDE helpers, the flash-lite tier and image
+	// models (tab_*, chat_*, gemini-3.5-flash-lite, gemini-3.1-flash-image)
+	// are no longer published.
+	"gemini-api": 1,
+	// 1: models the catalogue does not mark tool-capable (image and video
+	// generation) and the UI tier routers are no longer published.
+	"workbuddy": 1,
+}
+
+// ModelCatalogRules returns the discovery rule version for a provider's
+// catalog identity.
+func ModelCatalogRules(providerID string) int {
+	return modelCatalogRules[CatalogIdentityFor(providerID)]
+}

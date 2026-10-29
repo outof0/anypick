@@ -388,4 +388,16 @@ var migrations = []migration{
 			return err
 		},
 	},
+	{
+		// Discovery filters change what a provider publishes; rows cached
+		// under an older filter must read as absent (catalog.ModelCatalogRules).
+		name: "add model catalog rules version",
+		up: func(d execer) error {
+			if !hasColumn(d, "model_catalog_cache", "rules_version") {
+				_, err := d.Exec("ALTER TABLE model_catalog_cache ADD COLUMN rules_version INTEGER NOT NULL DEFAULT 0")
+				return err
+			}
+			return nil
+		},
+	},
 }
