@@ -292,3 +292,112 @@ func TestRemoveProfileFilesKeepsSharedSessions(t *testing.T) {
 		}
 	}
 }
+
+// The app lists projects from local-projects and files threads under them by
+// id. A profile window gets the main app's projects merged in, and keeps any
+// project it opened itself, so neither side's projects drop out.
+func TestShareCodexMainStateMergesProjectListsKeepingTheProfiles(t *testing.T) {
+	root, mainHome := t.TempDir(), newMainHome(t)
+	writeProfileConfig(t, root, "work", "model_provider = \"anypick\"\n")
+	if err := WriteCodexProfileAppConfig(root, "work"); err != nil {
+		t.Fatal(err)
+	}
+	statePath := filepath.Join(CodexProfileHomePath(root, "work"), codexAppGlobalStateFile)
+	writeJSON(t, filepath.Join(mainHome, codexAppGlobalStateFile), map[string]any{
+		"local-projects": map[string]any{
+			"local-a": map[string]any{"id": "local-a", "name": "main-a"},
+			"local-s": map[string]any{"id": "local-s", "name": "from-main"},
+		},
+		"thread-project-assignments": map[string]any{"t1": map[string]any{"projectId": "local-a"}},
+		"project-order":              []any{"p1", "p2"},
+		"projectless-thread-ids":     []any{"t9"},
+	})
+	writeJSON(t, statePath, map[string]any{
+		"local-projects": map[string]any{
+			"local-own": map[string]any{"id": "local-own", "name": "profile-only"},
+			"local-s":   map[string]any{"id": "local-s", "name": "stale"},
+		},
+		"thread-project-assignments": map[string]any{"t2": map[string]any{"projectId": "local-own"}},
+		"project-order":              []any{"p2", "p3"},
+	})
+
+	if err := ShareCodexMainState(root, "work", mainHome, false); err != nil {
+		t.Fatal(err)
+	}
+	state := readGlobalState(t, statePath)
+	projects := state["local-projects"].(map[string]any)
+	if len(projects) != 3 || projects["local-own"] == nil ||
+		projects["local-s"].(map[string]any)["name"] != "from-main" {
+		t.Fatalf("local-projects = %v", projects)
+	}
+	if assigned := state["thread-project-assignments"].(map[string]any); assigned["t1"] == nil || assigned["t2"] == nil {
+		t.Fatalf("thread-project-assignments = %v", assigned)
+	}
+	if !reflect.DeepEqual(state["project-order"], []any{"p1", "p2", "p3"}) {
+		t.Fatalf("project-order = %v", state["project-order"])
+	}
+	if !reflect.DeepEqual(state["projectless-thread-ids"], []any{"t9"}) {
+		t.Fatalf("projectless-thread-ids = %v", state["projectless-thread-ids"])
+	}
+}
+
+// A project or filing an earlier seed copied from the main app goes away once
+// the main app removes it; one the profile window made itself stays.
+func TestShareCodexMainStateDropsWhatTheMainAppRemoved(t *testing.T) {
+	root, mainHome := t.TempDir(), newMainHome(t)
+	writeProfileConfig(t, root, "work", "model_provider = \"anypick\"\n")
+	if err := WriteCodexProfileAppConfig(root, "work"); err != nil {
+		t.Fatal(err)
+	}
+	mainPath := filepath.Join(mainHome, codexAppGlobalStateFile)
+	statePath := filepath.Join(CodexProfileHomePath(root, "work"), codexAppGlobalStateFile)
+	writeJSON(t, mainPath, map[string]any{
+		"local-projects": map[string]any{
+			"local-a": map[string]any{"id": "local-a"},
+			"local-b": map[string]any{"id": "local-b"},
+		},
+		"thread-project-assignments": map[string]any{
+			"t1": map[string]any{"projectId": "local-a"},
+			"t2": map[string]any{"projectId": "local-b"},
+		},
+		"project-order": []any{"local-a", "local-b"},
+	})
+	writeJSON(t, statePath, map[string]any{})
+	if err := ShareCodexMainState(root, "work", mainHome, false); err != nil {
+		t.Fatal(err)
+	}
+	// The profile window opens a project of its own; the main app then drops
+	// local-b and unfiles t2.
+	state := readGlobalState(t, statePath)
+	state["local-projects"].(map[string]any)["local-own"] = map[string]any{"id": "local-own"}
+	state["project-order"] = append(state["project-order"].([]any), "local-own")
+	writeJSON(t, statePath, state)
+	writeJSON(t, mainPath, map[string]any{
+		"local-projects":             map[string]any{"local-a": map[string]any{"id": "local-a"}},
+		"thread-project-assignments": map[string]any{"t1": map[string]any{"projectId": "local-a"}},
+		"project-order":              []any{"local-a"},
+	})
+
+	if err := ShareCodexMainState(root, "work", mainHome, false); err != nil {
+		t.Fatal(err)
+	}
+	state = readGlobalState(t, statePath)
+	projects := state["local-projects"].(map[string]any)
+	if len(projects) != 2 || projects["local-a"] == nil || projects["local-own"] == nil {
+		t.Fatalf("local-projects = %v", projects)
+	}
+	if assigned := state["thread-project-assignments"].(map[string]any); len(assigned) != 1 || assigned["t1"] == nil {
+		t.Fatalf("thread-project-assignments = %v", assigned)
+	}
+	if !reflect.DeepEqual(state["project-order"], []any{"local-a", "local-own"}) {
+		t.Fatalf("project-order = %v", state["project-order"])
+	}
+}
+
+// Shapes that differ between the two files take the main app's value.
+func TestMergeCodexStateValueTakesMainOnShapeMismatch(t *testing.T) {
+	main := map[string]any{"a": 1.0}
+	if got := mergeCodexStateValue(main, []any{"x"}, nil); !reflect.DeepEqual(got, main) {
+		t.Fatalf("got %v", got)
+	}
+}
