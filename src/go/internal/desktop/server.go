@@ -663,18 +663,23 @@ func (s *Server) rehydrateCodexProfiles(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("read Codex profiles: %w", err)
 	}
-	var errs []error
+	managed := make([]client.NamedProfile, 0, len(profiles))
 	for _, named := range profiles {
 		source := named.Spec.Source
-		managed := source.Kind == refs.KindProxyHub || source.Kind == refs.KindAccountPool
+		ok := source.Kind == refs.KindProxyHub || source.Kind == refs.KindAccountPool
 		if source.Kind == refs.KindAccount {
 			// Codex's own account is direct by default. Other account providers
 			// route through a managed proxy when paired with the Codex client.
-			managed = source.Provider != "codex" || named.Spec.TransportPolicy == "proxy"
+			ok = source.Provider != "codex" || named.Spec.TransportPolicy == "proxy"
 		}
-		if !managed {
-			continue
+		if ok {
+			managed = append(managed, named)
 		}
+	}
+	s.warmColdCodexProfileCatalogs(ctx, managed)
+	var errs []error
+	for _, named := range managed {
+		source := named.Spec.Source
 		spec := named.Spec
 		plan, err := activation.PlanActivation(ctx, activation.Request{
 			Mode:         activation.ModeProfile,
@@ -694,6 +699,46 @@ func (s *Server) rehydrateCodexProfiles(ctx context.Context) error {
 		}
 	}
 	return errors.Join(errs...)
+}
+
+// coldCatalogStartupBudget bounds how long startup waits for the model lists
+// of accounts that have none cached. Accounts are fetched in parallel, so it
+// is one discovery call's worth of delay, paid only while a cache is missing.
+const coldCatalogStartupBudget = 10 * time.Second
+
+// warmColdCodexProfileCatalogs fetches the model list of each account a
+// profile routes to when no usable list is cached. Startup otherwise reads the
+// cache only, and an upgrade that changes an account's discovery rules
+// invalidates it, so every such profile came back offering just its stored
+// model. It runs before the profiles are restored and before the command loop
+// starts, so no user edit can race the restore and the first snapshot already
+// carries the fetched lists. A failed fetch keeps today's behavior: the
+// profile is restored from what is cached.
+func (s *Server) warmColdCodexProfileCatalogs(ctx context.Context, profiles []client.NamedProfile) {
+	cold := map[string]refs.Ref{}
+	for _, named := range profiles {
+		source := named.Spec.Source
+		if source.Kind == refs.KindAccount && len(s.sourceModelCatalog(ctx, source)) == 0 {
+			cold[refs.SerializeRef(source)] = source
+		}
+	}
+	if len(cold) == 0 {
+		return
+	}
+	warmCtx, cancel := context.WithTimeout(ctx, coldCatalogStartupBudget)
+	defer cancel()
+	var wg sync.WaitGroup
+	for _, source := range cold {
+		wg.Add(1)
+		go func(source refs.Ref) {
+			defer wg.Done()
+			if _, err := s.warmAccountModelCatalog(warmCtx, source.Provider, source.Name); err != nil &&
+				!errors.Is(err, proxy.ErrModelDiscoveryUnsupported) {
+				s.logErr(fmt.Errorf("model catalog refresh for %s: %w", refs.DisplayRef(source), err))
+			}
+		}(source)
+	}
+	wg.Wait()
 }
 
 type scannedLine struct {
