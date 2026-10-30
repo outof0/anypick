@@ -146,6 +146,12 @@ continued on another, for example a GPT session continued through a Gemini
 account. A profile's session files stay in its own `CODEX_HOME`, so they are
 kept when the profile is removed, including when its account is deleted.
 
+Projects are copied one way, each time you open the profile while its window
+is closed: the window gets your main app's projects, pins and order, and keeps
+any project you opened in it yourself. A project you add in the profile
+window stays in that window only, and one the main app removes leaves the
+profile window the next time you open it.
+
 On macOS, the macOS and desktop apps offer **Open in Codex App** and **Open in
 Terminal** as buttons on each profile row, next to the copy button. **Open in
 Terminal** opens your default terminal and runs the profile's launch command

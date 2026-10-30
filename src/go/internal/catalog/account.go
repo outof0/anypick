@@ -69,7 +69,10 @@ var modelCatalogRules = map[string]int{
 	// (gemini-3.8-flash-tiered); IDE helpers, the flash-lite tier and image
 	// models (tab_*, chat_*, gemini-3.5-flash-lite, gemini-3.1-flash-image)
 	// are no longer published.
-	"gemini-api": 1,
+	// 2: Google's recommended named Gemini 3+ models are published after the
+	// tier routes (gemini-3-flash), since both tiers can route to one flash
+	// model.
+	"gemini-api": 2,
 	// 1: models the catalogue does not mark tool-capable (image and video
 	// generation) and the UI tier routers are no longer published.
 	"workbuddy": 1,

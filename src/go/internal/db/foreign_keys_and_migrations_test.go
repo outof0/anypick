@@ -155,15 +155,18 @@ func TestHasColumnAndMigrationsIdempotent(t *testing.T) {
 	}
 	defer func() { _ = d2.Close() }()
 	// Verify hasColumn sees the migrated column.
-	if !hasColumn(d2.DB, "proxy_leases", "instance_id") {
-		t.Fatal("want proxy_leases.instance_id after migrations")
-	}
-	if hasColumn(d2.DB, "proxy_leases", "nonexistent_xyz") {
-		t.Fatal("want false for nonexistent column")
-	}
-	// hasColumn on bad table returns false.
-	if hasColumn(d2.DB, "no_such_table_xyz", "col") {
-		t.Fatal("want false for bad table")
+	for _, tc := range []struct {
+		table, column string
+		want          bool
+	}{
+		{"proxy_leases", "instance_id", true},
+		{"proxy_leases", "nonexistent_xyz", false},
+		{"no_such_table_xyz", "col", false},
+	} {
+		got, err := hasColumn(d2.DB, tc.table, tc.column)
+		if err != nil || got != tc.want {
+			t.Fatalf("hasColumn(%s, %s) = %v, %v; want %v", tc.table, tc.column, got, err, tc.want)
+		}
 	}
 }
 
