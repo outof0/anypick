@@ -45,7 +45,7 @@ func (s *Server) handleMutate(ctx context.Context, payload json.RawMessage) erro
 		return nil
 	}
 	s.write(FrameResult(result))
-	if result.Status == "success" {
+	if result.Status == "success" || refreshesWhenRefused(m.Operation) {
 		// The terminal frame is already out. A failed refresh must not become a
 		// second answer for the same requestId (the app turns it into an error
 		// toast over a success), so it is logged here and retried by the ticker
@@ -641,6 +641,8 @@ func (s *Server) routeMutation(ctx context.Context, payload json.RawMessage, m M
 	case "codex-profile-save", "codex-profile-update", "codex-profile-sync",
 		"codex-profile-remove", "codex-profile-terminal", "codex-profile-open":
 		result = s.routeCodexProfileMutation(ctx, m, result)
+	case "claude-app-profile-open", "claude-app-profile-remove":
+		result = s.routeClaudeAppProfileMutation(ctx, m, result)
 	case "account-import", "account-export", "account-backup-all",
 		"account-backup-export", "account-backup-import", "account-backup-forget":
 		result = s.handleTransferOp(ctx, m)

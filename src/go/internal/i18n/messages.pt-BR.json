@@ -3363,6 +3363,50 @@
     "other": "Abre uma janela separada do app Codex que usa este perfil.",
     "description": "Original English text: Start a separate Codex app window that uses this profile."
   },
+  "desktop.app_detail.claude_app_profiles": {
+    "other": "Perfis do app Claude",
+    "description": "Original English text: Claude App Profiles"
+  },
+  "desktop.app_detail.claude_app_profiles_help": {
+    "other": "Cada perfil é uma janela separada do app Claude com login próprio. Trocar de conta aqui afeta apenas o Claude Code, não o app Claude.",
+    "description": "Original English text: Each profile is a separate Claude app window with its own sign-in. Switching accounts here changes Claude Code only, not the Claude app."
+  },
+  "desktop.app_detail.no_claude_app_profiles": {
+    "other": "Ainda não há perfis do app Claude.",
+    "description": "Original English text: No Claude app profiles yet."
+  },
+  "desktop.app_detail.add_claude_app_profile": {
+    "other": "Adicionar perfil do app Claude",
+    "description": "Original English text: Add Claude App Profile"
+  },
+  "desktop.app_detail.open_new_claude_app_profile": {
+    "other": "Abrir no app Claude",
+    "description": "Original English text: Open in Claude App"
+  },
+  "desktop.app_detail.open_claude_app_profile": {
+    "other": "Abrir {name} no app Claude",
+    "description": "Original English text: Open {name} in Claude App"
+  },
+  "desktop.app_detail.open_claude_app_profile_help": {
+    "other": "Inicia uma janela separada do app Claude usando este perfil.",
+    "description": "Original English text: Start a separate Claude app window that uses this profile."
+  },
+  "desktop.app_detail.claude_app_profile_open": {
+    "other": "Aberto",
+    "description": "Original English text: Open"
+  },
+  "desktop.app_detail.claude_app_profile_signed_in": {
+    "other": "Conectado",
+    "description": "Original English text: Signed in"
+  },
+  "desktop.app_detail.claude_app_profile_not_signed_in": {
+    "other": "Não conectado",
+    "description": "Original English text: Not signed in"
+  },
+  "desktop.app_detail.remove_claude_app_profile_message": {
+    "other": "Isso exclui os dados locais do perfil, incluindo o login do app Claude neste Mac. Sua conta Claude e seus chats na nuvem não são afetados.",
+    "description": "Original English text: This deletes the profile's local data, including its Claude app sign-in on this Mac. Your Claude account and cloud chats are not affected."
+  },
   "desktop.app_detail.open_in_terminal": {
     "other": "Abrir {name} no Terminal",
     "description": "Original English text: Open {name} in Terminal"

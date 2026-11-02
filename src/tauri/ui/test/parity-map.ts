@@ -23,6 +23,9 @@ export interface ParityRow {
   reason?: string;
 }
 
+const CLAUDE_APP_PROFILE_SKIP =
+  'Launching a Claude app profile relies on macOS open(1) and the macOS app bundle (ADR 0038).';
+
 export const PARITY: ParityRow[] = [
   // ── Sidebar / shell ────────────────────────────────────────────────────────
   { macos: 'sidebar.navigation', tauri: 'sidebar-navigation', status: 'done' },
@@ -332,6 +335,38 @@ export const PARITY: ParityRow[] = [
     tauri: '',
     status: 'skip',
     reason: 'Quick Panel action. Tauri provides the platform Quit menu command, not a matching Quick Panel row.',
+  },
+
+  // ── Claude app profiles ────────────────────────────────────────────────────
+  {
+    macos: 'claude-app-profile.add',
+    tauri: '',
+    status: 'skip',
+    reason: CLAUDE_APP_PROFILE_SKIP,
+  },
+  {
+    macos: 'claude-app-profile.name',
+    tauri: '',
+    status: 'skip',
+    reason: CLAUDE_APP_PROFILE_SKIP,
+  },
+  {
+    macos: 'claude-app-profile.open.{x}',
+    tauri: '',
+    status: 'skip',
+    reason: CLAUDE_APP_PROFILE_SKIP,
+  },
+  {
+    macos: 'claude-app-profile.more.{x}',
+    tauri: '',
+    status: 'skip',
+    reason: CLAUDE_APP_PROFILE_SKIP,
+  },
+  {
+    macos: 'claude-app-profile.row.{x}',
+    tauri: '',
+    status: 'skip',
+    reason: CLAUDE_APP_PROFILE_SKIP,
   },
 ];
 

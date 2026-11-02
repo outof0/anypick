@@ -795,6 +795,77 @@ struct AddAppSheet: View {
   }
 }
 
+struct ClaudeAppProfileSheet: View {
+  @ObservedObject var model: MacOSDesignModel
+  @Environment(\.dismiss) private var dismiss
+  @State private var name = ""
+  @State private var awaitingOpen = false
+  @State private var openError: String?
+
+  private var nameAlreadyExists: Bool {
+    model.claudeAppProfileNameTaken(name)
+  }
+
+  private var canOpen: Bool {
+    validCodexProfileName(name) && !nameAlreadyExists && !awaitingOpen
+  }
+
+  var body: some View {
+    DesignSheetHost(
+      model: model,
+      title: model.localized("desktop.app_detail.add_claude_app_profile"),
+      width: 480,
+      primaryTitle: model.localized("desktop.app_detail.open_new_claude_app_profile"),
+      primaryDisabled: !canOpen,
+      primaryIdentifier: "claude-app-profile.save",
+      onCancel: { dismiss() },
+      onPrimary: open
+    ) {
+      Form {
+        Section {
+          TextField(model.localized("desktop.codex_profile.profile"), text: $name)
+            .accessibilityIdentifier("claude-app-profile.name")
+          Text(model.localized("desktop.codex_profile.name_rules"))
+            .font(.footnote)
+            .foregroundStyle(.secondary)
+          if nameAlreadyExists {
+            Label(model.localized("desktop.codex_profile.name_exists"), systemImage: "exclamationmark.triangle")
+              .font(.footnote)
+              .foregroundStyle(.red)
+          }
+          if let openError {
+            Label(openError, systemImage: "exclamationmark.triangle")
+              .font(.footnote)
+              .foregroundStyle(.red)
+          }
+        } footer: {
+          Text(model.localized("desktop.app_detail.claude_app_profiles_help"))
+        }
+      }
+      .formStyle(.grouped)
+      .onChange(of: model.operationResult) { _, result in
+        guard awaitingOpen, result?.operation == "claude-app-profile-open" else { return }
+        awaitingOpen = false
+        if result?.succeeded == true {
+          dismiss()
+        } else {
+          openError = result?.message
+        }
+      }
+    }
+  }
+
+  private func open() {
+    guard canOpen else { return }
+    openError = nil
+    awaitingOpen = model.openClaudeAppProfile(name: name)
+    // The fixture model answers at once, with no operation result to wait for.
+    if awaitingOpen, !(model is ProductionDesignModel) {
+      dismiss()
+    }
+  }
+}
+
 struct CodexProfileSheet: View {
   @ObservedObject var model: MacOSDesignModel
   let profile: DesignCodexProfile?

@@ -21,6 +21,8 @@ final class TrayStore: ObservableObject {
   @Published private(set) var clientModelConfigs: [ClientModelConfigSnapshot] = []
   @Published private(set) var codexProfiles: [CodexProfileSnapshot] = []
   @Published private(set) var codexProfileSources: [CodexProfileSourceSnapshot] = []
+  @Published private(set) var claudeAppProfiles: [ClaudeAppProfileSnapshot] = []
+  @Published private(set) var claudeAppSupported = false
   @Published private(set) var gateways: [GatewaySnapshot] = []
   @Published private(set) var accountProviders: [AccountProviderSnapshot] = []
   @Published private(set) var gatewayProviders: [GatewayProviderSnapshot] = []
@@ -626,6 +628,8 @@ final class TrayStore: ObservableObject {
     clientModelConfigs = snapshot.clientModelConfigs ?? []
     codexProfiles = snapshot.codexProfiles ?? []
     codexProfileSources = snapshot.codexProfileSources ?? []
+    claudeAppProfiles = snapshot.claudeAppProfiles ?? []
+    claudeAppSupported = snapshot.claudeAppSupported ?? false
     gateways = snapshot.gateways
     accountProviders = snapshot.accountProviders
     gatewayProviders = snapshot.gatewayProviders

@@ -15,6 +15,8 @@ class MacOSDesignModel: ObservableObject {
   @Published var allSupportedApps: [DesignApp] = []
   @Published var codexProfiles: [DesignCodexProfile] = []
   @Published var codexProfileSources: [DesignCodexProfileSource] = []
+  @Published var claudeAppProfiles: [DesignClaudeAppProfile] = []
+  @Published var claudeAppSupported = false
   @Published var automaticallyCreateCodexProfiles = AppPreferences.codexAutoProfilesEnabled
   /// Production quota is keyed by saved account, independently of installed apps.
   @Published var accountUsage: [String: [DesignUsageWindow]]?
@@ -410,6 +412,10 @@ class MacOSDesignModel: ObservableObject {
           selected: false,
           models: ["gemini-3.8-flash", "gpt-5.6-codex"]
         ),
+      ]
+      model.claudeAppSupported = true
+      model.claudeAppProfiles = [
+        DesignClaudeAppProfile(name: "work", signedIn: true, running: false)
       ]
       model.codexProfiles = [
         DesignCodexProfile(
@@ -858,6 +864,36 @@ class MacOSDesignModel: ObservableObject {
   func openCodexProfileInApp(name: String) {
     guard codexProfiles.contains(where: { $0.name == name }) else { return }
     showFeedback("Opened Codex profile \(name) in the Codex app.", kind: .success)
+  }
+
+  /// Opens the profile, creating it on first use. Returns whether the request
+  /// was accepted; the outcome arrives as an operation result.
+  @discardableResult
+  func openClaudeAppProfile(name: String) -> Bool {
+    guard validCodexProfileName(name) else {
+      showFeedback("Use 1–64 letters, numbers, hyphens, or underscores for the profile name.", kind: .error)
+      return false
+    }
+    if !claudeAppProfiles.contains(where: { $0.name == name }) {
+      claudeAppProfiles.append(DesignClaudeAppProfile(name: name, signedIn: false, running: true))
+    }
+    showFeedback("Opened Claude app profile \(name).", kind: .success)
+    return true
+  }
+
+  /// Names differing only by case are one folder on the default filesystem.
+  func claudeAppProfileNameTaken(_ name: String) -> Bool {
+    claudeAppProfiles.contains { $0.name.caseInsensitiveCompare(name) == .orderedSame }
+  }
+
+  /// A quit Claude window reports nothing, so its row is rechecked when the
+  /// user comes back. Production overrides this.
+  func refreshClaudeAppProfiles() {}
+
+  func removeClaudeAppProfile(name: String) {
+    guard let index = claudeAppProfiles.firstIndex(where: { $0.name == name }) else { return }
+    claudeAppProfiles.remove(at: index)
+    showFeedback("Removed Claude app profile \(name).", kind: .warning)
   }
 
   func removeCodexProfile(name: String) {

@@ -163,6 +163,8 @@ func run(args []string) int {
 		code = cmdReset(ctx, a, args[1:])
 	case "codex":
 		code = cmdCodex(ctx, a, args[1:])
+	case "claude-app":
+		code = cmdClaudeApp(ctx, a, args[1:])
 	case "tui", "--tui":
 		return runTuiSurface(ctx, a)
 	case "tray":
@@ -314,6 +316,7 @@ Usage:
   anypick link|unlink <client> [--with <source>] [--dir <path>]   link re-applies the global spec without --with
   anypick reset <client>
   anypick codex profile login|list|show|open|remove …
+  anypick claude-app profile list|open|remove …
   anypick tui | tray
   anypick serve [--detach|--stop]   management API on loopback
   anypick serve token [--rotate]   print or rotate its token

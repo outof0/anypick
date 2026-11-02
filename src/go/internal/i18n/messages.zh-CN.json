@@ -3363,6 +3363,50 @@
     "other": "打开一个使用此配置的独立 Codex 应用窗口。",
     "description": "Original English text: Start a separate Codex app window that uses this profile."
   },
+  "desktop.app_detail.claude_app_profiles": {
+    "other": "Claude 应用配置文件",
+    "description": "Original English text: Claude App Profiles"
+  },
+  "desktop.app_detail.claude_app_profiles_help": {
+    "other": "每个配置文件都是一个单独的 Claude 应用窗口，并使用各自的登录。在此切换账号只影响 Claude Code，不影响 Claude 应用。",
+    "description": "Original English text: Each profile is a separate Claude app window with its own sign-in. Switching accounts here changes Claude Code only, not the Claude app."
+  },
+  "desktop.app_detail.no_claude_app_profiles": {
+    "other": "还没有 Claude 应用配置文件。",
+    "description": "Original English text: No Claude app profiles yet."
+  },
+  "desktop.app_detail.add_claude_app_profile": {
+    "other": "添加 Claude 应用配置文件",
+    "description": "Original English text: Add Claude App Profile"
+  },
+  "desktop.app_detail.open_new_claude_app_profile": {
+    "other": "在 Claude 应用中打开",
+    "description": "Original English text: Open in Claude App"
+  },
+  "desktop.app_detail.open_claude_app_profile": {
+    "other": "在 Claude 应用中打开 {name}",
+    "description": "Original English text: Open {name} in Claude App"
+  },
+  "desktop.app_detail.open_claude_app_profile_help": {
+    "other": "启动使用此配置文件的单独 Claude 应用窗口。",
+    "description": "Original English text: Start a separate Claude app window that uses this profile."
+  },
+  "desktop.app_detail.claude_app_profile_open": {
+    "other": "已打开",
+    "description": "Original English text: Open"
+  },
+  "desktop.app_detail.claude_app_profile_signed_in": {
+    "other": "已登录",
+    "description": "Original English text: Signed in"
+  },
+  "desktop.app_detail.claude_app_profile_not_signed_in": {
+    "other": "未登录",
+    "description": "Original English text: Not signed in"
+  },
+  "desktop.app_detail.remove_claude_app_profile_message": {
+    "other": "这会删除该配置文件的本地数据，包括此 Mac 上的 Claude 应用登录。你的 Claude 账号和云端聊天不受影响。",
+    "description": "Original English text: This deletes the profile's local data, including its Claude app sign-in on this Mac. Your Claude account and cloud chats are not affected."
+  },
   "desktop.app_detail.open_in_terminal": {
     "other": "在终端中打开 {name}",
     "description": "Original English text: Open {name} in Terminal"

@@ -44,6 +44,7 @@ immutable once accepted.
 | [0035](0035-soonest-reset-routing.md) | Pools and the hub gain `soonest-reset`: each request starts at the account whose unused quota resets soonest, from a per-provider cache the request path only reads and a soonest-reset child refreshes from saved snapshots; missing or stale readings fall back to failover order. | accepted, amends [0026](0026-pool-rotation-and-all-cooling.md) |
 | [0036](0036-hub-named-combos.md) | A combo is a named, ordered list of (hub source, model) steps clients request like a model id; it walks its steps on quota refusal, pool steps included, and the hub answers `GET /v1/models` itself with pins, single-owner catalog ids and combos. | accepted, amends [0013](0013-model-routed-proxy-hub.md) |
 | [0037](0037-usage-history-and-cost-estimate.md) | Proxies, pools and the hub record each served 2xx response's token counts (no content) in `usage_events`, kept 90 days; `anypick usage` and the management API report them with a cost estimate from a dated, overridable list-price table that prices nothing it does not list. | accepted |
+| [0038](0038-claude-app-profiles.md) | The Claude desktop app is switched by running a separate instance on its own data folder; AnyPick never reads or moves the app's credentials, and `anypick use claude` stays a Claude Code operation. | accepted |
 
 ## Writing a new one
 

@@ -227,6 +227,15 @@ its own signed-in account. To use a profile in the desktop app, run
 `anypick codex profile open <name>` (macOS) or choose **Open in Codex App** from
 the profile's actions menu: it opens a separate Codex window on that profile.
 
+Switching a saved Claude account changes Claude Code only. The Claude desktop
+app keeps its own sign-in, and its Code tab follows the app. To use another
+account in the app on macOS, run `anypick claude-app profile open <name>` or
+choose **Add Claude App Profile** on the Claude Code page: it opens a separate
+Claude window with its own folder, and you sign in there once. Connectors and
+app settings start empty in each profile, and AnyPick backups do not include
+them. Removing a profile deletes its local data. It does not sign the account
+out on the server.
+
 When the client and the account speak different protocols, AnyPick starts a
 local translating proxy and points the client at it. You do not start the proxy
 yourself — Command Code receives an OpenAI-compatible `anypick-managed` provider

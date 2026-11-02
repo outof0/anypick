@@ -426,6 +426,13 @@ struct DesignCodexProfile: Identifiable, Hashable {
   var terminalOpenable: Bool = false
 }
 
+struct DesignClaudeAppProfile: Identifiable, Hashable {
+  var id: String { name }
+  let name: String
+  var signedIn: Bool
+  var running: Bool
+}
+
 func validCodexProfileName(_ value: String) -> Bool {
   let allowed = CharacterSet(charactersIn: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_")
   return !value.isEmpty && value.count <= 64

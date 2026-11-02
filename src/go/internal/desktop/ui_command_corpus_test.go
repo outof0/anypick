@@ -25,6 +25,9 @@ var notSentByTauri = map[string]string{
 	"account-save-current": "macOS only (ProductionModel.swift); the Tauri sheet saves the live login through account-save",
 	"account-import":       "no host sends it; single-account files were superseded by account-backup-import",
 	"account-export":       "no host sends it; single-account files were superseded by account-backup-export",
+	// The Tauri shell serves the platforms this operation refuses.
+	"claude-app-profile-open":   "macOS only (ProductionModel.swift); the launch path is open(1)",
+	"claude-app-profile-remove": "macOS only (ProductionModel.swift); nothing creates a profile elsewhere",
 }
 
 func loadUICommands(t *testing.T) []uiCommandEntry {

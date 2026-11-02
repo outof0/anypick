@@ -36,6 +36,7 @@
         "unlink",
         "reset",
         "codex",
+        "claude-app",
         "tui",
         "tray",
         "serve",
@@ -656,6 +657,10 @@
     {
       "path": "codex",
       "reason": "Go-only: manage named Codex CLI profile routes"
+    },
+    {
+      "path": "claude-app",
+      "reason": "Go-only: manage separate Claude desktop app data folders (ADR-0038)"
     },
     {
       "path": "usage",
