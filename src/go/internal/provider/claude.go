@@ -25,6 +25,10 @@ const (
 // claude manages Claude Code credentials, which live in the macOS Keychain
 // ("Claude Code-credentials") or ~/.claude/.credentials.json on file-backed
 // platforms. The secret never goes in process argv.
+//
+// It has no PreflightRestore, so a running Claude Code does not stop a switch.
+// A session that is already running may go on with the login it loaded, and
+// may write its copy of ~/.claude.json back over the switch.
 type claude struct {
 	home string
 }
@@ -82,11 +86,6 @@ type claudeCredential struct {
 	account    string
 	credential string
 }
-
-// PreflightRestore refuses while Claude Code is running (RESTORE_OWNER_RUNNING).
-// The Go port checks for a live settings marker only when explicitly wired;
-// process detection stays with the host composition.
-func (p *claude) PreflightRestore(srcDir string) error { return nil }
 
 func (p *claude) useKeychain() bool {
 	return os.Getenv("ANYPICK_CLAUDE_NO_KEYCHAIN") != "1" && keychainAvailable()
@@ -207,7 +206,15 @@ func (p *claude) Restore(srcDir string) error {
 		snapshot.Version != 1 || snapshot.Account == "" || snapshot.Credential == "" {
 		return fmt.Errorf("the Claude Code credential snapshot is invalid")
 	}
-	return p.write(snapshot.Credential)
+	previous, readErr := p.read()
+	if err := p.write(snapshot.Credential); err != nil {
+		return err
+	}
+	if readErr != nil || previous == nil ||
+		claudeFingerprint(previous.credential) != claudeFingerprint(snapshot.Credential) {
+		p.markAccountRecordStale()
+	}
+	return nil
 }
 
 func (p *claude) DescribeSnapshot(srcDir string) (SnapshotInfo, error) {
@@ -227,7 +234,8 @@ func (p *claude) DescribeSnapshot(srcDir string) (SnapshotInfo, error) {
 	return SnapshotInfo{Identity: claudeCredentialIdentity(snapshot.Credential)}, nil
 }
 
-// SnapshotMatchesLive compares stable fingerprints (refresh token stripped).
+// SnapshotMatchesLive compares fingerprints with the refresh token stripped. A
+// rotated access token still reads as a different credential.
 func (p *claude) SnapshotMatchesLive(srcDir string) (bool, bool, error) {
 	current, err := p.read()
 	if err != nil {
@@ -289,8 +297,8 @@ func claudeCredentialIdentity(raw string) string {
 	return ""
 }
 
-// claudeFingerprint hashes the credential JSON minus refresh token material so
-// an access-token rotation does not read as a different account.
+// claudeFingerprint hashes the credential JSON minus refresh token material. The
+// access token stays in, so its rotation changes the fingerprint.
 func claudeFingerprint(raw string) string {
 	var root map[string]json.RawMessage
 	if json.Unmarshal([]byte(raw), &root) != nil {

@@ -11,7 +11,7 @@ switch between them, and lend one to a client that was never designed to use it.
 
 | Provider | Live auth | How other clients reach it |
 | --- | --- | --- |
-| `claude` | Claude Code Keychain / `~/.claude/.credentials.json` | direct, for Claude Code only |
+| `claude` | Claude Code Keychain / `~/.claude/.credentials.json`; a switch to another login also clears `oauthAccount.profileFetchedAt` in `~/.claude.json`, so Claude Code fetches the new account's profile when it next starts, for logins with the profile scope | direct, for Claude Code only |
 | `codex` | `~/.codex/auth.json` | direct, for Codex only |
 | `grok` | `~/.grok/auth.json` | built-in dual proxy (OpenAI + Anthropic) |
 | `opencode` | OpenCode auth store | built-in Zen/Go dual proxy |
