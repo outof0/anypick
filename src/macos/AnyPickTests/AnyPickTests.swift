@@ -2822,6 +2822,21 @@ final class AnyPickTests: XCTestCase {
     XCTAssertTrue(box.lines.contains("refresh"))
   }
 
+  /// The model test above calls the refresh directly, so only the view can
+  /// lose the hook that runs it when the user comes back from a Claude window.
+  func testTheClaudePageRefreshesProfilesWhenTheAppBecomesActive() throws {
+    let view = try String(
+      contentsOf: URL(fileURLWithPath: #filePath)
+        .deletingLastPathComponent()
+        .deletingLastPathComponent()
+        .appendingPathComponent("AppDetailView.swift"),
+      encoding: .utf8)
+    let hook = try XCTUnwrap(
+      view.firstMatch(of: /didBecomeActiveNotification\)\) \{ _ in\s+if appID == "claude" \{ model\.refreshClaudeAppProfiles\(\) \}/),
+      "AppDetailView no longer refreshes Claude app profiles when AnyPick becomes active")
+    XCTAssertFalse(hook.output.isEmpty)
+  }
+
   /// Creating the missing profiles is a button the user pressed. A refusal
   /// and an engine error both have to reach the alert.
   @MainActor
