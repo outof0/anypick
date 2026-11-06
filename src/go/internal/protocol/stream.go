@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sort"
 	"strings"
+	"time"
 )
 
 // ---- streaming: openai SSE → anthropic SSE ----
@@ -50,10 +52,28 @@ type streamTranslator struct {
 	stopReason  *string
 	inputTokens int
 	outTokens   int
+	trace       StreamTrace
+}
+
+// StreamTrace contains metadata about the upstream SSE lifecycle. It never
+// includes event payloads, prompts, response text, or headers.
+type StreamTrace struct {
+	ReadEnd          string
+	UpstreamBytes    int64
+	DataFrames       int
+	MalformedFrames  int
+	DoneMarker       bool
+	ErrorEvent       bool
+	FinishReason     string
+	FirstDataSeen    bool
+	FirstDataAfterMS int64
+	ClientWriteError bool
 }
 
 func (t *streamTranslator) send(event, data string) {
-	fmt.Fprintf(t.w, "event: %s\ndata: %s\n\n", event, data)
+	if _, err := fmt.Fprintf(t.w, "event: %s\ndata: %s\n\n", event, data); err != nil {
+		t.trace.ClientWriteError = true
+	}
 	t.flusher.Flush()
 }
 
@@ -66,9 +86,18 @@ func (t *streamTranslator) sendJSON(event string, v interface{}) {
 // writes an Anthropic message stream. Returns the first error observed in the
 // upstream stream, if any.
 func TranslateStreamingResponse(upstream *http.Response, w http.ResponseWriter) error {
+	_, err := TranslateStreamingResponseWithTrace(upstream, w)
+	return err
+}
+
+// TranslateStreamingResponseWithTrace translates an OpenAI SSE response and
+// reports terminal markers and read/write failures without retaining payloads.
+func TranslateStreamingResponseWithTrace(upstream *http.Response, w http.ResponseWriter) (StreamTrace, error) {
+	trace := StreamTrace{ReadEnd: "unknown", FinishReason: "missing"}
 	flusher, ok := w.(http.Flusher)
 	if !ok {
-		return fmt.Errorf("response writer does not support flushing")
+		trace.ReadEnd = "writer_error"
+		return trace, fmt.Errorf("response writer does not support flushing")
 	}
 	header := w.Header()
 	header.Set("Content-Type", "text/event-stream")
@@ -80,34 +109,55 @@ func TranslateStreamingResponse(upstream *http.Response, w http.ResponseWriter) 
 	t := &streamTranslator{
 		w: w, flusher: flusher,
 		toolBlocks: map[int]bool{},
+		trace:      trace,
 	}
 	// Use bufio.Reader instead of Scanner to avoid the 1 MiB token limit
 	// truncating large tool-call deltas.
 	reader := bufio.NewReader(upstream.Body)
+	startedAt := time.Now()
 	for {
 		raw, err := reader.ReadString('\n')
+		t.trace.UpstreamBytes += int64(len(raw))
 		line := strings.TrimSpace(raw)
 		if line != "" && strings.HasPrefix(line, "data:") {
 			payload := strings.TrimSpace(strings.TrimPrefix(line, "data:"))
 			if payload == "[DONE]" {
+				t.trace.DoneMarker = true
+				t.trace.ReadEnd = "done"
 				break
+			}
+			t.trace.DataFrames++
+			if !t.trace.FirstDataSeen {
+				t.trace.FirstDataSeen = true
+				t.trace.FirstDataAfterMS = time.Since(startedAt).Milliseconds()
+			}
+			var envelope struct {
+				Error json.RawMessage `json:"error"`
+			}
+			if json.Unmarshal([]byte(payload), &envelope) == nil &&
+				len(envelope.Error) > 0 && string(envelope.Error) != "null" {
+				t.trace.ErrorEvent = true
 			}
 			var chunk openAIStreamChunk
 			if jsonErr := json.Unmarshal([]byte(payload), &chunk); jsonErr == nil {
 				t.handleChunk(chunk)
+			} else {
+				t.trace.MalformedFrames++
 			}
 		}
 		if err != nil {
 			// Ensure the message is finalized even when upstream closes without [DONE].
 			t.finish()
 			if err == io.EOF {
-				return nil
+				t.trace.ReadEnd = "eof"
+				return t.trace, nil
 			}
-			return err
+			t.trace.ReadEnd = "read_error"
+			return t.trace, err
 		}
 	}
 	t.finish()
-	return nil
+	return t.trace, nil
 }
 
 func (t *streamTranslator) handleChunk(chunk openAIStreamChunk) {
@@ -165,7 +215,26 @@ func (t *streamTranslator) handleChunk(chunk openAIStreamChunk) {
 	t.emitToolCallDeltas(delta.ToolCalls)
 
 	if chunk.Choices[0].FinishReason != nil && *chunk.Choices[0].FinishReason != "" {
-		t.stopReason = mapFinishReason(*chunk.Choices[0].FinishReason)
+		finish := *chunk.Choices[0].FinishReason
+		t.stopReason = mapFinishReason(finish)
+		t.trace.FinishReason = streamFinishReasonClass(finish)
+	}
+}
+
+func streamFinishReasonClass(finish string) string {
+	switch finish {
+	case "stop":
+		return "stop"
+	case "length":
+		return "length"
+	case "tool_calls":
+		return "tool_calls"
+	case "function_call":
+		return "function_call"
+	case "content_filter":
+		return "content_filter"
+	default:
+		return "other"
 	}
 }
 
@@ -209,15 +278,18 @@ func (t *streamTranslator) closeTextBlock() {
 
 func (t *streamTranslator) finish() {
 	t.closeTextBlock()
-	maxToolIdx := -1
+	// Each content_block_start needs its own content_block_stop before
+	// message_stop. Closing only the highest tool index leaves earlier
+	// tool_use blocks open. DeepSeek Harness then aborts the turn:
+	// "message_stop without settled blocks".
+	toolIdx := make([]int, 0, len(t.toolBlocks))
 	for idx := range t.toolBlocks {
-		if idx > maxToolIdx {
-			maxToolIdx = idx
-		}
+		toolIdx = append(toolIdx, idx)
 	}
-	if maxToolIdx >= 0 {
+	sort.Ints(toolIdx)
+	for _, idx := range toolIdx {
 		t.sendJSON("content_block_stop", map[string]interface{}{
-			"type": "content_block_stop", "index": t.blockIndex + maxToolIdx,
+			"type": "content_block_stop", "index": t.blockIndex + idx,
 		})
 	}
 	if !t.started {

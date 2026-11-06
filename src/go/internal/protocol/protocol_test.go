@@ -268,3 +268,82 @@ func TestStreamTranslationEmitsAnthropicEvents(t *testing.T) {
 		t.Errorf("arguments streamed verbatim?\n%s", joined)
 	}
 }
+
+// Two parallel tool calls must each receive content_block_stop. A single stop
+// for the highest index leaves the earlier tool_use block open, which DeepSeek
+// Harness rejects when message_stop arrives.
+func TestStreamTranslationClosesEveryToolBlock(t *testing.T) {
+	chunks := []string{
+		sseLine(t, map[string]interface{}{
+			"id": "c1", "model": "m",
+			"choices": []map[string]interface{}{{
+				"delta": map[string]interface{}{"content": "ok"},
+			}},
+		}),
+		sseLine(t, map[string]interface{}{
+			"id": "c1",
+			"choices": []map[string]interface{}{{
+				"delta": map[string]interface{}{
+					"tool_calls": []map[string]interface{}{
+						{
+							"index": 0, "id": "call_a", "type": "function",
+							"function": map[string]string{"name": "bash", "arguments": "{\"cmd\":\"pwd\"}"},
+						},
+						{
+							"index": 1, "id": "call_b", "type": "function",
+							"function": map[string]string{"name": "read", "arguments": "{\"path\":\"a\"}"},
+						},
+					},
+				},
+				"finish_reason": "tool_calls",
+			}},
+		}),
+		"data: [DONE]\n\n",
+	}
+	recorder := newSSERecorder()
+	if err := TranslateStreamingResponse(newFakeSSEResponse(strings.Join(chunks, "")), recorder); err != nil {
+		t.Fatal(err)
+	}
+	var stops []int
+	for _, block := range recorder.rawLines() {
+		block = strings.TrimSpace(block)
+		if !strings.Contains(block, "event: content_block_stop") {
+			continue
+		}
+		for _, line := range strings.Split(block, "\n") {
+			if !strings.HasPrefix(line, "data: ") {
+				continue
+			}
+			var ev struct {
+				Index int `json:"index"`
+			}
+			if err := json.Unmarshal([]byte(strings.TrimPrefix(line, "data: ")), &ev); err != nil {
+				t.Fatal(err)
+			}
+			stops = append(stops, ev.Index)
+		}
+	}
+	// Text is index 0. The two tool_use blocks are 1 and 2.
+	if len(stops) != 3 || stops[0] != 0 || stops[1] != 1 || stops[2] != 2 {
+		t.Fatalf("content_block_stop indexes = %v, want [0 1 2]\n%s", stops, recorder.buf.String())
+	}
+	events := recorder.events()
+	if len(events) == 0 || events[len(events)-1] != "message_stop" {
+		t.Fatalf("stream did not end on message_stop: %v", events)
+	}
+	stopAt := map[string]int{}
+	for i, ev := range events {
+		if _, seen := stopAt[ev]; !seen && (ev == "message_delta" || ev == "message_stop") {
+			stopAt[ev] = i
+		}
+	}
+	lastBlockStop := -1
+	for i, ev := range events {
+		if ev == "content_block_stop" {
+			lastBlockStop = i
+		}
+	}
+	if lastBlockStop < 0 || stopAt["message_delta"] < lastBlockStop || stopAt["message_stop"] < stopAt["message_delta"] {
+		t.Fatalf("stops must settle before message_delta and message_stop: %v", events)
+	}
+}
