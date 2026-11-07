@@ -27,10 +27,10 @@ func traceTranslatedMessagesStream(resp *http.Response, w http.ResponseWriter) {
 		firstDataMS = trace.FirstDataAfterMS
 	}
 	proxyLogf(
-		"messages stream trace=%d end=%s done=%t finish_reason=%s sse_error=%t malformed_frames=%d data_frames=%d upstream_bytes=%d first_data_ms=%d client_write_error=%t read_error=%s elapsed_ms=%d",
+		"messages stream trace=%d end=%s done=%t finish_reason=%s sse_error=%t malformed_frames=%d data_frames=%d upstream_bytes=%d first_data_ms=%d client_write_error=%t late_tool_deltas=%d read_error=%s elapsed_ms=%d",
 		id, trace.ReadEnd, trace.DoneMarker, trace.FinishReason, trace.ErrorEvent,
 		trace.MalformedFrames, trace.DataFrames, trace.UpstreamBytes, firstDataMS,
-		trace.ClientWriteError, messageStreamErrorKind(err), time.Since(started).Milliseconds(),
+		trace.ClientWriteError, trace.LateToolDeltas, messageStreamErrorKind(err), time.Since(started).Milliseconds(),
 	)
 }
 

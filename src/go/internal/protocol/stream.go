@@ -2,11 +2,12 @@ package protocol
 
 import (
 	"bufio"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
-	"sort"
 	"strings"
 	"time"
 )
@@ -43,12 +44,20 @@ type openAIToolCallDelta struct {
 // streamTranslator accumulates per-request block state while converting
 // OpenAI deltas into Anthropic stream events.
 type streamTranslator struct {
-	w           http.ResponseWriter
-	flusher     http.Flusher
-	started     bool
-	textOpen    bool
-	toolBlocks  map[int]bool // openai tool index → anthropic block started
-	blockIndex  int
+	w       http.ResponseWriter
+	flusher http.Flusher
+	started bool
+	// open is the one content block that is open, or nil. Anthropic blocks
+	// are sequential: start, deltas, stop, then the next. A client that
+	// checks the lifecycle rejects a block that starts while another is open.
+	open *streamBlock
+	// nextIndex is the index the next block takes when it starts. OpenAI
+	// numbers tool calls apart from text, so a block index derived from the
+	// tool index let text after a tool call reuse that tool's index.
+	nextIndex int
+	// tools holds each OpenAI tool index's call, in order of first appearance.
+	tools       map[int]*streamTool
+	toolOrder   []int
 	stopReason  *string
 	inputTokens int
 	outTokens   int
@@ -68,6 +77,28 @@ type StreamTrace struct {
 	FirstDataSeen    bool
 	FirstDataAfterMS int64
 	ClientWriteError bool
+	// LateToolDeltas counts tool arguments that resumed after text had closed
+	// their block, the one case a sequential stream cannot deliver.
+	LateToolDeltas int
+}
+
+// streamBlock is an open Anthropic content block.
+type streamBlock struct {
+	index int
+	tool  *streamTool // nil for a text block
+}
+
+// streamTool is one OpenAI tool call. Its arguments wait in pending until its
+// block is open: before its name arrives, because the block's start carries
+// the name and a client cannot dispatch a tool_use it cannot name; and while
+// another tool's block is open, because closing that block early would drop
+// the rest of its arguments when upstream interleaves parallel calls.
+type streamTool struct {
+	index    int
+	id, name string
+	pending  strings.Builder
+	started  bool
+	closed   bool
 }
 
 func (t *streamTranslator) send(event, data string) {
@@ -108,8 +139,8 @@ func TranslateStreamingResponseWithTrace(upstream *http.Response, w http.Respons
 
 	t := &streamTranslator{
 		w: w, flusher: flusher,
-		toolBlocks: map[int]bool{},
-		trace:      trace,
+		tools: map[int]*streamTool{},
+		trace: trace,
 	}
 	// Use bufio.Reader instead of Scanner to avoid the 1 MiB token limit
 	// truncating large tool-call deltas.
@@ -196,18 +227,18 @@ func (t *streamTranslator) handleChunk(chunk openAIStreamChunk) {
 		_ = json.Unmarshal(delta.Content, &text)
 	}
 	if text != "" {
-		if !t.textOpen {
-			idx := t.blockIndex
-			t.blockIndex++
-			t.textOpen = true
+		if t.open == nil || t.open.tool != nil {
+			t.closeOpenBlock()
+			t.open = &streamBlock{index: t.nextIndex}
+			t.nextIndex++
 			t.sendJSON("content_block_start", map[string]interface{}{
-				"type": "content_block_start", "index": idx,
+				"type": "content_block_start", "index": t.open.index,
 				"content_block": map[string]interface{}{"type": "text", "text": ""},
 			})
 		}
 		t.sendJSON("content_block_delta", map[string]interface{}{
 			"type":  "content_block_delta",
-			"index": t.blockIndex - 1,
+			"index": t.open.index,
 			"delta": map[string]string{"type": "text_delta", "text": text},
 		})
 	}
@@ -240,57 +271,104 @@ func streamFinishReasonClass(finish string) string {
 
 func (t *streamTranslator) emitToolCallDeltas(calls []openAIToolCallDelta) {
 	for _, call := range calls {
-		if call.ID != "" || call.Function.Name != "" {
-			if !t.toolBlocks[call.Index] {
-				t.closeTextBlock()
-				idx := t.blockIndex + call.Index
-				t.toolBlocks[call.Index] = true
-				t.sendJSON("content_block_start", map[string]interface{}{
-					"type": "content_block_start", "index": idx,
-					"content_block": map[string]interface{}{
-						"type": "tool_use", "id": call.ID,
-						"name": call.Function.Name, "input": map[string]interface{}{},
-					},
-				})
+		tool := t.tools[call.Index]
+		if tool == nil {
+			tool = &streamTool{index: call.Index}
+			t.tools[call.Index] = tool
+			t.toolOrder = append(t.toolOrder, call.Index)
+		}
+		if tool.closed {
+			if call.Function.Arguments != "" {
+				t.trace.LateToolDeltas++
 			}
+			continue
 		}
-		if call.Function.Arguments != "" {
-			idx := t.blockIndex + call.Index
-			t.sendJSON("content_block_delta", map[string]interface{}{
-				"type": "content_block_delta", "index": idx,
-				"delta": map[string]string{
-					"type": "input_json_delta", "partial_json": call.Function.Arguments,
-				},
-			})
+		if tool.id == "" {
+			tool.id = call.ID
 		}
+		if tool.name == "" {
+			tool.name = call.Function.Name
+		}
+		tool.pending.WriteString(call.Function.Arguments)
+		if !tool.started {
+			if tool.name == "" || (t.open != nil && t.open.tool != nil) {
+				continue
+			}
+			t.startTool(tool)
+		}
+		t.flushToolArguments(tool)
 	}
 }
 
-func (t *streamTranslator) closeTextBlock() {
-	if !t.textOpen {
-		return
+// startTool closes whatever block is open and starts the tool's block. Some
+// OpenAI-compatible servers send no call id; the client answers a tool_use by
+// its id, so one is made up. The tool index alone repeats in every turn, and a
+// conversation holding two tool_use blocks with one id can pair a result with
+// the wrong call, so a random part keeps it unique across the conversation.
+func (t *streamTranslator) startTool(tool *streamTool) {
+	t.closeOpenBlock()
+	tool.started = true
+	if tool.id == "" {
+		var nonce [8]byte
+		_, _ = rand.Read(nonce[:])
+		tool.id = fmt.Sprintf("toolu_anypick_%s_%d", hex.EncodeToString(nonce[:]), tool.index)
 	}
-	t.textOpen = false
-	t.sendJSON("content_block_stop", map[string]interface{}{
-		"type": "content_block_stop", "index": t.blockIndex - 1,
+	t.open = &streamBlock{index: t.nextIndex, tool: tool}
+	t.nextIndex++
+	t.sendJSON("content_block_start", map[string]interface{}{
+		"type": "content_block_start", "index": t.open.index,
+		"content_block": map[string]interface{}{
+			"type": "tool_use", "id": tool.id,
+			"name": tool.name, "input": map[string]interface{}{},
+		},
 	})
 }
 
-func (t *streamTranslator) finish() {
-	t.closeTextBlock()
-	// Each content_block_start needs its own content_block_stop before
-	// message_stop. Closing only the highest tool index leaves earlier
-	// tool_use blocks open. DeepSeek Harness then aborts the turn:
-	// "message_stop without settled blocks".
-	toolIdx := make([]int, 0, len(t.toolBlocks))
-	for idx := range t.toolBlocks {
-		toolIdx = append(toolIdx, idx)
+// flushToolArguments sends the tool's waiting arguments into its open block.
+func (t *streamTranslator) flushToolArguments(tool *streamTool) {
+	if tool.pending.Len() == 0 || t.open == nil || t.open.tool != tool {
+		return
 	}
-	sort.Ints(toolIdx)
-	for _, idx := range toolIdx {
-		t.sendJSON("content_block_stop", map[string]interface{}{
-			"type": "content_block_stop", "index": t.blockIndex + idx,
-		})
+	t.sendJSON("content_block_delta", map[string]interface{}{
+		"type": "content_block_delta", "index": t.open.index,
+		"delta": map[string]string{
+			"type": "input_json_delta", "partial_json": tool.pending.String(),
+		},
+	})
+	tool.pending.Reset()
+}
+
+func (t *streamTranslator) closeOpenBlock() {
+	if t.open == nil {
+		return
+	}
+	if t.open.tool != nil {
+		t.open.tool.closed = true
+	}
+	t.sendJSON("content_block_stop", map[string]interface{}{
+		"type": "content_block_stop", "index": t.open.index,
+	})
+	t.open = nil
+}
+
+func (t *streamTranslator) finish() {
+	// Every content_block_start needs its own content_block_stop before
+	// message_stop, or DeepSeek Harness aborts the turn: "message_stop without
+	// settled blocks".
+	t.closeOpenBlock()
+	// Calls that waited behind another tool's block go out now, in the order
+	// upstream began them, after any text that closed that block; clients act
+	// on tool calls only after message_stop. An entry that carried nothing is
+	// not a call. One
+	// that never got a name is still sent, so its arguments are not lost.
+	for _, idx := range t.toolOrder {
+		tool := t.tools[idx]
+		if tool.started || (tool.name == "" && tool.id == "" && tool.pending.Len() == 0) {
+			continue
+		}
+		t.startTool(tool)
+		t.flushToolArguments(tool)
+		t.closeOpenBlock()
 	}
 	if !t.started {
 		// Upstream produced nothing usable; still emit a valid empty message.

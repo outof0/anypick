@@ -6,6 +6,8 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/outof0/anypick/go/internal/protocol/ssecheck"
 )
 
 func TestVendorStreamWithReasoningFields(t *testing.T) {
@@ -17,6 +19,7 @@ func TestVendorStreamWithReasoningFields(t *testing.T) {
 		t.Fatalf("err: %v", err)
 	}
 	out := rec.Body.String()
+	ssecheck.AnthropicStream(t, out)
 	t.Logf("OUT %d bytes:\n%s", len(out), out)
 	if !strings.Contains(out, "OK") {
 		t.Fatalf("missing content in %d bytes", len(out))
