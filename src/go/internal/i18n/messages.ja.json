@@ -3363,6 +3363,50 @@
     "other": "このプロファイルを使う別の Codex アプリのウィンドウを開きます。",
     "description": "Original English text: Start a separate Codex app window that uses this profile."
   },
+  "desktop.app_detail.claude_app_profiles": {
+    "other": "Claude アプリのプロファイル",
+    "description": "Original English text: Claude App Profiles"
+  },
+  "desktop.app_detail.claude_app_profiles_help": {
+    "other": "各プロファイルは、独自にサインインする別の Claude アプリウィンドウです。ここでのアカウント切り替えは Claude Code にのみ適用され、Claude アプリには適用されません。",
+    "description": "Original English text: Each profile is a separate Claude app window with its own sign-in. Switching accounts here changes Claude Code only, not the Claude app."
+  },
+  "desktop.app_detail.no_claude_app_profiles": {
+    "other": "Claude アプリのプロファイルはまだありません。",
+    "description": "Original English text: No Claude app profiles yet."
+  },
+  "desktop.app_detail.add_claude_app_profile": {
+    "other": "Claude アプリのプロファイルを追加",
+    "description": "Original English text: Add Claude App Profile"
+  },
+  "desktop.app_detail.open_new_claude_app_profile": {
+    "other": "Claude アプリで開く",
+    "description": "Original English text: Open in Claude App"
+  },
+  "desktop.app_detail.open_claude_app_profile": {
+    "other": "{name} を Claude アプリで開く",
+    "description": "Original English text: Open {name} in Claude App"
+  },
+  "desktop.app_detail.open_claude_app_profile_help": {
+    "other": "このプロファイルを使う別の Claude アプリウィンドウを開きます。",
+    "description": "Original English text: Start a separate Claude app window that uses this profile."
+  },
+  "desktop.app_detail.claude_app_profile_open": {
+    "other": "開いています",
+    "description": "Original English text: Open"
+  },
+  "desktop.app_detail.claude_app_profile_signed_in": {
+    "other": "サインイン済み",
+    "description": "Original English text: Signed in"
+  },
+  "desktop.app_detail.claude_app_profile_not_signed_in": {
+    "other": "未サインイン",
+    "description": "Original English text: Not signed in"
+  },
+  "desktop.app_detail.remove_claude_app_profile_message": {
+    "other": "この Mac 上の Claude アプリのサインインを含め、プロファイルのローカルデータを削除します。Claude アカウントとクラウド上のチャットには影響しません。",
+    "description": "Original English text: This deletes the profile's local data, including its Claude app sign-in on this Mac. Your Claude account and cloud chats are not affected."
+  },
   "desktop.app_detail.open_in_terminal": {
     "other": "{name} をターミナルで開く",
     "description": "Original English text: Open {name} in Terminal"

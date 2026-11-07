@@ -168,6 +168,8 @@ var unknownSentinels = []string{
 	"unknown plugin subcommand",
 	"unknown codex subcommand",
 	"unknown codex profile subcommand",
+	"unknown claude-app subcommand",
+	"unknown claude-app profile subcommand",
 }
 
 func looksUnknown(out, errOut string) bool {

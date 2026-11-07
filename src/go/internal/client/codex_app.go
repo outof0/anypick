@@ -214,7 +214,10 @@ const codexAppLaunchMarker = "anypick-launch"
 // lock, so a removal that takes the lock after the app config is written
 // already sees the instance as starting.
 func MarkCodexProfileAppStarting(root, name string) error {
-	userData := CodexProfileAppUserDataPath(root, name)
+	return markElectronAppStarting(CodexProfileAppUserDataPath(root, name))
+}
+
+func markElectronAppStarting(userData string) error {
 	if err := os.MkdirAll(userData, 0o700); err != nil {
 		return err
 	}
@@ -229,7 +232,10 @@ func MarkCodexProfileAppStarting(root, name string) error {
 // "<hostname>-<pid>" target, which a crash leaves behind for a pid that may
 // be reused and which stops matching when the Mac's hostname changes.
 func CodexProfileAppRunning(root, name string) bool {
-	userData := CodexProfileAppUserDataPath(root, name)
+	return electronAppRunning(CodexProfileAppUserDataPath(root, name))
+}
+
+func electronAppRunning(userData string) bool {
 	// A marker from the future (the clock stepped back) is stale, not open.
 	if info, err := os.Stat(filepath.Join(userData, codexAppLaunchMarker)); err == nil {
 		if age := time.Since(info.ModTime()); age >= 0 && age < codexAppLaunchGrace {

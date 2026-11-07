@@ -161,6 +161,12 @@ export type GatewayProviderRow = {
   requiresAccountId?: boolean;
 };
 
+export type ClaudeAppProfileRow = {
+  name: string;
+  signedIn: boolean;
+  running: boolean;
+};
+
 export type CodexProfileRow = {
   name: string;
   sourceId: string;
@@ -357,6 +363,8 @@ export type Snapshot = {
   hubCatalogs: HubCatalog[];
   codexProfiles: CodexProfileRow[];
   codexProfileSources: CodexProfileSourceRow[];
+  claudeAppProfiles: ClaudeAppProfileRow[];
+  claudeAppSupported: boolean;
   logSources: LogSourceRow[];
   gateways: GatewayRow[];
   accountProviders: AccountProviderRow[];

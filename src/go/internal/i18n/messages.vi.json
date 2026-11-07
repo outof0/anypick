@@ -3363,6 +3363,50 @@
     "other": "Mở một cửa sổ Codex App riêng dùng hồ sơ này.",
     "description": "Original English text: Start a separate Codex app window that uses this profile."
   },
+  "desktop.app_detail.claude_app_profiles": {
+    "other": "Hồ sơ Claude App",
+    "description": "Original English text: Claude App Profiles"
+  },
+  "desktop.app_detail.claude_app_profiles_help": {
+    "other": "Mỗi hồ sơ là một cửa sổ Claude App riêng với đăng nhập riêng. Đổi tài khoản ở đây chỉ áp dụng cho Claude Code, không áp dụng cho Claude App.",
+    "description": "Original English text: Each profile is a separate Claude app window with its own sign-in. Switching accounts here changes Claude Code only, not the Claude app."
+  },
+  "desktop.app_detail.no_claude_app_profiles": {
+    "other": "Chưa có hồ sơ Claude App nào.",
+    "description": "Original English text: No Claude app profiles yet."
+  },
+  "desktop.app_detail.add_claude_app_profile": {
+    "other": "Thêm hồ sơ Claude App",
+    "description": "Original English text: Add Claude App Profile"
+  },
+  "desktop.app_detail.open_new_claude_app_profile": {
+    "other": "Mở trong Claude App",
+    "description": "Original English text: Open in Claude App"
+  },
+  "desktop.app_detail.open_claude_app_profile": {
+    "other": "Mở {name} trong Claude App",
+    "description": "Original English text: Open {name} in Claude App"
+  },
+  "desktop.app_detail.open_claude_app_profile_help": {
+    "other": "Mở một cửa sổ Claude App riêng dùng hồ sơ này.",
+    "description": "Original English text: Start a separate Claude app window that uses this profile."
+  },
+  "desktop.app_detail.claude_app_profile_open": {
+    "other": "Đang mở",
+    "description": "Original English text: Open"
+  },
+  "desktop.app_detail.claude_app_profile_signed_in": {
+    "other": "Đã đăng nhập",
+    "description": "Original English text: Signed in"
+  },
+  "desktop.app_detail.claude_app_profile_not_signed_in": {
+    "other": "Chưa đăng nhập",
+    "description": "Original English text: Not signed in"
+  },
+  "desktop.app_detail.remove_claude_app_profile_message": {
+    "other": "Thao tác này xóa dữ liệu cục bộ của hồ sơ, gồm cả đăng nhập Claude App trên máy Mac này. Tài khoản Claude và các cuộc trò chuyện trên đám mây không bị ảnh hưởng.",
+    "description": "Original English text: This deletes the profile's local data, including its Claude app sign-in on this Mac. Your Claude account and cloud chats are not affected."
+  },
   "desktop.app_detail.open_in_terminal": {
     "other": "Mở {name} trong Terminal",
     "description": "Original English text: Open {name} in Terminal"

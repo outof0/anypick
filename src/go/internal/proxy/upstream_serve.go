@@ -266,7 +266,7 @@ func serveTranslatedMessagesWith(w http.ResponseWriter, r *http.Request, up *Ups
 	}
 	ct := resp.Header.Get("Content-Type")
 	if strings.Contains(ct, "text/event-stream") || strings.Contains(ct, "stream") {
-		_ = protocol.TranslateStreamingResponse(resp, w)
+		traceTranslatedMessagesStream(resp, w)
 		return
 	}
 	raw, err := io.ReadAll(resp.Body)

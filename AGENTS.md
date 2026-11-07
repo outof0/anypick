@@ -252,6 +252,9 @@ Breaking one of these is a correctness or security regression, not a style nit.
   command fails until the fixture is regenerated.
 - CI runs on `ubuntu-latest` and `windows-latest` for Go, plus macOS for the
   app. Do not claim support for platforms the release matrix does not build.
+- The Claude desktop app keeps its own login, so `anypick use claude` reaches
+  Claude Code only. Its separate accounts are data-folder profiles (ADR 0038);
+  never read or move the app's token cache or cookies.
 - The Codex desktop app keeps its own signed-in ChatGPT account and does **not**
   follow a switch of `~/.codex/auth.json`. AnyPick only detects the mismatch in
   order to suppress the quota readout (`src/go/internal/provider/codex.go`).

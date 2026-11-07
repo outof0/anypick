@@ -2770,6 +2770,73 @@ final class AnyPickTests: XCTestCase {
     XCTAssertFalse(model.apps.contains { $0.id == "kiro" })
   }
 
+  @MainActor
+  func testClaudeAppProfileNameIsTakenWhateverItsCase() {
+    let (_, model, _) = makeProductionHarness()
+    model.claudeAppProfiles = [DesignClaudeAppProfile(name: "work", signedIn: false, running: false)]
+    XCTAssertTrue(model.claudeAppProfileNameTaken("Work"))
+    XCTAssertFalse(model.claudeAppProfileNameTaken("work-2"))
+  }
+
+  /// A refused open reaches the user, and the row's own engine refusal, not a
+  /// disabled button, is what stops a second instance.
+  @MainActor
+  func testOpeningAClaudeAppProfileSendsTheOperationAndReportsARefusal() async throws {
+    let (store, model, box) = makeProductionHarness()
+    XCTAssertFalse(model.openClaudeAppProfile(name: "../work"))
+    XCTAssertEqual(model.feedback?.kind, .error)
+    XCTAssertTrue(box.lines.isEmpty)
+    model.dismissFeedback()
+
+    XCTAssertTrue(model.openClaudeAppProfile(name: "work"))
+    let payload = try XCTUnwrap(mutatePayload(in: box.lines, operation: "claude-app-profile-open"))
+    XCTAssertEqual(payload["name"] as? String, "work")
+    let requestID = try XCTUnwrap(payload["requestId"] as? String)
+    store.consume(
+      Data(
+        (try frame(
+          "result",
+          [
+            "version": 1, "requestId": requestID, "status": "error",
+            "message": "Claude app profile work is open.",
+          ]) + "\n").utf8))
+    await waitUntil(model.feedback?.kind == .error)
+    XCTAssertEqual(model.feedback?.message, "Claude app profile work is open.")
+  }
+
+  /// Returning to the app runs on every activation, so it stays silent with
+  /// no profiles and never takes the Try Again path that restarts the service.
+  @MainActor
+  func testReturningToTheAppRefreshesClaudeProfilesWithoutRestartingTheService() async throws {
+    let (store, model, box) = makeProductionHarness()
+    var restarts = 0
+    store.restartService = { restarts += 1 }
+    model.refreshClaudeAppProfiles()
+    XCTAssertTrue(box.lines.isEmpty)
+
+    store.consume(Data((try claudeAppProfileFrame() + "\n").utf8))
+    await waitUntil(!store.claudeAppProfiles.isEmpty)
+    store.updateServiceState(.degraded("gone"))
+    model.refreshClaudeAppProfiles()
+    XCTAssertEqual(restarts, 0)
+    XCTAssertTrue(box.lines.contains("refresh"))
+  }
+
+  /// The model test above calls the refresh directly, so only the view can
+  /// lose the hook that runs it when the user comes back from a Claude window.
+  func testTheClaudePageRefreshesProfilesWhenTheAppBecomesActive() throws {
+    let view = try String(
+      contentsOf: URL(fileURLWithPath: #filePath)
+        .deletingLastPathComponent()
+        .deletingLastPathComponent()
+        .appendingPathComponent("AppDetailView.swift"),
+      encoding: .utf8)
+    let hook = try XCTUnwrap(
+      view.firstMatch(of: /didBecomeActiveNotification\)\) \{ _ in\s+if appID == "claude" \{ model\.refreshClaudeAppProfiles\(\) \}/),
+      "AppDetailView no longer refreshes Claude app profiles when AnyPick becomes active")
+    XCTAssertFalse(hook.output.isEmpty)
+  }
+
   /// Creating the missing profiles is a button the user pressed. A refusal
   /// and an engine error both have to reach the alert.
   @MainActor
@@ -2974,6 +3041,32 @@ final class AnyPickTests: XCTestCase {
       else { return false }
       return payload["operation"] as? String == "codex-profile-sync"
     }.count
+  }
+
+  private func claudeAppProfileFrame() throws -> String {
+    try frame("snapshot", [
+      "revision": 1,
+      "proxyCount": 0,
+      "routes": [],
+      "actions": [],
+      "usage": [],
+      "proxies": [],
+      "accounts": [],
+      "claudeAppSupported": true,
+      "claudeAppProfiles": [["name": "work", "signedIn": false, "running": false]],
+      "codexProfileSources": [],
+      "codexProfiles": [],
+      "gateways": [],
+      "accountProviders": [],
+      "gatewayProviders": [],
+      "settings": [
+        "launchAtLogin": false,
+        "startEnabledProxies": true,
+        "showQuota": true,
+        "quotaGuardEnabled": false,
+      ],
+      "activity": [],
+    ])
   }
 
   private func codexAccountSourceFrame(

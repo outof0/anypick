@@ -3363,6 +3363,50 @@
     "other": "이 프로필을 사용하는 별도의 Codex 앱 창을 엽니다.",
     "description": "Original English text: Start a separate Codex app window that uses this profile."
   },
+  "desktop.app_detail.claude_app_profiles": {
+    "other": "Claude 앱 프로필",
+    "description": "Original English text: Claude App Profiles"
+  },
+  "desktop.app_detail.claude_app_profiles_help": {
+    "other": "각 프로필은 별도로 로그인하는 독립된 Claude 앱 창입니다. 여기서 계정을 전환해도 Claude Code에만 적용되며 Claude 앱에는 적용되지 않습니다.",
+    "description": "Original English text: Each profile is a separate Claude app window with its own sign-in. Switching accounts here changes Claude Code only, not the Claude app."
+  },
+  "desktop.app_detail.no_claude_app_profiles": {
+    "other": "아직 Claude 앱 프로필이 없습니다.",
+    "description": "Original English text: No Claude app profiles yet."
+  },
+  "desktop.app_detail.add_claude_app_profile": {
+    "other": "Claude 앱 프로필 추가",
+    "description": "Original English text: Add Claude App Profile"
+  },
+  "desktop.app_detail.open_new_claude_app_profile": {
+    "other": "Claude 앱에서 열기",
+    "description": "Original English text: Open in Claude App"
+  },
+  "desktop.app_detail.open_claude_app_profile": {
+    "other": "{name}을(를) Claude 앱에서 열기",
+    "description": "Original English text: Open {name} in Claude App"
+  },
+  "desktop.app_detail.open_claude_app_profile_help": {
+    "other": "이 프로필을 사용하는 별도의 Claude 앱 창을 엽니다.",
+    "description": "Original English text: Start a separate Claude app window that uses this profile."
+  },
+  "desktop.app_detail.claude_app_profile_open": {
+    "other": "열려 있음",
+    "description": "Original English text: Open"
+  },
+  "desktop.app_detail.claude_app_profile_signed_in": {
+    "other": "로그인됨",
+    "description": "Original English text: Signed in"
+  },
+  "desktop.app_detail.claude_app_profile_not_signed_in": {
+    "other": "로그인 안 됨",
+    "description": "Original English text: Not signed in"
+  },
+  "desktop.app_detail.remove_claude_app_profile_message": {
+    "other": "이 Mac의 Claude 앱 로그인을 포함해 프로필의 로컬 데이터를 삭제합니다. Claude 계정과 클라우드 채팅에는 영향이 없습니다.",
+    "description": "Original English text: This deletes the profile's local data, including its Claude app sign-in on this Mac. Your Claude account and cloud chats are not affected."
+  },
   "desktop.app_detail.open_in_terminal": {
     "other": "터미널에서 {name} 열기",
     "description": "Original English text: Open {name} in Terminal"

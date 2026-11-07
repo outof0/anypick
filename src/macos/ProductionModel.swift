@@ -751,6 +751,46 @@ final class ProductionDesignModel: MacOSDesignModel {
     operationResult = nil
   }
 
+  @discardableResult
+  override func openClaudeAppProfile(name: String) -> Bool {
+    guard validCodexProfileName(name) else {
+      showFeedback("Use 1–64 letters, numbers, hyphens, or underscores for the profile name.", kind: .error)
+      return false
+    }
+    guard
+      let requestID = store.mutate(
+        operation: "claude-app-profile-open",
+        name: name,
+        activityLabel: "opening Claude app profile \(name)"
+      )
+    else { return false }
+    pendingOperations[requestID] = "claude-app-profile-open"
+    operationResult = nil
+    return true
+  }
+
+  override func refreshClaudeAppProfiles() {
+    // Not refresh(): coming back to the app must never restart the service.
+    guard !store.claudeAppProfiles.isEmpty else { return }
+    store.refreshAll()
+  }
+
+  override func removeClaudeAppProfile(name: String) {
+    guard store.claudeAppProfiles.contains(where: { $0.name == name }) else {
+      showFeedback("That Claude app profile no longer exists. Refresh and try again.", kind: .error)
+      return
+    }
+    guard
+      let requestID = store.mutate(
+        operation: "claude-app-profile-remove",
+        name: name,
+        activityLabel: "removing Claude app profile \(name)"
+      )
+    else { return }
+    pendingOperations[requestID] = "claude-app-profile-remove"
+    operationResult = nil
+  }
+
   override func removeCodexProfile(name: String) {
     guard store.codexProfiles.contains(where: { $0.name == name }) else {
       showFeedback("That Codex profile no longer exists. Refresh and try again.", kind: .error)
@@ -1699,6 +1739,13 @@ final class ProductionDesignModel: MacOSDesignModel {
         models: $0.models
       )
     }
+    let claudeProfiles = store.claudeAppProfiles.map {
+      DesignClaudeAppProfile(name: $0.name, signedIn: $0.signedIn, running: $0.running)
+    }
+    if claudeAppProfiles != claudeProfiles {
+      claudeAppProfiles = claudeProfiles
+    }
+    setIfChanged(\.claudeAppSupported, to: store.claudeAppSupported)
     if codexProfileSources != profileSources {
       codexProfileSources = profileSources
     }

@@ -164,6 +164,8 @@ export function snapshotFixture(overrides: Partial<Snapshot> = {}): Snapshot {
     ],
     codexProfiles: [],
     codexProfileSources: [],
+    claudeAppProfiles: [],
+    claudeAppSupported: false,
     logSources: [
       { id: 'claude/work', providerId: 'claude', name: 'work', label: 'Work', detail: 'Claude proxy logs' },
     ],

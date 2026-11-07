@@ -168,6 +168,13 @@ struct CodexProfileSourceSnapshot: Decodable, Identifiable, Equatable {
   let models: [String]
 }
 
+struct ClaudeAppProfileSnapshot: Decodable, Identifiable, Equatable {
+  var id: String { name }
+  let name: String
+  let signedIn: Bool
+  let running: Bool
+}
+
 struct CodexProfileSnapshot: Decodable, Identifiable, Equatable {
   var id: String { name }
   let name: String
@@ -360,6 +367,9 @@ struct TraySnapshot: Decodable {
   let clientModelConfigs: [ClientModelConfigSnapshot]?
   let codexProfiles: [CodexProfileSnapshot]?
   let codexProfileSources: [CodexProfileSourceSnapshot]?
+  /// Absent from engines that predate claude-app-profile-open.
+  let claudeAppProfiles: [ClaudeAppProfileSnapshot]?
+  let claudeAppSupported: Bool?
   let gateways: [GatewaySnapshot]
   let accountProviders: [AccountProviderSnapshot]
   let gatewayProviders: [GatewayProviderSnapshot]

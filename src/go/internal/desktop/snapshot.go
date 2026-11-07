@@ -39,13 +39,16 @@ type Snapshot struct {
 	HubCatalogs         []map[string]any        `json:"hubCatalogs"`
 	CodexProfiles       []CodexProfileRow       `json:"codexProfiles"`
 	CodexProfileSources []CodexProfileSourceRow `json:"codexProfileSources"`
-	LogSources          []LogSourceRow          `json:"logSources"`
-	Gateways            []GatewayRow            `json:"gateways"`
-	AccountProviders    []AccountProviderRow    `json:"accountProviders"`
-	GatewayProviders    []GatewayProviderRow    `json:"gatewayProviders"`
-	Settings            Preferences             `json:"settings"`
-	Activity            []map[string]any        `json:"activity"`
-	DegradedConditions  []DegradedCondition     `json:"degradedConditions"`
+	ClaudeAppProfiles   []ClaudeAppProfileRow   `json:"claudeAppProfiles"`
+	// ClaudeAppSupported says this machine can open Claude app profiles.
+	ClaudeAppSupported bool                 `json:"claudeAppSupported"`
+	LogSources         []LogSourceRow       `json:"logSources"`
+	Gateways           []GatewayRow         `json:"gateways"`
+	AccountProviders   []AccountProviderRow `json:"accountProviders"`
+	GatewayProviders   []GatewayProviderRow `json:"gatewayProviders"`
+	Settings           Preferences          `json:"settings"`
+	Activity           []map[string]any     `json:"activity"`
+	DegradedConditions []DegradedCondition  `json:"degradedConditions"`
 }
 
 // DegradedCondition is a redacted, user-actionable engine condition. It is
@@ -944,6 +947,7 @@ func (s *Server) buildSnapshot(ctx context.Context) (*Snapshot, error) {
 		s.logErr(err)
 	}
 	b.codexProfiles(ctx)
+	b.claudeAppProfiles()
 
 	// Model configuration runs last: a hub-bound app's options are the
 	// hub's resolved catalog plus pinned route models, which buildHubSections

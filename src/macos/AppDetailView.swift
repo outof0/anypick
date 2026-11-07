@@ -7,6 +7,7 @@ struct AppDetailView: View {
   @State private var showingRoutes = false
   @State private var showingModels = false
   @State private var showingCodexProfileSheet = false
+  @State private var showingClaudeAppProfileSheet = false
   @State private var editingCodexProfile: DesignCodexProfile?
   @State private var copiedCodexProfileID: String?
   @State private var copyFeedbackTask: Task<Void, Never>?
@@ -88,6 +89,15 @@ struct AppDetailView: View {
         model.removeApp(appID: appID)
         dismiss()
       }
+    )
+  }
+
+  private func requestClaudeAppProfileRemoval(_ name: String) {
+    confirmation = DesignConfirmation(
+      id: "remove-claude-app-profile",
+      title: model.localized("desktop.app_detail.remove_profile_title", replacing: ["name": name]),
+      message: model.localized("desktop.app_detail.remove_claude_app_profile_message"),
+      action: .confirm(model.localized("desktop.common.remove")) { model.removeClaudeAppProfile(name: name) }
     )
   }
 
@@ -198,6 +208,28 @@ struct AppDetailView: View {
           }
         }
 
+        if app.id == "claude", model.claudeAppSupported {
+          Section {
+            if model.claudeAppProfiles.isEmpty {
+              Text(model.localized("desktop.app_detail.no_claude_app_profiles"))
+                .foregroundStyle(.secondary)
+            } else {
+              ForEach(model.claudeAppProfiles) { profile in
+                claudeAppProfileRow(profile)
+              }
+            }
+            Button(model.localized("desktop.app_detail.add_claude_app_profile"), systemImage: "plus") {
+              showingClaudeAppProfileSheet = true
+            }
+            .disabled(model.isBusy)
+            .accessibilityIdentifier("claude-app-profile.add")
+          } header: {
+            Text(model.localized("desktop.app_detail.claude_app_profiles"))
+          } footer: {
+            Text(model.localized("desktop.app_detail.claude_app_profiles_help"))
+          }
+        }
+
         if app.id == "codex" {
           Section {
             if model.codexProfiles.isEmpty {
@@ -260,11 +292,17 @@ struct AppDetailView: View {
         }
       }
     }
+    .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+      if appID == "claude" { model.refreshClaudeAppProfiles() }
+    }
     .sheet(isPresented: $showingRoutes) {
       AppRouteSheet(model: model, appID: appID)
     }
     .sheet(isPresented: $showingModels) {
       AppModelsSheet(model: model, appID: appID)
+    }
+    .sheet(isPresented: $showingClaudeAppProfileSheet) {
+      ClaudeAppProfileSheet(model: model)
     }
     .sheet(isPresented: $showingCodexProfileSheet) {
       CodexProfileSheet(model: model, profile: editingCodexProfile)
@@ -296,6 +334,48 @@ struct AppDetailView: View {
     default: model.localized("desktop.app_detail.automatic")
     }
     return "\(profile.sourceLabel) · \(modelName) · \(transport)"
+  }
+
+  private func claudeAppProfileStatus(_ profile: DesignClaudeAppProfile) -> String {
+    if profile.running {
+      return model.localized("desktop.app_detail.claude_app_profile_open")
+    }
+    return model.localized(
+      profile.signedIn
+        ? "desktop.app_detail.claude_app_profile_signed_in"
+        : "desktop.app_detail.claude_app_profile_not_signed_in")
+  }
+
+  private func claudeAppProfileRow(_ profile: DesignClaudeAppProfile) -> some View {
+    HStack(spacing: 10) {
+      VStack(alignment: .leading, spacing: 2) {
+        Text(profile.name)
+        Text(claudeAppProfileStatus(profile))
+          .font(.subheadline)
+          .foregroundStyle(.secondary)
+          .lineLimit(1)
+      }
+      Spacer(minLength: 8)
+      DesignIconButton(
+        symbol: "arrow.up.forward.app",
+        label: model.localized("desktop.app_detail.open_claude_app_profile", replacing: ["name": profile.name]),
+        identifier: "claude-app-profile.open.\(profile.name)",
+        isDisabled: model.isBusy,
+        help: model.localized("desktop.app_detail.open_claude_app_profile_help")
+      ) {
+        model.openClaudeAppProfile(name: profile.name)
+      }
+      DesignMoreActionsMenu(
+        label: model.localized("desktop.app_detail.actions_for", replacing: ["name": profile.name]),
+        identifier: "claude-app-profile.more.\(profile.name)",
+        isDisabled: model.isBusy
+      ) {
+        Button(model.localized("desktop.app_detail.remove_profile"), systemImage: "trash", role: .destructive) {
+          requestClaudeAppProfileRemoval(profile.name)
+        }
+      }
+    }
+    .accessibilityIdentifier("claude-app-profile.row.\(profile.name)")
   }
 
   private func codexProfileRow(_ profile: DesignCodexProfile) -> some View {
