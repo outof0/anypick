@@ -316,6 +316,8 @@ type codeAssistCatalogResponse struct {
 	// TieredModelIDs names the route behind each of the IDE's tiers
 	// ("pro", "flash", "flashLite").
 	TieredModelIDs map[string][]interface{} `json:"tieredModelIds"`
+	// ImageGenerationModelIDs back the IDE's image tool, not its picker.
+	ImageGenerationModelIDs []interface{} `json:"imageGenerationModelIds"`
 }
 
 type codeAssistModelDetails struct {
@@ -323,6 +325,8 @@ type codeAssistModelDetails struct {
 	Disabled      interface{} `json:"disabled"`
 	APIProvider   interface{} `json:"apiProvider"`
 	ModelProvider interface{} `json:"modelProvider"`
+	Recommended   interface{} `json:"recommended"`
+	IsInternal    interface{} `json:"isInternal"`
 }
 
 // fetchGeminiCatalogFromCodeAssist discovers the account-scoped catalog via
@@ -377,19 +381,20 @@ func fetchGeminiCatalogFromCodeAssist(ctx context.Context, base, token, project,
 	return cat, nil
 }
 
-// parseCodeAssistCatalog lists what Antigravity's picker offers, taken from
-// Google's data alone: the routes of the pro and flash tiers, under the id
-// Google itself uses (the catalog key, and the modelVersion a response
-// reports, e.g. gemini-3.8-flash-tiered). The app's own labels and ids
-// ("Gemini 3.8 Flash (High)", gemini-3.8-flash-high) are compiled into each
-// Antigravity release; copying them would make every new model wait for an
-// AnyPick release, while a re-pointed tier is picked up on the next refresh.
-// The rest of the catalog (IDE helpers, the flash-lite tier the IDE uses for
-// commit messages and search, image generation) is not listed but stays
+// parseCodeAssistCatalog lists what an agent picker should offer, taken from
+// Google's data alone, under the ids Google itself uses: the routes of the pro
+// and flash tiers (gemini-3.8-flash-tiered) and the Gemini models Google marks
+// recommended with a name of their own (gemini-3-flash). A
+// tier can point both pro and flash at one flash route, which left a single
+// model to pick. Antigravity's own labels and ids ("Gemini 3.8 Flash (High)",
+// gemini-3.8-flash-high) are compiled into each app release and are not
+// copied: a re-pointed tier or a newly recommended model is picked up on the
+// next refresh. The rest of the catalog (IDE helpers, lite models the IDE uses
+// for commit messages and search, image generation) is not listed but stays
 // callable by exact id.
 func parseCodeAssistCatalog(body codeAssistCatalogResponse) *gemini.GeminiModelCatalog {
 	tiers := codeAssistTierRoutes(body)
-	models := make([]gemini.GeminiModelDescriptor, 0, 2)
+	models := make([]gemini.GeminiModelDescriptor, 0, 4)
 	seen := map[string]bool{}
 	for _, intent := range []gemini.GeminiModelIntent{gemini.IntentQuality, gemini.IntentFast} {
 		id := tiers[intent]
@@ -404,13 +409,30 @@ func parseCodeAssistCatalog(body codeAssistCatalogResponse) *gemini.GeminiModelC
 		// models are the only list left. The caller falls back to quota
 		// metadata when this is empty too.
 		models = codeAssistNamedModels(body)
+		sortGeminiNewestFirst(models)
+		return &gemini.GeminiModelCatalog{Models: models, TierRoutes: tiers}
 	}
-	// Newest first, as model pickers list them: a client takes its first
-	// entry as the default.
+	// A client takes its first entry as the default, and that must stay a
+	// tier route: the subscription is what serves it, while a named model
+	// Google recommends, even a newer one, can answer "No capacity" or a
+	// license error. Each block is listed newest first on its own.
+	sortGeminiNewestFirst(models)
+	var named []gemini.GeminiModelDescriptor
+	for _, m := range codeAssistRecommendedModels(body) {
+		if !seen[m.ID] {
+			seen[m.ID] = true
+			named = append(named, m)
+		}
+	}
+	sortGeminiNewestFirst(named)
+	return &gemini.GeminiModelCatalog{Models: append(models, named...), TierRoutes: tiers}
+}
+
+// sortGeminiNewestFirst orders models as pickers list them.
+func sortGeminiNewestFirst(models []gemini.GeminiModelDescriptor) {
 	sort.Slice(models, func(i, j int) bool {
 		return gemini.CompareGeminiModelIDs(models[i].ID, models[j].ID) < 0
 	})
-	return &gemini.GeminiModelCatalog{Models: models, TierRoutes: tiers}
 }
 
 func codeAssistNamedModels(body codeAssistCatalogResponse) []gemini.GeminiModelDescriptor {
@@ -428,6 +450,38 @@ func codeAssistNamedModels(body codeAssistCatalogResponse) []gemini.GeminiModelD
 			continue
 		}
 		models = append(models, gemini.GeminiModelDescriptor{ID: id, UpstreamID: id, DisplayName: strings.TrimSpace(name)})
+	}
+	return models
+}
+
+// codeAssistRecommendedModels are the Gemini models Google recommends for
+// agent use: a named, enabled Google Gemini model flagged recommended, other
+// than the lite and image models the IDE keeps for helpers. Lite is read from
+// the id and the name alike, because Google labels some flash ids "Flash
+// Lite" (gemini-2.5-flash is named "Gemini 3.5 Flash Lite"). Only Gemini 3
+// and newer: the catalog still recommends gemini-2.5-pro, but a subscription
+// account gets "No capacity" or a license error for it, so listing it would
+// offer a model that fails on the first turn.
+func codeAssistRecommendedModels(body codeAssistCatalogResponse) []gemini.GeminiModelDescriptor {
+	images := map[string]bool{}
+	for _, v := range body.ImageGenerationModelIDs {
+		if s, ok := v.(string); ok {
+			images[strings.TrimPrefix(s, "models/")] = true
+		}
+	}
+	var models []gemini.GeminiModelDescriptor
+	for _, m := range codeAssistNamedModels(body) {
+		details := body.Models[m.ID]
+		if _, ok := body.Models[m.ID]; !ok {
+			details = body.Models["models/"+m.ID]
+		}
+		name := strings.ToLower(m.DisplayName + " " + m.ID)
+		if !isTrue(details.Recommended) || isTrue(details.IsInternal) || images[m.ID] ||
+			!strings.HasPrefix(m.ID, "gemini-") || gemini.ParseGeminiModelVersion(m.ID)[0] < 3 ||
+			strings.Contains(name, "lite") || strings.Contains(name, "image") {
+			continue
+		}
+		models = append(models, gemini.GeminiModelDescriptor{ID: m.ID, UpstreamID: m.ID})
 	}
 	return models
 }

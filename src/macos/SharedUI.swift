@@ -314,10 +314,29 @@ struct DesignCopyButton: View {
 
 struct DesignCopyGlyph: View {
   let copied: Bool
+  @Environment(\.isEnabled) private var isEnabled
 
   var body: some View {
     Image(systemName: "doc.on.doc")
-      .foregroundStyle(copied ? .green : .secondary)
+      .foregroundStyle(copied ? Color.green : Color.secondary)
+      .opacity(isEnabled ? 1 : 0.5)
+  }
+}
+
+/// The glyph of a DesignIconButton, matching DesignCopyGlyph's tint.
+///
+/// Color.secondary, not the hierarchical .secondary: inside a borderless
+/// button the hierarchical style dims a second time, so the glyph read as
+/// disabled next to the copy glyph in the same row. A concrete colour no
+/// longer follows the button's enabled state, so that is applied here.
+struct DesignIconGlyph: View {
+  let symbol: String
+  @Environment(\.isEnabled) private var isEnabled
+
+  var body: some View {
+    Image(systemName: symbol)
+      .foregroundStyle(Color.secondary)
+      .opacity(isEnabled ? 1 : 0.5)
   }
 }
 
@@ -349,8 +368,7 @@ struct DesignIconButton: View {
 
   var body: some View {
     Button(action: action) {
-      Image(systemName: symbol)
-        .foregroundStyle(.secondary)
+      DesignIconGlyph(symbol: symbol)
     }
     .buttonStyle(.borderless)
     .controlSize(.small)

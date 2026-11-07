@@ -99,6 +99,14 @@ func (d *DB) MigrateSchema() error {
 			return anyerr.Wrapf(err, "commit migration", "DB_MIGRATE")
 		}
 	}
+	for _, m := range migrations {
+		if !m.repair {
+			continue
+		}
+		if err := m.up(d); err != nil {
+			return anyerr.Wrapf(err, "repair "+m.name, "DB_MIGRATE")
+		}
+	}
 	return nil
 }
 

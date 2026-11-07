@@ -663,18 +663,23 @@ func (s *Server) rehydrateCodexProfiles(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("read Codex profiles: %w", err)
 	}
-	var errs []error
+	managed := make([]client.NamedProfile, 0, len(profiles))
 	for _, named := range profiles {
 		source := named.Spec.Source
-		managed := source.Kind == refs.KindProxyHub || source.Kind == refs.KindAccountPool
+		ok := source.Kind == refs.KindProxyHub || source.Kind == refs.KindAccountPool
 		if source.Kind == refs.KindAccount {
 			// Codex's own account is direct by default. Other account providers
 			// route through a managed proxy when paired with the Codex client.
-			managed = source.Provider != "codex" || named.Spec.TransportPolicy == "proxy"
+			ok = source.Provider != "codex" || named.Spec.TransportPolicy == "proxy"
 		}
-		if !managed {
-			continue
+		if ok {
+			managed = append(managed, named)
 		}
+	}
+	s.warmCodexProfileCatalogs(ctx, managed)
+	var errs []error
+	for _, named := range managed {
+		source := named.Spec.Source
 		spec := named.Spec
 		plan, err := activation.PlanActivation(ctx, activation.Request{
 			Mode:         activation.ModeProfile,
@@ -694,6 +699,46 @@ func (s *Server) rehydrateCodexProfiles(ctx context.Context) error {
 		}
 	}
 	return errors.Join(errs...)
+}
+
+// liveCatalogStartupBudget bounds how long startup waits for the account
+// model lists its Codex profiles are restored with. Accounts are fetched in
+// parallel, so it is one discovery call's worth of delay. A provider slower
+// than this (Z.ai's token exchange can take 30s) is restored from its cache.
+const liveCatalogStartupBudget = 10 * time.Second
+
+// warmCodexProfileCatalogs fetches the live model list of every account a
+// profile routes to before the profiles are restored. A cached list goes
+// stale when a provider changes what an account may call, and an upgrade that
+// changes an account's discovery rules discards it, which left every such
+// profile offering just its stored model. It runs before the command loop
+// starts, so no user edit can race the restore, and the first snapshot
+// already carries the fetched lists. The cache is only the fallback when a
+// fetch fails: offline, the profile is restored from it as before.
+func (s *Server) warmCodexProfileCatalogs(ctx context.Context, profiles []client.NamedProfile) {
+	accounts := map[string]refs.Ref{}
+	for _, named := range profiles {
+		if source := named.Spec.Source; source.Kind == refs.KindAccount {
+			accounts[refs.SerializeRef(source)] = source
+		}
+	}
+	if len(accounts) == 0 {
+		return
+	}
+	warmCtx, cancel := context.WithTimeout(ctx, liveCatalogStartupBudget)
+	defer cancel()
+	var wg sync.WaitGroup
+	for _, source := range accounts {
+		wg.Add(1)
+		go func(source refs.Ref) {
+			defer wg.Done()
+			if _, err := s.warmAccountModelCatalog(warmCtx, source.Provider, source.Name); err != nil &&
+				!errors.Is(err, proxy.ErrModelDiscoveryUnsupported) {
+				s.logErr(fmt.Errorf("model catalog refresh for %s: %w", refs.DisplayRef(source), err))
+			}
+		}(source)
+	}
+	wg.Wait()
 }
 
 type scannedLine struct {

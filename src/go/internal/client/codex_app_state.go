@@ -17,16 +17,33 @@ import (
 // (sidebar projects, onboarding progress) inside CODEX_HOME.
 const codexAppGlobalStateFile = ".codex-global-state.json"
 
+// codexAppSeededFile records, per merged key, the ids the last seed copied
+// from the main app. It is AnyPick's own file, so the app never rewrites it.
+const codexAppSeededFile = "anypick-seeded-state.json"
+
 // codexAppSharedStateKeys are the main app's global-state keys a profile
 // window starts from: which projects are open, in what order, which one is
 // selected and pinned, and which one-time local data migrations already ran
 // against the shared database, so the profile window does not run them again.
 var codexAppSharedStateKeys = []string{
-	"project-order", "pinned-project-ids", "selected-project",
+	"selected-project",
 	"electron-saved-workspace-roots", "active-workspace-roots",
 	"electron-completed-local-data-migration-ids", "electron-local-data-migration-id",
 	"remote-project-connection-backfill-completed",
 	"electron-remote-control-config-migration-completed",
+}
+
+// codexAppMergedStateKeys are collections the app keys by project or thread
+// id: the project list itself (local-projects) and which thread belongs to
+// which project. The main app's entries are merged in, and entries only the
+// profile window has (a project opened there) are kept, so neither side's
+// projects drop out of the sidebar. An entry an earlier seed copied from the
+// main app is dropped once the main app no longer has it.
+var codexAppMergedStateKeys = []string{
+	"local-projects", "project-order", "project-appearances", "pinned-project-ids",
+	"thread-project-assignments", "thread-project-membership-host-ids",
+	"thread-workspace-root-hints", "thread-projectless-output-directories",
+	"projectless-thread-ids", "sidebar-project-thread-orders",
 }
 
 // codexAppHostKeyedStateKeys are migration records the app keys by host,
@@ -150,6 +167,10 @@ func seedCodexAppGlobalState(mainHome, profileHome string) error {
 			state[key] = v
 		}
 	}
+	seededPath := filepath.Join(profileHome, codexAppSeededFile)
+	seeded := map[string]any{}
+	_ = readJSONIfExists(seededPath, &seeded) // unreadable reads as never seeded
+	next, pending := mergeCodexAppProjects(main, state, seeded)
 	profileHost := "local:" + profileHome
 	for _, key := range codexAppHostKeyedStateKeys {
 		byHost, _ := main[key].(map[string]any)
@@ -166,11 +187,22 @@ func seedCodexAppGlobalState(mainHome, profileHome string) error {
 	}
 	state["electron-persisted-atom-state"] = atoms
 
+	// The record is written first with this round's ids and the earlier ones
+	// together, so a failed state write cannot leave copied ids unrecorded
+	// (they would then read as the profile's own and never leave). Over-
+	// recording only drops ids the main app no longer has. The exact record
+	// replaces it once the state is written.
+	if err := writeCodexSeeded(seededPath, pending); err != nil {
+		return err
+	}
 	out, err := json.Marshal(state)
 	if err != nil {
 		return err
 	}
 	if err := atomicfile.Write(path, out, 0o600); err != nil {
+		return err
+	}
+	if err := writeCodexSeeded(seededPath, next); err != nil {
 		return err
 	}
 	// The app keeps a .bak beside the file; a stale one must not be what it
@@ -179,6 +211,145 @@ func seedCodexAppGlobalState(mainHome, profileHome string) error {
 		return err
 	}
 	return nil
+}
+
+// mergeCodexStateValue merges a main-app collection with the profile's: for
+// a map the main app's entry wins on a shared key, for a list the main app's
+// order comes first and the profile's extra items follow. A profile entry
+// whose id is in copied (put there by an earlier seed) is dropped: the main
+// app has since removed it. Any other shape, or two different shapes, takes
+// the main app's value; the lists the app keeps here hold string ids only.
+func mergeCodexStateValue(main, profile any, copied map[string]bool) any {
+	switch m := main.(type) {
+	case map[string]any:
+		p, ok := profile.(map[string]any)
+		if !ok {
+			return m
+		}
+		out := make(map[string]any, len(m)+len(p))
+		for k, v := range p {
+			if !copied[k] {
+				out[k] = v
+			}
+		}
+		for k, v := range m {
+			out[k] = v
+		}
+		return out
+	case []any:
+		p, ok := profile.([]any)
+		if !ok {
+			return m
+		}
+		out := append([]any(nil), m...)
+		seen := stringSet(m)
+		for _, v := range p {
+			if s, ok := v.(string); ok && !seen[s] && !copied[s] {
+				seen[s] = true
+				out = append(out, v)
+			}
+		}
+		return out
+	}
+	return main
+}
+
+// mergeCodexAppProjects merges the main app's project collections into the
+// profile state and returns two records of the ids copied from main: next is
+// this round's exact set, pending adds the earlier copied ids to it.
+func mergeCodexAppProjects(main, state, seeded map[string]any) (next, pending map[string]any) {
+	own := codexProfileOwnProjects(main, state)
+	next = make(map[string]any, len(codexAppMergedStateKeys))
+	pending = make(map[string]any, len(codexAppMergedStateKeys))
+	for _, key := range codexAppMergedStateKeys {
+		v, ok := main[key]
+		if !ok {
+			// Nothing to merge this round; the earlier record still says
+			// which profile ids came from the main app.
+			if prev, recorded := seeded[key]; recorded {
+				next[key], pending[key] = prev, prev
+			}
+			continue
+		}
+		copied := stringSet(seeded[key])
+		if _, recorded := seeded[key]; !recorded && codexAppFormerlyCopiedKeys[key] {
+			copied = codexIDsExcept(state[key], own)
+		}
+		state[key] = mergeCodexStateValue(v, state[key], copied)
+		next[key] = codexStateIDs(v)
+		pending[key] = codexStateIDs(v)
+		for id := range copied {
+			pending[key] = append(pending[key].([]any), id)
+		}
+	}
+	return next, pending
+}
+
+// codexAppFormerlyCopiedKeys were copied wholesale before the seeded record
+// existed (1.2.0). With no record yet, their ids in the profile came from the
+// main app, except projects only the profile has.
+var codexAppFormerlyCopiedKeys = map[string]bool{"project-order": true, "pinned-project-ids": true}
+
+// codexProfileOwnProjects are the project ids in the profile's local-projects
+// that the main app does not have: projects opened in the profile window.
+func codexProfileOwnProjects(main, profile map[string]any) map[string]bool {
+	mainProjects, _ := main["local-projects"].(map[string]any)
+	profileProjects, _ := profile["local-projects"].(map[string]any)
+	own := map[string]bool{}
+	for id := range profileProjects {
+		if _, shared := mainProjects[id]; !shared {
+			own[id] = true
+		}
+	}
+	return own
+}
+
+func codexIDsExcept(v any, keep map[string]bool) map[string]bool {
+	out := map[string]bool{}
+	for _, id := range codexStateIDs(v) {
+		if s := id.(string); !keep[s] {
+			out[s] = true
+		}
+	}
+	return out
+}
+
+func writeCodexSeeded(path string, seeded map[string]any) error {
+	out, err := json.Marshal(seeded)
+	if err != nil {
+		return err
+	}
+	return atomicfile.Write(path, out, 0o600)
+}
+
+// codexStateIDs lists the ids a collection holds: a map's keys or a list's
+// strings.
+func codexStateIDs(v any) []any {
+	var ids []any
+	switch c := v.(type) {
+	case map[string]any:
+		for k := range c {
+			ids = append(ids, k)
+		}
+	case []any:
+		for _, item := range c {
+			if s, ok := item.(string); ok {
+				ids = append(ids, s)
+			}
+		}
+	}
+	return ids
+}
+
+func stringSet(v any) map[string]bool {
+	list, _ := v.([]any)
+	set := make(map[string]bool, len(list))
+	for _, item := range list {
+		if s, ok := item.(string); ok {
+			set[s] = true
+		}
+	}
+	return set
 }
 
 // codexHostEntry finds the main home's entry in a map the app keys by

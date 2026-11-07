@@ -497,3 +497,26 @@ func TestCodexTerminalScriptFallsBackToZsh(t *testing.T) {
 		t.Fatalf("fallback = %q (%v)", out, err)
 	}
 }
+
+// The Codex picker label drops the tier suffix while the slug Codex sends
+// stays the vendor's exact route.
+func TestCodexModelCatalogLabelsTierRoutesWithoutSuffix(t *testing.T) {
+	doc := buildCodexModelCatalog([]string{"gemini-3.8-flash-tiered", "grok-4.7"})
+	if got := doc.Models[0]; got.Slug != "gemini-3.8-flash-tiered" || got.DisplayName != "gemini-3.8-flash" || got.DisplayNameCamel != "gemini-3.8-flash" {
+		t.Fatalf("tier route entry = slug %q display %q/%q", got.Slug, got.DisplayName, got.DisplayNameCamel)
+	}
+	if got := doc.Models[1]; got.Slug != "grok-4.7" || got.DisplayName != "grok-4.7" {
+		t.Fatalf("other entry = slug %q display %q", got.Slug, got.DisplayName)
+	}
+}
+
+// A 1.1.x binding can list the short form beside the route; the route then
+// keeps its full id so the picker never shows two identical rows.
+func TestCodexModelCatalogKeepsSuffixWhenShortFormIsListed(t *testing.T) {
+	for _, short := range []string{"gemini-3.8-flash", "Gemini-3.8-Flash"} {
+		doc := buildCodexModelCatalog([]string{short, "gemini-3.8-flash-tiered"})
+		if a, b := doc.Models[0].DisplayName, doc.Models[1].DisplayName; a != short || b != "gemini-3.8-flash-tiered" {
+			t.Fatalf("labels for %q = %q, %q", short, a, b)
+		}
+	}
+}

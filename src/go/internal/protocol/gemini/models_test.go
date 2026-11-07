@@ -61,3 +61,21 @@ func TestResolveGeminiModelReadsLegacyStrippedTierRoute(t *testing.T) {
 		t.Fatalf("an id with no matching route was rewritten: %+v", got)
 	}
 }
+
+// A picker shows a tier route without Google's suffix, and the shortened
+// label still resolves back to that route, so a user who types what they
+// see reaches the same model.
+func TestDisplayModelIDShortensOnlyTierRoutes(t *testing.T) {
+	for id, want := range map[string]string{
+		"gemini-3.8-flash-tiered": "gemini-3.8-flash",
+		"Gemini-3.1-Pro-TIERED":   "Gemini-3.1-Pro",
+		"gemini-3.1-pro-high":     "gemini-3.1-pro-high",
+		"-tiered":                 "-tiered",
+		"gemini-tiered":           "gemini",
+		"claude-tiered":           "claude-tiered",
+	} {
+		if got := DisplayModelID(id); got != want {
+			t.Errorf("DisplayModelID(%q) = %q, want %q", id, got, want)
+		}
+	}
+}

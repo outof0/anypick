@@ -8,11 +8,14 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/outof0/anypick/go/internal/activation"
 	"github.com/outof0/anypick/go/internal/anyerr"
+	"github.com/outof0/anypick/go/internal/bindings"
 	"github.com/outof0/anypick/go/internal/client"
 	"github.com/outof0/anypick/go/internal/lock"
+	"github.com/outof0/anypick/go/internal/proxy"
 	"github.com/outof0/anypick/go/internal/refs"
 	"github.com/outof0/anypick/go/internal/transport"
 )
@@ -443,13 +446,17 @@ func (s *Server) mutateCodexProfile(ctx context.Context, m Mutate, result Result
 	return result
 }
 
+// openCodexProfileApp is replaced in tests, which must not launch the app.
+var openCodexProfileApp = activation.OpenCodexProfileApp
+
 func (s *Server) mutateCodexProfileOpen(ctx context.Context, m Mutate, result Result) Result {
 	if s.Deps.Activation == nil {
 		return result.Fail(serviceUnavailableErr("Codex profile service"))
 	}
+	s.refreshCodexProfileModels(ctx, m.Name)
 	// The CLI's `codex profile open` runs the same function, so both write
 	// the same app config and launch the same way.
-	if err := activation.OpenCodexProfileApp(ctx, m.Name, s.Deps.Activation); err != nil {
+	if err := openCodexProfileApp(ctx, m.Name, s.Deps.Activation); err != nil {
 		return result.Fail(err)
 	}
 	result.Message = fmt.Sprintf("Opened Codex profile %s in the Codex app.", m.Name)
@@ -533,4 +540,67 @@ func (s *Server) mutateCodexProfileRemove(ctx context.Context, m Mutate, result 
 	}
 	result.Message = fmt.Sprintf("Removed Codex profile %s.", m.Name)
 	return result
+}
+
+// openCatalogBudget bounds the live model fetch that runs before a profile
+// opens; the action itself must still confirm within the host's budget.
+const openCatalogBudget = 8 * time.Second
+
+// refreshCodexProfileModels fetches the live model list of the account a
+// profile routes to and restores the profile with it, so the window that
+// opens offers what the account can call now rather than what was cached.
+// A failed fetch leaves the profile as it is: opening never depends on the
+// network. The profile is re-read under its locks, so an edit that landed
+// while the fetch ran is what gets restored.
+func (s *Server) refreshCodexProfileModels(ctx context.Context, name string) {
+	if s.Deps.Activation == nil || s.Deps.Activation.ClientProfiles == nil {
+		return
+	}
+	named, err := s.Deps.Activation.ClientProfiles.GetContext(ctx, "codex", name)
+	if err != nil || named == nil || named.Spec.Source.Kind != refs.KindAccount {
+		return
+	}
+	source := named.Spec.Source
+	// A Codex account routed directly has no proxy to restore, as at startup.
+	if source.Provider == "codex" && named.Spec.TransportPolicy != "proxy" {
+		return
+	}
+	warmCtx, cancel := context.WithTimeout(ctx, openCatalogBudget)
+	_, err = s.warmAccountModelCatalog(warmCtx, source.Provider, source.Name)
+	cancel()
+	if err != nil {
+		if !errors.Is(err, proxy.ErrModelDiscoveryUnsupported) {
+			s.logErr(fmt.Errorf("model catalog refresh for %s: %w", refs.DisplayRef(source), err))
+		}
+		return
+	}
+	catalog := s.sourceModelCatalog(ctx, source)
+	if len(catalog) == 0 {
+		return
+	}
+	err = lock.WithMutationLocks(ctx, s.Deps.Root,
+		[]string{"client/codex", "client-profile/codex/" + name}, func(c context.Context) error {
+			current, err := s.Deps.Activation.ClientProfiles.GetContext(c, "codex", name)
+			if err != nil || current == nil || refs.SerializeRef(current.Spec.Source) != refs.SerializeRef(source) {
+				return err
+			}
+			spec := current.Spec
+			plan, err := activation.PlanActivation(c, activation.Request{
+				Mode:         activation.ModeProfile,
+				Client:       "codex",
+				ProfileName:  name,
+				ModelCatalog: catalog,
+			}, s.Deps.Activation, activation.Options{
+				ReapplySpec: &spec,
+				ReapplyProv: &bindings.Provenance{Kind: "client_profile_snapshot"},
+			})
+			if err != nil {
+				return err
+			}
+			_, err = activation.Execute(c, plan, s.Deps.Activation, activation.ExecuteOptions{})
+			return err
+		}, 0)
+	if err != nil {
+		s.logErr(fmt.Errorf("refresh Codex profile %s models: %w", name, err))
+	}
 }

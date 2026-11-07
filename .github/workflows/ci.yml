@@ -177,11 +177,14 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
+          # Ubuntu 26.04 renamed webkit2gtk-driver; ubuntu-latest may be either.
+          driver=webkitgtk-webdriver
+          apt-cache show "$driver" >/dev/null 2>&1 || driver=webkit2gtk-driver
           sudo apt-get install -y \
             libwebkit2gtk-4.1-dev \
             libayatana-appindicator3-dev \
             librsvg2-dev \
-            patchelf webkit2gtk-driver xvfb xauth dbus-x11
+            patchelf "$driver" xvfb xauth dbus-x11
 
       - name: Select stable Rust
         run: |

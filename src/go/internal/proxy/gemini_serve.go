@@ -144,14 +144,14 @@ func translateToGemini(up *Upstream, ctx context.Context, path string, body []by
 			return nil, "", "", false, fmt.Errorf("invalid OpenAI chat body: %w", err)
 		}
 		model := gemini.ResolveGeminiModel(req.Model, catalog, stringFromEffort(req))
-		return gemini.OpenAIToGemini(req, model.UpstreamID), model.ID, model.UpstreamID, req.Stream, nil
+		return signGeminiHistory(gemini.OpenAIToGemini(req, model.UpstreamID), model.UpstreamID), model.ID, model.UpstreamID, req.Stream, nil
 	case "/v1/responses":
 		var req gemini.OpenAIResponsesRequest
 		if err := json.Unmarshal(body, &req); err != nil {
 			return nil, "", "", false, fmt.Errorf("invalid OpenAI responses body: %w", err)
 		}
 		model := gemini.ResolveGeminiModel(req.Model, catalog, "")
-		return gemini.OpenAIResponsesToGemini(req, model.UpstreamID), model.ID, model.UpstreamID, req.Stream, nil
+		return signGeminiHistory(gemini.OpenAIResponsesToGemini(req, model.UpstreamID), model.UpstreamID), model.ID, model.UpstreamID, req.Stream, nil
 	case "/v1/messages":
 		var req gemini.AnthropicMessageRequest
 		if err := json.Unmarshal(body, &req); err != nil {
@@ -166,10 +166,20 @@ func translateToGemini(up *Upstream, ctx context.Context, path string, body []by
 			return nil, "", "", false, err
 		}
 		stream := req.Stream
-		return g, model.ID, model.UpstreamID, stream, nil
+		return signGeminiHistory(g, model.UpstreamID), model.ID, model.UpstreamID, stream, nil
 	default:
 		return nil, "", "", false, fmt.Errorf("unsupported gemini route %s", path)
 	}
+}
+
+// signGeminiHistory fills tool calls that lost their thought signature and
+// says so in proxy.log: the placeholder keeps the conversation going, but a
+// signature lost on a fresh turn is a bug the log should still show.
+func signGeminiHistory(req *gemini.GeminiGenerateRequest, upstreamModel string) *gemini.GeminiGenerateRequest {
+	if n := gemini.FillMissingToolSignatures(req, upstreamModel); n > 0 {
+		proxyLogf("gemini: %d tool call(s) without a thought signature sent with the placeholder", n)
+	}
+	return req
 }
 
 func stringFromEffort(req gemini.OpenAIChatRequest) string {

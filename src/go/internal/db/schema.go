@@ -3,7 +3,10 @@
 // Schema versioning keys off PRAGMA user_version.
 package db
 
-import "database/sql"
+import (
+	"database/sql"
+	"fmt"
+)
 
 const schema = `
 PRAGMA journal_mode = WAL;
@@ -205,23 +208,34 @@ type execer interface {
 type migration struct {
 	name string
 	up   func(execer) error
+	// repair marks an up that only adds what is missing, so MigrateSchema
+	// runs it again on every open. user_version alone cannot prove a column
+	// exists: a development build with a different migration list can leave
+	// the counter ahead of the schema it describes.
+	repair bool
 }
 
-func hasColumn(d execer, table, column string) bool {
+// hasColumn reports whether table has column. A read error is returned, not
+// read as "missing": the repair pass runs on every open, and treating a
+// transient failure as absence would turn it into a failed ALTER.
+func hasColumn(d execer, table, column string) (bool, error) {
 	rows, err := d.Query("PRAGMA table_info(" + table + ")")
 	if err != nil {
-		return false
+		return false, err
 	}
 	defer rows.Close()
 	idx := -1
-	cols, _ := rows.Columns()
+	cols, err := rows.Columns()
+	if err != nil {
+		return false, err
+	}
 	for i, c := range cols {
 		if c == "name" {
 			idx = i
 		}
 	}
 	if idx < 0 {
-		return false
+		return false, fmt.Errorf("PRAGMA table_info(%s) has no name column", table)
 	}
 	vals := make([]any, len(cols))
 	ptrs := make([]any, len(cols))
@@ -230,13 +244,23 @@ func hasColumn(d execer, table, column string) bool {
 	}
 	for rows.Next() {
 		if err := rows.Scan(ptrs...); err != nil {
-			return false
+			return false, err
 		}
 		if s, ok := vals[idx].(string); ok && s == column {
-			return true
+			return true, nil
 		}
 	}
-	return false
+	return false, rows.Err()
+}
+
+// addColumnIfMissing is the idempotent body of a repair migration.
+func addColumnIfMissing(d execer, table, column, ddl string) error {
+	ok, err := hasColumn(d, table, column)
+	if err != nil || ok {
+		return err
+	}
+	_, err = d.Exec("ALTER TABLE " + table + " ADD COLUMN " + ddl)
+	return err
 }
 
 // migrations applies in array order; index i corresponds to version i+2.
@@ -275,13 +299,10 @@ var migrations = []migration{
 		// instance_id was originally added to the fresh-install schema without
 		// an ALTER migration; existing v3 databases fail on lease selects
 		// without this guard.
-		name: "add proxy lease instance identity",
+		name:   "add proxy lease instance identity",
+		repair: true,
 		up: func(d execer) error {
-			if !hasColumn(d, "proxy_leases", "instance_id") {
-				_, err := d.Exec("ALTER TABLE proxy_leases ADD COLUMN instance_id TEXT")
-				return err
-			}
-			return nil
+			return addColumnIfMissing(d, "proxy_leases", "instance_id", "instance_id TEXT")
 		},
 	},
 	{
@@ -391,13 +412,10 @@ var migrations = []migration{
 	{
 		// Discovery filters change what a provider publishes; rows cached
 		// under an older filter must read as absent (catalog.ModelCatalogRules).
-		name: "add model catalog rules version",
+		name:   "add model catalog rules version",
+		repair: true,
 		up: func(d execer) error {
-			if !hasColumn(d, "model_catalog_cache", "rules_version") {
-				_, err := d.Exec("ALTER TABLE model_catalog_cache ADD COLUMN rules_version INTEGER NOT NULL DEFAULT 0")
-				return err
-			}
-			return nil
+			return addColumnIfMissing(d, "model_catalog_cache", "rules_version", "rules_version INTEGER NOT NULL DEFAULT 0")
 		},
 	},
 }

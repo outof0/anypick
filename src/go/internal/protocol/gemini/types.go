@@ -310,6 +310,26 @@ type OpenAIResponseOutputItem struct {
 	Output           json.RawMessage         `json:"output,omitempty"`
 }
 
+// MarshalJSON always writes summary on a reasoning item. Codex requires the
+// field and drops a reasoning item without it, and the item that carries a
+// tool call's thought signature has no summary text: with the field omitted
+// the signature never came back, and Gemini rejected the next tool turn for a
+// functionCall missing its thought_signature.
+func (item OpenAIResponseOutputItem) MarshalJSON() ([]byte, error) {
+	type plain OpenAIResponseOutputItem
+	if item.Type != "reasoning" {
+		return json.Marshal(plain(item))
+	}
+	summary := item.Summary
+	if summary == nil {
+		summary = []OpenAIResponseSummary{}
+	}
+	return json.Marshal(struct {
+		plain
+		Summary []OpenAIResponseSummary `json:"summary"`
+	}{plain(item), summary})
+}
+
 // OpenAIResponseSummary is a reasoning summary entry.
 type OpenAIResponseSummary struct {
 	Type string `json:"type"`

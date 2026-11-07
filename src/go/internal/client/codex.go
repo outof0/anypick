@@ -12,6 +12,7 @@ import (
 	toml "github.com/pelletier/go-toml/v2"
 
 	"github.com/outof0/anypick/go/internal/atomicfile"
+	"github.com/outof0/anypick/go/internal/protocol/gemini"
 	"github.com/outof0/anypick/go/internal/transport"
 )
 
@@ -276,11 +277,22 @@ func buildCodexModelCatalog(modelIDs []string) codexCatalogDocument {
 		{Effort: "high", Description: "Deep reasoning"},
 		{Effort: "xhigh", Description: "Extended reasoning"},
 	}
+	listed := make(map[string]bool, len(modelIDs))
+	for _, id := range modelIDs {
+		listed[strings.ToLower(id)] = true
+	}
 	for i, id := range modelIDs {
+		// The slug is what Codex sends, so it stays the vendor's exact id;
+		// only the picker label is shortened, and not when the short form is
+		// itself listed (a binding saved by 1.1.x), or two rows would read alike.
+		label := gemini.DisplayModelID(id)
+		if label != id && listed[strings.ToLower(label)] {
+			label = id
+		}
 		models = append(models, codexCatalogModel{
 			Slug:                           id,
-			DisplayName:                    id,
-			DisplayNameCamel:               id,
+			DisplayName:                    label,
+			DisplayNameCamel:               label,
 			Description:                    "Model supplied by the active AnyPick gateway or proxy.",
 			DefaultReasoningLevel:          "medium",
 			SupportedReasoningLevels:       defaultLevels,
