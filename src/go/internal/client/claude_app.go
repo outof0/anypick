@@ -92,15 +92,34 @@ type ClaudeAppProfileMatch struct {
 	CaseConflict string
 }
 
+// readClaudeAppProfilesDir lists the profiles folder; a missing folder is no
+// profiles. A missing folder is confirmed with Lstat rather than read off the
+// ReadDir error, because Windows reports ReadDir on a regular file as "path
+// not found", which os.IsNotExist accepts, and that would read an unreadable
+// folder as an empty one.
+func readClaudeAppProfilesDir(root string) ([]os.DirEntry, error) {
+	dir := claudeAppProfilesDir(root)
+	entries, err := os.ReadDir(dir)
+	if err == nil {
+		return entries, nil
+	}
+	if !os.IsNotExist(err) {
+		return nil, err
+	}
+	if _, statErr := os.Lstat(dir); statErr == nil {
+		return nil, fmt.Errorf("read Claude app profiles: %s is not a directory", dir)
+	} else if !os.IsNotExist(statErr) {
+		return nil, statErr
+	}
+	return nil, nil
+}
+
 // FindClaudeAppProfile looks a name up. An unreadable folder is an error, not
 // an empty one: reading it as empty would skip the checks that guard a profile.
 func FindClaudeAppProfile(root, name string) (ClaudeAppProfileMatch, error) {
 	var match ClaudeAppProfileMatch
-	entries, err := os.ReadDir(claudeAppProfilesDir(root))
+	entries, err := readClaudeAppProfilesDir(root)
 	if err != nil {
-		if os.IsNotExist(err) {
-			return match, nil
-		}
 		return match, err
 	}
 	for _, entry := range entries {
@@ -118,11 +137,8 @@ func FindClaudeAppProfile(root, name string) (ClaudeAppProfileMatch, error) {
 // ListClaudeAppProfiles reads the profiles from disk. The folder is the
 // record: the app owns everything in it, so a table row could only disagree.
 func ListClaudeAppProfiles(root string) ([]ClaudeAppProfile, error) {
-	entries, err := os.ReadDir(claudeAppProfilesDir(root))
+	entries, err := readClaudeAppProfilesDir(root)
 	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, nil
-		}
 		return nil, err
 	}
 	names := make([]string, 0, len(entries))
