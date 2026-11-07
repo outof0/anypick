@@ -6,6 +6,10 @@ Conventional Commits by `changelogithub`, are on
 
 This project follows [Semantic Versioning](https://semver.org/).
 
+## 1.2.2
+
+On macOS, keep separate Claude desktop app logins in their own data folders (`anypick claude-app profile list|open|remove`, and on the Claude page of the app); a profile with its window open cannot be removed. `anypick use claude` now clears the timestamp Claude Code caches its signed-in account under, so its next start fetches the new account's email, organization and plan instead of showing the previous account's for up to a day. Streamed replies through a translating proxy now send content blocks one at a time, each with its own index and its own stop, without dropping the arguments of parallel tool calls whose fragments interleave, so clients that check the stream no longer abort a turn with parallel tool calls or text after a tool call.
+
 ## 1.2.1
 
 Restore a missing model-cache column when the database already reports the current schema version, so Codex profiles get their discovered model list again instead of a static fallback list, and the Codex model picker shows Gemini tier routes without Google's `-tiered` suffix. A Codex profile window opened in the Codex app now lists the main app's projects as well as its recent threads. Tool calls through a Gemini account no longer fail on the next turn with a missing `thought_signature`, and threads whose tool calls lost their signature under 1.2.0 continue on Gemini 3. Gemini accounts also list Google's recommended Gemini 3 models (for example `gemini-3-flash`) beside the tier route. On macOS, row icon buttons (open, show key, rotate key, inspect) no longer look disabled next to Copy.
