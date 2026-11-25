@@ -31,13 +31,11 @@ func (p *claude) SnapshotUsage(ctx context.Context, snapshotDir string) (*LiveUs
 	if err != nil {
 		return nil, err
 	}
-	var snapshot struct {
-		Credential string `json:"credential"`
-	}
-	if json.Unmarshal(raw, &snapshot) != nil || snapshot.Credential == "" {
+	credential := claudeSnapshotCredential(raw)
+	if credential == "" {
 		return nil, fmt.Errorf("claude snapshot has no credential")
 	}
-	return claudeUsageFromCredential(ctx, snapshot.Credential)
+	return claudeUsageFromCredential(ctx, credential)
 }
 
 func claudeUsageFromCredential(ctx context.Context, credential string) (*LiveUsage, error) {

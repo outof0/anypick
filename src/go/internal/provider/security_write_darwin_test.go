@@ -3,6 +3,7 @@
 package provider
 
 import (
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -106,4 +107,64 @@ func TestDarwinApostrophePasswordReplacesTheTempKeychainItem(t *testing.T) {
 			t.Fatalf("stored password = %q, want o'brien", got)
 		}
 	})
+}
+
+func TestDarwinClaudeKeychainPasswordReadsAsJSON(t *testing.T) {
+	withTempKeychain(t, func(kc string) {
+		const service = "Claude Code-credentials"
+		const account = "anypick-roundtrip"
+		for _, tc := range []struct {
+			name string
+			size int
+		}{
+			{"interactive", 0},
+			{"oversized", securityStdinLimit},
+		} {
+			t.Run(tc.name, func(t *testing.T) {
+				padding := strings.Repeat("x", tc.size)
+				raw := `{
+  "fixture": "é 😀 \"quotes\" ` + padding + "\"\n}\n"
+				want := `{"fixture":"\u00e9 \ud83d\ude00 \"quotes\" ` + padding + `"}`
+				stdin, args, err := claudeKeychainWriteInvocation(account, raw, raw)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if stdin != "" {
+					err = runSecurityStdin(strings.TrimSuffix(stdin, "\n") + " " + quoteSecurityCommand(kc) + "\n")
+				} else {
+					err = runSecurityArgs(append(args, kc))
+				}
+				if err != nil {
+					t.Fatal(err)
+				}
+				out, err := exec.Command("/usr/bin/security", "find-generic-password",
+					"-s", service, "-a", account, "-w", kc).Output()
+				if err != nil {
+					t.Fatal(err)
+				}
+				if strings.TrimSuffix(string(out), "\n") != want {
+					t.Fatal("security did not return the complete credential JSON")
+				}
+				if claudeFingerprint(string(out)) != claudeFingerprint(raw) {
+					t.Fatal("the live credential no longer matches the saved JSON")
+				}
+			})
+		}
+	})
+}
+
+func TestClaudeBackupRefusesAnUnrestorableKeychainCheckpoint(t *testing.T) {
+	t.Setenv("ANYPICK_CLAUDE_NO_KEYCHAIN", "")
+	p := newClaude(t.TempDir())
+	credential := `{"claudeAiOauth":{"accessToken":"fixture"},"fixture":"` +
+		strings.Repeat(`\\`, 1400) + `"}`
+	p.keychainRead = func(string) (string, error) { return credential, nil }
+	dest := t.TempDir()
+	if _, err := p.Backup(dest); err == nil {
+		t.Fatal("backup accepted a live credential that rollback would refuse")
+	}
+	entries, err := os.ReadDir(dest)
+	if err != nil || len(entries) != 0 {
+		t.Fatalf("invalid checkpoint was written: %v", err)
+	}
 }

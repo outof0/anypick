@@ -1,6 +1,7 @@
 package provider
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -10,6 +11,8 @@ import (
 	"os/user"
 	"path/filepath"
 	"strings"
+	"unicode"
+	"unicode/utf16"
 
 	"github.com/outof0/anypick/go/internal/anyerr"
 	"github.com/outof0/anypick/go/internal/atomicfile"
@@ -20,20 +23,22 @@ import (
 const (
 	claudeSnapshotFile  = "credentials.json"
 	claudeLoginMethodID = "claude-subscription"
+	claudeKeychainName  = "Claude Code-credentials"
 )
 
 // claude manages Claude Code credentials, which live in the macOS Keychain
 // ("Claude Code-credentials") or ~/.claude/.credentials.json on file-backed
-// platforms. The secret never goes in process argv.
+// platforms.
 //
 // It has no PreflightRestore, so a running Claude Code does not stop a switch.
 // A session that is already running may go on with the login it loaded, and
 // may write its copy of ~/.claude.json back over the switch.
 type claude struct {
-	home string
+	home         string
+	keychainRead func(string) (string, error)
 }
 
-func newClaude(home string) *claude { return &claude{home: home} }
+func newClaude(home string) *claude { return &claude{home: home, keychainRead: runSecurity} }
 
 func (p *claude) ID() string          { return "claude" }
 func (p *claude) Name() string        { return "Anthropic Claude Code" }
@@ -85,6 +90,7 @@ func (p *claude) Login(ctx context.Context, methodID, source string) error {
 type claudeCredential struct {
 	account    string
 	credential string
+	original   string
 }
 
 func (p *claude) useKeychain() bool {
@@ -100,12 +106,12 @@ func (p *claude) fileCredentialsPath() string {
 
 func (p *claude) read() (*claudeCredential, error) {
 	if p.useKeychain() {
-		out, err := runSecurity("find-generic-password -s 'Claude Code-credentials' -a " +
+		out, err := p.keychainRead("find-generic-password -s 'Claude Code-credentials' -a " +
 			quoteSecurity(p.accountName()) + " -w")
-		if err == nil && strings.TrimSpace(out) != "" {
-			return &claudeCredential{account: p.accountName(), credential: strings.TrimSpace(out)}, nil
+		if err != nil {
+			return nil, nil
 		}
-		return nil, nil
+		return p.decodeLive(out)
 	}
 	path := p.fileCredentialsPath()
 	data, err := os.ReadFile(path)
@@ -115,24 +121,98 @@ func (p *claude) read() (*claudeCredential, error) {
 		}
 		return nil, err
 	}
-	credential := strings.TrimRight(string(data), "\n")
-	if strings.TrimSpace(credential) == "" {
-		return nil, nil
-	}
-	return &claudeCredential{account: p.accountName(), credential: credential}, nil
+	return p.decodeLive(string(data))
 }
 
-func (p *claude) write(credential string) error {
-	if !strings.HasSuffix(credential, "\n") {
-		credential += "\n"
+func (p *claude) decodeLive(raw string) (*claudeCredential, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return nil, nil
 	}
+	credential := normalizeClaudeCredential(raw)
+	if credential == "" {
+		// An unreadable item is not an empty store. Stop before a switch
+		// overwrites a credential its checkpoint cannot restore (ADR 0004).
+		return nil, anyerr.Newf("The current Claude Code credential could not be read.",
+			"CLAUDE_LIVE_AUTH_INVALID",
+			anyerr.WithSuggestions("Check the current login with claude auth status."))
+	}
+	return &claudeCredential{
+		account: p.accountName(), credential: credential, original: raw,
+	}, nil
+}
+
+func (p *claude) write(credential, original string) error {
 	if p.useKeychain() {
-		return writeGenericPassword("Claude Code-credentials", p.accountName(), credential)
+		stdin, args, err := claudeKeychainWriteInvocation(p.accountName(), credential, original)
+		if err != nil {
+			return err
+		}
+		return runGenericPasswordWrite(stdin, args)
 	}
 	path := p.fileCredentialsPath()
 	// path is the user's live credential file. Truncating it in place leaves
 	// an empty login on crash (ADR 0004), so replace by rename (atomicfile).
-	return atomicfile.Write(path, []byte(credential), 0o600)
+	return atomicfile.Write(path, []byte(credential+"\n"), 0o600)
+}
+
+func claudeKeychainWriteInvocation(account, credential, original string) (string, []string, error) {
+	password, err := claudeKeychainPassword(credential)
+	if err != nil {
+		return "", nil, err
+	}
+	// security interprets backslashes even inside its stdin quotes. The
+	// argv form expects the original bytes, so never reuse the escaped args.
+	stdin, _ := darwinAddGenericInvocation(claudeKeychainName, account,
+		strings.ReplaceAll(password, `\`, `\\`))
+	if stdin != "" {
+		return stdin, nil, nil
+	}
+
+	// JSON escaping can make a previously stdin-safe value exceed the
+	// command buffer. Fail before writing if that would move it onto argv.
+	if legacyClaudeCredentialFitsStdin(account, original) ||
+		(original != credential && legacyClaudeCredentialFitsStdin(account, credential)) {
+		return "", nil, anyerr.Newf("The Claude Code credential exceeds the safe Keychain input size after encoding.",
+			"CLAUDE_KEYCHAIN_WRITE_TOO_LARGE",
+			anyerr.WithSuggestions("Sign in with Claude Code to restore this account."))
+	}
+	return "", darwinAddGenericArgv(claudeKeychainName, account, password), nil
+}
+
+func legacyClaudeCredentialFitsStdin(account, credential string) bool {
+	if !strings.HasSuffix(credential, "\n") {
+		credential += "\n"
+	}
+	stdin, _ := darwinAddGenericInvocation(claudeKeychainName, account, credential)
+	return stdin != ""
+}
+
+// security -w prints a keychain item as hex if it contains non-printable ASCII
+// or non-ASCII bytes. Claude Code expects JSON from that command.
+func claudeKeychainPassword(credential string) (string, error) {
+	var compact bytes.Buffer
+	if err := json.Compact(&compact, []byte(credential)); err != nil {
+		return "", fmt.Errorf("the Claude Code credential is invalid")
+	}
+	return escapeClaudeJSON(compact.String()), nil
+}
+
+func escapeClaudeJSON(credential string) string {
+	var password strings.Builder
+	password.Grow(len(credential))
+	for _, r := range credential {
+		switch {
+		case r < unicode.MaxASCII:
+			password.WriteByte(byte(r))
+		case r <= '\uFFFF':
+			fmt.Fprintf(&password, `\u%04x`, r)
+		default:
+			high, low := utf16.EncodeRune(r)
+			fmt.Fprintf(&password, `\u%04x\u%04x`, high, low)
+		}
+	}
+	return password.String()
 }
 
 func (p *claude) clearLiveCredential() error {
@@ -161,11 +241,13 @@ func (p *claude) DetectLive() (LiveAuthStatus, error) {
 	if err != nil || current == nil {
 		return LiveAuthStatus{}, err
 	}
-	return LiveAuthStatus{
-		Present:  true,
-		Identity: claudeCredentialIdentity(current.credential),
-		Details:  "Claude Code secure credential store",
-	}, nil
+	status := LiveAuthStatus{Present: true, Details: "Claude Code secure credential store"}
+	// Preserve the recoverable login for checkpointing without letting the
+	// active-account identity shortcut skip the rewrite of its live bytes.
+	if current.original == current.credential {
+		status.Identity = claudeCredentialIdentity(current.credential)
+	}
+	return status, nil
 }
 
 func (p *claude) Backup(destDir string) (SnapshotInfo, error) {
@@ -176,6 +258,13 @@ func (p *claude) Backup(destDir string) (SnapshotInfo, error) {
 	if current == nil {
 		return SnapshotInfo{}, anyerr.Newf(
 			"No signed-in Claude Code account was found.", "NO_LIVE_AUTH")
+	}
+	if p.useKeychain() {
+		// Backup also creates rollback checkpoints. A checkpoint must be
+		// restorable before the account service can replace this live item.
+		if _, _, err := claudeKeychainWriteInvocation(current.account, current.credential, current.original); err != nil {
+			return SnapshotInfo{}, err
+		}
 	}
 	snapshot := map[string]interface{}{
 		"version":    1,
@@ -197,21 +286,17 @@ func (p *claude) Restore(srcDir string) error {
 		}
 		return err
 	}
-	var snapshot struct {
-		Version    int    `json:"version"`
-		Account    string `json:"account"`
-		Credential string `json:"credential"`
-	}
-	if err := json.Unmarshal(raw, &snapshot); err != nil ||
-		snapshot.Version != 1 || snapshot.Account == "" || snapshot.Credential == "" {
+	_, original, _ := claudeWrapperFields(raw)
+	credential := normalizeClaudeCredential(original)
+	if credential == "" {
 		return fmt.Errorf("the Claude Code credential snapshot is invalid")
 	}
 	previous, readErr := p.read()
-	if err := p.write(snapshot.Credential); err != nil {
+	if err := p.write(credential, original); err != nil {
 		return err
 	}
-	if readErr != nil || previous == nil ||
-		claudeFingerprint(previous.credential) != claudeFingerprint(snapshot.Credential) {
+	if readErr != nil || previous == nil || previous.original != previous.credential ||
+		claudeFingerprint(previous.credential) != claudeFingerprint(credential) {
 		p.markAccountRecordStale()
 	}
 	return nil
@@ -225,13 +310,7 @@ func (p *claude) DescribeSnapshot(srcDir string) (SnapshotInfo, error) {
 		}
 		return SnapshotInfo{}, err
 	}
-	var snapshot struct {
-		Credential string `json:"credential"`
-	}
-	if json.Unmarshal(raw, &snapshot) != nil {
-		return SnapshotInfo{}, nil
-	}
-	return SnapshotInfo{Identity: claudeCredentialIdentity(snapshot.Credential)}, nil
+	return SnapshotInfo{Identity: claudeCredentialIdentity(claudeSnapshotCredential(raw))}, nil
 }
 
 // SnapshotMatchesLive compares fingerprints with the refresh token stripped. A
@@ -241,7 +320,7 @@ func (p *claude) SnapshotMatchesLive(srcDir string) (bool, bool, error) {
 	if err != nil {
 		return false, false, err
 	}
-	if current == nil {
+	if current == nil || current.original != current.credential {
 		return false, true, nil
 	}
 	raw, err := os.ReadFile(filepath.Join(srcDir, claudeSnapshotFile))
@@ -251,14 +330,37 @@ func (p *claude) SnapshotMatchesLive(srcDir string) (bool, bool, error) {
 		}
 		return false, false, err
 	}
-	var snapshot struct {
-		Credential string `json:"credential"`
-	}
-	if json.Unmarshal(raw, &snapshot) != nil || snapshot.Credential == "" {
+	credential := claudeSnapshotCredential(raw)
+	if credential == "" {
 		return false, true, nil
 	}
-	return claudeFingerprint(current.credential) == claudeFingerprint(snapshot.Credential),
+	return claudeFingerprint(current.credential) == claudeFingerprint(credential),
 		true, nil
+}
+
+func claudeSnapshotCredential(raw []byte) string {
+	_, credential, ok := claudeWrapperFields(raw)
+	if !ok {
+		return ""
+	}
+	return normalizeClaudeCredential(credential)
+}
+
+// Older versions snapshotted security -w output verbatim. If a restore stored
+// that hex with a newline, the next read added another hex layer.
+func normalizeClaudeCredential(raw string) string {
+	raw = strings.TrimSpace(raw)
+	for raw != "" {
+		if strings.HasPrefix(raw, "{") && json.Valid([]byte(raw)) {
+			return raw
+		}
+		decoded, err := hex.DecodeString(raw)
+		if err != nil {
+			return ""
+		}
+		raw = strings.TrimSpace(string(decoded))
+	}
+	return ""
 }
 
 // LiveClearer removes local auth only — no server-side logout.
@@ -326,7 +428,9 @@ func claudeFingerprint(raw string) string {
 	if err != nil {
 		stable = []byte(raw)
 	}
-	sum := sha256.Sum256(stable)
+	// Keychain writes escape Unicode, so hash the same JSON form for live and
+	// saved credentials even when the snapshot used literal characters.
+	sum := sha256.Sum256([]byte(escapeClaudeJSON(string(stable))))
 	return hex.EncodeToString(sum[:])
 }
 

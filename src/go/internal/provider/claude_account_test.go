@@ -1,6 +1,8 @@
 package provider
 
 import (
+	"encoding/hex"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -59,6 +61,65 @@ func backupClaude(t *testing.T, pv Provider) string {
 		t.Fatal(err)
 	}
 	return snap
+}
+
+func TestClaudeRestoreRepairsLegacyHexSnapshot(t *testing.T) {
+	env := newProviderEnv(t, nil)
+	pv := mustProvider(t, env.Registry, "claude")
+	creds := env.mustPath(".claude/.credentials.json")
+	env.write(t, creds, claudeCredentialFor("personal@example.com"))
+
+	// The oversized Keychain write used to store a newline after the JSON.
+	// security -w prints those bytes as hex, which older AnyPick saved as-is.
+	credential := `{"claudeAiOauth":{"email":"work@example.com","accessToken":"test-access","refreshToken":"test-refresh","expiresAt":1,"scopes":["user:profile"]},"mcpOAuth":{"server":{"accessToken":"` +
+		strings.Repeat("x", securityStdinLimit) + `"}}}`
+	snapshot := t.TempDir()
+	encoded := hex.EncodeToString([]byte(credential + "\n"))
+	// Restoring hex with a newline and saving again added another hex layer.
+	wrapped, err := json.Marshal(map[string]any{
+		"version": 1, "account": "test-user", "credential": hex.EncodeToString([]byte(encoded + "\n")),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshotPath := filepath.Join(snapshot, claudeSnapshotFile)
+	env.write(t, snapshotPath, string(wrapped))
+
+	if err := pv.Restore(snapshot); err != nil {
+		t.Fatal(err)
+	}
+	if readFile(t, creds) != credential+"\n" {
+		t.Fatal("restore did not write the original credential JSON")
+	}
+	if readFile(t, snapshotPath) != string(wrapped) {
+		t.Fatal("restore modified the saved snapshot")
+	}
+	info, err := pv.DescribeSnapshot(snapshot)
+	if err != nil || info.Identity != "work@example.com" {
+		t.Fatalf("describe = %+v, %v", info, err)
+	}
+	match, known, err := pv.(LiveMatcher).SnapshotMatchesLive(snapshot)
+	if err != nil || !known || !match {
+		t.Fatalf("match = %v, known = %v, err = %v", match, known, err)
+	}
+}
+
+func TestClaudeRejectsMalformedCredentialBeforeWritingLive(t *testing.T) {
+	env := newProviderEnv(t, nil)
+	pv := mustProvider(t, env.Registry, "claude")
+	creds := env.mustPath(".claude/.credentials.json")
+	original := claudeCredentialFor("personal@example.com")
+	env.write(t, creds, original)
+	snapshot := t.TempDir()
+	env.write(t, filepath.Join(snapshot, claudeSnapshotFile),
+		`{"version":1,"account":"test-user","credential":"7b227472756e6361746564"}`)
+
+	if err := pv.Restore(snapshot); err == nil {
+		t.Fatal("restore accepted a truncated credential")
+	}
+	if readFile(t, creds) != original {
+		t.Fatal("failed restore changed the live credential")
+	}
 }
 
 // Claude Code trusts its account record for a day after the fetch time it

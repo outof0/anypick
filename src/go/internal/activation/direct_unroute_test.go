@@ -2,6 +2,7 @@ package activation
 
 import (
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -12,6 +13,56 @@ import (
 
 	"github.com/outof0/anypick/go/internal/refs"
 )
+
+func TestExecuteClaudeUsesNativeJSONForTheActiveAccount(t *testing.T) {
+	const login = `{"claudeAiOauth":{"email":"work@example.com","accessToken":"test-token"}}`
+	for _, tc := range []struct {
+		name       string
+		live       string
+		unreadable bool
+	}{
+		{name: "recoverable hex", live: hex.EncodeToString([]byte(login + "\n"))},
+		{name: "unreadable live credential", live: `{"claudeAiOauth":`, unreadable: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			env := newTestEnv(t)
+			ctx := context.Background()
+			if err := os.MkdirAll(filepath.Dir(env.ClaudeCreds), 0o700); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(env.ClaudeCreds, []byte(login), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := env.Svc.Save(ctx, "claude", "work", false); err != nil {
+				t.Fatal(err)
+			}
+			if err := env.Svc.Store.SetActiveContext(ctx, "claude", "work"); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(env.ClaudeCreds, []byte(tc.live), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			plan, err := PlanActivation(ctx, Request{
+				Mode: ModePersistent, Client: "claude", Source: refPtr(refs.AccountRef("claude", "work")),
+			}, env.Deps, Options{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, executeErr := Execute(ctx, plan, env.Deps, ExecuteOptions{})
+			if (executeErr != nil) != tc.unreadable {
+				t.Fatalf("execute error = %v, want error = %v", executeErr, tc.unreadable)
+			}
+			want := login + "\n"
+			if tc.unreadable {
+				want = tc.live
+			}
+			got, err := os.ReadFile(env.ClaudeCreds)
+			if err != nil || string(got) != want {
+				t.Fatalf("unexpected live credential after activation: read error = %v", err)
+			}
+		})
+	}
+}
 
 // Switching back to a native account must unroute the proxy from the client
 // config. Without RestoreNative on every direct-capable adapter, the client
@@ -40,7 +91,8 @@ func TestExecuteDirectSwitchUnroutesProxyEnv(t *testing.T) {
 	if err := os.MkdirAll(filepath.Dir(env.ClaudeCreds), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(env.ClaudeCreds, []byte("sk-ant-test-credential"), 0o600); err != nil {
+	if err := os.WriteFile(env.ClaudeCreds,
+		[]byte(`{"claudeAiOauth":{"accessToken":"sk-ant-test-credential"}}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := env.Svc.Save(ctx, "claude", "native", true); err != nil {
