@@ -552,10 +552,10 @@ func (s *Server) registerLogin(requestID string, cancel context.CancelFunc) logi
 }
 
 // armLoginDeadline answers a sign-in that outlives the engine's backstop even if
-// the adapter ignores the context. Nothing else will: the host holds its mutation
-// slot on this request.
+// the adapter ignores cancellation. Keep it armed until the worker answers:
+// receiving a cancel request does not mean the worker finished compensating.
 func (s *Server) armLoginDeadline(
-	requestID, providerID string, runCtx context.Context, cancel context.CancelFunc, budget time.Duration,
+	requestID, providerID string, finished <-chan struct{}, cancel context.CancelFunc, budget time.Duration,
 ) {
 	s.inFlight.Add(1)
 	go func() {
@@ -563,7 +563,7 @@ func (s *Server) armLoginDeadline(
 		timer := time.NewTimer(budget)
 		defer timer.Stop()
 		select {
-		case <-runCtx.Done():
+		case <-finished:
 			return
 		case <-s.stopCh:
 			return
@@ -1215,10 +1215,12 @@ func (s *Server) handleAccountLogin(_ context.Context, m Mutate) error {
 			Status: "success"}.Cancel("Sign-in cancelled.")))
 		return nil
 	}
-	s.armLoginDeadline(m.RequestID, m.ProviderID, runCtx, cancel, loginDeadline)
+	finishedCtx, finish := context.WithCancel(context.Background())
+	s.armLoginDeadline(m.RequestID, m.ProviderID, finishedCtx.Done(), cancel, loginDeadline)
 	s.inFlight.Add(1)
 	go func() {
 		defer s.inFlight.Done()
+		defer finish()
 		defer s.recoverLoginPanic(m.RequestID)
 		// The entry MUST stay registered while Login runs — deleting it up
 		// front makes the later `cancel` frame a no-op and strands this run
@@ -1246,6 +1248,7 @@ func (s *Server) handleAccountLogin(_ context.Context, m Mutate) error {
 		// The sheet has been waiting on this frame; publish it before the
 		// best-effort warm (up to 8s) and the snapshot refresh.
 		s.write(FrameResult(result))
+		finish()
 		if err == nil {
 			// Login has just committed the snapshot, so warm the account-scoped
 			// catalog before the next snapshot. A denied or transient model probe

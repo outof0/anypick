@@ -470,6 +470,15 @@ func (s *Server) dispatchBounded(ctx context.Context, cmd *Command) {
 			operation = m.Operation
 		}
 	}
+	if operation == "account-login" {
+		// The login handler starts its own worker and deadline. The ordinary
+		// action watchdog would answer first while the browser is still open.
+		if err := s.handleSafely(ctx, cmd); err != nil {
+			s.logErr(err)
+			s.answerFailedCommand(err, cmd.RequestID())
+		}
+		return
+	}
 	s.runBoundedWithBudget(ctx, cmd.RequestID(), operation, mutated, s.budgetFor(cmd.Kind),
 		func(c context.Context) error {
 			return s.handleSafely(c, cmd)
