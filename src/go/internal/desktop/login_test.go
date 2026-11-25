@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/outof0/anypick/go/internal/accounts"
+	"github.com/outof0/anypick/go/internal/store"
 	"github.com/outof0/anypick/go/internal/testexec"
 )
 
@@ -232,6 +233,42 @@ func waitForResultFor(t *testing.T, out *syncedBuffer, requestID string) Result 
 	return Result{}
 }
 
+func TestServiceAccountLoginOutlivesActionTimeout(t *testing.T) {
+	env := newTrayEnv(t)
+	inR, inW, outR, outW := servicePipes(t)
+	srv := NewService(env.Deps, inR, outW)
+	srv.actionTimeout = 20 * time.Millisecond
+	srv.loginBudget = 5 * time.Second
+	srv.loginAttempt = func(ctx context.Context, _ string, _ accounts.LoginOptions) (accounts.LoginResult, error) {
+		// The generic watchdog fires one second after its action budget.
+		select {
+		case <-time.After(1250 * time.Millisecond):
+			return accounts.LoginResult{Account: store.Meta{Provider: "claude", Name: "work"}}, nil
+		case <-ctx.Done():
+			return accounts.LoginResult{}, ctx.Err()
+		}
+	}
+	done := make(chan error, 1)
+	go func() { done <- srv.Run(context.Background()) }()
+	_ = readFrame(t, outR, "hello")
+	sendCommand(t, inW, FrameHostHello(validHostHello()))
+	_ = readFrame(t, outR, "ready")
+	_ = readFrame(t, outR, "snapshot")
+
+	sendCommand(t, inW, "mutate\t"+encodePayload(map[string]any{
+		"version": ProtocolVersion, "requestId": "slow-login", "operation": "account-login",
+		"providerId": "claude", "methodId": "claude-subscription", "name": "work",
+	}))
+	result := decodeJSON(t, strings.TrimPrefix(readFrame(t, outR, "result"), "result\t"))
+	if result["requestId"] != "slow-login" || result["status"] != "success" {
+		t.Errorf("result = %#v, want completed Claude sign-in", result)
+	}
+	sendCommand(t, inW, "quit")
+	if err := <-done; err != nil {
+		t.Fatalf("quit: %v", err)
+	}
+}
+
 // A sign-in adapter that never returns and ignores cancellation must still be
 // answered: the host holds its mutation slot on that request, and the launcher's
 // own timeout is not a guarantee that the adapter respects.
@@ -264,6 +301,51 @@ func TestDesktopAccountLoginDeadlineAnswersAWedgedAdapter(t *testing.T) {
 	}
 	if !strings.Contains(res.Message, "did not finish in time") {
 		t.Fatalf("message = %q", res.Message)
+	}
+}
+
+func TestServiceAccountLoginDeadlineSurvivesCancel(t *testing.T) {
+	env := newTrayEnv(t)
+	inR, inW, outR, outW := servicePipes(t)
+	srv := NewService(env.Deps, inR, outW)
+	srv.loginBudget = time.Second
+	started := make(chan struct{})
+	release := make(chan struct{})
+	srv.loginAttempt = func(context.Context, string, accounts.LoginOptions) (accounts.LoginResult, error) {
+		close(started)
+		<-release // Simulates compensation that cannot complete.
+		return accounts.LoginResult{}, nil
+	}
+	done := make(chan error, 1)
+	go func() { done <- srv.Run(context.Background()) }()
+	defer func() {
+		close(release)
+		_ = inW.Close()
+		if err := <-done; err != nil {
+			t.Errorf("shutdown: %v", err)
+		}
+	}()
+	_ = readFrame(t, outR, "hello")
+	sendCommand(t, inW, FrameHostHello(validHostHello()))
+	_ = readFrame(t, outR, "ready")
+	_ = readFrame(t, outR, "snapshot")
+
+	const requestID = "cancel-wedged-login"
+	sendCommand(t, inW, "mutate\t"+encodePayload(map[string]any{
+		"version": ProtocolVersion, "requestId": requestID, "operation": "account-login",
+		"providerId": "claude", "methodId": "claude-subscription",
+	}))
+	select {
+	case <-started:
+	case <-time.After(5 * time.Second):
+		t.Fatal("login did not start")
+	}
+	sendCommand(t, inW, "cancel\t"+encodePayload(cancelPayload{
+		Version: ProtocolVersion, RequestID: requestID,
+	}))
+	result := decodeJSON(t, readFrame(t, outR, "result"))
+	if result["requestId"] != requestID || result["code"] != "LOGIN_TIMEOUT" {
+		t.Fatalf("result = %#v, want the sign-in deadline", result)
 	}
 }
 

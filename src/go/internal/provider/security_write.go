@@ -71,6 +71,10 @@ func darwinAddGenericInvocation(service, account, value string) (stdin string, a
 
 func writeGenericPassword(service, account, value string) error {
 	stdin, args := darwinAddGenericInvocation(service, account, value)
+	return runGenericPasswordWrite(stdin, args)
+}
+
+func runGenericPasswordWrite(stdin string, args []string) error {
 	if stdin != "" {
 		return runSecurityStdin(stdin)
 	}

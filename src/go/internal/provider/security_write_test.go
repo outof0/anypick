@@ -7,6 +7,28 @@ import (
 	"testing"
 )
 
+func TestClaudeKeychainEncodingDoesNotMoveASecretOntoArgv(t *testing.T) {
+	const account = "test-user"
+	raw := `{"claudeAiOauth":{"accessToken":"test-token"},"fixture":"` + strings.Repeat("é", 650) + `"}`
+	pretty := raw[:1] + "\n  " + raw[1:]
+	for _, tc := range []struct {
+		name, credential, original string
+	}{
+		{"plain text", raw, raw},
+		{"hex of multiline JSON", pretty, hex.EncodeToString([]byte(pretty))},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if !legacyClaudeCredentialFitsStdin(account, tc.original) {
+				t.Fatal("test credential did not fit the legacy stdin buffer")
+			}
+			stdin, args, err := claudeKeychainWriteInvocation(account, tc.credential, tc.original)
+			if err == nil || stdin != "" || args != nil {
+				t.Fatal("encoding should refuse the write before moving the credential onto argv")
+			}
+		})
+	}
+}
+
 func TestDarwinAddGenericPasswordUsesStdinPasswordWhenItFits(t *testing.T) {
 	stdin, args := darwinAddGenericInvocation("Claude Code-credentials", "erik", "short-secret\n")
 	if args != nil {

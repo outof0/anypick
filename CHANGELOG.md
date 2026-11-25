@@ -6,6 +6,10 @@ Conventional Commits by `changelogithub`, are on
 
 This project follows [Semantic Versioning](https://semver.org/).
 
+## 1.2.3
+
+Restore saved Claude Code logins on macOS, including recoverable snapshots that older versions stored as hex. Add Login in the desktop app now waits for the browser sign-in to finish within its own time limit.
+
 ## 1.2.2
 
 On macOS, keep separate Claude desktop app logins in their own data folders (`anypick claude-app profile list|open|remove`, and on the Claude page of the app); a profile with its window open cannot be removed. `anypick use claude` now clears the timestamp Claude Code caches its signed-in account under, so its next start fetches the new account's email, organization and plan instead of showing the previous account's for up to a day. Streamed replies through a translating proxy now send content blocks one at a time, each with its own index and its own stop, without dropping the arguments of parallel tool calls whose fragments interleave, so clients that check the stream no longer abort a turn with parallel tool calls or text after a tool call.
