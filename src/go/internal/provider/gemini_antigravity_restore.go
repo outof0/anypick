@@ -322,12 +322,8 @@ func (p *gemini) SnapshotFilesMatchLive(file SnapshotFileReader) (bool, bool, er
 	return savedFingerprint == geminiAuthFingerprint(p.configDir()), true, nil
 }
 
-// geminiSnapshotSourceMarker returns the GEMINI_OAUTH_SOURCE written into a
+// geminiSourceMarkerFromFiles returns the GEMINI_OAUTH_SOURCE written into a
 // source-scoped snapshot's .env, or "" for a broad snapshot.
-func geminiSnapshotSourceMarker(snapshotDir string) string {
-	return geminiSourceMarkerFromFiles(snapshotFilesAt(snapshotDir))
-}
-
 func geminiSourceMarkerFromFiles(file SnapshotFileReader) string {
 	raw, err := file(".env")
 	if err != nil {
