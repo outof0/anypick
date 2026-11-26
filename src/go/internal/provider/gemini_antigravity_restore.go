@@ -261,28 +261,20 @@ func (p *gemini) restoreAntigravity(snapshotPath string) error {
 // geminiAuthFingerprint compares durable material only. Access tokens rotate
 // during normal use and must not make the current account look different.
 func geminiAuthFingerprint(dir string) string {
+	return geminiFingerprintFiles(snapshotFilesAt(dir))
+}
+
+func geminiFingerprintFiles(file SnapshotFileReader) string {
 	var parts []string
-	if raw, err := os.ReadFile(filepath.Join(dir, "oauth_creds.json")); err == nil {
-		if creds, ok := parseGeminiOAuthCredentials(raw); ok {
-			if creds.RefreshToken != "" {
-				parts = append(parts, "rt:"+hashGeminiAuth(creds.RefreshToken))
-			} else {
-				parts = append(parts, "oauth:"+hashGeminiAuth(string(raw)))
-			}
+	for _, source := range []string{geminiCliOAuthSource, antigravityOAuthSource} {
+		if credential := readGeminiSnapshotCredential(file, source); credential != nil {
+			token := firstNonEmpty(credential.RefreshToken, credential.AccessToken)
+			parts = append(parts, source+":"+hashGeminiAuth(token))
 		}
 	}
-	if raw, err := os.ReadFile(filepath.Join(dir, ".env")); err == nil {
+	if raw, err := file(".env"); err == nil {
 		if key := geminiAPIKeyFromEnvFile(string(raw)); key != "" {
 			parts = append(parts, "key:"+hashGeminiAuth(key))
-		}
-	}
-	if raw, err := os.ReadFile(filepath.Join(dir, "antigravity_oauth.json")); err == nil {
-		if payload, err := readAntigravityOAuthPayload(filepath.Join(dir, "antigravity_oauth.json")); err == nil && payload != nil {
-			if payload.Token.RefreshToken != "" {
-				parts = append(parts, "ag-rt:"+hashGeminiAuth(payload.Token.RefreshToken))
-			} else {
-				parts = append(parts, "ag:"+hashGeminiAuth(string(raw)))
-			}
 		}
 	}
 	sort.Strings(parts)
@@ -298,40 +290,42 @@ func hashGeminiAuth(value string) string {
 // the other native providers. Antigravity compares against the IDE state, not
 // the stale portable mirror; CLI/API-key accounts compare durable local files.
 func (p *gemini) SnapshotMatchesLive(srcDir string) (bool, bool, error) {
-	if _, err := os.Stat(filepath.Join(srcDir, "antigravity_oauth.json")); err == nil {
-		snapshot, readErr := readAntigravityOAuthPayload(filepath.Join(srcDir, "antigravity_oauth.json"))
-		if readErr != nil || snapshot == nil {
-			return false, true, readErr
-		}
-		live := p.antigravityStateCredential()
+	return p.SnapshotFilesMatchLive(snapshotFilesAt(srcDir))
+}
+
+func (p *gemini) SnapshotFilesMatchLive(file SnapshotFileReader) (bool, bool, error) {
+	source := geminiSourceMarkerFromFiles(file)
+	if saved := readGeminiSnapshotCredential(file, antigravityOAuthSource); saved != nil && source != geminiCliOAuthSource {
+		live := p.authoritativeAntigravityCredential()
 		if live == nil {
 			return false, false, nil
 		}
-		if snapshot.Token.RefreshToken == "" || live.Token.RefreshToken == "" {
+		if saved.RefreshToken == "" || live.Token.RefreshToken == "" {
 			return false, false, nil
 		}
-		match := snapshot.Token.RefreshToken == live.Token.RefreshToken
-		if !match || geminiSnapshotSourceMarker(srcDir) != "" {
+		match := saved.RefreshToken == live.Token.RefreshToken
+		if !match || source == antigravityOAuthSource {
 			return match, true, nil
 		}
-		// A broad (unscoped) snapshot captures whatever was live, including a
-		// CLI/API-key identity that the Antigravity refresh token says nothing
-		// about. Require the rest of the fingerprint to match too, or one
-		// snapshot would read as live for two different accounts at once.
-		return geminiAuthFingerprint(srcDir) == geminiAuthFingerprint(p.configDir()), true, nil
+		// Broad snapshots can contain an independent CLI login or API key.
+		return geminiFingerprintFiles(file) == geminiAuthFingerprint(p.configDir()), true, nil
 	}
-	snapshot := geminiAuthFingerprint(srcDir)
-	if snapshot == "" {
+	savedFingerprint := geminiFingerprintFiles(file)
+	if savedFingerprint == "" || p.antigravityLiveStatus().Present {
 		return false, true, nil
 	}
-	live := geminiAuthFingerprint(p.configDir())
-	return snapshot == live, true, nil
+	if source == geminiCliOAuthSource {
+		live := readGeminiSnapshotCredential(snapshotFilesAt(p.configDir()), geminiCliOAuthSource)
+		saved := readGeminiSnapshotCredential(file, geminiCliOAuthSource)
+		return sameGeminiQuotaLogin(live, saved), true, nil
+	}
+	return savedFingerprint == geminiAuthFingerprint(p.configDir()), true, nil
 }
 
-// geminiSnapshotSourceMarker returns the GEMINI_OAUTH_SOURCE written into a
+// geminiSourceMarkerFromFiles returns the GEMINI_OAUTH_SOURCE written into a
 // source-scoped snapshot's .env, or "" for a broad snapshot.
-func geminiSnapshotSourceMarker(snapshotDir string) string {
-	raw, err := os.ReadFile(filepath.Join(snapshotDir, ".env"))
+func geminiSourceMarkerFromFiles(file SnapshotFileReader) string {
+	raw, err := file(".env")
 	if err != nil {
 		return ""
 	}

@@ -602,6 +602,36 @@ describe('Proxies pane', () => {
 });
 
 describe('Accounts pane', () => {
+  it('refreshes quota for a saved account without selecting it', async () => {
+    const base = snapshotFixture();
+    const account = { ...base.accounts[0], active: false, canRefreshQuota: true };
+    const snapshot = { ...base, accounts: [account] };
+    const { bridge, user, service, rerender } = mount(
+      ({ service, snapshot }) => <AccountsPane service={service} snapshot={snapshot} />,
+      snapshot,
+    );
+    await user.click(screen.getByTestId(`accounts.row.${account.id}`));
+    expect(screen.getByText('No quota reading yet.')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Refresh quota' }));
+    expect(bridge.bodies('mutate')[0]).toEqual({
+      operation: 'account-refresh-quota',
+      providerId: account.providerId,
+      name: account.name,
+    });
+    expect(bridge.commandKinds()).not.toContain('invoke');
+
+    const savedQuota = {
+      fetchedAtMs: 1_700_000_000_000,
+      windows: [{ label: 'Weekly', remainingPercent: 66 }],
+    };
+    rerender(<AccountsPane service={service} snapshot={{
+      ...snapshot, accounts: [{ ...account, savedQuota }],
+    }} />);
+    const inspector = within(screen.getByTestId('accounts-inspector'));
+    expect(inspector.getByText('Last checked')).toBeInTheDocument();
+    expect(inspector.getByText(/66%/)).toBeInTheDocument();
+  });
+
   it('refreshes the account the button names, and does not refresh the snapshot', async () => {
     const { bridge, user } = mount(({ service, snapshot }) => (
       <AccountsPane service={service} snapshot={snapshot} />

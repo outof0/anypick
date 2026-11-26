@@ -6,6 +6,10 @@ Conventional Commits by `changelogithub`, are on
 
 This project follows [Semantic Versioning](https://semver.org/).
 
+## 1.2.4
+
+Desktop Accounts and Apps follow changes to native provider sign-ins and show quota for the account they can verify. Refresh quota from saved Claude Code, Codex, Grok, Gemini CLI, Antigravity, and OpenCode Zen/Go accounts, and see the last successful reading and its check time in account details.
+
 ## 1.2.3
 
 Restore saved Claude Code logins on macOS, including recoverable snapshots that older versions stored as hex. Add Login in the desktop app now waits for the browser sign-in to finish within its own time limit.

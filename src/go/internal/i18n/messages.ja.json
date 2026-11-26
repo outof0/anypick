@@ -2967,6 +2967,18 @@
     "other": "AnyPick が使用枠を読み取れるよう、この Mac で一時的にこのログインを使用します。",
     "description": "Original English text: Temporarily use this saved login on this Mac so AnyPick can read its quota."
   },
+  "desktop.account_detail.refresh_quota": {
+    "other": "クォータを更新",
+    "description": "Original English text: Refresh quota"
+  },
+  "desktop.account_detail.quota_last_checked": {
+    "other": "最終確認",
+    "description": "Original English text: Last checked"
+  },
+  "desktop.account_detail.no_saved_quota": {
+    "other": "クォータの確認結果はまだありません。",
+    "description": "Original English text: No quota reading yet."
+  },
   "desktop.account_detail.remaining_quota": {
     "other": "残りの使用枠",
     "description": "Original English text: Remaining Quota"

@@ -131,6 +131,10 @@ export function refreshSaved(row: { kind: string; providerId: string; name: stri
     : { operation: 'account-refresh', extra: { providerId: row.providerId, name: row.name } };
 }
 
+export function refreshSavedQuota(providerId: string, name: string): DesktopAction {
+  return { operation: 'account-refresh-quota', extra: { providerId, name } };
+}
+
 export function editAccount(account: { providerId: string; name: string }, label: string): DesktopAction {
   return {
     operation: 'account-edit',

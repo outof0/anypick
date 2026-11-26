@@ -20,7 +20,7 @@ import type { ServicePort } from '../lib/service';
 import { ConfirmDialog } from './ProxiesPane';
 import { Dialog } from '../ui/Dialog';
 import { Button, Group, Row, RowActions, RowText, StatusLabel } from '../ui/primitives';
-import { refreshSaved } from '../lib/desktop-actions';
+import { refreshSaved, refreshSavedQuota } from '../lib/desktop-actions';
 
 /**
  * `AccountDetailView`. One account's identity, its quota, and its commands.
@@ -33,6 +33,7 @@ import { refreshSaved } from '../lib/desktop-actions';
 export function AccountDetailSheet({
   account,
   usage = [],
+  showQuota = true,
   service,
   paused = false,
   revision,
@@ -52,6 +53,7 @@ export function AccountDetailSheet({
   resolvedLanguage: string;
   /** Windows the engine reported for this account. Empty means none. */
   usage?: UsageWindow[];
+  showQuota?: boolean;
   service: ServicePort;
   paused?: boolean;
   onEdit: () => void;
@@ -63,7 +65,11 @@ export function AccountDetailSheet({
   const t = (key: string) => translate(`desktop.account_detail.${key}`, language, resolvedLanguage);
   const tc = (key: string) => translate(`desktop.common.${key}`, language, resolvedLanguage);
   const [confirming, setConfirming] = useState(false);
-  const usageGroups = groupUsageWindows(usage);
+  const savedAccount = 'active' in account ? account : undefined;
+  const savedQuota = usage.length === 0 ? savedAccount?.savedQuota : undefined;
+  const usageGroups = groupUsageWindows(savedQuota?.windows ?? usage);
+  const checkedAt = savedQuota && new Date(savedQuota.fetchedAtMs);
+  const locale = language === 'auto' ? resolvedLanguage : language;
 
   return (
     <Dialog
@@ -152,10 +158,7 @@ export function AccountDetailSheet({
         </Row>
       </Group>
 
-      {/* A quota the engine does not report is a different statement from an
-          account with no quota. macOS says which, and so does this: asking a
-          non-current saved login for quota would report the live login's. */}
-      {usage.length > 0 ? (
+      {showQuota && (usageGroups.length > 0 ? (
         <Group title={t('remaining_quota')} testId="accounts-inspector.usage">
           {usageGroups.map((group) => (
             <div key={group.id}>
@@ -178,6 +181,10 @@ export function AccountDetailSheet({
             </div>
           ))}
         </Group>
+      ) : savedAccount?.canRefreshQuota ? (
+        <Group title={t('remaining_quota')} testId="accounts-inspector.usage.empty">
+          <Row><RowText detail={t('no_saved_quota')} /></Row>
+        </Group>
       ) : row.kind === 'account' && !row.active ? (
         <Group title={t('remaining_quota')} testId="accounts-inspector.usage.empty">
           <Row>
@@ -199,6 +206,32 @@ export function AccountDetailSheet({
       ) : row.kind === 'account' ? (
         <Group title={t('remaining_quota')} testId="accounts-inspector.usage.unavailable">
           <Row><RowText detail={t('provider_no_quota')} /></Row>
+        </Group>
+      ) : null)}
+
+      {showQuota && savedAccount?.canRefreshQuota ? (
+        <Group>
+          <Row>
+            {checkedAt ? (
+              <RowText
+                title={t('quota_last_checked')}
+                detail={checkedAt.toLocaleString(locale, { dateStyle: 'medium', timeStyle: 'short' })}
+              />
+            ) : null}
+            <RowActions>
+              <Button
+                kind="secondary"
+                testId="accounts-inspector.refresh-quota"
+                disabled={paused}
+                onClick={() => {
+                  const action = refreshSavedQuota(savedAccount.providerId, savedAccount.name);
+                  service.mutate(action.operation, action.extra);
+                }}
+              >
+                {t('refresh_quota')}
+              </Button>
+            </RowActions>
+          </Row>
         </Group>
       ) : null}
 

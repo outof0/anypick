@@ -1191,6 +1191,8 @@ class MacOSDesignModel: ObservableObject {
     showFeedback("\(accounts[index].name) is ready.", kind: .success)
   }
 
+  func refreshAccountQuota(id: String) {}
+
   /// Refreshes the model catalog for the route selected in Apps. The live
   /// model sends the provider-specific account/gateway request; the fixture
   /// keeps the same user-visible affordance without pretending to make a

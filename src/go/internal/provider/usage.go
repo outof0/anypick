@@ -1,6 +1,19 @@
 package provider
 
-import "context"
+import (
+	"context"
+	"errors"
+	"os"
+	"path/filepath"
+)
+
+// ErrQuotaLoginRequired means the saved or live login needs a new session
+// before the provider will return quota.
+var ErrQuotaLoginRequired = errors.New("quota requires a fresh login")
+
+// ErrSavedQuotaUnavailable means this saved credential has no supported
+// quota source.
+var ErrSavedQuotaUnavailable = errors.New("no quota for this saved credential")
 
 type UsageWindow struct {
 	Label            string   `json:"label"`
@@ -32,4 +45,29 @@ type LiveUsageProvider interface {
 // refresh would rewrite the snapshot outside the account's own lock.
 type SnapshotUsageProvider interface {
 	SnapshotUsage(ctx context.Context, snapshotDir string) (*LiveUsage, error)
+}
+
+// SavedQuotaProvider is the on-demand account quota reader. Implementing it
+// does not opt the provider in to background routing refreshes.
+type SavedQuotaProvider interface {
+	ReadSavedQuota(ctx context.Context, file SnapshotFileReader) (*LiveUsage, error)
+}
+
+// LiveAccountQuotaProvider verifies and queries the same live credential when
+// publishing a reading under a saved account.
+type LiveAccountQuotaProvider interface {
+	LiveQuotaForSnapshot(ctx context.Context, file SnapshotFileReader) (*LiveUsage, error)
+}
+
+// SnapshotFileReader reads a named file from a single saved account.
+type SnapshotFileReader func(name string) ([]byte, error)
+
+func snapshotFilesAt(dir string) SnapshotFileReader {
+	return func(name string) ([]byte, error) { return os.ReadFile(filepath.Join(dir, name)) }
+}
+
+// SnapshotFileMatcher lets display readers compare a committed snapshot
+// without creating another on-disk copy of the credential.
+type SnapshotFileMatcher interface {
+	SnapshotFilesMatchLive(file SnapshotFileReader) (match bool, known bool, err error)
 }

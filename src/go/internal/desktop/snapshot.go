@@ -2,8 +2,12 @@ package desktop
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 
@@ -15,6 +19,7 @@ import (
 	"github.com/outof0/anypick/go/internal/provider"
 	"github.com/outof0/anypick/go/internal/proxy"
 	"github.com/outof0/anypick/go/internal/refs"
+	"github.com/outof0/anypick/go/internal/store"
 	"github.com/outof0/anypick/go/internal/transport"
 )
 
@@ -49,6 +54,7 @@ type Snapshot struct {
 	Settings           Preferences          `json:"settings"`
 	Activity           []map[string]any     `json:"activity"`
 	DegradedConditions []DegradedCondition  `json:"degradedConditions"`
+	liveAccounts       map[string]liveAccountState
 }
 
 // DegradedCondition is a redacted, user-actionable engine condition. It is
@@ -96,15 +102,58 @@ type ProxyRow struct {
 
 // AccountRow is one managed-account row.
 type AccountRow struct {
-	ID             string `json:"id"`
-	ProviderID     string `json:"providerId"`
-	SourceID       string `json:"sourceId,omitempty"`
-	Name           string `json:"name"`
-	Label          string `json:"label"`
-	Detail         string `json:"detail"`
-	Active         bool   `json:"active"`
-	CanRefresh     bool   `json:"canRefresh"`
-	SwitchActionID string `json:"switchActionId"`
+	ID              string      `json:"id"`
+	ProviderID      string      `json:"providerId"`
+	SourceID        string      `json:"sourceId,omitempty"`
+	Name            string      `json:"name"`
+	Label           string      `json:"label"`
+	Detail          string      `json:"detail"`
+	Active          bool        `json:"active"`
+	CanRefresh      bool        `json:"canRefresh"`
+	SwitchActionID  string      `json:"switchActionId"`
+	CanRefreshQuota bool        `json:"canRefreshQuota,omitempty"`
+	SavedQuota      *SavedQuota `json:"savedQuota,omitempty"`
+}
+
+type SavedQuota struct {
+	FetchedAtMs int64                  `json:"fetchedAtMs"`
+	Windows     []provider.UsageWindow `json:"windows"`
+}
+
+// The desktop cache is tied to the saved credential revision. A new login
+// under the same name must never inherit the old login's reading.
+const (
+	maxSavedQuotaEntryBytes    = 32 << 10
+	maxSavedQuotaSnapshotBytes = 384 << 10
+)
+
+type savedAccountQuota struct {
+	SavedQuota
+	Digest string `json:"snapshotDigest"`
+}
+
+func savedAccountQuotaPath(account store.Account) string {
+	return filepath.Join(account.AccountDir, "desktop-quota.json")
+}
+
+func (s *Server) readSavedAccountQuota(ctx context.Context, account store.Account) *SavedQuota {
+	file, err := os.Open(savedAccountQuotaPath(account))
+	if err != nil {
+		return nil
+	}
+	defer file.Close()
+	raw, err := io.ReadAll(io.LimitReader(file, maxSavedQuotaEntryBytes+1))
+	if err != nil || len(raw) > maxSavedQuotaEntryBytes {
+		return nil
+	}
+	var cached savedAccountQuota
+	if json.Unmarshal(raw, &cached) != nil || cached.FetchedAtMs <= 0 || len(cached.Windows) == 0 {
+		return nil
+	}
+	if digest, err := s.Deps.Accounts.SnapshotDigest(ctx, account.Meta.Provider, account.Meta.Name); err != nil || digest != cached.Digest {
+		return nil
+	}
+	return &cached.SavedQuota
 }
 
 // LogSourceRow is one log-source row.
@@ -341,7 +390,77 @@ func (b *snapshotBuilder) addProxyRow(ctx context.Context, pv provider.Provider,
 	}
 }
 
+type liveAccountState struct {
+	auth     provider.LiveAuthStatus
+	name     string
+	digest   string
+	hasSaved bool
+}
+
+func (s *Server) resolveLiveAccount(ctx context.Context, pv provider.Provider, saved []store.Account) liveAccountState {
+	state := liveAccountState{hasSaved: len(saved) != 0}
+	live, err := pv.DetectLive()
+	if err != nil || !live.Present {
+		return state
+	}
+	state.auth = provider.LiveAuthStatus{Present: true, Identity: live.Identity, Source: live.Source}
+	matcher, canMatch := pv.(provider.SnapshotFileMatcher)
+	var credentialName, credentialDigest, identityName string
+	var credentialMatches, identityMatches int
+	for _, account := range saved {
+		if account.Meta.CredentialKind == "proxy-only" {
+			continue
+		}
+		if canMatch {
+			files, digest, err := s.Deps.Accounts.ReadSnapshot(ctx, pv.ID(), account.Meta.Name)
+			if err != nil || digest == "" {
+				continue
+			}
+			match, known, err := matcher.SnapshotFilesMatchLive(files.ReadFile)
+			if err != nil || known {
+				if err == nil && match {
+					credentialName, credentialDigest = account.Meta.Name, digest
+					credentialMatches++
+				}
+				continue
+			}
+		}
+		if provider.AccountScopedIdentity(live.Identity) && sameIdentity(live.Identity, account.Meta.Identity) {
+			identityName = account.Meta.Name
+			identityMatches++
+		}
+	}
+	switch {
+	case credentialMatches == 1:
+		state.name, state.digest = credentialName, credentialDigest
+	case credentialMatches == 0 && identityMatches == 1:
+		state.name = identityName
+		state.digest, _ = s.Deps.Accounts.SnapshotDigest(ctx, pv.ID(), identityName)
+	}
+	return state
+}
+
+func (s *Server) readLiveAccount(ctx context.Context, pv provider.Provider) liveAccountState {
+	saved, err := s.Deps.Accounts.List(ctx, pv.ID())
+	if err != nil {
+		return liveAccountState{hasSaved: true}
+	}
+	return s.resolveLiveAccount(ctx, pv, saved)
+}
+
+// Proxy-only accounts are selected by AnyPick independently of the provider's login.
+func (s *Server) selectedProxyAccount(ctx context.Context, providerID string, saved []store.Account) string {
+	selected, _ := s.Deps.Accounts.Active(ctx, providerID)
+	for _, account := range saved {
+		if account.Meta.Name == selected && account.Meta.CredentialKind == "proxy-only" {
+			return selected
+		}
+	}
+	return ""
+}
+
 func (b *snapshotBuilder) accountsAndProxies(ctx context.Context) {
+	b.snap.liveAccounts = make(map[string]liveAccountState)
 	for _, providerID := range b.srv.Deps.Providers.IDs() {
 		pv, err := b.srv.Deps.Providers.Get(providerID)
 		if err != nil {
@@ -351,16 +470,19 @@ func (b *snapshotBuilder) accountsAndProxies(ctx context.Context) {
 		if err != nil {
 			continue
 		}
-		active, _ := b.srv.Deps.Accounts.Active(ctx, providerID)
-		nativeClientID := nativeClientIDOf(pv, providerID)
-		nativeRouting := b.srv.clientUsesNativeLogin(nativeClientID)
+		state := b.srv.resolveLiveAccount(ctx, pv, list)
+		b.snap.liveAccounts[providerID] = state
+		active := state.name
+		if active == "" {
+			active = b.srv.selectedProxyAccount(ctx, providerID, list)
+		}
+		clientID := nativeClientIDOf(pv, providerID)
+		nativeRouting := b.srv.clientUsesNativeLogin(clientID)
 
 		sort.Slice(list, func(i, j int) bool { return list[i].Meta.Name < list[j].Meta.Name })
 		for _, acc := range list {
 			sourceID := refs.SerializeRef(refs.AccountRef(providerID, acc.Meta.Name))
 			rowID := providerID + "/" + acc.Meta.Name
-			clientID := nativeClientIDOf(pv, providerID)
-
 			// Two distinct registrations per saved account: the accounts-panel
 			// row switches the provider's active account (account-switch
 			// operation), while the Switch-menu chip binds the client through
@@ -369,19 +491,18 @@ func (b *snapshotBuilder) accountsAndProxies(ctx context.Context) {
 			routeID := b.actionID()
 			name := acc.Meta.Name
 			_, canRefresh := pv.(interface{ RefreshAuth(string) error })
+			_, canRefreshQuota := pv.(provider.SavedQuotaProvider)
 			b.snap.Accounts = append(b.snap.Accounts, AccountRow{
 				ID: rowID, ProviderID: providerID, SourceID: sourceID,
 				Name: name, Label: labelOr(acc.Meta.Label, name),
 				Detail: displaySafeIdentity(acc.Meta.Identity),
 				Active: active == name, CanRefresh: canRefresh,
-				SwitchActionID: switchID,
+				SwitchActionID:  switchID,
+				CanRefreshQuota: canRefreshQuota,
+				SavedQuota:      b.srv.readSavedAccountQuota(ctx, acc),
 			})
 			b.registry[switchID] = b.srv.accountSwitchAction(providerID, name)
-			// Route chips target a *client*. A provider whose native client is
-			// not registered (WorkBuddy, temporarily) has no client to route
-			// to, so the account stays manageable in the pane and in the
-			// Proxies/Accounts rows without advertising a switch that client
-			// cannot serve.
+			// Providers without a native client still have accounts and proxies.
 			if _, cerr := b.srv.Deps.Clients.Get(clientID); cerr == nil {
 				b.registry[routeID] = b.srv.routeActivator(clientID, refs.AccountRef(providerID, acc.Meta.Name))
 				selected := active == name && nativeRouting
@@ -414,16 +535,38 @@ func (b *snapshotBuilder) accountsAndProxies(ctx context.Context) {
 			b.addProxyRow(ctx, pv, providerID, name, rowID)
 		}
 
-		b.accountProviders(ctx, pv, providerID)
+		b.accountProviders(ctx, pv, providerID, state.auth)
 	}
 }
 
-func (b *snapshotBuilder) accountProviders(ctx context.Context, pv provider.Provider, providerID string) {
-	live, lerr := pv.DetectLive()
+// Keep recent manual readings first when the aggregate IPC budget is full.
+func (b *snapshotBuilder) boundSavedQuota() {
+	rows := b.snap.Accounts
+	var readings []int
+	for idx, row := range rows {
+		if row.SavedQuota != nil {
+			readings = append(readings, idx)
+		}
+	}
+	sort.SliceStable(readings, func(i, j int) bool {
+		return rows[readings[i]].SavedQuota.FetchedAtMs > rows[readings[j]].SavedQuota.FetchedAtMs
+	})
+	size := 0
+	for _, idx := range readings {
+		body, err := json.Marshal(rows[idx].SavedQuota)
+		if err != nil || size+len(body) > maxSavedQuotaSnapshotBytes {
+			rows[idx].SavedQuota = nil
+			continue
+		}
+		size += len(body)
+	}
+}
+
+func (b *snapshotBuilder) accountProviders(ctx context.Context, pv provider.Provider, providerID string, live provider.LiveAuthStatus) {
 	live.Identity = displaySafeIdentity(live.Identity)
 	methods, merr := b.srv.Deps.Accounts.LoginMethods(ctx, providerID, "")
 	loginMethods := make([]LoginMethodRow, 0, len(methods))
-	installed := lerr == nil && live.Present
+	installed := live.Present
 	if merr == nil {
 		for _, method := range methods {
 			loginMethods = append(loginMethods, LoginMethodRow{
@@ -450,13 +593,11 @@ func (b *snapshotBuilder) accountProviders(ctx context.Context, pv provider.Prov
 		Label:    label, Detail: pv.Description(),
 		Installed: installed, LoginMethods: loginMethods,
 	}
-	if lerr == nil {
-		row.LivePresent = live.Present
-		row.LiveIdentity = live.Identity
-		row.SourceID = live.Source
-		if live.Identity != "" {
-			row.Detail = live.Identity
-		}
+	row.LivePresent = live.Present
+	row.LiveIdentity = live.Identity
+	row.SourceID = live.Source
+	if live.Identity != "" {
+		row.Detail = live.Identity
 	}
 	if clearer, ok := pv.(provider.LiveClearer); ok && clearer != nil {
 		row.CanClear = true
@@ -737,11 +878,7 @@ func (b *snapshotBuilder) currentRouteActions(ctx context.Context, appIDs []stri
 		if pv := b.srv.nativeProvider(clientID); pv != nil {
 			nativeProviderID = pv.ID()
 		}
-		active, _ := b.srv.Deps.Accounts.Active(ctx, nativeProviderID)
-		var live provider.LiveAuthStatus
-		if pv := b.srv.nativeProvider(clientID); pv != nil {
-			live, _ = pv.DetectLive()
-		}
+		state := b.snap.liveAccounts[nativeProviderID]
 
 		var row *ActionRow
 		switch {
@@ -785,26 +922,27 @@ func (b *snapshotBuilder) currentRouteActions(ctx context.Context, appIDs []stri
 			// Re-invoking the selected route re-applies its source through the
 			// planner regardless of kind; never a silent no-op.
 			b.registry[id] = b.srv.routeActivator(clientID, srcRef)
-		case live.Present && active != "" && b.srv.clientUsesNativeLogin(clientID):
+		case state.name != "" && b.srv.clientUsesNativeLogin(clientID):
 			pv2, perr := b.srv.Deps.Providers.Get(nativeProviderID)
 			sn := clientID
 			if perr == nil && pv2 != nil {
 				sn = provider.ShortNameOf(pv2)
 			}
 			id := b.actionID()
+			source := refs.AccountRef(nativeProviderID, state.name)
 			row = &ActionRow{
 				ID: id, ClientID: clientID,
-				SourceID:     clientID,
+				SourceID:     refs.SerializeRef(source),
 				Client:       short,
-				Label:        fmt.Sprintf("%s · %s", sn, active),
-				Detail:       displaySafeIdentity(live.Identity),
+				Label:        fmt.Sprintf("%s · %s", sn, state.name),
+				Detail:       displaySafeIdentity(state.auth.Identity),
 				Kind:         "native",
 				Presentation: "app-route",
 				Selected:     true,
 				Enabled:      true,
 				RouteKind:    "direct-account",
 			}
-			b.registry[id] = b.srv.routeActivator(clientID, refs.AccountRef(nativeProviderID, active))
+			b.registry[id] = b.srv.routeActivator(clientID, source)
 		}
 		if row != nil {
 			b.snap.Actions = append(b.snap.Actions, *row)
@@ -917,6 +1055,7 @@ func (s *Server) buildSnapshot(ctx context.Context) (*Snapshot, error) {
 
 	b.settings(ctx)
 	b.accountsAndProxies(ctx)
+	b.boundSavedQuota()
 	b.gatewayProviders(ctx)
 
 	appIDs := s.managedAppClientIDs()
@@ -929,10 +1068,8 @@ func (s *Server) buildSnapshot(ctx context.Context) (*Snapshot, error) {
 	b.routes(ctx, appIDs)
 	b.gateways(ctx)
 
-	// Usage: quota/rate-limit for providers with a live login. Kept in a
-	// separate builder so app-service mode can refresh this bounded section
-	// without rebuilding and polling the full snapshot.
-	snap.Usage = s.buildUsage(ctx)
+	// App-service polls can refresh usage separately from the full snapshot.
+	snap.Usage = s.buildUsage(ctx, snap.liveAccounts)
 
 	// Activity: mutation history from the operation journal (the single source
 	// of truth — never re-derived). A nil journal or a read failure yields an
@@ -1189,38 +1326,7 @@ func logSourcesForProxies(proxies []ProxyRow) []LogSourceRow {
 	return out
 }
 
-// suppressUsageRow reports whether a live-usage readout must be withheld:
-// the quota is read from the live credential, so when the active account is
-// known not to be that login (the Codex desktop app keeps its own account),
-// showing it on the active row misattributes someone else's quota. Unknown
-// comparisons fail open and keep today's behavior.
-func suppressUsageRow(ctx context.Context, s *Server, providerID, active string) bool {
-	if active == "" {
-		return false
-	}
-	account, err := s.Deps.Accounts.CachedAccount(ctx, providerID, active)
-	if err != nil || account == nil {
-		return false
-	}
-	pv, err := s.Deps.Providers.Get(providerID)
-	if err != nil {
-		return false
-	}
-	live, err := pv.DetectLive()
-	if err != nil {
-		return false
-	}
-	if account.Meta.Identity != "" && strings.EqualFold(strings.TrimSpace(account.Meta.Identity), strings.TrimSpace(live.Identity)) {
-		return false
-	}
-	if matcher, ok := pv.(provider.LiveMatcher); ok {
-		match, known, err := matcher.SnapshotMatchesLive(account.SnapshotDir)
-		return err == nil && known && !match
-	}
-	return false
-}
-
-func (s *Server) buildUsage(ctx context.Context) []UsageSnapshotRow {
+func (s *Server) buildUsage(ctx context.Context, liveAccounts map[string]liveAccountState) []UsageSnapshotRow {
 	rows := make([]UsageSnapshotRow, 0)
 	for _, providerID := range s.Deps.Providers.IDs() {
 		pv, err := s.Deps.Providers.Get(providerID)
@@ -1231,22 +1337,18 @@ func (s *Server) buildUsage(ctx context.Context) []UsageSnapshotRow {
 		if !ok {
 			continue
 		}
-		account := ""
-		if active, _ := s.Deps.Accounts.Active(ctx, providerID); active != "" {
-			account = active
-		}
-		row := UsageSnapshotRow{ProviderID: providerID, Client: provider.ShortNameOf(pv), Account: orString(account, providerID), Windows: []map[string]interface{}{}}
-		if suppressUsageRow(ctx, s, providerID, account) {
+		state := liveAccounts[providerID]
+		row := UsageSnapshotRow{ProviderID: providerID, Client: provider.ShortNameOf(pv), Account: orString(state.name, providerID), Windows: []map[string]interface{}{}}
+		// With saved accounts, only attribute quota to a verified live match.
+		if !state.auth.Present || (state.hasSaved && state.name == "") {
 			rows = append(rows, row)
 			continue
 		}
-		usage, uerr := lup.LiveUsage(ctx)
+		usage, uerr := s.readLiveQuota(ctx, pv, lup, state)
 		if uerr != nil || usage == nil || len(usage.Windows) == 0 {
 			rows = append(rows, row)
 			continue
 		}
-		short := provider.ShortNameOf(pv)
-		var windows []map[string]interface{}
 		for _, w := range usage.Windows {
 			label := strings.TrimSpace(w.Label)
 			entry := map[string]interface{}{
@@ -1262,16 +1364,28 @@ func (s *Server) buildUsage(ctx context.Context) []UsageSnapshotRow {
 			if g := strings.TrimSpace(w.Group); g != "" {
 				entry["group"] = g
 			}
-			windows = append(windows, entry)
+			row.Windows = append(row.Windows, entry)
 		}
-		rows = append(rows, UsageSnapshotRow{
-			ProviderID: providerID,
-			Client:     short,
-			Account:    orString(account, providerID),
-			Windows:    windows,
-		})
+		rows = append(rows, row)
 	}
 	return rows
+}
+
+// A named quota reading must use the same credential that was compared,
+// even when an external sign-in races snapshot publication.
+func (s *Server) readLiveQuota(ctx context.Context, pv provider.Provider, live provider.LiveUsageProvider, state liveAccountState) (*provider.LiveUsage, error) {
+	if state.name == "" {
+		return live.LiveUsage(ctx)
+	}
+	reader, ok := pv.(provider.LiveAccountQuotaProvider)
+	if !ok || state.digest == "" {
+		return nil, nil
+	}
+	files, digest, err := s.Deps.Accounts.ReadSnapshot(ctx, pv.ID(), state.name)
+	if err != nil || digest != state.digest {
+		return nil, err
+	}
+	return reader.LiveQuotaForSnapshot(ctx, files.ReadFile)
 }
 
 // primaryModelOf resolves the effective model: explicit selection wins,

@@ -127,7 +127,7 @@ var mutationOperations = map[string]bool{
 	"account-backup-forget": true,
 	"account-login":         true, "account-save-current": true, "account-save": true,
 	"account-save-input": true, "account-save-auth": true,
-	"account-edit": true, "account-refresh": true, "account-remove": true,
+	"account-edit": true, "account-refresh": true, "account-refresh-quota": true, "account-remove": true,
 	"account-clear": true, "gateway-create": true, "gateway-test": true,
 	"gateway-edit": true, "gateway-refresh": true, "gateway-remove": true,
 	"client-reset": true, "codex-profile-save": true, "codex-profile-update": true,
@@ -388,6 +388,14 @@ func validateMutate(fields map[string]json.RawMessage) error {
 			(hasKey(fields, "name") && !safeStr(name, 128)) ||
 			!keysSubset(fields, "version", "requestId", "operation", "providerId", "sourceId", "name") {
 			return fmt.Errorf("invalid account-save-current payload")
+		}
+	case "account-refresh-quota":
+		providerID, name := "", ""
+		_ = json.Unmarshal(fields["providerId"], &providerID)
+		_ = json.Unmarshal(fields["name"], &name)
+		if !safeStr(providerID, 64) || !safeStr(name, 128) ||
+			!keysSubset(fields, "version", "requestId", "operation", "providerId", "name") {
+			return fmt.Errorf("invalid account-refresh-quota payload")
 		}
 	case "account-save-auth":
 		// The auth document stays in a file. name may be empty: the provider

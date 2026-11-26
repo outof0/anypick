@@ -63,6 +63,13 @@ struct ManagedAccountSnapshot: Decodable, Identifiable {
   let active: Bool
   let canRefresh: Bool
   let switchActionId: String
+  let canRefreshQuota: Bool?
+  let savedQuota: SavedAccountQuotaSnapshot?
+}
+
+struct SavedAccountQuotaSnapshot: Decodable {
+  let fetchedAtMs: Int64
+  let windows: [UsageWindow]
 }
 
 struct HubSourceSnapshot: Decodable, Identifiable {

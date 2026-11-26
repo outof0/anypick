@@ -163,3 +163,61 @@ func TestGeminiBroadSnapshotDoesNotMatchLiveOnOneOfTwoIdentities(t *testing.T) {
 		t.Fatal("snapshot missing the live API key must not read as live")
 	}
 }
+
+func TestGeminiCLISnapshotDoesNotMatchLiveAntigravityLogin(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("GEMINI_CLI_HOME", "")
+	t.Setenv("GEMINI_CONFIG_DIR", "")
+	liveDir := filepath.Join(home, ".gemini")
+	if err := os.MkdirAll(liveDir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	snapshot := t.TempDir()
+	writeTestFile(t, filepath.Join(snapshot, "oauth_creds.json"), geminiTestOAuthJSON)
+	writeTestFile(t, filepath.Join(liveDir, "oauth_creds.json"), geminiTestOAuthJSON)
+	writeAntigravityState(t, home, antigravityTokenSentinel,
+		antigravityTokenInfo("ya29.access", "Bearer", "1//other-grant", time.Now().Add(time.Hour)))
+
+	match, known, err := newGemini(home).SnapshotMatchesLive(snapshot)
+	if err != nil || !known || match {
+		t.Fatalf("CLI match with live Antigravity login = %v, known = %v, err = %v", match, known, err)
+	}
+}
+
+func TestGeminiScopedCLISnapshotMatchesWithAnIndependentLiveAPIKey(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("GEMINI_CLI_HOME", "")
+	t.Setenv("GEMINI_CONFIG_DIR", "")
+	live := filepath.Join(home, ".gemini")
+	if err := os.MkdirAll(live, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	saved := t.TempDir()
+	writeTestFile(t, filepath.Join(live, "oauth_creds.json"), geminiTestOAuthJSON)
+	writeTestFile(t, filepath.Join(live, ".env"), "GEMINI_API_KEY=independent-key\n")
+	writeTestFile(t, filepath.Join(saved, "oauth_creds.json"), geminiTestOAuthJSON)
+	writeTestFile(t, filepath.Join(saved, ".env"), "GEMINI_OAUTH_SOURCE=gemini-cli\n")
+
+	match, known, err := newGemini(home).SnapshotMatchesLive(saved)
+	if err != nil || !known || !match {
+		t.Fatalf("scoped CLI match = %v, known = %v, err = %v", match, known, err)
+	}
+}
+
+func TestGeminiLegacyPortableSnapshotMatchesItsLiveSource(t *testing.T) {
+	home, saved := t.TempDir(), t.TempDir()
+	t.Setenv("GEMINI_CLI_HOME", "")
+	t.Setenv("GEMINI_CONFIG_DIR", "")
+	t.Setenv("ANTIGRAVITY_USER_DATA_DIR", filepath.Join(home, "antigravity-state"))
+	live := filepath.Join(home, ".gemini")
+	if err := os.MkdirAll(live, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	name := "jetski-standalone-oauth-token"
+	writeAntigravityMirror(t, live, name, "same-google-grant", "grace@example.test", "")
+	writeAntigravityMirror(t, saved, name, "same-google-grant", "grace@example.test", "")
+	match, known, err := newGemini(home).SnapshotMatchesLive(saved)
+	if err != nil || !known || !match {
+		t.Fatalf("portable Antigravity match = %v, known = %v, err = %v", match, known, err)
+	}
+}

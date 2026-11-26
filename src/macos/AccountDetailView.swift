@@ -93,14 +93,16 @@ struct AccountDetailView: View {
             Section {
               VStack(alignment: .leading, spacing: 8) {
                 Text(
-                  model.isCurrentAccount(account)
+                  account.canRefreshQuota
+                    ? model.localized("desktop.account_detail.no_saved_quota")
+                    : model.isCurrentAccount(account)
                     ? model.localized("desktop.account_detail.provider_no_quota")
                     : model.localized("desktop.account_detail.live_quota_active")
                 )
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
 
-                if account.kind == .saved && !model.isCurrentAccount(account) {
+                if account.kind == .saved && !model.isCurrentAccount(account) && !account.canRefreshQuota {
                   Button(model.localized("desktop.account_detail.make_current_check_quota")) {
                     model.makeAccountCurrent(id: account.id)
                   }
@@ -113,11 +115,9 @@ struct AccountDetailView: View {
             } header: {
               Text(model.localized("desktop.account_detail.remaining_quota"))
             } footer: {
-              Text(
-                model.isCurrentAccount(account)
-                  ? model.localized("desktop.account_detail.reported_by_active", replacing: ["provider": account.provider])
-                  : model.localized("desktop.account_detail.usage_active")
-              )
+              if !account.canRefreshQuota {
+                quotaSource(account)
+              }
             }
           } else {
             ForEach(usageGroups) { group in
@@ -128,14 +128,24 @@ struct AccountDetailView: View {
               } header: {
                 Text(group.title ?? model.localized("desktop.account_detail.remaining_quota"))
               } footer: {
-                if group.id == usageGroups.last?.id {
-                  Text(
-                    model.isCurrentAccount(account)
-                      ? model.localized("desktop.account_detail.reported_by_active", replacing: ["provider": account.provider])
-                      : model.localized("desktop.account_detail.usage_active")
-                  )
+                if group.id == usageGroups.last?.id && model.savedQuotaCheckedAt(for: account) == nil {
+                  quotaSource(account)
                 }
               }
+            }
+          }
+          if account.canRefreshQuota {
+            Section {
+              if let checkedAt = model.savedQuotaCheckedAt(for: account) {
+                LabeledContent(model.localized("desktop.account_detail.quota_last_checked")) {
+                  Text(checkedAt, format: .dateTime.month().day().hour().minute())
+                }
+              }
+              Button(model.localized("desktop.account_detail.refresh_quota")) {
+                model.refreshAccountQuota(id: account.id)
+              }
+              .accessibilityIdentifier("accounts.inspector.refresh-quota")
+              .disabled(model.isBusy)
             }
           }
         }
@@ -156,6 +166,14 @@ struct AccountDetailView: View {
         removalRequested = false
       }
     }
+  }
+
+  private func quotaSource(_ account: DesignAccount) -> Text {
+    Text(
+      model.isCurrentAccount(account)
+        ? model.localized("desktop.account_detail.reported_by_active", replacing: ["provider": account.provider])
+        : model.localized("desktop.account_detail.usage_active")
+    )
   }
 
   @ViewBuilder

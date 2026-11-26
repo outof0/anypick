@@ -365,10 +365,8 @@ func TestInvokeCrossProviderAppRouteBindsClientNotSourceProvider(t *testing.T) {
 	}
 }
 
-// The WorkBuddy app rides its own subscription through the proxy, so its
-// accounts emit a route chip and an app row like every other routable
-// client — while staying manageable as Accounts/Proxies rows and serving
-// borrowing clients as before.
+// WorkBuddy uses its own login in the native app and can serve other clients
+// through the proxy.
 func TestWorkBuddyProviderHasClientActions(t *testing.T) {
 	env := newTrayEnv(t)
 	ctx := context.Background()
@@ -391,21 +389,23 @@ func TestWorkBuddyProviderHasClientActions(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	found := false
+	foundChip, foundCurrent := false, false
 	for _, a := range snap.Actions {
 		if a.ClientID != "workbuddy" {
 			continue
 		}
-		found = true
-		if a.SourceID != "account/workbuddy/outof0" || a.Presentation != "native-account" || a.RouteKind != "direct-account" {
-			t.Fatalf("workbuddy route chip = %+v, want the direct native account", a)
+		if a.SourceID != "account/workbuddy/outof0" || a.RouteKind != "direct-account" || !a.Enabled {
+			t.Fatalf("workbuddy route = %+v, want the direct native account", a)
 		}
-		if !a.Enabled {
-			t.Fatalf("workbuddy route chip disabled: %+v", a)
+		switch a.Presentation {
+		case "native-account":
+			foundChip = true
+		case "app-route":
+			foundCurrent = a.Selected
 		}
 	}
-	if !found {
-		t.Fatal("workbuddy client action rows missing")
+	if !foundChip || !foundCurrent {
+		t.Fatal("workbuddy is missing the saved account action or selected route")
 	}
 	if ids := srv.managedAppClientIDs(); !containsString(ids, "workbuddy") {
 		t.Fatalf("workbuddy must be an app row: %v", ids)

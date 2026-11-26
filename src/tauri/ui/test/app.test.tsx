@@ -218,7 +218,7 @@ describe('App shell', () => {
     await user.click(screen.getByTestId('apps-row-claude'));
     expect(await screen.findByTestId('apps-quota-claude-0')).toHaveTextContent('42% remaining');
     bridge.push('usage-event', {
-      protocolVersion: 2,
+      protocolVersion: 3,
       revision: 7,
       usage: [
         {
@@ -230,7 +230,7 @@ describe('App shell', () => {
     });
     expect(screen.getByTestId('apps-quota-claude-0')).toHaveTextContent('11% remaining');
     bridge.push('usage-event', {
-      protocolVersion: 2,
+      protocolVersion: 3,
       revision: 6,
       usage: [
         {
@@ -639,7 +639,7 @@ describe('App shell', () => {
     await screen.findByTestId('overview');
     bridge.push('something-new', { unexpected: true });
     bridge.push('protocol-error', {
-      protocolVersion: 2,
+      protocolVersion: 3,
       code: 'MALFORMED_FRAME',
       message: 'malformed frame',
     });

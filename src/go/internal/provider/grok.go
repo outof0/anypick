@@ -74,25 +74,28 @@ func (p *grok) authPath() string {
 	return filepath.Join(expandHome(p.home), ".grok", "auth.json")
 }
 
-// grokIdentity finds the first email-looking value across session objects.
+// grokIdentity reads the identity of the session used for requests.
 func grokIdentity(data map[string]json.RawMessage) string {
-	for _, raw := range data {
-		var session map[string]json.RawMessage
-		if json.Unmarshal(raw, &session) != nil {
-			continue
+	_, raw := pickGrokSession(data)
+	var session map[string]json.RawMessage
+	if json.Unmarshal(raw, &session) != nil {
+		return ""
+	}
+	return grokSessionIdentity(session)
+}
+
+func grokSessionIdentity(session map[string]json.RawMessage) string {
+	for _, key := range []string{"email", "user_email"} {
+		if value := stringField(session, key); strings.Contains(value, "@") {
+			return value
 		}
-		for _, key := range []string{"email", "user_email"} {
-			if v := stringField(session, key); strings.Contains(v, "@") {
-				return v
-			}
-		}
-		// Nested user object variant.
-		if userRaw, ok := session["user"]; ok {
-			var user map[string]json.RawMessage
-			if json.Unmarshal(userRaw, &user) == nil {
-				if v := stringField(user, "email"); strings.Contains(v, "@") {
-					return v
-				}
+	}
+	raw, ok := session["user"]
+	if ok {
+		var user map[string]json.RawMessage
+		if json.Unmarshal(raw, &user) == nil {
+			if value := stringField(user, "email"); strings.Contains(value, "@") {
+				return value
 			}
 		}
 	}
@@ -122,6 +125,20 @@ func (p *grok) DetectLive() (LiveAuthStatus, error) {
 		return LiveAuthStatus{}, nil
 	}
 	return LiveAuthStatus{Present: true, Identity: grokIdentity(data)}, nil
+}
+
+func (p *grok) SnapshotMatchesLive(srcDir string) (bool, bool, error) {
+	return p.SnapshotFilesMatchLive(snapshotFilesAt(srcDir))
+}
+
+func (p *grok) SnapshotFilesMatchLive(file SnapshotFileReader) (bool, bool, error) {
+	live, liveErr := loadGrokSession(p.authPath())
+	saved, savedErr := grokSavedSession(file)
+	if liveErr != nil || savedErr != nil {
+		// Older documents can still report an email without a usable OIDC grant.
+		return false, false, nil
+	}
+	return sameGrokQuotaLogin(live, saved), true, nil
 }
 
 func (p *grok) Backup(destDir string) (SnapshotInfo, error) {

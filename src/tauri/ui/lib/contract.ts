@@ -52,6 +52,11 @@ export type AccountRow = {
   active: boolean;
   canRefresh: boolean;
   switchActionId: string;
+  canRefreshQuota?: boolean;
+  savedQuota?: {
+    fetchedAtMs: number;
+    windows: UsageWindow[];
+  };
 };
 
 export type ProxyRow = {

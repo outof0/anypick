@@ -23,6 +23,56 @@ func (p *grok) LiveUsage(ctx context.Context) (*LiveUsage, error) {
 	if err != nil || session.accessToken == "" || isGrokExpired(session, time.Now()) {
 		return nil, nil
 	}
+	return grokUsageFromSession(ctx, session)
+}
+
+func (p *grok) LiveQuotaForSnapshot(ctx context.Context, file SnapshotFileReader) (*LiveUsage, error) {
+	live, err := loadGrokSession(p.authPath())
+	if err != nil || live.accessToken == "" || isGrokExpired(live, time.Now()) {
+		return nil, err
+	}
+	saved, err := grokSavedSession(file)
+	if err != nil || !sameGrokQuotaLogin(live, saved) {
+		return nil, err
+	}
+	return grokUsageFromSession(ctx, live)
+}
+
+func sameGrokQuotaLogin(live, saved grokSession) bool {
+	if live.accessToken != "" && live.accessToken == saved.accessToken {
+		return true
+	}
+	if live.refreshToken != "" && live.refreshToken == saved.refreshToken {
+		return true
+	}
+	liveID, savedID := grokSessionUserID(live), grokSessionUserID(saved)
+	if liveID != "" && savedID != "" {
+		return liveID == savedID
+	}
+	email := grokSessionIdentity(live.raw)
+	return email != "" && strings.EqualFold(email, grokSessionIdentity(saved.raw))
+}
+
+func (*grok) ReadSavedQuota(ctx context.Context, file SnapshotFileReader) (*LiveUsage, error) {
+	session, err := grokSavedSession(file)
+	if err != nil {
+		return nil, err
+	}
+	if session.accessToken == "" || isGrokExpired(session, time.Now()) {
+		return nil, ErrQuotaLoginRequired
+	}
+	return grokUsageFromSession(ctx, session)
+}
+
+func grokSavedSession(file SnapshotFileReader) (grokSession, error) {
+	raw, err := file("auth.json")
+	if err != nil {
+		return grokSession{}, err
+	}
+	return grokSessionFromAuth("saved auth.json", raw)
+}
+
+func grokUsageFromSession(ctx context.Context, session grokSession) (*LiveUsage, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, grokUsageEndpoint, nil)
 	if err != nil {
 		return nil, err
@@ -45,6 +95,9 @@ func (p *grok) LiveUsage(ctx context.Context) (*LiveUsage, error) {
 		return nil, err
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusUnauthorized {
+		return nil, ErrQuotaLoginRequired
+	}
 	raw, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("grok billing HTTP %d", resp.StatusCode)

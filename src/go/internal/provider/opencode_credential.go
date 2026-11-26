@@ -152,7 +152,11 @@ const (
 // Rows come back in service order: a mirror holding several platform rows must
 // resolve the same key every time, and a Go map iteration does not.
 func openCodeSnapshotKeys(snapshotDir string) ([]openCodePlatformKey, mirrorState) {
-	raw, err := os.ReadFile(filepath.Join(snapshotDir, "auth.json"))
+	return openCodeSnapshotFileKeys(snapshotFilesAt(snapshotDir))
+}
+
+func openCodeSnapshotFileKeys(file SnapshotFileReader) ([]openCodePlatformKey, mirrorState) {
+	raw, err := file("auth.json")
 	if err != nil {
 		return nil, mirrorMissing
 	}

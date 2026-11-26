@@ -67,7 +67,7 @@ func TestComputeLiveMatchMatcherAndPlain(t *testing.T) {
 		t.Fatalf("non-matcher = %v %v %v", match, known, err)
 	}
 
-	// Claude matches by stable fingerprint.
+	// Claude can identify the login across token refreshes.
 	credPath := filepath.Join(t.TempDir(), "creds.json")
 	t.Setenv("ANYPICK_CLAUDE_NO_KEYCHAIN", "1")
 	t.Setenv("ANYPICK_CLAUDE_CREDENTIALS_PATH", credPath)
@@ -91,11 +91,11 @@ func TestComputeLiveMatchMatcherAndPlain(t *testing.T) {
 		t.Fatalf("same live: %v %v %v", match, known, err)
 	}
 
-	// Refreshed access token changes the fingerprint → mismatch, still known.
+	// Compare the refresh token when the access token has rotated.
 	seedClaudeLive(t, "c@x.dev", "at-2", "rt-1")
 	live, _ = claude.DetectLive()
 	match, known, err = computeLiveMatch(claude, snap, live)
-	if err != nil || !known || match {
+	if err != nil || !known || !match {
 		t.Fatalf("refreshed live: %v %v %v", match, known, err)
 	}
 

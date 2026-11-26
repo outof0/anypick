@@ -84,11 +84,17 @@ struct AccountInspectSheet: View {
                 Text(group.title ?? model.localized("desktop.account_detail.remaining_quota"))
               } footer: {
                 if group.id == usageGroups.last?.id {
-                  Text(
-                    model.localized("desktop.account_detail.reported_by_active", replacing: [
-                      "provider": account.provider,
-                    ])
-                  )
+                  if let checkedAt = model.savedQuotaCheckedAt(for: account) {
+                    LabeledContent(model.localized("desktop.account_detail.quota_last_checked")) {
+                      Text(checkedAt, format: .dateTime.month().day().hour().minute())
+                    }
+                  } else {
+                    Text(
+                      model.localized("desktop.account_detail.reported_by_active", replacing: [
+                        "provider": account.provider,
+                      ])
+                    )
+                  }
                 }
               }
             }

@@ -378,14 +378,14 @@ final class TrayStore: ObservableObject {
     }
     if fields[0] == "snapshot-event",
        let event: AppServiceSnapshotEvent = decodeFrame("snapshot-event", fields[1]),
-       event.protocolVersion == 2,
+       event.protocolVersion == 3,
        event.revision == event.snapshot.revision {
       apply(event.snapshot)
       return
     }
     if fields[0] == "usage-event",
        let event: AppServiceUsageEvent = decodeFrame("usage-event", fields[1]),
-       event.protocolVersion == 2,
+       event.protocolVersion == 3,
        event.revision >= revision {
       usage = event.usage
       lastSnapshotAt = Date()
@@ -402,7 +402,7 @@ final class TrayStore: ObservableObject {
     }
     if fields[0] == "protocol-error",
        let protocolError: AppServiceErrorFrame = decodeFrame("protocol-error", fields[1]),
-       protocolError.protocolVersion == 2 {
+       protocolError.protocolVersion == 3 {
       // A protocol error means the engine refused a frame outright and will
       // never answer it. The mutation slot it was holding must be released
       // here, or the sheet that sent it stays disabled with no way out.
@@ -534,7 +534,7 @@ final class TrayStore: ObservableObject {
   /// frame. Every frame goes through here: a payload this build cannot read
   /// means the app and its bundled engine disagree, and the previous `try?`
   /// per branch turned that into a spinner, a stale pane or nothing at all.
-  /// Returning nil skips the frame; validation guards (`protocolVersion == 2`,
+  /// Returning nil skips the frame; validation guards (`protocolVersion == 3`,
   /// `requestId == busyRequestId`) stay at the call sites because a stale or
   /// duplicate frame is normal, not an error.
   private func decodeFrame<T: Decodable>(_ kind: String, _ encoded: String) -> T? {

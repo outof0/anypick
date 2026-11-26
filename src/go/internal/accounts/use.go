@@ -279,7 +279,7 @@ func liveRefreshAllowed(pv provider.Provider, snapshotDir, savedIdentity string,
 	if !known || match {
 		return true
 	}
-	return savedIdentity != "" && live.Identity != "" && identitiesEqual(savedIdentity, live.Identity)
+	return provider.AccountScopedIdentity(live.Identity) && identitiesEqual(savedIdentity, live.Identity)
 }
 
 // saveLiveIntoExistingAccount persists the current live login into an already

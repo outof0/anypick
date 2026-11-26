@@ -4,7 +4,7 @@ use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::collections::HashSet;
 use std::fmt;
 
-pub const PROTOCOL_VERSION: u32 = 2;
+pub const PROTOCOL_VERSION: u32 = 3;
 pub const MESSAGE_VERSION: u32 = 1;
 pub const MAX_FRAME_BYTES: usize = 4 * 1024 * 1024;
 
@@ -466,7 +466,7 @@ mod tests {
         encoded(
             "ready",
             serde_json::json!({
-                "protocolVersion": 2,
+                "protocolVersion": 3,
                 "capabilities": HOST_CAPABILITIES,
             }),
         )
@@ -475,7 +475,7 @@ mod tests {
     #[test]
     fn handshake_gates_delivery_until_ready() {
         let mut protocol = AppProtocol::new("1.0.0", "test");
-        let actions = protocol.consume_line(&hello(2)).unwrap();
+        let actions = protocol.consume_line(&hello(PROTOCOL_VERSION)).unwrap();
         assert!(matches!(actions.as_slice(), [Action::Send(line)] if line.starts_with("hello\t")));
         assert!(!protocol.is_ready());
         assert_eq!(
@@ -499,7 +499,7 @@ mod tests {
         ));
         let mut protocol = AppProtocol::new("2.0.0", "test");
         assert!(matches!(
-            protocol.consume_line(&hello(2)),
+            protocol.consume_line(&hello(PROTOCOL_VERSION)),
             Err(ProtocolError::Incompatible(_))
         ));
     }
@@ -507,12 +507,12 @@ mod tests {
     #[test]
     fn ready_protocol_decodes_typed_host_effects() {
         let mut protocol = AppProtocol::new("1.0.0", "test");
-        protocol.consume_line(&hello(2)).unwrap();
+        protocol.consume_line(&hello(PROTOCOL_VERSION)).unwrap();
         protocol.consume_line(&ready()).unwrap();
         let effect = encoded(
             "host-effect",
             serde_json::json!({
-                "protocolVersion": 2,
+                "protocolVersion": 3,
                 "requestId": "req-1",
                 "effect": {"kind": "launch-at-login", "enabled": true},
             }),
@@ -544,7 +544,7 @@ mod tests {
     #[test]
     fn handshake_strictly_validates_message_version_capabilities_and_instance_id() {
         let base = serde_json::json!({
-            "protocolVersion": 2,
+            "protocolVersion": 3,
             "messageVersion": 1,
             "engineVersion": "1.0.0",
             "schemaVersion": 12,
@@ -589,11 +589,11 @@ mod tests {
             serde_json::json!(["command-dto-v1", "snapshot-dto-v1", "invented-v1"]),
         ] {
             let mut protocol = AppProtocol::new("1.0.0", "test");
-            protocol.consume_line(&hello(2)).unwrap();
+            protocol.consume_line(&hello(PROTOCOL_VERSION)).unwrap();
             let frame = encoded(
                 "ready",
                 serde_json::json!({
-                    "protocolVersion": 2,
+                    "protocolVersion": 3,
                     "capabilities": capabilities,
                 }),
             );
@@ -608,7 +608,7 @@ mod tests {
     #[test]
     fn handshake_rejection_and_delivered_envelopes_require_matching_versions() {
         let mut rejected = AppProtocol::new("1.0.0", "test");
-        rejected.consume_line(&hello(2)).unwrap();
+        rejected.consume_line(&hello(PROTOCOL_VERSION)).unwrap();
         let rejection = encoded(
             "handshake-rejected",
             serde_json::json!({
@@ -623,7 +623,7 @@ mod tests {
         );
 
         let mut protocol = AppProtocol::new("1.0.0", "test");
-        protocol.consume_line(&hello(2)).unwrap();
+        protocol.consume_line(&hello(PROTOCOL_VERSION)).unwrap();
         protocol.consume_line(&ready()).unwrap();
         for (kind, payload) in [
             (
@@ -644,7 +644,7 @@ mod tests {
     #[test]
     fn doctor_report_reaches_ui_and_keeps_service_ready() {
         let mut protocol = AppProtocol::new("1.0.0", "linux");
-        protocol.consume_line(&hello(2)).unwrap();
+        protocol.consume_line(&hello(PROTOCOL_VERSION)).unwrap();
         protocol.consume_line(&ready()).unwrap();
         let report = encoded(
             "doctor",

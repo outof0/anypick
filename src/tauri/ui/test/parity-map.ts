@@ -126,6 +126,7 @@ export const PARITY: ParityRow[] = [
   { macos: 'accounts.inspector.remove', tauri: 'accounts.inspector.remove', status: 'done' },
   { macos: 'accounts.row.{x}', tauri: 'accounts.row.{x}', status: 'done' },
   { macos: 'accounts.inspector.usage.{x}', tauri: 'accounts-inspector.usage.{x}', status: 'done' },
+  { macos: 'accounts.inspector.refresh-quota', tauri: 'accounts-inspector.refresh-quota', status: 'done' },
   { macos: 'accounts.more.{x}', tauri: 'accounts.more.{x}', status: 'done' },
   { macos: 'account.usage.{x}', tauri: 'accounts-inspector.usage.{x}', status: 'done' },
   { macos: 'account-inspect.edit', tauri: 'account-inspect.edit', status: 'done' },

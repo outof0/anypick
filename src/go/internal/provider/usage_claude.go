@@ -7,8 +7,6 @@ import (
 	"io"
 	"math"
 	"net/http"
-	"os"
-	"path/filepath"
 	"sort"
 	"strings"
 	"time"
@@ -25,9 +23,28 @@ func (p *claude) LiveUsage(ctx context.Context) (*LiveUsage, error) {
 	return claudeUsageFromCredential(ctx, credential.credential)
 }
 
+func (p *claude) LiveQuotaForSnapshot(ctx context.Context, file SnapshotFileReader) (*LiveUsage, error) {
+	credential, err := p.read()
+	if err != nil || credential == nil {
+		return nil, err
+	}
+	raw, err := file(claudeSnapshotFile)
+	if err != nil {
+		return nil, err
+	}
+	if !claudeSameLogin(credential.credential, claudeSnapshotCredential(raw)) {
+		return nil, nil
+	}
+	return claudeUsageFromCredential(ctx, credential.credential)
+}
+
 // SnapshotUsage reads a saved Claude account's windows from its snapshot.
 func (p *claude) SnapshotUsage(ctx context.Context, snapshotDir string) (*LiveUsage, error) {
-	raw, err := os.ReadFile(filepath.Join(snapshotDir, claudeSnapshotFile))
+	return p.ReadSavedQuota(ctx, snapshotFilesAt(snapshotDir))
+}
+
+func (p *claude) ReadSavedQuota(ctx context.Context, file SnapshotFileReader) (*LiveUsage, error) {
+	raw, err := file(claudeSnapshotFile)
 	if err != nil {
 		return nil, err
 	}
@@ -62,7 +79,7 @@ func claudeUsageFromCredential(ctx context.Context, credential string) (*LiveUsa
 		return nil, fmt.Errorf("claude OAuth login lacks profile scope")
 	}
 	if auth.OAuth.ExpiresAt > 0 && auth.OAuth.ExpiresAt <= time.Now().UnixMilli() {
-		return nil, fmt.Errorf("claude OAuth access token expired")
+		return nil, ErrQuotaLoginRequired
 	}
 	endpoint, err := oauthTokenEndpoint("ANYPICK_CLAUDE_USAGE_ENDPOINT", "https://api.anthropic.com/api/oauth/usage")
 	if err != nil {
@@ -80,6 +97,9 @@ func claudeUsageFromCredential(ctx context.Context, credential string) (*LiveUsa
 		return nil, fmt.Errorf("claude usage request failed")
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusUnauthorized {
+		return nil, ErrQuotaLoginRequired
+	}
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("claude usage HTTP %d", resp.StatusCode)
 	}

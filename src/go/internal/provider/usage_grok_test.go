@@ -131,3 +131,23 @@ func TestGrokLiveUsageSkipsExpiredSession(t *testing.T) {
 		t.Fatal("an expired session must not be refreshed just to read quota")
 	}
 }
+
+func TestGrokIdentityFollowsTheSelectedUsageSession(t *testing.T) {
+	raw := []byte(`{
+		"aaa-legacy":{"email":"legacy@example.test"},
+		"https://auth.x.ai::z":{"email":"other@example.test","key":"other"},
+		"https://auth.x.ai::a":{"email":"selected@example.test","key":"selected"}
+	}`)
+	var entries map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &entries); err != nil {
+		t.Fatal(err)
+	}
+	file := filepath.Join(t.TempDir(), "auth.json")
+	if err := os.WriteFile(file, raw, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	session, err := loadGrokSession(file)
+	if err != nil || session.accessToken != "selected" || grokIdentity(entries) != "selected@example.test" {
+		t.Fatalf("Grok resolved inconsistent sessions: %v", err)
+	}
+}

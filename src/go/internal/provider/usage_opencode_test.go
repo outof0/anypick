@@ -115,3 +115,41 @@ func TestParseOpenCodeUsageIgnoresMalformedWindows(t *testing.T) {
 		t.Fatalf("over-100 used = %+v", usage.Windows[1])
 	}
 }
+
+func TestOpenCodeSavedAccountDoesNotAcquireQuotaFromAnotherLiveDBKey(t *testing.T) {
+	live, saved := t.TempDir(), t.TempDir()
+	t.Setenv("OPENCODE_DATA_DIR", live)
+	writeOpenCodePlatformKey(t, live, "sk-mirror")
+	writeOpenCodePlatformKey(t, saved, "sk-mirror")
+	seedOpenCodeCredentialDB(t, live, map[string]string{"opencode-go": "sk-current-db"})
+	reader := newOpenCode(t.TempDir())
+	match, known, err := reader.SnapshotMatchesLive(saved)
+	if err != nil || !known || match {
+		t.Fatalf("stale OpenCode mirror = %v, known = %v, err = %v", match, known, err)
+	}
+	server := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+		t.Error("a quota request was sent using the wrong OpenCode account")
+	}))
+	defer server.Close()
+	original := openCodeUsageEndpoint
+	openCodeUsageEndpoint = server.URL
+	t.Cleanup(func() { openCodeUsageEndpoint = original })
+	usage, err := reader.LiveQuotaForSnapshot(context.Background(), snapshotFilesAt(saved))
+	if err != nil || usage != nil {
+		t.Fatalf("quota for mismatched OpenCode platform key = %+v, err = %v", usage, err)
+	}
+}
+
+func TestOpenCodeLiveQuotaUsesTheExplicitAuthPathWithoutADatabase(t *testing.T) {
+	live, overridden, saved := t.TempDir(), t.TempDir(), t.TempDir()
+	t.Setenv("OPENCODE_DATA_DIR", live)
+	t.Setenv("OPENCODE_AUTH_PATH", filepath.Join(overridden, "auth.json"))
+	writeOpenCodePlatformKey(t, live, "sk-default")
+	writeOpenCodePlatformKey(t, overridden, "sk-selected")
+	writeOpenCodePlatformKey(t, saved, "sk-selected")
+	reader := newOpenCode(t.TempDir())
+	match, known, err := reader.SnapshotMatchesLive(saved)
+	if err != nil || !known || !match {
+		t.Fatalf("explicit OpenCode auth path match = %v, known = %v, err = %v", match, known, err)
+	}
+}

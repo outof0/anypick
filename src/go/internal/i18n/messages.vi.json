@@ -2967,6 +2967,18 @@
     "other": "Tạm dùng đăng nhập này trên máy Mac để AnyPick đọc hạn mức.",
     "description": "Original English text: Temporarily use this saved login on this Mac so AnyPick can read its quota."
   },
+  "desktop.account_detail.refresh_quota": {
+    "other": "Làm mới hạn mức",
+    "description": "Original English text: Refresh quota"
+  },
+  "desktop.account_detail.quota_last_checked": {
+    "other": "Lần kiểm tra cuối",
+    "description": "Original English text: Last checked"
+  },
+  "desktop.account_detail.no_saved_quota": {
+    "other": "Chưa có dữ liệu hạn mức.",
+    "description": "Original English text: No quota reading yet."
+  },
   "desktop.account_detail.remaining_quota": {
     "other": "Hạn mức còn lại",
     "description": "Original English text: Remaining Quota"
