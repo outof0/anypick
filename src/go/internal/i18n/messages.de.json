@@ -2967,6 +2967,18 @@
     "other": "Verwenden Sie diese Anmeldung vorübergehend auf diesem Mac, damit AnyPick das Kontingent lesen kann.",
     "description": "Original English text: Temporarily use this saved login on this Mac so AnyPick can read its quota."
   },
+  "desktop.account_detail.refresh_quota": {
+    "other": "Kontingent aktualisieren",
+    "description": "Original English text: Refresh quota"
+  },
+  "desktop.account_detail.quota_last_checked": {
+    "other": "Zuletzt geprüft",
+    "description": "Original English text: Last checked"
+  },
+  "desktop.account_detail.no_saved_quota": {
+    "other": "Noch keine Kontingentdaten.",
+    "description": "Original English text: No quota reading yet."
+  },
   "desktop.account_detail.remaining_quota": {
     "other": "Verbleibendes Kontingent",
     "description": "Original English text: Remaining Quota"

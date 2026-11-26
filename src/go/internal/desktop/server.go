@@ -8,12 +8,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"runtime/debug"
 	"sort"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/outof0/anypick/go/internal/accounts"
@@ -75,8 +75,8 @@ const cancelLedgerTTL = 2 * time.Minute
 const DesktopActionTimeout = 60 * time.Second
 
 // UsageRefreshInterval is intentionally much slower than the legacy full
-// snapshot loop. App-service mode emits only a bounded usage event on this
-// cadence; state snapshots are initial, explicit, or mutation-driven.
+// snapshot loop. App-service mode polls local logins and quota on this cadence
+// and publishes a full snapshot when the live account state changes.
 const UsageRefreshInterval = 30 * time.Second
 
 // Deps wires the desktop core to engine services.
@@ -173,8 +173,9 @@ type Server struct {
 	writeMu   sync.Mutex
 	refreshMu sync.Mutex
 	inFlight  sync.WaitGroup
-	// snapshotDirty marks a failed state snapshot that the ticker must retry.
-	snapshotDirty atomic.Bool
+	// The refresh lock guards these along with snapshotSent.
+	snapshotDirty    bool
+	lastLiveAccounts map[string]liveAccountState
 	// stopCh closes when a graceful shutdown starts, so background helpers can
 	// stop waiting without being part of inFlight.
 	stopCh   chan struct{}
@@ -323,15 +324,7 @@ func (s *Server) Run(ctx context.Context) error {
 		case <-ticker.C:
 			var err error
 			if s.serviceMode {
-				err = s.refreshUsage(ctx)
-				// A failed state snapshot leaves the host waiting for a change
-				// it never receives (a switch that never confirms). Usage ticks
-				// keep it fresh; this retries the snapshot itself.
-				if s.snapshotRetryNeeded() {
-					if rerr := s.refresh(ctx); rerr != nil {
-						s.logErr(rerr)
-					}
-				}
+				err = s.pollService(ctx)
 			} else {
 				err = s.refresh(ctx)
 			}
@@ -400,19 +393,6 @@ func (s *Server) Run(ctx context.Context) error {
 		}
 	}
 }
-
-// handleSafely runs one command with panic containment.
-//
-// The invoke path already recovers, but the synchronous commands (mutate,
-// model-roles, backup-inspect, logs) did not: a panic in a provider adapter
-// reached from one of them killed the engine process with no frame for the
-// in-flight requestId, so the host held its mutation slot and the proxies died
-// with the engine. A panicking provider must cost one attributed failure, not
-// the process.
-// snapshotRetryNeeded reports whether the last state snapshot failed. The
-// service ticker sends usage only, so without this a failed buildSnapshot left
-// the host without the state change it was waiting for.
-func (s *Server) snapshotRetryNeeded() bool { return s.snapshotDirty.Load() }
 
 // waitForInFlight waits for running work and reports whether it finished inside
 // the limit.
@@ -537,6 +517,8 @@ func (s *Server) runBoundedWithBudget(
 	}()
 }
 
+// handleSafely contains a provider panic so the host gets an attributed error
+// and existing services keep running.
 func (s *Server) handleSafely(ctx context.Context, cmd *Command) (err error) {
 	requestID := cmd.RequestID()
 	defer func() {
@@ -956,12 +938,17 @@ func (s *Server) shutdown(_ context.Context) error {
 func (s *Server) refresh(ctx context.Context) error {
 	s.refreshMu.Lock()
 	defer s.refreshMu.Unlock()
+	return s.refreshLocked(ctx)
+}
+
+func (s *Server) refreshLocked(ctx context.Context) error {
 	snap, err := s.buildSnapshot(ctx)
 	if err != nil {
-		s.snapshotDirty.Store(true)
+		s.snapshotDirty = true
 		return err
 	}
-	s.snapshotDirty.Store(false)
+	s.snapshotDirty = false
+	s.lastLiveAccounts = snap.liveAccounts
 	if s.serviceMode && s.snapshotSent {
 		s.write(FrameSnapshotEvent(SnapshotEvent{
 			ProtocolVersion: ServiceProtocolVersion,
@@ -976,13 +963,25 @@ func (s *Server) refresh(ctx context.Context) error {
 	return nil
 }
 
-func (s *Server) refreshUsage(ctx context.Context) error {
+func (s *Server) pollService(ctx context.Context) error {
 	s.refreshMu.Lock()
 	defer s.refreshMu.Unlock()
+	if s.snapshotDirty {
+		return s.refreshLocked(ctx)
+	}
+	liveAccounts := make(map[string]liveAccountState)
+	for _, id := range s.Deps.Providers.IDs() {
+		if pv, err := s.Deps.Providers.Get(id); err == nil {
+			liveAccounts[id] = s.readLiveAccount(ctx, pv)
+		}
+	}
+	if !maps.Equal(liveAccounts, s.lastLiveAccounts) {
+		return s.refreshLocked(ctx)
+	}
 	s.write(FrameUsageEvent(UsageEvent{
 		ProtocolVersion: ServiceProtocolVersion,
 		Revision:        s.currentRevision(),
-		Usage:           s.buildUsage(ctx),
+		Usage:           s.buildUsage(ctx, liveAccounts),
 	}))
 	return nil
 }

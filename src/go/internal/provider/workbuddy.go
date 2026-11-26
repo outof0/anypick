@@ -112,14 +112,18 @@ func readWorkBuddyAuthDocument(path string) (*workbuddyAuthDocument, error) {
 		}
 		return nil, err
 	}
+	return parseWorkBuddyAuthDocument(raw), nil
+}
+
+func parseWorkBuddyAuthDocument(raw []byte) *workbuddyAuthDocument {
 	var doc workbuddyAuthDocument
 	if json.Unmarshal(raw, &doc) != nil || doc.AccessToken == "" {
-		return nil, nil
+		return nil
 	}
 	if id := workbuddyTokenIdentity(doc.AccessToken); id != "" {
 		doc.UserID = id
 	}
-	return &doc, nil
+	return &doc
 }
 
 func writeWorkBuddyAuthDocument(path string, doc workbuddyAuthDocument) error {
@@ -311,10 +315,18 @@ func (p *workbuddy) DescribeSnapshot(srcDir string) (SnapshotInfo, error) {
 // active live session. A match is found if the access tokens are identical,
 // if their subject claims match, or if their identities match.
 func (p *workbuddy) SnapshotMatchesLive(srcDir string) (bool, bool, error) {
-	snapDoc, err := readWorkBuddyAuthDocument(filepath.Join(srcDir, workbuddyAuthFile))
+	return p.SnapshotFilesMatchLive(snapshotFilesAt(srcDir))
+}
+
+func (p *workbuddy) SnapshotFilesMatchLive(file SnapshotFileReader) (bool, bool, error) {
+	raw, err := file(workbuddyAuthFile)
+	if os.IsNotExist(err) {
+		return false, true, nil
+	}
 	if err != nil {
 		return false, false, err
 	}
+	snapDoc := parseWorkBuddyAuthDocument(raw)
 	if snapDoc == nil || snapDoc.AccessToken == "" {
 		return false, true, nil
 	}

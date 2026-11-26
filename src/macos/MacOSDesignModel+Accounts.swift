@@ -19,8 +19,12 @@ extension MacOSDesignModel {
   }
 
   func usageWindows(for account: DesignAccount) -> [DesignUsageWindow] {
-    guard isCurrentAccount(account), showUsage else { return [] }
-    if let accountUsage { return accountUsage[account.id] ?? [] }
+    guard showUsage, account.kind == .saved else { return [] }
+    if let accountUsage {
+      if let live = accountUsage[account.id], !live.isEmpty { return live }
+      return account.savedQuota?.windows ?? []
+    }
+    guard isCurrentAccount(account) else { return account.savedQuota?.windows ?? [] }
     // Quota is reported for the live login of one provider. Match by engine
     // provider family, not by display name: "OpenAI" (the account row) is the
     // "codex" app, and a fuzzy name match silently dropped its usage.
@@ -33,6 +37,11 @@ extension MacOSDesignModel {
       app.name.localizedCaseInsensitiveContains(account.provider)
         || account.provider.localizedCaseInsensitiveContains(app.id)
     }?.usageWindows ?? []
+  }
+
+  func savedQuotaCheckedAt(for account: DesignAccount) -> Date? {
+    if let live = accountUsage?[account.id], !live.isEmpty { return nil }
+    return account.savedQuota?.checkedAt
   }
 
   func liveLogin(for provider: String) -> DesignLiveLogin? {

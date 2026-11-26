@@ -2967,6 +2967,18 @@
     "other": "Temporarily use this saved login on this Mac so AnyPick can read its quota.",
     "description": "Original English text: Temporarily use this saved login on this Mac so AnyPick can read its quota."
   },
+  "desktop.account_detail.refresh_quota": {
+    "other": "Refresh quota",
+    "description": "Original English text: Refresh quota"
+  },
+  "desktop.account_detail.quota_last_checked": {
+    "other": "Last checked",
+    "description": "Original English text: Last checked"
+  },
+  "desktop.account_detail.no_saved_quota": {
+    "other": "No quota reading yet.",
+    "description": "Original English text: No quota reading yet."
+  },
   "desktop.account_detail.remaining_quota": {
     "other": "Remaining Quota",
     "description": "Original English text: Remaining Quota"

@@ -136,6 +136,10 @@ func (b *snapshotBuilder) bindingFor(ctx context.Context, clientID string) (*bin
 	}
 	if binding.Spec.Source.Kind == refs.KindAccount &&
 		b.routeKindForSource(ctx, clientID, binding.Spec.Source) == "direct-account" {
+		source := binding.Spec.Source
+		if b.snap.liveAccounts[source.Provider].name != source.Name {
+			return nil, nil
+		}
 		return binding, nil
 	}
 	if b.srv.clientUsesNativeLogin(clientID) {

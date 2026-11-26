@@ -11,7 +11,7 @@ import type { Snapshot } from './contract';
  * kind the UI does not understand must be ignored, never half-rendered.
  */
 
-export const PROTOCOL_VERSION = 2;
+export const PROTOCOL_VERSION = 3;
 export const MESSAGE_VERSION = 1;
 
 /** Frame kinds the UI acts on. Anything else is ignored on purpose. */

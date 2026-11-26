@@ -36,17 +36,92 @@ func (p *gemini) LiveUsage(ctx context.Context) (*LiveUsage, error) {
 	if token == "" {
 		return nil, nil
 	}
+	return geminiUsageFromToken(ctx, token, source)
+}
+
+func (p *gemini) LiveQuotaForSnapshot(ctx context.Context, file SnapshotFileReader) (*LiveUsage, error) {
+	live, source := p.liveUsageCredentials()
+	saved, savedSource := geminiSavedQuotaCredential(file)
+	if source != savedSource || !sameGeminiQuotaLogin(live, saved) {
+		return nil, nil
+	}
+	token, err := p.usageAccessToken(ctx, live, source)
+	if err != nil || token == "" {
+		return nil, err
+	}
+	return geminiUsageFromToken(ctx, token, source)
+}
+
+func sameGeminiQuotaLogin(live, saved *geminiOAuthCredentials) bool {
+	if live == nil || saved == nil {
+		return false
+	}
+	if live.RefreshToken != "" && saved.RefreshToken != "" {
+		return live.RefreshToken == saved.RefreshToken
+	}
+	return live.AccessToken != "" && live.AccessToken == saved.AccessToken
+}
+
+func (*gemini) ReadSavedQuota(ctx context.Context, file SnapshotFileReader) (*LiveUsage, error) {
+	credential, source := geminiSavedQuotaCredential(file)
+	if credential == nil {
+		return nil, ErrSavedQuotaUnavailable
+	}
+	// A quota check must never spend or rotate the saved refresh grant.
+	if credential.AccessToken == "" ||
+		(credential.ExpiryDate != nil && *credential.ExpiryDate <= time.Now().UnixMilli()) {
+		return nil, ErrQuotaLoginRequired
+	}
+	usage, err := geminiUsageFromToken(ctx, credential.AccessToken, source)
+	var httpErr *geminiCodeAssistHTTPError
+	if errors.As(err, &httpErr) && httpErr.Status == http.StatusUnauthorized {
+		return nil, ErrQuotaLoginRequired
+	}
+	return usage, err
+}
+
+func geminiSavedQuotaCredential(file SnapshotFileReader) (*geminiOAuthCredentials, string) {
+	if env, err := file(".env"); err == nil && geminiAPIKeyFromEnvFile(string(env)) != "" {
+		return nil, ""
+	}
+	switch source := geminiSourceMarkerFromFiles(file); source {
+	case geminiCliOAuthSource, antigravityOAuthSource:
+		return readGeminiSnapshotCredential(file, source), source
+	case "":
+		cli := readGeminiSnapshotCredential(file, geminiCliOAuthSource)
+		ide := readGeminiSnapshotCredential(file, antigravityOAuthSource)
+		switch {
+		case cli != nil && ide == nil:
+			return cli, geminiCliOAuthSource
+		case ide != nil && cli == nil:
+			return ide, antigravityOAuthSource
+		}
+	}
+	// A broad legacy snapshot may contain two independent Google logins.
+	// Require an explicit saved source to attribute a reading in that case.
+	return nil, ""
+}
+
+func readGeminiSnapshotCredential(file SnapshotFileReader, source string) *geminiOAuthCredentials {
+	for _, name := range geminiCredentialFilesFor(source) {
+		raw, err := file(name)
+		if err != nil {
+			continue
+		}
+		if credential, ok := parseGeminiOAuthCredentials(raw); ok {
+			return credential
+		}
+	}
+	return nil
+}
+
+func geminiUsageFromToken(ctx context.Context, token, source string) (*LiveUsage, error) {
 	profile := geminiOAuthProfileFor(source)
 	base, err := geminiCodeAssistBase(source)
 	if err != nil {
 		return nil, err
 	}
-	usage, err := fetchGeminiCodeAssistUsage(
-		ctx, base.String(), token, profile.ideType, profile.userAgent)
-	if err != nil {
-		return nil, err
-	}
-	return usage, nil
+	return fetchGeminiCodeAssistUsage(ctx, base.String(), token, profile.ideType, profile.userAgent)
 }
 
 // liveUsageCredentials returns the live OAuth grant and its owning source. The keychain is excluded on

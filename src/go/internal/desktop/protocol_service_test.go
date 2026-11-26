@@ -67,6 +67,59 @@ func TestServiceHandshakeGatesInitialSnapshotAndRemovesStartupSleep(t *testing.T
 	}
 }
 
+func TestServicePollPublishesExternalLoginChange(t *testing.T) {
+	env := newTrayEnv(t)
+	t.Setenv("ANYPICK_CODEX_USAGE_ENDPOINT", "http://127.0.0.1:1/usage")
+	ctx := context.Background()
+	for _, name := range []string{"second", "first"} {
+		env.writeCodexLive(name + "@example.com")
+		if _, err := env.Svc.Save(ctx, "codex", name, false); err != nil {
+			t.Fatal(err)
+		}
+	}
+	var out strings.Builder
+	srv := NewService(env.Deps, strings.NewReader(""), &out)
+	if err := srv.refresh(ctx); err != nil {
+		t.Fatal(err)
+	}
+	out.Reset()
+	if err := srv.pollService(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasPrefix(out.String(), "usage-event\t") {
+		t.Fatal("unchanged login should only publish usage")
+	}
+
+	env.writeCodexLive("second@example.com")
+	out.Reset()
+	if err := srv.pollService(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasPrefix(out.String(), "snapshot-event\t") {
+		t.Fatal("external login change did not publish a snapshot")
+	}
+	var event SnapshotEvent
+	if err := json.Unmarshal(decodeFramePayload(t, strings.TrimSpace(out.String())), &event); err != nil {
+		t.Fatal(err)
+	}
+	var active []string
+	for _, account := range event.Snapshot.Accounts {
+		if account.ProviderID == "codex" && account.Active {
+			active = append(active, account.Name)
+		}
+	}
+	if strings.Join(active, ",") != "second" {
+		t.Fatalf("current accounts after external login = %v, want second", active)
+	}
+	out.Reset()
+	if err := srv.pollService(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasPrefix(out.String(), "usage-event\t") {
+		t.Fatal("already published login should only publish usage")
+	}
+}
+
 func TestServiceRejectsMismatchedHandshakeBeforeSnapshot(t *testing.T) {
 	env := newTrayEnv(t)
 	inR, inW, outR, outW := servicePipes(t)

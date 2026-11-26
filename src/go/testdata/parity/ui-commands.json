@@ -204,6 +204,17 @@
     }
   },
   {
+    "case": "refreshSavedQuota: account",
+    "kind": "mutate",
+    "payload": {
+      "version": 1,
+      "requestId": "corpus",
+      "operation": "account-refresh-quota",
+      "providerId": "claude",
+      "name": "work"
+    }
+  },
+  {
     "case": "editAccount: label",
     "kind": "mutate",
     "payload": {

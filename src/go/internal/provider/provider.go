@@ -26,10 +26,10 @@ type LiveAuthStatus struct {
 }
 
 // AccountScopedIdentity distinguishes login identifiers from display labels.
-// A key-only Codex snapshot reports "API key", which cannot identify its owner.
+// A key-only Codex snapshot and a Claude plan name cannot identify an owner.
 func AccountScopedIdentity(identity string) bool {
 	normalized := strings.ToLower(strings.TrimSpace(identity))
-	return normalized != "" && normalized != "api key"
+	return normalized != "" && normalized != "api key" && !strings.HasPrefix(normalized, "claude ")
 }
 
 // SnapshotInfo is the partial meta a Backup may contribute (identity, label…).

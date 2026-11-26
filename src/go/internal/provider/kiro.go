@@ -531,7 +531,11 @@ func (p *kiro) DescribeSnapshot(srcDir string) (SnapshotInfo, error) {
 
 // SnapshotMatchesLive compares stored secrets against the live two-tier store.
 func (p *kiro) SnapshotMatchesLive(srcDir string) (bool, bool, error) {
-	storedRaw, err := os.ReadFile(filepath.Join(srcDir, kiroSecretsFile))
+	return p.SnapshotFilesMatchLive(snapshotFilesAt(srcDir))
+}
+
+func (p *kiro) SnapshotFilesMatchLive(file SnapshotFileReader) (bool, bool, error) {
+	storedRaw, err := file(kiroSecretsFile)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return false, false, nil // cache-file-only snapshots are heuristic

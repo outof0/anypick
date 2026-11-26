@@ -135,7 +135,7 @@ private struct HandshakeRejected: Decodable {
 /// Pure, stateful decoder for the app-service pipe. Process ownership lives in
 /// GoServiceProcess; this actor only validates negotiation and frame ordering.
 actor AppServiceClient {
-  static let protocolVersion = 2
+  static let protocolVersion = 3
   static let messageVersion = 1
   static let maxFrameBytes = 4 * 1024 * 1024
   static let capabilities = [

@@ -8,7 +8,6 @@ import (
 	"math"
 	"net/http"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -24,9 +23,37 @@ func (p *codex) LiveUsage(ctx context.Context) (*LiveUsage, error) {
 	return codexUsageFromAuth(ctx, raw)
 }
 
+func (p *codex) LiveQuotaForSnapshot(ctx context.Context, file SnapshotFileReader) (*LiveUsage, error) {
+	if !InspectCodexCredentialStore(p.codexHome()).SupportsSnapshotSwitch {
+		return nil, nil
+	}
+	auth, err := os.ReadFile(p.authPath())
+	if err != nil {
+		return nil, err
+	}
+	savedAuth, err := file("auth.json")
+	if err != nil {
+		return nil, err
+	}
+	var live, saved map[string]json.RawMessage
+	if json.Unmarshal(auth, &live) != nil || json.Unmarshal(savedAuth, &saved) != nil {
+		return nil, nil
+	}
+	// The quota request uses OAuth even when the document carries an API key.
+	identity := codexOAuthLoginFingerprint(live)
+	if identity == "" || identity != codexOAuthLoginFingerprint(saved) {
+		return nil, nil
+	}
+	return codexUsageFromAuth(ctx, auth)
+}
+
 // SnapshotUsage reads a saved Codex account's windows from its auth.json copy.
 func (p *codex) SnapshotUsage(ctx context.Context, snapshotDir string) (*LiveUsage, error) {
-	raw, err := os.ReadFile(filepath.Join(snapshotDir, "auth.json"))
+	return p.ReadSavedQuota(ctx, snapshotFilesAt(snapshotDir))
+}
+
+func (p *codex) ReadSavedQuota(ctx context.Context, file SnapshotFileReader) (*LiveUsage, error) {
+	raw, err := file("auth.json")
 	if err != nil {
 		return nil, err
 	}
@@ -55,6 +82,9 @@ func codexUsageFromAuth(ctx context.Context, raw []byte) (*LiveUsage, error) {
 		return nil, err
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusUnauthorized {
+		return nil, ErrQuotaLoginRequired
+	}
 	body, err := io.ReadAll(io.LimitReader(resp.Body, 64<<10))
 	if err != nil || resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("usage endpoint status %d", resp.StatusCode)

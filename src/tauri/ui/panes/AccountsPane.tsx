@@ -98,7 +98,8 @@ export function AccountsPane({
   // The row's Show Details target. A dialog rather than an inline expansion,
   // because expanding a row resizes the very reserved columns that make the
   // list line up.
-  const [inspecting, setInspecting] = useState<AccountRowContract | null>(null);
+  const [inspectingId, setInspectingId] = useState<string | null>(null);
+  const inspecting = snapshot.accounts.find((account) => account.id === inspectingId);
   const [adding, setAdding] = useState(false);
   const [addingGateway, setAddingGateway] = useState(false);
   const [editing, setEditing] = useState<AccountRowContract | null>(null);
@@ -231,7 +232,7 @@ export function AccountsPane({
             <Row
               key={account.id}
               testId={`accounts.row.${account.id}`}
-              onClick={() => setInspecting(account)}
+              onClick={() => setInspectingId(account.id)}
             >
                 <AccountRowGrid
                 row={accountView(account)}
@@ -244,7 +245,7 @@ export function AccountsPane({
                 revision={snapshot.revision}
                 onEdit={() => setEditing(account)}
                 onRemove={() => setPendingRemove(account)}
-                onDetails={() => setInspecting(account)}
+                onDetails={() => setInspectingId(account.id)}
               />
             </Row>
           ))}
@@ -296,9 +297,8 @@ export function AccountsPane({
       {inspecting ? (
         <AccountDetailSheet
           account={inspecting}
-          usage={
-            'active' in inspecting ? usageForAccount(snapshot.usage, inspecting)?.windows ?? [] : []
-          }
+          usage={usageForAccount(snapshot.usage, inspecting)?.windows}
+          showQuota={snapshot.settings.showQuota}
           service={service}
           paused={paused}
           revision={snapshot.revision}
@@ -306,13 +306,13 @@ export function AccountsPane({
           resolvedLanguage={snapshot.settings.resolvedLanguage}
           onEdit={() => {
             setEditing(inspecting);
-            setInspecting(null);
+            setInspectingId(null);
           }}
           onRemove={() => {
             setPendingRemove(inspecting);
-            setInspecting(null);
+            setInspectingId(null);
           }}
-          onClose={() => setInspecting(null)}
+          onClose={() => setInspectingId(null)}
         />
       ) : null}
 

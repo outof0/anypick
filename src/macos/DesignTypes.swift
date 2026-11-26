@@ -457,6 +457,11 @@ enum DesignAccountKind: String, CaseIterable {
   case native = "Direct Account"
 }
 
+struct DesignSavedQuota: Hashable {
+  let checkedAt: Date
+  let windows: [DesignUsageWindow]
+}
+
 struct DesignAccount: Identifiable, Hashable {
   let id: String
   var name: String
@@ -470,6 +475,8 @@ struct DesignAccount: Identifiable, Hashable {
   /// live login, so the account row needs this to find its app's usage rows
   /// without guessing from the display name.
   var providerID: String = ""
+  var canRefreshQuota = false
+  var savedQuota: DesignSavedQuota? = nil
   /// Engine answer for a reviewed backup entry: true when importing it
   /// would replace a saved account. Nil on rows that are not an import
   /// review, which still match by provider and name.

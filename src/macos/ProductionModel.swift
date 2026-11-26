@@ -957,6 +957,19 @@ final class ProductionDesignModel: MacOSDesignModel {
     return false
   }
 
+  override func refreshAccountQuota(id: String) {
+    guard let account = store.accounts.first(where: { $0.id == id && $0.canRefreshQuota == true }),
+      let requestID = store.mutate(
+        operation: "account-refresh-quota",
+        name: account.name,
+        providerId: account.providerId,
+        activityLabel: localized("desktop.account_detail.refresh_quota")
+      )
+    else { return }
+    pendingOperations[requestID] = "account-refresh-quota"
+    operationResult = nil
+  }
+
   override func refreshAccount(id: String) {
     // Keep a result trail for row actions; failures surface through feedback.
     if let account = store.accounts.first(where: { $0.id == id }) {

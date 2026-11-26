@@ -245,6 +245,17 @@ func (s *Service) List(ctx context.Context, providerID string) ([]store.Account,
 	return s.Store.ListAccounts(ctx, providerID)
 }
 
+// ReadSnapshot returns the committed credential files for a read-only account
+// probe and the digest used to bind its result to that revision.
+func (s *Service) ReadSnapshot(ctx context.Context, providerID, name string) (store.SnapshotFiles, string, error) {
+	return s.Store.ReadSnapshot(ctx, providerID, name)
+}
+
+// SnapshotDigest reports the revision of the committed account snapshot.
+func (s *Service) SnapshotDigest(ctx context.Context, providerID, name string) (string, error) {
+	return s.Store.SnapshotDigest(ctx, providerID, name)
+}
+
 // Active is the cheap read behind "which account is selected for this
 // provider". It deliberately does not do the live-auth probing that Current
 // does: call sites that only want the pointer must not pay for, or be
@@ -848,7 +859,7 @@ func (s *Service) Current(ctx context.Context, providerID string) (*CurrentResul
 	// Identity fallback: refreshed tokens can change material while keeping
 	// the same upstream identity.
 	if !out.IsLiveMatch && account.Meta.CredentialKind != "proxy-only" &&
-		account.Meta.Identity != "" && live.Identity != "" &&
+		provider.AccountScopedIdentity(live.Identity) &&
 		identitiesEqual(account.Meta.Identity, live.Identity) {
 		out.IsLiveMatch = true
 	}

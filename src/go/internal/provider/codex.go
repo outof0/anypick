@@ -251,6 +251,10 @@ func (p *codex) DescribeSnapshot(srcDir string) (SnapshotInfo, error) {
 // the quota read from auth.json belongs to a different login than the
 // active one — and must be suppressed rather than displayed on it.
 func (p *codex) SnapshotMatchesLive(srcDir string) (bool, bool, error) {
+	return p.SnapshotFilesMatchLive(snapshotFilesAt(srcDir))
+}
+
+func (p *codex) SnapshotFilesMatchLive(file SnapshotFileReader) (bool, bool, error) {
 	liveRaw, err := os.ReadFile(p.authPath())
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -258,7 +262,11 @@ func (p *codex) SnapshotMatchesLive(srcDir string) (bool, bool, error) {
 		}
 		return false, false, err
 	}
-	snapRaw, err := os.ReadFile(filepath.Join(srcDir, "auth.json"))
+	return codexSnapshotMatchesAuth(file, liveRaw)
+}
+
+func codexSnapshotMatchesAuth(file SnapshotFileReader, liveRaw []byte) (bool, bool, error) {
+	snapRaw, err := file("auth.json")
 	if err != nil {
 		if os.IsNotExist(err) {
 			return false, true, nil
@@ -281,12 +289,21 @@ func (p *codex) SnapshotMatchesLive(srcDir string) (bool, bool, error) {
 // account id plus the id-token identity for OAuth. Empty means the document
 // names no login.
 func codexLoginFingerprint(data map[string]json.RawMessage) string {
+	oauth := codexOAuthLoginFingerprint(data)
+	mode := strings.ToLower(stringField(data, "auth_mode"))
+	if mode == "chatgpt" || (mode == "" && oauth != "") {
+		return oauth
+	}
 	if keyRaw, ok := data["OPENAI_API_KEY"]; ok {
 		var key string
 		if json.Unmarshal(keyRaw, &key) == nil && strings.TrimSpace(key) != "" {
 			return "api-key:" + strings.TrimSpace(key)
 		}
 	}
+	return oauth
+}
+
+func codexOAuthLoginFingerprint(data map[string]json.RawMessage) string {
 	tokensRaw, ok := data["tokens"]
 	if !ok {
 		return ""

@@ -119,6 +119,7 @@ export const MUTATE_CASES: CorpusCase[] = [
   mutate('removeAccount', 'account', actions.removeAccount('claude', 'work')),
   mutate('refreshSaved', 'account', actions.refreshSaved({ kind: 'account', providerId: 'claude', name: 'work' })),
   mutate('refreshSaved', 'gateway', actions.refreshSaved({ kind: 'gateway', providerId: 'openrouter', name: 'team' })),
+  mutate('refreshSavedQuota', 'account', actions.refreshSavedQuota('claude', 'work')),
   mutate('editAccount', 'label', actions.editAccount({ providerId: 'claude', name: 'work' }, 'Work')),
   mutate('editAccount', 'cleared label', actions.editAccount({ providerId: 'claude', name: 'work' }, '')),
   mutate('clearLiveLogin', 'with source', actions.clearLiveLogin('claude', 'cli')),

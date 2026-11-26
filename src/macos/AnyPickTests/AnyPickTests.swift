@@ -149,7 +149,7 @@ final class AnyPickTests: XCTestCase {
     let hello = try frame(
       "hello",
       [
-        "protocolVersion": 2,
+        "protocolVersion": 3,
         "messageVersion": 1,
         "engineVersion": "(devel)",
         "schemaVersion": 4,
@@ -169,7 +169,7 @@ final class AnyPickTests: XCTestCase {
     let ready = try frame(
       "ready",
       [
-        "protocolVersion": 2,
+        "protocolVersion": 3,
         "capabilities": ["command-dto-v1", "doctor-v1", "snapshot-dto-v1"],
       ]
     )
@@ -1715,7 +1715,7 @@ final class AnyPickTests: XCTestCase {
       Data(
         (try frame(
           "protocol-error",
-          ["protocolVersion": 2, "code": "MALFORMED_FRAME", "message": "command frame was rejected"]
+          ["protocolVersion": 3, "code": "MALFORMED_FRAME", "message": "command frame was rejected"]
         ) + "\n").utf8))
 
     XCTAssertNil(store.busyRequestId)
@@ -2179,7 +2179,7 @@ final class AnyPickTests: XCTestCase {
     }
     store.consume(
       Data((try frame("protocol-error", [
-        "protocolVersion": 2, "code": "MALFORMED_FRAME",
+        "protocolVersion": 3, "code": "MALFORMED_FRAME",
         "message": "command frame was rejected", "requestId": requestID,
       ]) + "\n").utf8)
     )
@@ -2280,7 +2280,7 @@ final class AnyPickTests: XCTestCase {
 
     store.consume(
       Data((try frame("protocol-error", [
-        "protocolVersion": 2,
+        "protocolVersion": 3,
         "code": "COMMAND_FAILED",
         "message": "pool storage is unavailable in this composition",
         "requestId": requestID,
@@ -2309,7 +2309,7 @@ final class AnyPickTests: XCTestCase {
 
     store.consume(
       Data((try frame("protocol-error", [
-        "protocolVersion": 2, "code": "MALFORMED_FRAME", "message": "command frame was rejected",
+        "protocolVersion": 3, "code": "MALFORMED_FRAME", "message": "command frame was rejected",
       ]) + "\n").utf8)
     )
     XCTAssertNil(store.busyRequestId)

@@ -2,7 +2,9 @@ package store
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
 	"encoding/json"
 	"io/fs"
 	"os"
@@ -134,6 +136,62 @@ func (s *AccountStore) CopySnapshotFiles(ctx context.Context, providerID, name, 
 		}
 	}
 	return rows.Err()
+}
+
+// SnapshotFiles is a private in-memory view of one committed snapshot.
+type SnapshotFiles map[string][]byte
+
+func (files SnapshotFiles) ReadFile(name string) ([]byte, error) {
+	if content, ok := files[name]; ok {
+		return content, nil
+	}
+	return nil, fs.ErrNotExist
+}
+
+// ReadSnapshot captures the files and digest from the same SQLite read.
+// Display readers need neither the disposable disk cache nor the provider lock.
+func (s *AccountStore) ReadSnapshot(ctx context.Context, providerID, name string) (SnapshotFiles, string, error) {
+	return s.readSnapshot(ctx, providerID, name, true)
+}
+
+// SnapshotDigest identifies the committed snapshot without retaining its files.
+func (s *AccountStore) SnapshotDigest(ctx context.Context, providerID, name string) (string, error) {
+	_, digest, err := s.readSnapshot(ctx, providerID, name, false)
+	return digest, err
+}
+
+func (s *AccountStore) readSnapshot(ctx context.Context, providerID, name string, keepFiles bool) (SnapshotFiles, string, error) {
+	rows, err := s.DB.QueryContext(ctx, `SELECT path, content FROM account_snapshot_files
+		WHERE provider = ? AND account = ? ORDER BY path`, providerID, name)
+	if err != nil {
+		return nil, "", err
+	}
+	defer rows.Close()
+	var files SnapshotFiles
+	if keepFiles {
+		files = make(SnapshotFiles)
+	}
+	digest := sha256.New()
+	found := false
+	for rows.Next() {
+		var path string
+		var content []byte
+		if err := rows.Scan(&path, &content); err != nil {
+			return nil, "", err
+		}
+		found = true
+		if keepFiles {
+			files[path] = content
+		}
+		_, _ = digest.Write([]byte(path))
+		_, _ = digest.Write([]byte{0})
+		_, _ = digest.Write(content)
+		_, _ = digest.Write([]byte{0})
+	}
+	if err := rows.Err(); err != nil || !found {
+		return nil, "", err
+	}
+	return files, hex.EncodeToString(digest.Sum(nil)), nil
 }
 
 // MaterializeSnapshot rebuilds the on-disk snapshot cache from committed BLOB

@@ -6,7 +6,7 @@ func TestVersionDefaultsAreNotARelease(t *testing.T) {
 	if Version != "(devel)" {
 		t.Fatalf("Version = %q", Version)
 	}
-	if ProtocolVersion != 2 {
+	if ProtocolVersion != 3 {
 		t.Fatalf("ProtocolVersion = %d", ProtocolVersion)
 	}
 	if IsRelease() {

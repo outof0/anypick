@@ -14,6 +14,7 @@ import (
 
 	"github.com/outof0/anypick/go/internal/accounts"
 	"github.com/outof0/anypick/go/internal/anyerr"
+	"github.com/outof0/anypick/go/internal/atomicfile"
 	"github.com/outof0/anypick/go/internal/config"
 	"github.com/outof0/anypick/go/internal/hub"
 	"github.com/outof0/anypick/go/internal/i18n"
@@ -239,6 +240,74 @@ func (s *Server) mutateAccountRefresh(ctx context.Context, m Mutate, result Resu
 		result.Message = fmt.Sprintf("Refreshed models for %s.", m.Name)
 	}
 	return result
+}
+
+func (s *Server) mutateAccountRefreshQuota(ctx context.Context, m Mutate, result Result) Result {
+	pv, err := s.Deps.Providers.Get(m.ProviderID)
+	if err != nil {
+		return result.Fail(err)
+	}
+	reader, ok := pv.(provider.SavedQuotaProvider)
+	if !ok {
+		return result.Fail(anyerr.Newf("This provider does not report quota for saved logins.", "QUOTA_UNAVAILABLE"))
+	}
+	account, err := s.Deps.Accounts.CachedAccount(ctx, m.ProviderID, m.Name)
+	if err != nil {
+		return result.Fail(err)
+	}
+	if account == nil {
+		return result.Fail(anyerr.Newf("The saved account is no longer available.", "ACCOUNT_NOT_FOUND"))
+	}
+	files, digest, err := s.Deps.Accounts.ReadSnapshot(ctx, m.ProviderID, m.Name)
+	if err != nil {
+		return result.Fail(err)
+	}
+	if digest == "" {
+		return result.Fail(anyerr.Newf("The saved login could not be read.", "QUOTA_UNAVAILABLE"))
+	}
+	requestCtx, cancel := context.WithTimeout(ctx, 8*time.Second)
+	defer cancel()
+	usage, err := reader.ReadSavedQuota(requestCtx, files.ReadFile)
+	switch {
+	case errors.Is(err, provider.ErrQuotaLoginRequired):
+		return result.Fail(anyerr.Newf("Sign in again to check this account's quota.", "QUOTA_LOGIN_REQUIRED"))
+	case errors.Is(err, provider.ErrSavedQuotaUnavailable):
+		return result.Fail(anyerr.Newf("This saved login does not have a supported quota source.", "QUOTA_UNAVAILABLE"))
+	case err != nil || usage == nil || len(usage.Windows) == 0:
+		return result.Fail(anyerr.Newf("The provider did not return quota. Try again later.", "QUOTA_UNAVAILABLE"))
+	}
+	entry := savedAccountQuota{
+		Digest:     digest,
+		SavedQuota: SavedQuota{FetchedAtMs: time.Now().UnixMilli(), Windows: usage.Windows},
+	}
+	if err := s.persistSavedQuota(ctx, *account, entry); err != nil {
+		return result.Fail(err)
+	}
+	result.Message = "Quota refreshed."
+	return result
+}
+
+func (s *Server) persistSavedQuota(ctx context.Context, account store.Account, entry savedAccountQuota) error {
+	body, err := json.Marshal(entry)
+	if err != nil {
+		return err
+	}
+	if len(body) > maxSavedQuotaEntryBytes {
+		return anyerr.Newf("The provider's quota response was too large to display.", "QUOTA_UNAVAILABLE")
+	}
+	return lock.WithMutationLock(ctx, s.Deps.Root, refs.ProviderScope(account.Meta.Provider), func(c context.Context) error {
+		digest, err := s.Deps.Accounts.SnapshotDigest(c, account.Meta.Provider, account.Meta.Name)
+		if err != nil {
+			return err
+		}
+		if digest != entry.Digest {
+			return anyerr.Newf("The saved login changed while quota was being checked.", "STATE_CONFLICT")
+		}
+		if err := os.MkdirAll(account.AccountDir, 0o700); err != nil {
+			return err
+		}
+		return atomicfile.Write(savedAccountQuotaPath(account), body, 0o600)
+	})
 }
 
 func (s *Server) mutateGatewayRemove(ctx context.Context, m Mutate, result Result) Result {
@@ -630,6 +699,8 @@ func (s *Server) routeMutation(ctx context.Context, payload json.RawMessage, m M
 		result = s.handleAccountEdit(ctx, payload, m)
 	case "account-refresh":
 		result = s.mutateAccountRefresh(ctx, m, result)
+	case "account-refresh-quota":
+		result = s.mutateAccountRefreshQuota(ctx, m, result)
 	case "gateway-remove":
 		result = s.mutateGatewayRemove(ctx, m, result)
 	case "gateway-edit":

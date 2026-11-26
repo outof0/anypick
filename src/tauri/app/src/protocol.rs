@@ -4,7 +4,7 @@ use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::collections::HashSet;
 use std::fmt;
 
-pub const PROTOCOL_VERSION: u32 = 2;
+pub const PROTOCOL_VERSION: u32 = 3;
 pub const MESSAGE_VERSION: u32 = 1;
 pub const MAX_FRAME_BYTES: usize = 4 * 1024 * 1024;
 
@@ -466,7 +466,7 @@ mod tests {
         encoded(
             "ready",
             serde_json::json!({
-                "protocolVersion": 2,
+                "protocolVersion": 3,
                 "capabilities": HOST_CAPABILITIES,
             }),
         )
@@ -512,7 +512,7 @@ mod tests {
         let effect = encoded(
             "host-effect",
             serde_json::json!({
-                "protocolVersion": 2,
+                "protocolVersion": 3,
                 "requestId": "req-1",
                 "effect": {"kind": "launch-at-login", "enabled": true},
             }),
@@ -544,7 +544,7 @@ mod tests {
     #[test]
     fn handshake_strictly_validates_message_version_capabilities_and_instance_id() {
         let base = serde_json::json!({
-            "protocolVersion": 2,
+            "protocolVersion": 3,
             "messageVersion": 1,
             "engineVersion": "1.0.0",
             "schemaVersion": 12,
@@ -593,7 +593,7 @@ mod tests {
             let frame = encoded(
                 "ready",
                 serde_json::json!({
-                    "protocolVersion": 2,
+                    "protocolVersion": 3,
                     "capabilities": capabilities,
                 }),
             );

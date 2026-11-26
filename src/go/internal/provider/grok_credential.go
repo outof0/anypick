@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"sort"
 	"strings"
 	"time"
 
@@ -61,6 +62,10 @@ func loadGrokSession(authPath string) (grokSession, error) {
 		}
 		return grokSession{}, err
 	}
+	return grokSessionFromAuth(authPath, raw)
+}
+
+func grokSessionFromAuth(authPath string, raw []byte) (grokSession, error) {
 	var data map[string]json.RawMessage
 	if err := json.Unmarshal(raw, &data); err != nil {
 		return grokSession{}, anyerr.Newf("Unreadable Grok auth: "+authPath+".", "NO_LIVE_AUTH")
@@ -111,19 +116,25 @@ func pickGrokSession(data map[string]json.RawMessage) (string, json.RawMessage) 
 		Refresh  string `json:"refresh_token"`
 		AuthMode string `json:"auth_mode"`
 	}
+	keys := make([]string, 0, len(data))
+	for key := range data {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
 	entries := make([]struct {
 		key string
 		raw json.RawMessage
-	}, 0, len(data))
-	for k, v := range data {
-		var sh shape
-		if err := json.Unmarshal(v, &sh); err != nil {
-			continue // not an object — skip
+	}, 0, len(keys))
+	for _, key := range keys {
+		raw := data[key]
+		var candidate map[string]json.RawMessage
+		if json.Unmarshal(raw, &candidate) != nil || len(candidate) == 0 {
+			continue
 		}
 		entries = append(entries, struct {
 			key string
 			raw json.RawMessage
-		}{key: k, raw: v})
+		}{key: key, raw: raw})
 	}
 	if len(entries) == 0 {
 		return "", nil

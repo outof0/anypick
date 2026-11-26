@@ -141,6 +141,18 @@ func (p *opencode) DetectLive() (LiveAuthStatus, error) {
 	return LiveAuthStatus{Present: true, Identity: openCodeIdentity(data)}, nil
 }
 
+func (p *opencode) SnapshotMatchesLive(srcDir string) (bool, bool, error) {
+	return p.SnapshotFilesMatchLive(snapshotFilesAt(srcDir))
+}
+
+func (p *opencode) SnapshotFilesMatchLive(file SnapshotFileReader) (bool, bool, error) {
+	saved := openCodeSavedQuotaKey(file)
+	if saved == "" {
+		return false, false, nil
+	}
+	return p.liveQuotaKey() == saved, true, nil
+}
+
 func (p *opencode) Backup(destDir string) (SnapshotInfo, error) {
 	src := p.authPath()
 	data, err := os.ReadFile(src)

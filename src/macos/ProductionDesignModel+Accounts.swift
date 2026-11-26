@@ -30,7 +30,17 @@ extension ProductionDesignModel {
       kind: .saved,
       status: account.active ? .running : .ready,
       lastUsed: account.active ? "Used now" : "Saved",
-      providerID: account.providerId
+      providerID: account.providerId,
+      canRefreshQuota: account.canRefreshQuota == true,
+      savedQuota: account.savedQuota.map { quota in
+        DesignSavedQuota(
+          checkedAt: Date(timeIntervalSince1970: Double(quota.fetchedAtMs) / 1000),
+          windows: quota.windows.map {
+            DesignUsageWindow(label: $0.label, remainingPercent: $0.remainingPercent,
+              resetsAtMs: $0.resetsAtMs, limitWindowSeconds: $0.limitWindowSeconds, group: $0.group)
+          }
+        )
+      }
     )
   }
 

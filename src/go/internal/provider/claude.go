@@ -313,9 +313,13 @@ func (p *claude) DescribeSnapshot(srcDir string) (SnapshotInfo, error) {
 	return SnapshotInfo{Identity: claudeCredentialIdentity(claudeSnapshotCredential(raw))}, nil
 }
 
-// SnapshotMatchesLive compares fingerprints with the refresh token stripped. A
-// rotated access token still reads as a different credential.
+// SnapshotMatchesLive recognizes a login across access-token rotation. The
+// subscription name alone is shared by every account on the same plan.
 func (p *claude) SnapshotMatchesLive(srcDir string) (bool, bool, error) {
+	return p.SnapshotFilesMatchLive(snapshotFilesAt(srcDir))
+}
+
+func (p *claude) SnapshotFilesMatchLive(file SnapshotFileReader) (bool, bool, error) {
 	current, err := p.read()
 	if err != nil {
 		return false, false, err
@@ -323,7 +327,7 @@ func (p *claude) SnapshotMatchesLive(srcDir string) (bool, bool, error) {
 	if current == nil || current.original != current.credential {
 		return false, true, nil
 	}
-	raw, err := os.ReadFile(filepath.Join(srcDir, claudeSnapshotFile))
+	raw, err := file(claudeSnapshotFile)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return false, true, nil
@@ -334,8 +338,40 @@ func (p *claude) SnapshotMatchesLive(srcDir string) (bool, bool, error) {
 	if credential == "" {
 		return false, true, nil
 	}
-	return claudeFingerprint(current.credential) == claudeFingerprint(credential),
-		true, nil
+	return claudeSameLogin(current.credential, credential), true, nil
+}
+
+func claudeSameLogin(live, saved string) bool {
+	liveTokens, savedTokens := readClaudeLoginTokens(live), readClaudeLoginTokens(saved)
+	if liveTokens.Access != "" && liveTokens.Access == savedTokens.Access {
+		return true
+	}
+	if liveTokens.Refresh != "" && liveTokens.Refresh == savedTokens.Refresh {
+		return true
+	}
+	email := claudePasteEmail(live)
+	return email != "" && strings.EqualFold(email, claudePasteEmail(saved))
+}
+
+type claudeLoginTokens struct {
+	Access  string
+	Refresh string
+}
+
+func readClaudeLoginTokens(raw string) claudeLoginTokens {
+	var auth struct {
+		OAuth struct {
+			AccessToken        string `json:"accessToken"`
+			RefreshToken       string `json:"refreshToken"`
+			LegacyRefreshToken string `json:"refresh_token"`
+		} `json:"claudeAiOauth"`
+	}
+	if json.Unmarshal([]byte(raw), &auth) != nil {
+		return claudeLoginTokens{}
+	}
+	return claudeLoginTokens{
+		Access: auth.OAuth.AccessToken, Refresh: firstNonEmpty(auth.OAuth.RefreshToken, auth.OAuth.LegacyRefreshToken),
+	}
 }
 
 func claudeSnapshotCredential(raw []byte) string {

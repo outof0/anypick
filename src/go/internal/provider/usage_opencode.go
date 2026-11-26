@@ -7,6 +7,7 @@ import (
 	"io"
 	"math"
 	"net/http"
+	"os"
 	"time"
 )
 
@@ -19,10 +20,45 @@ var openCodeUsageEndpoint = "https://opencode.ai/zen/go/v1/usage"
 // (live CLI store, then a mirror), and an OAuth-only login has no platform
 // key to read a quota with.
 func (p *opencode) LiveUsage(ctx context.Context) (*LiveUsage, error) {
-	key, _, _ := openCodeGatewayKey(p.dataDir())
+	key := p.liveQuotaKey()
 	if key == "" {
 		return nil, nil
 	}
+	return openCodeUsageFromKey(ctx, key)
+}
+
+func (p *opencode) LiveQuotaForSnapshot(ctx context.Context, file SnapshotFileReader) (*LiveUsage, error) {
+	key := p.liveQuotaKey()
+	if key == "" || key != openCodeSavedQuotaKey(file) {
+		return nil, nil
+	}
+	return openCodeUsageFromKey(ctx, key)
+}
+
+func (*opencode) ReadSavedQuota(ctx context.Context, file SnapshotFileReader) (*LiveUsage, error) {
+	key := openCodeSavedQuotaKey(file)
+	if key == "" {
+		return nil, ErrSavedQuotaUnavailable
+	}
+	return openCodeUsageFromKey(ctx, key)
+}
+
+func openCodeSavedQuotaKey(file SnapshotFileReader) string {
+	// The gateway resolver prefers the live CLI database. An account quota
+	// read must use the key saved with that account.
+	keys, _ := openCodeSnapshotFileKeys(file)
+	key, _ := pickOpenCodeGatewayKey(keys)
+	return key
+}
+
+func (p *opencode) liveQuotaKey() string {
+	if key, _ := pickOpenCodeGatewayKey(liveOpenCodePlatformKeys()); key != "" {
+		return key
+	}
+	return openCodeSavedQuotaKey(func(string) ([]byte, error) { return os.ReadFile(p.authPath()) })
+}
+
+func openCodeUsageFromKey(ctx context.Context, key string) (*LiveUsage, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, openCodeUsageEndpoint, nil)
 	if err != nil {
 		return nil, err
@@ -40,6 +76,9 @@ func (p *opencode) LiveUsage(ctx context.Context) (*LiveUsage, error) {
 		return nil, err
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusUnauthorized {
+		return nil, ErrQuotaLoginRequired
+	}
 	raw, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("opencode usage HTTP %d", resp.StatusCode)

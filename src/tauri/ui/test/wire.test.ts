@@ -47,7 +47,7 @@ describe('frame decoding', () => {
   it('decodes a snapshot event and keeps its reason', () => {
     const decoded = decodeFrame(
       frame('snapshot-event', {
-        protocolVersion: 2,
+        protocolVersion: PROTOCOL_VERSION,
         revision: 8,
         reason: 'state-changed',
         snapshot: snapshotFixture({ revision: 8 }),
@@ -90,7 +90,7 @@ describe('frame decoding', () => {
     // The engine is free to add frames. Dropping one is correct; rendering it
     // as an empty state is not.
     expect(decodeFrame(frame('something-new', { a: 1 }))).toBeNull();
-    expect(decodeFrame(frame('hello', { protocolVersion: 2 }))).toBeNull();
+    expect(decodeFrame(frame('hello', { protocolVersion: PROTOCOL_VERSION }))).toBeNull();
   });
 
   it('returns null for a corrupt frame rather than throwing', () => {

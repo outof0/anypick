@@ -244,13 +244,19 @@ in `~/.commandcode/providers.json`; its per-instance proxy token is kept in
 
 ## Live usage and quota
 
-When a provider reports live usage, the macOS app shows it in the account and
-app details. Antigravity reports weekly and five-hour windows grouped by model
-family, such as **Gemini Models** and **Claude and GPT models**. AnyPick reads
-the current provider credential for this display; it does not refresh or write
-the login. Usage is available only when the provider account is active on this
-Mac. Codex Desktop keeps its own sign-in separate from Codex CLI, so AnyPick
-does not show a quota reading when those accounts do not match.
+Account and app details in the macOS and Tauri desktop apps show live usage
+when AnyPick can match it to the provider login. Antigravity groups weekly and
+five-hour windows by model family, such as **Gemini Models** and **Claude and
+GPT models**. Live usage follows browser or CLI sign-in changes on the next
+desktop poll.
+
+Open a saved account's details and choose **Refresh quota** to read the quota
+with that account's saved credential. AnyPick keeps the current login in place
+and shows the last successful reading and when it was checked. This works for
+Claude Code, Codex, Grok, Gemini CLI, Antigravity, and OpenCode accounts with a
+saved Zen/Go platform key. A Gemini backup containing both CLI and Antigravity
+credentials needs an explicit saved source. Expired saved sessions require a
+fresh sign-in.
 
 ## Managing saved accounts
 

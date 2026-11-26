@@ -2967,6 +2967,18 @@
     "other": "在此 Mac 上临时使用此登录，让 AnyPick 读取其额度。",
     "description": "Original English text: Temporarily use this saved login on this Mac so AnyPick can read its quota."
   },
+  "desktop.account_detail.refresh_quota": {
+    "other": "刷新配额",
+    "description": "Original English text: Refresh quota"
+  },
+  "desktop.account_detail.quota_last_checked": {
+    "other": "上次检查",
+    "description": "Original English text: Last checked"
+  },
+  "desktop.account_detail.no_saved_quota": {
+    "other": "尚无配额数据。",
+    "description": "Original English text: No quota reading yet."
+  },
   "desktop.account_detail.remaining_quota": {
     "other": "剩余额度",
     "description": "Original English text: Remaining Quota"
